@@ -475,39 +475,36 @@ const photoDB = {
   async open() {
     if (this._db) return this._db;
     return new Promise((res, rej) => {
-      const req = indexedDB.open('hr_photos', 2);
-      req.onupgradeneeded = e => {
-        const db = e.target.result;
-        if (!db.objectStoreNames.contains('photos')) db.createObjectStore('photos');
-      };
+      const req = indexedDB.open('hr_photos', 1);
+      req.onupgradeneeded = e => e.target.result.createObjectStore('photos');
       req.onsuccess = e => { this._db = e.target.result; res(this._db); };
       req.onerror = () => rej(req.error);
     });
   },
-  async get(key) {
+  async get(id) {
     try {
       const db = await this.open();
       return new Promise(res => {
-        const req = db.transaction('photos').objectStore('photos').get(key);
+        const req = db.transaction('photos').objectStore('photos').get(id);
         req.onsuccess = () => res(req.result || '');
         req.onerror = () => res('');
       });
     } catch { return ''; }
   },
-  async set(key, dataUrl) {
+  async set(id, dataUrl) {
     try {
       const db = await this.open();
       return new Promise(res => {
-        const req = db.transaction('photos','readwrite').objectStore('photos').put(dataUrl, key);
+        const req = db.transaction('photos','readwrite').objectStore('photos').put(dataUrl,id);
         req.onsuccess = () => res(true);
         req.onerror = () => res(false);
       });
     } catch { return false; }
   },
-  async del(key) {
+  async del(id) {
     try {
       const db = await this.open();
-      db.transaction('photos','readwrite').objectStore('photos').delete(key);
+      db.transaction('photos','readwrite').objectStore('photos').delete(id);
     } catch {}
   },
   async getAll() {
@@ -566,62 +563,64 @@ async function openEmployeeModal(id=null) {
 
   $('modal-title').textContent = id ? 'កែប្រែព័ត៌មានបុគ្គលិក' : 'បន្ថែមបុគ្គលិកថ្មី';
   $('modal-body').innerHTML =
-    // ── Photo upload top section ──
-    '<div style="display:flex;align-items:center;gap:16px;padding:16px;background:var(--bg3);border-radius:10px;border:1px solid var(--border);margin-bottom:16px">'
-    + '<div id="emp-photo-preview" style="width:80px;height:80px;border-radius:50%;background:var(--bg4);border:3px solid var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;cursor:pointer" onclick="$(\'emp-photo-input\').click()">'
+
+    // ── Photo section ── mobile friendly big tap area
+    '<div style="display:flex;align-items:center;gap:14px;padding:14px;background:var(--bg3);border-radius:12px;border:1px solid var(--border);margin-bottom:14px">'
+    + '<div id="emp-photo-preview" onclick="$(\'emp-photo-input\').click()" style="width:88px;height:88px;border-radius:50%;background:var(--bg4);border:3px solid var(--border2);display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;cursor:pointer;transition:.2s">'
     + (existingPhoto
-        ? '<img src="' + existingPhoto + '" style="width:100%;height:100%;object-fit:cover" />'
-        : '<svg viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="1.5" style="width:32px;height:32px"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>')
+        ? '<img src="'+existingPhoto+'" style="width:100%;height:100%;object-fit:cover"/>'
+        : '<svg viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="1.5" style="width:34px;height:34px"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>')
     + '</div>'
-    + '<div>'
+    + '<div style="flex:1;min-width:0">'
     + '<div style="font-weight:700;font-size:13px;margin-bottom:4px">រូបថតបុគ្គលិក</div>'
-    + '<div style="font-size:11px;color:var(--text3);margin-bottom:10px">JPG, PNG — អតិបរមា 2MB · ចុចដើម្បីជ្រើស</div>'
-    + '<div style="display:flex;gap:8px">'
-    + '<button class="btn btn-outline btn-sm" onclick="$(\'emp-photo-input\').click()">'
-    + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>'
-    + ' Upload</button>'
+    + '<div style="font-size:11px;color:var(--text3);margin-bottom:10px">JPG, PNG · អតិបរមា 2MB</div>'
+    + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
+    + '<button class="btn btn-outline btn-sm" onclick="$(\'emp-photo-input\').click()">📷 Upload</button>'
     + (existingPhoto ? '<button class="btn btn-danger btn-sm" onclick="removeEmpPhoto()">🗑️ លុប</button>' : '')
-    + '</div>'
-    + '</div>'
-    + '<input type="file" id="emp-photo-input" accept="image/*" style="display:none" onchange="handleEmpPhotoUpload(this)" />'
+    + '</div></div>'
+    + '<input type="file" id="emp-photo-input" accept="image/*" style="display:none" onchange="handleEmpPhotoUpload(this)"/>'
     + '</div>'
 
-    // ── Form fields ──
-    + '<div class="form-grid">'
-    + '<div class="form-group"><label class="form-label">ឈ្មោះពេញ *</label><input class="form-control" id="f-name" placeholder="ឈ្មោះ..." value="' + (emp?.name||'') + '" /></div>'
-    + '<div class="form-group"><label class="form-label">លេខ ID <span style="font-size:10px;color:var(--text3)">(ជ្រើស auto)</span></label><input class="form-control" id="f-custom-id" placeholder="e.g. 001 (ទុក​ទទេ=auto)" value="' + (emp?.custom_id||'') + '" /></div>'
-    + '<div class="form-group"><label class="form-label">ភេទ</label><select class="form-control" id="f-gender"><option value="male"' + (emp?.gender==='male'?' selected':'') + '>ប្រុស</option><option value="female"' + (emp?.gender==='female'?' selected':'') + '>ស្រី</option></select></div>'
-    + '<div class="form-group"><label class="form-label">តំណែង *</label><input class="form-control" id="f-position" placeholder="តំណែង..." value="' + (emp?.position||'') + '" /></div>'
-    + '<div class="form-group"><label class="form-label">នាយកដ្ឋាន *</label><select class="form-control" id="f-dept">' + deptOptions + '</select></div>'
-    + '<div class="form-group"><label class="form-label">លេខទូរស័ព្ទ</label><input class="form-control" id="f-phone" placeholder="012-xxx-xxx" value="' + (emp?.phone||'') + '" /></div>'
-    + '<div class="form-group"><label class="form-label">អ៊ីម៉ែល</label><input class="form-control" id="f-email" type="email" placeholder="email@example.com" value="' + (emp?.email||'') + '" /></div>'
-    + '<div class="form-group"><label class="form-label">បៀវត្ស (USD)</label><input class="form-control" id="f-salary" type="number" placeholder="1000" value="' + (emp?.salary||'') + '" /></div>'
-    + '<div class="form-group"><label class="form-label">ថ្ងៃចូលធ្វើការ</label><input class="form-control" id="f-hire" type="date" value="' + (emp?.hire_date||'') + '" /></div>'
-    + '<div class="form-group full-width"><label class="form-label">ស្ថានភាព</label><select class="form-control" id="f-status"><option value="active"' + (emp?.status==='active'?' selected':'') + '>✅ ធ្វើការ</option><option value="on_leave"' + (emp?.status==='on_leave'?' selected':'') + '>🌴 ច្បាប់</option><option value="inactive"' + (emp?.status==='inactive'?' selected':'') + '>⛔ ផ្អាក</option></select></div>'
+    // ── Form fields — always single column on mobile ──
+    + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:14px">'
+    + '<div class="form-group"><label class="form-label">ឈ្មោះពេញ *</label><input class="form-control" id="f-name" placeholder="ឈ្មោះ..." value="'+(emp?.name||'')+'"/></div>'
+    + '<div class="form-group"><label class="form-label">លេខ ID <span style="font-size:10px;color:var(--text3)">(auto)</span></label><input class="form-control" id="f-custom-id" placeholder="EMP_001 (ទុក​ទទេ=auto)" value="'+(emp?.custom_id||'')+'"/></div>'
+    + '<div class="form-group"><label class="form-label">ភេទ</label><select class="form-control" id="f-gender"><option value="male"'+(emp?.gender==='male'?' selected':'')+'>ប្រុស</option><option value="female"'+(emp?.gender==='female'?' selected':'')+'>ស្រី</option></select></div>'
+    + '<div class="form-group"><label class="form-label">តំណែង *</label><input class="form-control" id="f-position" placeholder="តំណែង..." value="'+(emp?.position||'')+'"/></div>'
+    + '<div class="form-group"><label class="form-label">នាយកដ្ឋាន *</label><select class="form-control" id="f-dept">'+deptOptions+'</select></div>'
+    + '<div class="form-group"><label class="form-label">លេខទូរស័ព្ទ</label><input class="form-control" id="f-phone" type="tel" placeholder="012-xxx-xxx" value="'+(emp?.phone||'')+'"/></div>'
+    + '<div class="form-group"><label class="form-label">អ៊ីម៉ែល</label><input class="form-control" id="f-email" type="email" placeholder="email@..." value="'+(emp?.email||'')+'"/></div>'
+    + '<div class="form-group"><label class="form-label">បៀវត្ស (USD)</label><input class="form-control" id="f-salary" type="number" placeholder="1000" value="'+(emp?.salary||'')+'"/></div>'
+    + '<div class="form-group"><label class="form-label">ថ្ងៃចូលធ្វើការ</label><input class="form-control" id="f-hire" type="date" value="'+(emp?.hire_date||'')+'"/></div>'
+    + '<div class="form-group" style="grid-column:1/-1"><label class="form-label">ស្ថានភាព</label><select class="form-control" id="f-status"><option value="active"'+(emp?.status==='active'?' selected':'')+'>✅ ធ្វើការ</option><option value="on_leave"'+(emp?.status==='on_leave'?' selected':'')+'>🌴 ច្បាប់</option><option value="inactive"'+(emp?.status==='inactive'?' selected':'')+'>⛔ ផ្អាក</option></select></div>'
     + '</div>'
-    // QR Bank section
-    + '<div style="margin-top:16px;padding:14px;background:var(--bg3);border-radius:10px;border:1px solid var(--border)">'
-    + '<div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:12px;display:flex;align-items:center;gap:6px">🏦 QR ធនាគារ (សម្រាប់ ID Card)</div>'
-    + '<div class="form-grid">'
+
+    // ── QR ធនាគារ section — mobile friendly ──
+    + '<div style="padding:14px;background:var(--bg3);border-radius:12px;border:1px solid var(--border);margin-bottom:4px">'
+    + '<div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px;display:flex;align-items:center;gap:6px">🏦 QR ធនាគារ (ID Card)</div>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">'
     + '<div class="form-group"><label class="form-label">ធនាគារ</label>'
     + '<select class="form-control" id="f-bank">'
     + ['—','ABA','ACLEDA','Canadia','Wing','True Money','Prince Bank','Chip Mong','AMK','Bred'].map(b=>'<option'+(emp?.bank===b?' selected':'')+'>'+b+'</option>').join('')
     + '</select></div>'
-    + '<div class="form-group"><label class="form-label">លេខគណនី</label><input class="form-control" id="f-bank-acc" placeholder="1234567890" value="' + (emp?.bank_account||'') + '" /></div>'
-    + '<div class="form-group full-width"><label class="form-label">ឈ្មោះអ្នកកាន់គណនី</label><input class="form-control" id="f-bank-name" placeholder="ឈ្មោះ..." value="' + (emp?.bank_holder||'') + '" /></div>'
+    + '<div class="form-group"><label class="form-label">លេខគណនី</label><input class="form-control" id="f-bank-acc" type="tel" placeholder="012xxxxxx" value="'+(emp?.bank_account||'')+'"/></div>'
+    + '<div class="form-group" style="grid-column:1/-1"><label class="form-label">ឈ្មោះអ្នកកាន់គណនី</label><input class="form-control" id="f-bank-name" placeholder="ឈ្មោះ..." value="'+(emp?.bank_holder||'')+'"/></div>'
     + '</div>'
-    + '<div style="margin-top:10px">'
-    + '<label class="form-label">Upload QR Code ធនាគារ</label>'
-    + '<div style="display:flex;align-items:center;gap:12px;margin-top:6px">'
-    + '<div id="qr-preview" style="width:80px;height:80px;border:2px dashed var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;overflow:hidden;cursor:pointer;background:var(--bg4)" onclick="$(\'qr-input\').click()">'
-    + (existingQR ? '<img src="' + existingQR + '" style="width:100%;height:100%;object-fit:contain" />' : '<span style="font-size:28px">📷</span>')
+
+    // QR preview — big, easy to tap on mobile
+    + '<label class="form-label" style="margin-bottom:8px;display:block">📷 Upload QR Code ធនាគារ</label>'
+    + '<div style="display:flex;align-items:center;gap:14px">'
+    + '<div id="qr-preview" onclick="$(\'qr-input\').click()" style="width:90px;height:90px;border:2px dashed var(--border2);border-radius:10px;display:flex;align-items:center;justify-content:center;overflow:hidden;cursor:pointer;background:var(--bg4);flex-shrink:0;transition:.2s">'
+    + (existingQR ? '<img src="'+existingQR+'" style="width:100%;height:100%;object-fit:contain"/>' : '<span style="font-size:32px">📷</span>')
     + '</div>'
-    + '<div><button class="btn btn-outline btn-sm" onclick="$(\'qr-input\').click()">📂 ជ្រើស QR</button>'
-    + '<div style="font-size:10px;color:var(--text3);margin-top:4px">PNG, JPG — QR Code ធនាគារ</div></div>'
+    + '<div>'
+    + '<button class="btn btn-outline btn-sm" onclick="$(\'qr-input\').click()" style="margin-bottom:6px;display:block">📂 ជ្រើស QR</button>'
+    + (existingQR ? '<button class="btn btn-danger btn-sm" onclick="removeEmpQR()" style="display:block">🗑️ លុប QR</button>' : '')
+    + '<div style="font-size:10px;color:var(--text3);margin-top:6px">PNG, JPG — QR Code ធនាគារ</div>'
+    + '</div></div>'
+    + '<input type="file" id="qr-input" accept="image/*" style="display:none" onchange="handleQRUpload(this)"/>'
     + '</div>'
-    + '<input type="file" id="qr-input" accept="image/*" style="display:none" onchange="handleQRUpload(this)" />'
-    + '</div>'
-    + '</div>'
+
     + '<div class="form-actions">'
     + '<button class="btn btn-outline" onclick="closeModal()">បោះបង់</button>'
     + '<button class="btn btn-primary" id="save-emp-btn" onclick="saveEmployee()">'
@@ -660,6 +659,13 @@ function removeEmpPhoto() {
     preview.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="1.5" style="width:32px;height:32px"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
   }
   showToast('លុបរូបថតរួច', 'success');
+}
+
+function removeEmpQR() {
+  state._pendingQR = '__remove__';
+  const p = document.getElementById('qr-preview');
+  if (p) p.innerHTML = '<span style="font-size:32px">📷</span>';
+  showToast('លុប QR រួច', 'success');
 }
 // Handle QR upload
 function handleQRUpload(input) {
@@ -717,12 +723,12 @@ async function saveEmployee() {
     }
     state._pendingPhoto = null;
     // Save QR
-    if (state._pendingQR && savedId) {
-      photoCache['qr_' + savedId] = state._pendingQR;
-      await photoDB.set('qr_' + savedId, state._pendingQR);
-    } else if (state._pendingQR === '__remove__' && savedId) {
+    if (state._pendingQR === '__remove__' && savedId) {
       delete photoCache['qr_' + savedId];
       await photoDB.del('qr_' + savedId);
+    } else if (state._pendingQR && savedId) {
+      photoCache['qr_' + savedId] = state._pendingQR;
+      await photoDB.set('qr_' + savedId, state._pendingQR);
     }
     state._pendingQR = null;
 
@@ -2673,29 +2679,25 @@ function idCardHTML(e, style, cfg) {
   }
 
   // ② QR 3cm×3cm = 113px at 96dpi — encodes empIdRaw string
-  const qrSize  = 108;
+  const qrSize  = 113;
   const qrInner = qrSize - 6;
 
-  // QR: bank QR (uploaded) → show bank QR; otherwise auto-generate from Employee ID
-  const _autoQR     = '<div style="width:'+qrSize+'px;height:'+qrSize+'px;background:white;border-radius:8px;overflow:hidden;padding:4px;box-shadow:0 2px 8px rgba(0,0,0,.2)">'+makeQRSvg(empIdRaw, qrInner, '#111827','#fff')+'</div>';
-  const _autoQRDark = '<div style="width:'+qrSize+'px;height:'+qrSize+'px;background:white;border-radius:8px;overflow:hidden;padding:4px;box-shadow:0 2px 8px rgba(0,0,0,.2)">'+makeQRSvg(empIdRaw, qrInner,'#0f172a','#f8fafc')+'</div>';
-  const _bankQRImg  = storedQR ? '<img src="'+storedQR+'" style="width:'+qrSize+'px;height:'+qrSize+'px;object-fit:contain;background:white;padding:4px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.2)"/>' : '';
+  // makeQRSvg seeds from empIdRaw so "0009" → unique QR for that ID
+  const qrBlock = storedQR
+    ? '<img src="'+storedQR+'" style="width:'+qrSize+'px;height:'+qrSize+'px;object-fit:contain;background:white;padding:3px;border-radius:6px"/>'
+    : '<div style="width:'+qrSize+'px;height:'+qrSize+'px;background:white;border-radius:6px;overflow:hidden;padding:3px">'+makeQRSvg(empIdRaw, qrInner, '#111827','#fff')+'</div>';
 
-  const qrBlock     = storedQR ? _bankQRImg : _autoQR;
-  const qrBlockDark = storedQR ? _bankQRImg : _autoQRDark;
+  const qrBlockDark = storedQR
+    ? '<img src="'+storedQR+'" style="width:'+qrSize+'px;height:'+qrSize+'px;object-fit:contain;background:white;padding:3px;border-radius:6px"/>'
+    : '<div style="width:'+qrSize+'px;height:'+qrSize+'px;background:white;border-radius:6px;overflow:hidden;padding:3px">'+makeQRSvg(empIdRaw, qrInner,'#0f172a','#f8fafc')+'</div>';
 
-  // Label under QR: bank name·account if bank QR, else empId
-  const _bankLabel = storedQR && e.bank && e.bank !== '—'
-    ? (e.bank + (e.bank_account ? ' · ' + e.bank_account : ''))
-    : '';
-  const _qrLabelText = _bankLabel || empId;
-
+  // ③ QR label block — shows empId text under QR
   function qrLabel(qr, idColor) {
     idColor = idColor || '#1d4ed8';
     return '<div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0">'
       + qr
-      + '<div style="font-size:9px;font-weight:800;color:'+idColor
-      + ';letter-spacing:.5px;text-align:center;max-width:'+qrSize+'px;word-break:break-all;line-height:1.3">'+_qrLabelText+'</div>'
+      + '<div style="font-family:monospace;font-size:10px;font-weight:800;color:'+idColor
+      + ';letter-spacing:.5px;text-align:center;line-height:1">'+empId+'</div>'
       +'</div>';
   }
 
