@@ -1,0 +1,27 @@
+cd C:\Users\TUF-17\Desktop\HRPro_System
+
+# ── STEP 1: Copy new index.js to HRPro_System folder ──
+# (Download index.js from Claude and replace the existing one)
+
+# ── STEP 2: Deploy Worker ──
+wrangler deploy
+
+# ── STEP 3: Run Migration (IMPORTANT - adds new columns) ──
+Invoke-WebRequest -Uri "https://employee-management-api.sansukun3.workers.dev/init" -Method POST -UseBasicParsing
+
+# ── STEP 4: Test employees endpoint ──
+Invoke-WebRequest -Uri "https://employee-management-api.sansukun3.workers.dev/employees" -UseBasicParsing
+
+# ── STEP 5: Test attendance ──
+Invoke-WebRequest -Uri "https://employee-management-api.sansukun3.workers.dev/attendance" -UseBasicParsing
+
+# ── STEP 6: Deploy Frontend ──
+wrangler pages deploy . --project-name hr-pro
+# ចូល System
+https://hr-pro.pages.dev/
+
+# ── Login credentials ──
+# https://employee-management-api.sansukun3.workers.dev
+# admin / admin123
+# hr / hr1234
+# finance / fin1234

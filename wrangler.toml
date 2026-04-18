@@ -1,0 +1,22 @@
+name = "employee-management-api"
+main = "index.js"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+# ===== D1 DATABASE =====
+# ជំហានដំឡើង:
+# 1. wrangler d1 create employee_db
+# 2. Copy database_id ពី output → ដាក់ខាងក្រោម
+[[d1_databases]]
+binding = "DB"
+database_name = "employee_db"
+database_id = "31505a15-46bc-496f-9c5f-3af3ebfb45d0"
+
+# ===== PRODUCTION ENVIRONMENT =====
+[vars]
+ENVIRONMENT = "production"
+
+# ===== OPTIONAL: Custom Domain =====
+# [[routes]]
+# pattern = "api.yourdomain.com/*"
+# zone_name = "yourdomain.com"

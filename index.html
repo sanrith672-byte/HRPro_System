@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="km" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#FF6B35" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="HR Pro" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="application-name" content="HR Pro" />
+  <meta name="description" content="ប្រព័ន្ធគ្រប់គ្រងបុគ្គលិក" />
+  <title>HR Pro — ប្រព័ន្ធគ្រប់គ្រងបុគ្គលិក</title>
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="manifest.json" />
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32x32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16x16.png" />
+  <link rel="shortcut icon" href="icons/favicon.ico" />
+  <!-- Apple Touch Icons -->
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <link rel="apple-touch-icon" sizes="152x152" href="icons/icon-152x152.png" />
+  <link rel="apple-touch-icon" sizes="192x192" href="icons/icon-192x192.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Khmer:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css?v=27" />
+</head>
+<body>
+
+<!-- ===================== LOGIN SCREEN ===================== -->
+<div id="login-screen">
+  <div class="login-bg">
+    <div class="login-orb orb1"></div>
+    <div class="login-orb orb2"></div>
+    <div class="login-orb orb3"></div>
+  </div>
+  <div class="login-box">
+    <div class="login-logo">
+      <div class="login-logo-icon" id="login-logo-icon">
+        <svg viewBox="0 0 40 40" fill="none">
+          <rect width="40" height="40" rx="10" fill="#FF6B35"/>
+          <path d="M20 10C17.2 10 15 12.2 15 15C15 17.8 17.2 20 20 20C22.8 20 25 17.8 25 15C25 12.2 22.8 10 20 10Z" fill="white"/>
+          <path d="M10 30C10 25.6 14.5 22 20 22C25.5 22 30 25.6 30 30H10Z" fill="white" opacity="0.8"/>
+        </svg>
+      </div>
+      <div>
+        <div class="login-company-name" id="login-company-name">HR Pro</div>
+        <div class="login-subtitle">ប្រព័ន្ធគ្រប់គ្រងបុគ្គលិក</div>
+      </div>
+    </div>
+
+    <h2 class="login-heading">ចូលគណនី</h2>
+    <p class="login-desc">ដាក់ username និង password ដើម្បីចូលប្រើប្រាស់</p>
+
+    <div id="login-error" class="login-error" style="display:none"></div>
+
+    <div class="login-form">
+      <div class="login-field">
+        <label class="login-label">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          Username
+        </label>
+        <input class="login-input" type="text" id="login-username" placeholder="admin" autocomplete="username" />
+      </div>
+      <div class="login-field">
+        <label class="login-label">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          Password
+        </label>
+        <div style="position:relative">
+          <input class="login-input" type="password" id="login-password" placeholder="••••••••" autocomplete="current-password" />
+          <button class="pwd-toggle" onclick="togglePwd()" type="button" tabindex="-1">
+            <svg id="pwd-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
+      </div>
+      <button class="login-btn" id="login-btn" onclick="doLogin()">
+        <span id="login-btn-text">ចូល</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+      </button>
+    </div>
+
+    <div class="login-hint">
+      Default: <code>admin</code> / <code>admin123</code>
+      <span style="margin:0 8px;opacity:.3">|</span>
+      <a href="#" onclick="showLoginHelp();return false" style="color:var(--primary);text-decoration:none">ជំនួយ</a>
+    </div>
+
+    <div class="login-theme-toggle">
+      <button class="theme-btn" id="login-theme-btn" onclick="toggleTheme()" title="ប្ដូរ ពន្លឺ/យប់">
+        <svg id="theme-icon-login" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== MAIN APP ===================== -->
+<div id="app-shell" style="display:none">
+
+<!-- Sidebar overlay (mobile) -->
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
+
+<!-- Sidebar -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-brand" id="sidebar-brand">
+    <div class="brand-icon" id="brand-logo-wrap">
+      <svg viewBox="0 0 40 40" fill="none">
+        <rect width="40" height="40" rx="10" fill="#FF6B35"/>
+        <path d="M20 10C17.2 10 15 12.2 15 15C15 17.8 17.2 20 20 20C22.8 20 25 17.8 25 15C25 12.2 22.8 10 20 10Z" fill="white"/>
+        <path d="M10 30C10 25.6 14.5 22 20 22C25.5 22 30 25.6 30 30H10Z" fill="white" opacity="0.8"/>
+      </svg>
+    </div>
+    <div class="brand-text">
+      <span class="brand-name" id="brand-company-name">HR Pro</span>
+      <span class="brand-sub">ប្រព័ន្ធ HR</span>
+    </div>
+  </div>
+
+  <nav class="sidebar-nav">
+    <div class="nav-group">
+      <span class="nav-label">ផ្ទាំងគ្រប់គ្រង</span>
+      <a href="#" class="nav-item active" data-page="dashboard">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        ទំព័រដើម
+      </a>
+      <a href="#" class="nav-item" data-page="employees">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        បុគ្គលិក
+        <span class="nav-badge" id="emp-count">0</span>
+      </a>
+      <a href="#" class="nav-item" data-page="departments">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        នាយកដ្ឋាន
+      </a>
+      <a href="#" class="nav-item" data-page="attendance">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        វត្តមាន
+      </a>
+      <a href="#" class="nav-item" data-page="salary">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        បៀវត្ស
+      </a>
+      <a href="#" class="nav-item" data-page="overtime">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        ថែមម៉ោង
+      </a>
+      <a href="#" class="nav-item" data-page="allowance">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
+        ប្រាក់ឧបត្ថម្ភ
+      </a>
+      <a href="#" class="nav-item" data-page="loans">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        ប្រាក់ខ្ចី
+      </a>
+      <a href="#" class="nav-item" data-page="expenses">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        ស្នើរចំណាយ
+      </a>
+      <a href="#" class="nav-item" data-page="general_expense">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+        ចំណាយទូទៅ
+      </a>
+      <a href="#" class="nav-item" data-page="id_card">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><circle cx="9" cy="12" r="2.5"/><path d="M14 10h4M14 14h3"/></svg>
+        កាតបុគ្គលិក
+      </a>
+      <a href="#" class="nav-item" data-page="leave">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        ច្បាប់ឈប់សម្រាក
+      </a>
+    </div>
+
+    <div class="nav-group">
+      <span class="nav-label">ការកំណត់</span>
+      <a href="#" class="nav-item" data-page="reports">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/></svg>
+        របាយការណ៍
+      </a>
+      <a href="#" class="nav-item" data-page="settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        ការកំណត់
+      </a>
+    </div>
+  </nav>
+
+  <div class="sidebar-footer">
+    <div class="user-profile">
+      <div class="user-avatar" id="sidebar-user-avatar">A</div>
+      <div class="user-info">
+        <span class="user-name" id="sidebar-user-name">Admin</span>
+        <span class="user-role" id="sidebar-user-role">អ្នកគ្រប់គ្រង</span>
+      </div>
+      <button class="sidebar-logout-btn" onclick="doLogout()" title="ចាកចេញ">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      </button>
+    </div>
+  </div>
+</aside>
+
+<!-- Main Content -->
+<main class="main-content">
+  <header class="topbar">
+    <div class="topbar-left">
+      <button class="sidebar-toggle" id="sidebarToggle">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      <div class="page-breadcrumb">
+        <span id="page-title">ទំព័រដើម</span>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <div class="search-bar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" placeholder="ស្វែងរក..." id="global-search" />
+      </div>
+      <div class="api-status" id="api-status-indicator">
+        <div class="status-dot"></div>
+        <span>Loading...</span>
+      </div>
+      <!-- Dark/Light Toggle -->
+      <button class="theme-btn" id="theme-toggle-btn" onclick="toggleTheme()" title="ប្ដូរ ពន្លឺ/យប់">
+        <svg id="theme-icon-app" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      </button>
+      <button class="btn btn-outline btn-sm" id="btn-settings" title="ការកំណត់">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        ⚙️
+      </button>
+      <div class="topbar-date" id="current-date"></div>
+    </div>
+  </header>
+
+  <div class="content-area" id="content-area"></div>
+</main>
+<!-- Mobile Bottom Nav -->
+<nav class="mobile-bottom-nav" id="mobile-bottom-nav">
+  <button class="mob-nav-btn active" onclick="mobileNav('dashboard',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+    <span>ដើម</span>
+  </button>
+  <button class="mob-nav-btn" onclick="mobileNav('employees',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+    <span>បុគ្គលិក</span>
+  </button>
+  <button class="mob-nav-btn" onclick="mobileNav('attendance',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+    <span>វត្តមាន</span>
+  </button>
+  <button class="mob-nav-btn" onclick="mobileNav('salary',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+    <span>បៀវត្ស</span>
+  </button>
+  <button class="mob-nav-btn" onclick="$('sidebar').classList.toggle('open')">
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    <span>ច្រើនទៀត</span>
+  </button>
+</nav>
+
+</div><!-- /app-shell -->
+
+<!-- Modal -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal" id="modal">
+    <div class="modal-header">
+      <h3 id="modal-title">បន្ថែម</h3>
+      <button class="modal-close" id="modal-close">✕</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast-container" id="toast-container"></div>
+
+<script src="app.js?v=27"></script>
+</body>
+</html>
