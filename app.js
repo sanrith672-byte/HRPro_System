@@ -475,36 +475,39 @@ const photoDB = {
   async open() {
     if (this._db) return this._db;
     return new Promise((res, rej) => {
-      const req = indexedDB.open('hr_photos', 1);
-      req.onupgradeneeded = e => e.target.result.createObjectStore('photos');
+      const req = indexedDB.open('hr_photos', 2);
+      req.onupgradeneeded = e => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains('photos')) db.createObjectStore('photos');
+      };
       req.onsuccess = e => { this._db = e.target.result; res(this._db); };
       req.onerror = () => rej(req.error);
     });
   },
-  async get(id) {
+  async get(key) {
     try {
       const db = await this.open();
       return new Promise(res => {
-        const req = db.transaction('photos').objectStore('photos').get('emp_' + id);
+        const req = db.transaction('photos').objectStore('photos').get(key);
         req.onsuccess = () => res(req.result || '');
         req.onerror = () => res('');
       });
     } catch { return ''; }
   },
-  async set(id, dataUrl) {
+  async set(key, dataUrl) {
     try {
       const db = await this.open();
       return new Promise(res => {
-        const req = db.transaction('photos','readwrite').objectStore('photos').put(dataUrl,'emp_'+id);
+        const req = db.transaction('photos','readwrite').objectStore('photos').put(dataUrl, key);
         req.onsuccess = () => res(true);
         req.onerror = () => res(false);
       });
     } catch { return false; }
   },
-  async del(id) {
+  async del(key) {
     try {
       const db = await this.open();
-      db.transaction('photos','readwrite').objectStore('photos').delete('emp_'+id);
+      db.transaction('photos','readwrite').objectStore('photos').delete(key);
     } catch {}
   },
   async getAll() {
@@ -537,11 +540,11 @@ function getEmpPhoto(id) {
 }
 async function setEmpPhoto(id, dataUrl) {
   photoCache['emp_' + id] = dataUrl;
-  await photoDB.set(id, dataUrl);
+  await photoDB.set('emp_' + id, dataUrl);
 }
 async function delEmpPhoto(id) {
   delete photoCache['emp_' + id];
-  await photoDB.del(id);
+  await photoDB.del('emp_' + id);
 }
 
 
@@ -717,6 +720,9 @@ async function saveEmployee() {
     if (state._pendingQR && savedId) {
       photoCache['qr_' + savedId] = state._pendingQR;
       await photoDB.set('qr_' + savedId, state._pendingQR);
+    } else if (state._pendingQR === '__remove__' && savedId) {
+      delete photoCache['qr_' + savedId];
+      await photoDB.del('qr_' + savedId);
     }
     state._pendingQR = null;
 
@@ -2667,48 +2673,47 @@ function idCardHTML(e, style, cfg) {
   }
 
   // ② QR 3cm×3cm = 113px at 96dpi — encodes empIdRaw string
-  const qrSize  = 110;
+  const qrSize  = 108;
   const qrInner = qrSize - 6;
 
-  // QR block: បើ upload bank QR → show bank QR, បើ គ្មាន → auto generate ពី Employee ID
-  const autoQR = '<div style="width:'+qrSize+'px;height:'+qrSize+'px;background:white;border-radius:8px;overflow:hidden;padding:4px;box-shadow:0 2px 8px rgba(0,0,0,.2)">'+makeQRSvg(empIdRaw, qrInner, '#111827','#fff')+'</div>';
-  const autoQRDark = '<div style="width:'+qrSize+'px;height:'+qrSize+'px;background:white;border-radius:8px;overflow:hidden;padding:4px;box-shadow:0 2px 8px rgba(0,0,0,.2)">'+makeQRSvg(empIdRaw, qrInner,'#0f172a','#f8fafc')+'</div>';
-  const bankQRImg = storedQR ? '<img src="'+storedQR+'" style="width:'+qrSize+'px;height:'+qrSize+'px;object-fit:contain;background:white;padding:4px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.2)"/>' : '';
+  // QR: bank QR (uploaded) → show bank QR; otherwise auto-generate from Employee ID
+  const _autoQR     = '<div style="width:'+qrSize+'px;height:'+qrSize+'px;background:white;border-radius:8px;overflow:hidden;padding:4px;box-shadow:0 2px 8px rgba(0,0,0,.2)">'+makeQRSvg(empIdRaw, qrInner, '#111827','#fff')+'</div>';
+  const _autoQRDark = '<div style="width:'+qrSize+'px;height:'+qrSize+'px;background:white;border-radius:8px;overflow:hidden;padding:4px;box-shadow:0 2px 8px rgba(0,0,0,.2)">'+makeQRSvg(empIdRaw, qrInner,'#0f172a','#f8fafc')+'</div>';
+  const _bankQRImg  = storedQR ? '<img src="'+storedQR+'" style="width:'+qrSize+'px;height:'+qrSize+'px;object-fit:contain;background:white;padding:4px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.2)"/>' : '';
 
-  const qrBlock     = storedQR ? bankQRImg : autoQR;
-  const qrBlockDark = storedQR ? bankQRImg : autoQRDark;
+  const qrBlock     = storedQR ? _bankQRImg : _autoQR;
+  const qrBlockDark = storedQR ? _bankQRImg : _autoQRDark;
 
-  // Bank info line (show under bank QR if available)
-  const bankName = (e.bank && e.bank !== '—') ? e.bank : '';
-  const bankAcc  = e.bank_account || '';
-  const bankLine = bankName ? (bankName + (bankAcc ? ' · ' + bankAcc : '')) : '';
+  // Label under QR: bank name·account if bank QR, else empId
+  const _bankLabel = storedQR && e.bank && e.bank !== '—'
+    ? (e.bank + (e.bank_account ? ' · ' + e.bank_account : ''))
+    : '';
+  const _qrLabelText = _bankLabel || empId;
 
-  // QR label: QR + text below (bank name if bank QR, else empId if auto QR)
   function qrLabel(qr, idColor) {
     idColor = idColor || '#1d4ed8';
-    const label = storedQR
-      ? (bankLine || empId)   // show bank name under bank QR
-      : empId;                // show empId under auto QR
     return '<div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0">'
       + qr
-      + '<div style="font-family:monospace;font-size:9px;font-weight:800;color:'+idColor
-      + ';letter-spacing:.5px;text-align:center;line-height:1.3;max-width:'+qrSize+'px;word-break:break-all">'+label+'</div>'
+      + '<div style="font-size:9px;font-weight:800;color:'+idColor
+      + ';letter-spacing:.5px;text-align:center;max-width:'+qrSize+'px;word-break:break-all;line-height:1.3">'+_qrLabelText+'</div>'
       +'</div>';
   }
 
   // Info rows helper
   function rows(pairs, keyColor, valColor, borderColor, fontSize) {
-    fontSize = fontSize || '9px';
+    fontSize = fontSize || '9.5px';
     return pairs.map(([k,v])=>
-      '<div style="display:flex;gap:4px;padding:3px 0;border-bottom:1px solid '+borderColor+'">'
-      +'<span style="color:'+keyColor+';font-weight:600;min-width:62px;font-size:'+fontSize+';flex-shrink:0">'+k+'</span>'
-      +'<span style="color:'+valColor+';font-weight:700;font-size:'+fontSize+';word-break:break-all">'+v+'</span>'
+      '<div style="display:flex;gap:4px;padding:2.5px 0;border-bottom:1px solid '+borderColor+'">'
+      +'<span style="color:'+keyColor+';font-weight:600;min-width:58px;font-size:'+fontSize+'">'+k+'</span>'
+      +'<span style="color:'+valColor+';font-weight:700;font-size:'+fontSize+'">'+v+'</span>'
       +'</div>'
     ).join('');
   }
 
-  // Back info rows
+  // ③ Bank info
   const bankStr = [e.bank, e.bank_account, e.bank_holder].filter(x=>x&&x!=='—'&&x!=='').join(' · ') || '—';
+
+  // Back info rows (always show bank if available)
   const infoData = [
     ['ឈ្មោះ',    e.name||'—'],
     ['ID',        empId],
@@ -2717,7 +2722,7 @@ function idCardHTML(e, style, cfg) {
     ['ទូរស័ព្ទ',  e.phone||'—'],
   ];
   if (e.bank && e.bank !== '—' && e.bank !== '') {
-    infoData.push(['🏦 '+e.bank, bankAcc || '—']);
+    infoData.push(['🏦 ធនាគារ', bankStr]);
   }
 
   const wrap = (front, back) =>
