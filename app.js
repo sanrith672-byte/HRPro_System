@@ -312,7 +312,8 @@ function navigate(page) {
   // Sync bottom nav
   syncMobileNav(page);
   // Close sidebar on mobile after navigation
-  if (window.innerWidth <= 900) closeSidebar();
+  const sb = document.getElementById('sidebar');
+  if (sb && window.innerWidth <= 900) sb.classList.remove('open');
   ({
     dashboard:renderDashboard, employees:renderEmployees, departments:renderDepartments,
     attendance:renderAttendance, salary:renderSalary, reports:renderReports,
@@ -2665,44 +2666,36 @@ function idCardHTML(e, style, cfg) {
       +'</div>';
   }
 
-  // ② QR 3cm×3cm = 113px at 96dpi — encodes empIdRaw string
-  const qrSize  = 113;
+  // ② QR — always generated from empIdRaw (Employee ID), never bank QR
+  const qrSize  = 100;
   const qrInner = qrSize - 6;
 
-  // makeQRSvg seeds from empIdRaw so "0009" → unique QR for that ID
-  const qrBlock = storedQR
-    ? '<img src="'+storedQR+'" style="width:'+qrSize+'px;height:'+qrSize+'px;object-fit:contain;background:white;padding:3px;border-radius:6px"/>'
-    : '<div style="width:'+qrSize+'px;height:'+qrSize+'px;background:white;border-radius:6px;overflow:hidden;padding:3px">'+makeQRSvg(empIdRaw, qrInner, '#111827','#fff')+'</div>';
+  // Always use auto-generated QR from Employee ID
+  const qrBlock     = '<div style="width:'+qrSize+'px;height:'+qrSize+'px;background:white;border-radius:8px;overflow:hidden;padding:4px;box-shadow:0 2px 8px rgba(0,0,0,.15)">'+makeQRSvg(empIdRaw, qrInner, '#111827','#fff')+'</div>';
+  const qrBlockDark = '<div style="width:'+qrSize+'px;height:'+qrSize+'px;background:white;border-radius:8px;overflow:hidden;padding:4px;box-shadow:0 2px 8px rgba(0,0,0,.15)">'+makeQRSvg(empIdRaw, qrInner,'#0f172a','#f8fafc')+'</div>';
 
-  const qrBlockDark = storedQR
-    ? '<img src="'+storedQR+'" style="width:'+qrSize+'px;height:'+qrSize+'px;object-fit:contain;background:white;padding:3px;border-radius:6px"/>'
-    : '<div style="width:'+qrSize+'px;height:'+qrSize+'px;background:white;border-radius:6px;overflow:hidden;padding:3px">'+makeQRSvg(empIdRaw, qrInner,'#0f172a','#f8fafc')+'</div>';
-
-  // ③ QR label block — shows empId text under QR
+  // ③ QR label block — QR + ID text below, clean design
   function qrLabel(qr, idColor) {
     idColor = idColor || '#1d4ed8';
-    return '<div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0">'
+    return '<div style="display:flex;flex-direction:column;align-items:center;gap:5px;flex-shrink:0">'
       + qr
-      + '<div style="font-family:monospace;font-size:10px;font-weight:800;color:'+idColor
-      + ';letter-spacing:.5px;text-align:center;line-height:1">'+empId+'</div>'
+      + '<div style="font-family:monospace;font-size:9px;font-weight:800;color:'+idColor
+      + ';letter-spacing:1px;text-align:center;background:rgba(0,0,0,.06);padding:2px 8px;border-radius:4px">'+empId+'</div>'
       +'</div>';
   }
 
   // Info rows helper
   function rows(pairs, keyColor, valColor, borderColor, fontSize) {
-    fontSize = fontSize || '9.5px';
+    fontSize = fontSize || '9px';
     return pairs.map(([k,v])=>
-      '<div style="display:flex;gap:4px;padding:2.5px 0;border-bottom:1px solid '+borderColor+'">'
-      +'<span style="color:'+keyColor+';font-weight:600;min-width:58px;font-size:'+fontSize+'">'+k+'</span>'
-      +'<span style="color:'+valColor+';font-weight:700;font-size:'+fontSize+'">'+v+'</span>'
+      '<div style="display:flex;gap:4px;padding:3px 0;border-bottom:1px solid '+borderColor+'">'
+      +'<span style="color:'+keyColor+';font-weight:600;min-width:62px;font-size:'+fontSize+';flex-shrink:0">'+k+'</span>'
+      +'<span style="color:'+valColor+';font-weight:700;font-size:'+fontSize+';word-break:break-all">'+v+'</span>'
       +'</div>'
     ).join('');
   }
 
-  // ③ Bank info
-  const bankStr = [e.bank, e.bank_account, e.bank_holder].filter(x=>x&&x!=='—'&&x!=='').join(' · ') || '—';
-
-  // Back info rows (always show bank if available)
+  // Back info rows — clean, no bank QR
   const infoData = [
     ['ឈ្មោះ',    e.name||'—'],
     ['ID',        empId],
@@ -2710,9 +2703,6 @@ function idCardHTML(e, style, cfg) {
     ['នាយកដ្ឋាន', dept],
     ['ទូរស័ព្ទ',  e.phone||'—'],
   ];
-  if (e.bank && e.bank !== '—' && e.bank !== '') {
-    infoData.push(['🏦 ធនាគារ', bankStr]);
-  }
 
   const wrap = (front, back) =>
     '<div class="id-card id-flip-card" data-name="'+e.name+'" data-dept="'+dept
@@ -2984,17 +2974,16 @@ function idCardHTML(e, style, cfg) {
 
   // ── DIAMOND — Crystal blue holographic ────────────────────
   function premiumBack(headerBg, headerBorderBottom, bodyBg, rowBorder, qrBg, idColor, footerBg, footerBorder) {
+    const qrPremium = '<div style="width:'+qrSize+'px;height:'+qrSize+'px;background:white;border-radius:8px;overflow:hidden;padding:4px;box-shadow:0 2px 8px rgba(0,0,0,.15)">'+makeQRSvg(empIdRaw,qrInner,qrBg,'#fff')+'</div>';
     return '<div style="height:100%;border-radius:14px;overflow:hidden;background:'+bodyBg+';display:flex;flex-direction:column;border:1px solid '+footerBorder+'">'
       +'<div style="background:'+headerBg+';padding:8px 14px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid '+headerBorderBottom+'">'
       +'<div style="font-size:11px;font-weight:800;color:white">'+(e.position||'—')+'</div>'
       +'<div style="color:rgba(255,255,255,.7);font-size:8px;letter-spacing:1px">EMPLOYEE CARD</div></div>'
       +'<div style="display:flex;gap:10px;padding:8px 14px;flex:1">'
-      +'<div style="flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:3px">'
-      +'<div style="padding:3px;background:white;border-radius:4px;border:1px solid '+footerBorder+'">'+makeQRSvg(empIdRaw,qrInner,qrBg,'#fff')+'</div>'
-      +'<div style="font-family:monospace;font-size:9px;font-weight:800;color:'+idColor+';letter-spacing:.5px">'+empId+'</div></div>'
+      + qrLabel(qrPremium, idColor)
       +'<div style="flex:1;min-width:0">'+rows(infoData,'#94a3b8','#1e293b',rowBorder)+'</div></div>'
       +'<div style="background:'+footerBg+';border-top:1px solid '+footerBorder+';padding:4px 14px;display:flex;justify-content:space-between">'
-      +'<div style="font-size:8px;color:#94a3b8;font-style:italic">If found, please return</div>'
+      +'<div style="font-size:8px;color:#94a3b8;font-style:italic">ករណីបាត់ — If found, please return</div>'
       +'<div style="font-size:8px;color:#94a3b8;font-family:monospace">'+hireDate+'</div></div></div>';
   }
 }
@@ -4416,33 +4405,6 @@ function changePassword() {
   if ($('chpwd-confirm')) $('chpwd-confirm').value = '';
 }
 
-// ===== SIDEBAR HELPERS =====
-function showOverlay() {
-  const ov = document.getElementById('sidebar-overlay');
-  if (!ov) return;
-  ov.style.display = 'block';
-  requestAnimationFrame(() => ov.classList.add('visible'));
-}
-function closeSidebar() {
-  const sb = document.getElementById('sidebar');
-  const ov = document.getElementById('sidebar-overlay');
-  if (sb) sb.classList.remove('open');
-  if (ov) {
-    ov.classList.remove('visible');
-    setTimeout(() => { ov.style.display = 'none'; }, 250);
-  }
-}
-function toggleSidebar() {
-  const sb = document.getElementById('sidebar');
-  if (!sb) return;
-  if (sb.classList.contains('open')) {
-    closeSidebar();
-  } else {
-    sb.classList.add('open');
-    if (window.innerWidth <= 900) showOverlay();
-  }
-}
-
 // ===== MOBILE NAV =====
 function mobileNav(page, btn) {
   document.querySelectorAll('.mob-nav-btn').forEach(b => b.classList.remove('active'));
@@ -4824,22 +4786,7 @@ function initApp() {
     }));
     $('modal-close').addEventListener('click', closeModal);
     $('modal-overlay').addEventListener('click', e => { if (e.target === $('modal-overlay')) closeModal(); });
-    $('sidebarToggle').addEventListener('click', () => toggleSidebar());
-
-    // Swipe-to-open sidebar from left edge
-    let touchStartX = 0, touchStartY = 0;
-    document.addEventListener('touchstart', e => {
-      touchStartX = e.touches[0].clientX;
-      touchStartY = e.touches[0].clientY;
-    }, { passive: true });
-    document.addEventListener('touchend', e => {
-      const dx = e.changedTouches[0].clientX - touchStartX;
-      const dy = Math.abs(e.changedTouches[0].clientY - touchStartY);
-      const sb = $('sidebar');
-      if (!sb) return;
-      if (touchStartX < 24 && dx > 60 && dy < 80) { sb.classList.add('open'); showOverlay(); }
-      if (sb.classList.contains('open') && dx < -60 && dy < 80) { closeSidebar(); }
-    }, { passive: true });
+    $('sidebarToggle').addEventListener('click', () => $('sidebar').classList.toggle('open'));
     $('global-search').addEventListener('input', e => { if (state.currentPage === 'employees') renderEmployees(e.target.value); });
     $('btn-settings').addEventListener('click', () => navigate('settings'));
     updateApiStatus();
@@ -4871,110 +4818,3 @@ function showFirstRunSetup() {
       </div>
     </div>`;
 }
-// ============================================================
-// PWA — Service Worker Registration + Install Prompt
-// ============================================================
-
-// Register Service Worker
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js')
-      .then(reg => console.log('[HR Pro] SW registered:', reg.scope))
-      .catch(err => console.warn('[HR Pro] SW registration failed:', err));
-  });
-}
-
-// Install prompt (Android Chrome / Desktop)
-let deferredInstallPrompt = null;
-
-window.addEventListener('beforeinstallprompt', e => {
-  e.preventDefault();
-  deferredInstallPrompt = e;
-  // Show banner after a short delay (not immediately)
-  setTimeout(() => showInstallBanner(), 3000);
-});
-
-function showInstallBanner() {
-  if (!deferredInstallPrompt) return;
-  if (window.matchMedia('(display-mode: standalone)').matches) return; // already installed
-  if (sessionStorage.getItem('pwa_banner_dismissed')) return;
-
-  const banner = document.createElement('div');
-  banner.id = 'pwa-install-banner';
-  banner.innerHTML = `
-    <div style="display:flex;align-items:center;gap:12px;flex:1;min-width:0">
-      <img src="icons/icon-72x72.png" width="40" height="40" style="border-radius:10px;flex-shrink:0" onerror="this.style.display='none'"/>
-      <div style="min-width:0">
-        <div style="font-weight:700;font-size:13px;color:var(--text)">ដំឡើង HR Pro</div>
-        <div style="font-size:11px;color:var(--text3);margin-top:1px">បន្ថែមទៅ Home Screen</div>
-      </div>
-    </div>
-    <div style="display:flex;gap:8px;flex-shrink:0">
-      <button onclick="installPWA()" style="background:var(--primary);color:white;border:none;border-radius:8px;padding:8px 14px;font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">ដំឡើង</button>
-      <button onclick="dismissInstallBanner()" style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-family:var(--font);font-size:12px;color:var(--text3);cursor:pointer">✕</button>
-    </div>`;
-  banner.style.cssText = `
-    position:fixed;bottom:68px;left:12px;right:12px;
-    background:var(--bg2);border:1px solid var(--border);border-radius:14px;
-    padding:12px 14px;display:flex;align-items:center;gap:12px;
-    box-shadow:0 8px 32px rgba(0,0,0,0.4);z-index:400;
-    animation:toastIn 0.3s cubic-bezier(0.4,0,0.2,1);
-    border-left:3px solid var(--primary);
-  `;
-  document.body.appendChild(banner);
-}
-
-function installPWA() {
-  if (!deferredInstallPrompt) return;
-  deferredInstallPrompt.prompt();
-  deferredInstallPrompt.userChoice.then(result => {
-    if (result.outcome === 'accepted') {
-      showToast('ដំឡើង HR Pro បានជោគជ័យ! 🎉', 'success');
-    }
-    deferredInstallPrompt = null;
-    dismissInstallBanner();
-  });
-}
-
-function dismissInstallBanner() {
-  const b = document.getElementById('pwa-install-banner');
-  if (b) b.remove();
-  sessionStorage.setItem('pwa_banner_dismissed', '1');
-}
-
-// iOS: show manual instructions (Safari doesn't support beforeinstallprompt)
-window.addEventListener('load', () => {
-  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
-  const isStandalone = window.navigator.standalone === true;
-  const shownKey = 'ios_pwa_hint_shown';
-  if (isIOS && !isStandalone && !localStorage.getItem(shownKey)) {
-    localStorage.setItem(shownKey, '1');
-    setTimeout(() => {
-      const hint = document.createElement('div');
-      hint.id = 'ios-pwa-hint';
-      hint.innerHTML = `
-        <div style="display:flex;align-items:flex-start;gap:10px;flex:1">
-          <span style="font-size:22px;flex-shrink:0">📲</span>
-          <div>
-            <div style="font-weight:700;font-size:13px;color:var(--text);margin-bottom:4px">បន្ថែមទៅ Home Screen</div>
-            <div style="font-size:12px;color:var(--text3);line-height:1.6">
-              ចុច <strong style="color:var(--text)">Share</strong> 
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;vertical-align:middle;margin:0 2px"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
-              រួចជ្រើស <strong style="color:var(--text)">"Add to Home Screen"</strong>
-            </div>
-          </div>
-        </div>
-        <button onclick="document.getElementById('ios-pwa-hint').remove()" style="background:none;border:none;color:var(--text3);font-size:18px;cursor:pointer;padding:0;flex-shrink:0;line-height:1">✕</button>`;
-      hint.style.cssText = `
-        position:fixed;bottom:68px;left:12px;right:12px;
-        background:var(--bg2);border:1px solid var(--border);border-radius:14px;
-        padding:14px;display:flex;align-items:center;gap:10px;
-        box-shadow:0 8px 32px rgba(0,0,0,0.4);z-index:400;
-        animation:toastIn 0.3s cubic-bezier(0.4,0,0.2,1);
-        border-left:3px solid var(--primary);
-      `;
-      document.body.appendChild(hint);
-      setTimeout(() => hint.remove(), 12000);
-    }, 4000);
-  }
-});
