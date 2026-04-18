@@ -475,36 +475,46 @@ const photoDB = {
   async open() {
     if (this._db) return this._db;
     return new Promise((res, rej) => {
-      const req = indexedDB.open('hr_photos', 1);
-      req.onupgradeneeded = e => e.target.result.createObjectStore('photos');
+      // version 2 — raw keys (no 'emp_' prefix inside DB)
+      const req = indexedDB.open('hr_photos', 2);
+      req.onupgradeneeded = e => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains('photos')) {
+          db.createObjectStore('photos');
+        }
+      };
       req.onsuccess = e => { this._db = e.target.result; res(this._db); };
       req.onerror = () => rej(req.error);
     });
   },
-  async get(id) {
+  async get(key) {
     try {
       const db = await this.open();
       return new Promise(res => {
-        const req = db.transaction('photos').objectStore('photos').get(id);
+        const req = db.transaction('photos').objectStore('photos').get(key);
         req.onsuccess = () => res(req.result || '');
         req.onerror = () => res('');
       });
     } catch { return ''; }
   },
-  async set(id, dataUrl) {
+  async set(key, dataUrl) {
     try {
       const db = await this.open();
       return new Promise(res => {
-        const req = db.transaction('photos','readwrite').objectStore('photos').put(dataUrl,id);
+        const req = db.transaction('photos','readwrite').objectStore('photos').put(dataUrl, key);
         req.onsuccess = () => res(true);
         req.onerror = () => res(false);
       });
     } catch { return false; }
   },
-  async del(id) {
+  async del(key) {
     try {
       const db = await this.open();
-      db.transaction('photos','readwrite').objectStore('photos').delete(id);
+      return new Promise(res => {
+        const req = db.transaction('photos','readwrite').objectStore('photos').delete(key);
+        req.onsuccess = () => res(true);
+        req.onerror = () => res(false);
+      });
     } catch {}
   },
   async getAll() {
@@ -532,16 +542,19 @@ async function loadAllPhotos() {
   Object.assign(photoCache, all);
 }
 
+// Employee photo — key: 'emp_123'
 function getEmpPhoto(id) {
   return photoCache['emp_' + id] || '';
 }
 async function setEmpPhoto(id, dataUrl) {
-  photoCache['emp_' + id] = dataUrl;
-  await photoDB.set('emp_' + id, dataUrl);
+  const key = 'emp_' + id;
+  photoCache[key] = dataUrl;
+  await photoDB.set(key, dataUrl);
 }
 async function delEmpPhoto(id) {
-  delete photoCache['emp_' + id];
-  await photoDB.del('emp_' + id);
+  const key = 'emp_' + id;
+  delete photoCache[key];
+  await photoDB.del(key);
 }
 
 
@@ -563,64 +576,62 @@ async function openEmployeeModal(id=null) {
 
   $('modal-title').textContent = id ? 'កែប្រែព័ត៌មានបុគ្គលិក' : 'បន្ថែមបុគ្គលិកថ្មី';
   $('modal-body').innerHTML =
-
-    // ── Photo section ── mobile friendly big tap area
-    '<div style="display:flex;align-items:center;gap:14px;padding:14px;background:var(--bg3);border-radius:12px;border:1px solid var(--border);margin-bottom:14px">'
-    + '<div id="emp-photo-preview" onclick="$(\'emp-photo-input\').click()" style="width:88px;height:88px;border-radius:50%;background:var(--bg4);border:3px solid var(--border2);display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;cursor:pointer;transition:.2s">'
+    // ── Photo upload top section ──
+    '<div style="display:flex;align-items:center;gap:16px;padding:16px;background:var(--bg3);border-radius:10px;border:1px solid var(--border);margin-bottom:16px">'
+    + '<div id="emp-photo-preview" style="width:80px;height:80px;border-radius:50%;background:var(--bg4);border:3px solid var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;cursor:pointer" onclick="$(\'emp-photo-input\').click()">'
     + (existingPhoto
-        ? '<img src="'+existingPhoto+'" style="width:100%;height:100%;object-fit:cover"/>'
-        : '<svg viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="1.5" style="width:34px;height:34px"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>')
+        ? '<img src="' + existingPhoto + '" style="width:100%;height:100%;object-fit:cover" />'
+        : '<svg viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="1.5" style="width:32px;height:32px"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>')
     + '</div>'
-    + '<div style="flex:1;min-width:0">'
+    + '<div>'
     + '<div style="font-weight:700;font-size:13px;margin-bottom:4px">រូបថតបុគ្គលិក</div>'
-    + '<div style="font-size:11px;color:var(--text3);margin-bottom:10px">JPG, PNG · អតិបរមា 2MB</div>'
-    + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
-    + '<button class="btn btn-outline btn-sm" onclick="$(\'emp-photo-input\').click()">📷 Upload</button>'
+    + '<div style="font-size:11px;color:var(--text3);margin-bottom:10px">JPG, PNG — អតិបរមា 2MB · ចុចដើម្បីជ្រើស</div>'
+    + '<div style="display:flex;gap:8px">'
+    + '<button class="btn btn-outline btn-sm" onclick="$(\'emp-photo-input\').click()">'
+    + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>'
+    + ' Upload</button>'
     + (existingPhoto ? '<button class="btn btn-danger btn-sm" onclick="removeEmpPhoto()">🗑️ លុប</button>' : '')
-    + '</div></div>'
-    + '<input type="file" id="emp-photo-input" accept="image/*" style="display:none" onchange="handleEmpPhotoUpload(this)"/>'
+    + '</div>'
+    + '</div>'
+    + '<input type="file" id="emp-photo-input" accept="image/*" style="display:none" onchange="handleEmpPhotoUpload(this)" />'
     + '</div>'
 
-    // ── Form fields — always single column on mobile ──
-    + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:14px">'
-    + '<div class="form-group"><label class="form-label">ឈ្មោះពេញ *</label><input class="form-control" id="f-name" placeholder="ឈ្មោះ..." value="'+(emp?.name||'')+'"/></div>'
-    + '<div class="form-group"><label class="form-label">លេខ ID <span style="font-size:10px;color:var(--text3)">(auto)</span></label><input class="form-control" id="f-custom-id" placeholder="EMP_001 (ទុក​ទទេ=auto)" value="'+(emp?.custom_id||'')+'"/></div>'
-    + '<div class="form-group"><label class="form-label">ភេទ</label><select class="form-control" id="f-gender"><option value="male"'+(emp?.gender==='male'?' selected':'')+'>ប្រុស</option><option value="female"'+(emp?.gender==='female'?' selected':'')+'>ស្រី</option></select></div>'
-    + '<div class="form-group"><label class="form-label">តំណែង *</label><input class="form-control" id="f-position" placeholder="តំណែង..." value="'+(emp?.position||'')+'"/></div>'
-    + '<div class="form-group"><label class="form-label">នាយកដ្ឋាន *</label><select class="form-control" id="f-dept">'+deptOptions+'</select></div>'
-    + '<div class="form-group"><label class="form-label">លេខទូរស័ព្ទ</label><input class="form-control" id="f-phone" type="tel" placeholder="012-xxx-xxx" value="'+(emp?.phone||'')+'"/></div>'
-    + '<div class="form-group"><label class="form-label">អ៊ីម៉ែល</label><input class="form-control" id="f-email" type="email" placeholder="email@..." value="'+(emp?.email||'')+'"/></div>'
-    + '<div class="form-group"><label class="form-label">បៀវត្ស (USD)</label><input class="form-control" id="f-salary" type="number" placeholder="1000" value="'+(emp?.salary||'')+'"/></div>'
-    + '<div class="form-group"><label class="form-label">ថ្ងៃចូលធ្វើការ</label><input class="form-control" id="f-hire" type="date" value="'+(emp?.hire_date||'')+'"/></div>'
-    + '<div class="form-group" style="grid-column:1/-1"><label class="form-label">ស្ថានភាព</label><select class="form-control" id="f-status"><option value="active"'+(emp?.status==='active'?' selected':'')+'>✅ ធ្វើការ</option><option value="on_leave"'+(emp?.status==='on_leave'?' selected':'')+'>🌴 ច្បាប់</option><option value="inactive"'+(emp?.status==='inactive'?' selected':'')+'>⛔ ផ្អាក</option></select></div>'
+    // ── Form fields ──
+    + '<div class="form-grid">'
+    + '<div class="form-group"><label class="form-label">ឈ្មោះពេញ *</label><input class="form-control" id="f-name" placeholder="ឈ្មោះ..." value="' + (emp?.name||'') + '" /></div>'
+    + '<div class="form-group"><label class="form-label">លេខ ID <span style="font-size:10px;color:var(--text3)">(ជ្រើស auto)</span></label><input class="form-control" id="f-custom-id" placeholder="e.g. 001 (ទុក​ទទេ=auto)" value="' + (emp?.custom_id||'') + '" /></div>'
+    + '<div class="form-group"><label class="form-label">ភេទ</label><select class="form-control" id="f-gender"><option value="male"' + (emp?.gender==='male'?' selected':'') + '>ប្រុស</option><option value="female"' + (emp?.gender==='female'?' selected':'') + '>ស្រី</option></select></div>'
+    + '<div class="form-group"><label class="form-label">តំណែង *</label><input class="form-control" id="f-position" placeholder="តំណែង..." value="' + (emp?.position||'') + '" /></div>'
+    + '<div class="form-group"><label class="form-label">នាយកដ្ឋាន *</label><select class="form-control" id="f-dept">' + deptOptions + '</select></div>'
+    + '<div class="form-group"><label class="form-label">លេខទូរស័ព្ទ</label><input class="form-control" id="f-phone" placeholder="012-xxx-xxx" value="' + (emp?.phone||'') + '" /></div>'
+    + '<div class="form-group"><label class="form-label">អ៊ីម៉ែល</label><input class="form-control" id="f-email" type="email" placeholder="email@example.com" value="' + (emp?.email||'') + '" /></div>'
+    + '<div class="form-group"><label class="form-label">បៀវត្ស (USD)</label><input class="form-control" id="f-salary" type="number" placeholder="1000" value="' + (emp?.salary||'') + '" /></div>'
+    + '<div class="form-group"><label class="form-label">ថ្ងៃចូលធ្វើការ</label><input class="form-control" id="f-hire" type="date" value="' + (emp?.hire_date||'') + '" /></div>'
+    + '<div class="form-group full-width"><label class="form-label">ស្ថានភាព</label><select class="form-control" id="f-status"><option value="active"' + (emp?.status==='active'?' selected':'') + '>✅ ធ្វើការ</option><option value="on_leave"' + (emp?.status==='on_leave'?' selected':'') + '>🌴 ច្បាប់</option><option value="inactive"' + (emp?.status==='inactive'?' selected':'') + '>⛔ ផ្អាក</option></select></div>'
     + '</div>'
-
-    // ── QR ធនាគារ section — mobile friendly ──
-    + '<div style="padding:14px;background:var(--bg3);border-radius:12px;border:1px solid var(--border);margin-bottom:4px">'
-    + '<div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px;display:flex;align-items:center;gap:6px">🏦 QR ធនាគារ (ID Card)</div>'
-    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">'
+    // QR Bank section
+    + '<div style="margin-top:16px;padding:14px;background:var(--bg3);border-radius:10px;border:1px solid var(--border)">'
+    + '<div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:12px;display:flex;align-items:center;gap:6px">🏦 QR ធនាគារ (សម្រាប់ ID Card)</div>'
+    + '<div class="form-grid">'
     + '<div class="form-group"><label class="form-label">ធនាគារ</label>'
     + '<select class="form-control" id="f-bank">'
     + ['—','ABA','ACLEDA','Canadia','Wing','True Money','Prince Bank','Chip Mong','AMK','Bred'].map(b=>'<option'+(emp?.bank===b?' selected':'')+'>'+b+'</option>').join('')
     + '</select></div>'
-    + '<div class="form-group"><label class="form-label">លេខគណនី</label><input class="form-control" id="f-bank-acc" type="tel" placeholder="012xxxxxx" value="'+(emp?.bank_account||'')+'"/></div>'
-    + '<div class="form-group" style="grid-column:1/-1"><label class="form-label">ឈ្មោះអ្នកកាន់គណនី</label><input class="form-control" id="f-bank-name" placeholder="ឈ្មោះ..." value="'+(emp?.bank_holder||'')+'"/></div>'
+    + '<div class="form-group"><label class="form-label">លេខគណនី</label><input class="form-control" id="f-bank-acc" placeholder="1234567890" value="' + (emp?.bank_account||'') + '" /></div>'
+    + '<div class="form-group full-width"><label class="form-label">ឈ្មោះអ្នកកាន់គណនី</label><input class="form-control" id="f-bank-name" placeholder="ឈ្មោះ..." value="' + (emp?.bank_holder||'') + '" /></div>'
     + '</div>'
-
-    // QR preview — big, easy to tap on mobile
-    + '<label class="form-label" style="margin-bottom:8px;display:block">📷 Upload QR Code ធនាគារ</label>'
-    + '<div style="display:flex;align-items:center;gap:14px">'
-    + '<div id="qr-preview" onclick="$(\'qr-input\').click()" style="width:90px;height:90px;border:2px dashed var(--border2);border-radius:10px;display:flex;align-items:center;justify-content:center;overflow:hidden;cursor:pointer;background:var(--bg4);flex-shrink:0;transition:.2s">'
-    + (existingQR ? '<img src="'+existingQR+'" style="width:100%;height:100%;object-fit:contain"/>' : '<span style="font-size:32px">📷</span>')
+    + '<div style="margin-top:10px">'
+    + '<label class="form-label">Upload QR Code ធនាគារ</label>'
+    + '<div style="display:flex;align-items:center;gap:12px;margin-top:6px">'
+    + '<div id="qr-preview" style="width:80px;height:80px;border:2px dashed var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;overflow:hidden;cursor:pointer;background:var(--bg4)" onclick="$(\'qr-input\').click()">'
+    + (existingQR ? '<img src="' + existingQR + '" style="width:100%;height:100%;object-fit:contain" />' : '<span style="font-size:28px">📷</span>')
     + '</div>'
-    + '<div>'
-    + '<button class="btn btn-outline btn-sm" onclick="$(\'qr-input\').click()" style="margin-bottom:6px;display:block">📂 ជ្រើស QR</button>'
-    + (existingQR ? '<button class="btn btn-danger btn-sm" onclick="removeEmpQR()" style="display:block">🗑️ លុប QR</button>' : '')
-    + '<div style="font-size:10px;color:var(--text3);margin-top:6px">PNG, JPG — QR Code ធនាគារ</div>'
-    + '</div></div>'
-    + '<input type="file" id="qr-input" accept="image/*" style="display:none" onchange="handleQRUpload(this)"/>'
+    + '<div><button class="btn btn-outline btn-sm" onclick="$(\'qr-input\').click()">📂 ជ្រើស QR</button>'
+    + '<div style="font-size:10px;color:var(--text3);margin-top:4px">PNG, JPG — QR Code ធនាគារ</div></div>'
     + '</div>'
-
+    + '<input type="file" id="qr-input" accept="image/*" style="display:none" onchange="handleQRUpload(this)" />'
+    + '</div>'
+    + '</div>'
     + '<div class="form-actions">'
     + '<button class="btn btn-outline" onclick="closeModal()">បោះបង់</button>'
     + '<button class="btn btn-primary" id="save-emp-btn" onclick="saveEmployee()">'
@@ -664,9 +675,10 @@ function removeEmpPhoto() {
 function removeEmpQR() {
   state._pendingQR = '__remove__';
   const p = document.getElementById('qr-preview');
-  if (p) p.innerHTML = '<span style="font-size:32px">📷</span>';
-  showToast('លុប QR រួច', 'success');
+  if (p) p.innerHTML = '<span style="font-size:28px">📷</span>';
+  showToast('លុប QR ធនាគាររួច', 'success');
 }
+
 // Handle QR upload
 function handleQRUpload(input) {
   const file = input.files[0];
@@ -722,13 +734,17 @@ async function saveEmployee() {
       await setEmpPhoto(savedId, state._pendingPhoto);
     }
     state._pendingPhoto = null;
-    // Save QR
-    if (state._pendingQR === '__remove__' && savedId) {
-      delete photoCache['qr_' + savedId];
-      await photoDB.del('qr_' + savedId);
+    // Save QR — key: 'qr_123'
+    if (state._pendingQR === '__remove__') {
+      if (savedId) {
+        const qrKey = 'qr_' + savedId;
+        delete photoCache[qrKey];
+        await photoDB.del(qrKey);
+      }
     } else if (state._pendingQR && savedId) {
-      photoCache['qr_' + savedId] = state._pendingQR;
-      await photoDB.set('qr_' + savedId, state._pendingQR);
+      const qrKey = 'qr_' + savedId;
+      photoCache[qrKey] = state._pendingQR;
+      await photoDB.set(qrKey, state._pendingQR);
     }
     state._pendingQR = null;
 
