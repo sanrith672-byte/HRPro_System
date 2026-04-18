@@ -2666,21 +2666,33 @@ function idCardHTML(e, style, cfg) {
       +'</div>';
   }
 
-  // ② QR — always generated from empIdRaw (Employee ID), never bank QR
-  const qrSize  = 100;
+  // ② QR 3cm×3cm = 113px at 96dpi — encodes empIdRaw string
+  const qrSize  = 110;
   const qrInner = qrSize - 6;
 
-  // Always use auto-generated QR from Employee ID
-  const qrBlock     = '<div style="width:'+qrSize+'px;height:'+qrSize+'px;background:white;border-radius:8px;overflow:hidden;padding:4px;box-shadow:0 2px 8px rgba(0,0,0,.15)">'+makeQRSvg(empIdRaw, qrInner, '#111827','#fff')+'</div>';
-  const qrBlockDark = '<div style="width:'+qrSize+'px;height:'+qrSize+'px;background:white;border-radius:8px;overflow:hidden;padding:4px;box-shadow:0 2px 8px rgba(0,0,0,.15)">'+makeQRSvg(empIdRaw, qrInner,'#0f172a','#f8fafc')+'</div>';
+  // QR block: បើ upload bank QR → show bank QR, បើ គ្មាន → auto generate ពី Employee ID
+  const autoQR = '<div style="width:'+qrSize+'px;height:'+qrSize+'px;background:white;border-radius:8px;overflow:hidden;padding:4px;box-shadow:0 2px 8px rgba(0,0,0,.2)">'+makeQRSvg(empIdRaw, qrInner, '#111827','#fff')+'</div>';
+  const autoQRDark = '<div style="width:'+qrSize+'px;height:'+qrSize+'px;background:white;border-radius:8px;overflow:hidden;padding:4px;box-shadow:0 2px 8px rgba(0,0,0,.2)">'+makeQRSvg(empIdRaw, qrInner,'#0f172a','#f8fafc')+'</div>';
+  const bankQRImg = storedQR ? '<img src="'+storedQR+'" style="width:'+qrSize+'px;height:'+qrSize+'px;object-fit:contain;background:white;padding:4px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.2)"/>' : '';
 
-  // ③ QR label block — QR + ID text below, clean design
+  const qrBlock     = storedQR ? bankQRImg : autoQR;
+  const qrBlockDark = storedQR ? bankQRImg : autoQRDark;
+
+  // Bank info line (show under bank QR if available)
+  const bankName = (e.bank && e.bank !== '—') ? e.bank : '';
+  const bankAcc  = e.bank_account || '';
+  const bankLine = bankName ? (bankName + (bankAcc ? ' · ' + bankAcc : '')) : '';
+
+  // QR label: QR + text below (bank name if bank QR, else empId if auto QR)
   function qrLabel(qr, idColor) {
     idColor = idColor || '#1d4ed8';
-    return '<div style="display:flex;flex-direction:column;align-items:center;gap:5px;flex-shrink:0">'
+    const label = storedQR
+      ? (bankLine || empId)   // show bank name under bank QR
+      : empId;                // show empId under auto QR
+    return '<div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0">'
       + qr
       + '<div style="font-family:monospace;font-size:9px;font-weight:800;color:'+idColor
-      + ';letter-spacing:1px;text-align:center;background:rgba(0,0,0,.06);padding:2px 8px;border-radius:4px">'+empId+'</div>'
+      + ';letter-spacing:.5px;text-align:center;line-height:1.3;max-width:'+qrSize+'px;word-break:break-all">'+label+'</div>'
       +'</div>';
   }
 
@@ -2695,7 +2707,8 @@ function idCardHTML(e, style, cfg) {
     ).join('');
   }
 
-  // Back info rows — clean, no bank QR
+  // Back info rows
+  const bankStr = [e.bank, e.bank_account, e.bank_holder].filter(x=>x&&x!=='—'&&x!=='').join(' · ') || '—';
   const infoData = [
     ['ឈ្មោះ',    e.name||'—'],
     ['ID',        empId],
@@ -2703,6 +2716,9 @@ function idCardHTML(e, style, cfg) {
     ['នាយកដ្ឋាន', dept],
     ['ទូរស័ព្ទ',  e.phone||'—'],
   ];
+  if (e.bank && e.bank !== '—' && e.bank !== '') {
+    infoData.push(['🏦 '+e.bank, bankAcc || '—']);
+  }
 
   const wrap = (front, back) =>
     '<div class="id-card id-flip-card" data-name="'+e.name+'" data-dept="'+dept
@@ -2974,16 +2990,17 @@ function idCardHTML(e, style, cfg) {
 
   // ── DIAMOND — Crystal blue holographic ────────────────────
   function premiumBack(headerBg, headerBorderBottom, bodyBg, rowBorder, qrBg, idColor, footerBg, footerBorder) {
-    const qrPremium = '<div style="width:'+qrSize+'px;height:'+qrSize+'px;background:white;border-radius:8px;overflow:hidden;padding:4px;box-shadow:0 2px 8px rgba(0,0,0,.15)">'+makeQRSvg(empIdRaw,qrInner,qrBg,'#fff')+'</div>';
     return '<div style="height:100%;border-radius:14px;overflow:hidden;background:'+bodyBg+';display:flex;flex-direction:column;border:1px solid '+footerBorder+'">'
       +'<div style="background:'+headerBg+';padding:8px 14px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid '+headerBorderBottom+'">'
       +'<div style="font-size:11px;font-weight:800;color:white">'+(e.position||'—')+'</div>'
       +'<div style="color:rgba(255,255,255,.7);font-size:8px;letter-spacing:1px">EMPLOYEE CARD</div></div>'
       +'<div style="display:flex;gap:10px;padding:8px 14px;flex:1">'
-      + qrLabel(qrPremium, idColor)
+      +'<div style="flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:3px">'
+      +'<div style="padding:3px;background:white;border-radius:4px;border:1px solid '+footerBorder+'">'+makeQRSvg(empIdRaw,qrInner,qrBg,'#fff')+'</div>'
+      +'<div style="font-family:monospace;font-size:9px;font-weight:800;color:'+idColor+';letter-spacing:.5px">'+empId+'</div></div>'
       +'<div style="flex:1;min-width:0">'+rows(infoData,'#94a3b8','#1e293b',rowBorder)+'</div></div>'
       +'<div style="background:'+footerBg+';border-top:1px solid '+footerBorder+';padding:4px 14px;display:flex;justify-content:space-between">'
-      +'<div style="font-size:8px;color:#94a3b8;font-style:italic">ករណីបាត់ — If found, please return</div>'
+      +'<div style="font-size:8px;color:#94a3b8;font-style:italic">If found, please return</div>'
       +'<div style="font-size:8px;color:#94a3b8;font-family:monospace">'+hireDate+'</div></div></div>';
   }
 }
