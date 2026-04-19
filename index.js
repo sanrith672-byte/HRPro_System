@@ -606,14 +606,29 @@ async function deleteEmpMedia(id, col, env) {
 }
 async function getAppConfig(env) {
   try {
-    const row = await env.DB.prepare("SELECT value FROM app_config WHERE key='company'").first();
-    return json(row ? JSON.parse(row.value||'{}') : {});
+    // Return all config keys as one object
+    const rows = await env.DB.prepare("SELECT key, value FROM app_config").all();
+    const cfg = {};
+    for (const r of (rows.results||[])) {
+      try { cfg[r.key] = JSON.parse(r.value); } catch { cfg[r.key] = r.value; }
+    }
+    // Backward compat: merge company key into root
+    if (cfg.company && typeof cfg.company === 'object') Object.assign(cfg, cfg.company);
+    return json(cfg);
   } catch(_) { return json({}); }
 }
 async function saveAppConfig(request, env) {
   try {
     const body = await request.json();
-    await env.DB.prepare("INSERT INTO app_config(key,value) VALUES('company',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value").bind(JSON.stringify(body)).run();
+    // If body has 'key' field → generic key-value save
+    if (body.key) {
+      await env.DB.prepare("INSERT INTO app_config(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value")
+        .bind(body.key, typeof body.value === 'string' ? body.value : JSON.stringify(body.value)).run();
+      return json({ message: 'saved', key: body.key });
+    }
+    // Otherwise → save as 'company' config (backward compat)
+    await env.DB.prepare("INSERT INTO app_config(key,value) VALUES('company',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value")
+      .bind(JSON.stringify(body)).run();
     return json({ message: 'saved' });
   } catch(e) { return error(e.message); }
 }

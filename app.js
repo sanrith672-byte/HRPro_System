@@ -5135,7 +5135,19 @@ function updateSidebarAvatar(photoUrl, name) {
 function openAddAccountModal() {
   $('modal-title').textContent = 'បន្ថែម Account ថ្មី';
   $('modal-body').innerHTML =
-    '<div class="form-grid">'
+    // Photo upload
+    '<div style="display:flex;align-items:center;gap:16px;padding:14px;background:var(--bg3);border-radius:10px;border:1px solid var(--border);margin-bottom:16px">'
+    +'<div id="new-acc-photo-preview" style="width:72px;height:72px;border-radius:50%;background:var(--bg4);border:3px solid var(--border);display:flex;align-items:center;justify-content:center;overflow:hidden;cursor:pointer;flex-shrink:0" onclick="$(\'new-acc-photo-input\').click()">'
+    +'<svg viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="1.5" style="width:28px;height:28px"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>'
+    +'</div>'
+    +'<div>'
+    +'<div style="font-weight:700;font-size:13px;margin-bottom:4px">រូបថត Account</div>'
+    +'<div style="font-size:11px;color:var(--text3);margin-bottom:8px">JPG, PNG — អតិបរមា 2MB</div>'
+    +'<button class="btn btn-outline btn-sm" onclick="$(\'new-acc-photo-input\').click()">📂 ជ្រើស</button>'
+    +'</div>'
+    +'<input type="file" id="new-acc-photo-input" accept="image/*" style="display:none" onchange="handleNewAccPhoto(this)" />'
+    +'</div>'
+    + '<div class="form-grid">'
     + '<div class="form-group"><label class="form-label">ឈ្មោះពេញ *</label><input class="form-control" id="acc-name" placeholder="ឈ្មោះ..." /></div>'
     + '<div class="form-group"><label class="form-label">Username *</label><input class="form-control" id="acc-user" placeholder="username" /></div>'
     + '<div class="form-group"><label class="form-label">Password *</label><input class="form-control" type="password" id="acc-pwd" placeholder="••••••••" /></div>'
@@ -5149,21 +5161,94 @@ function openAddAccountModal() {
   openModal();
 }
 
-function saveNewAccount() {
+function handleNewAccPhoto(input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (file.size > 2*1024*1024) { showToast('រូបថតធំពេក! max 2MB','error'); return; }
+  const reader = new FileReader();
+  reader.onload = e => {
+    window._newAccPhoto = e.target.result;
+    const prev = document.getElementById('new-acc-photo-preview');
+    if (prev) prev.innerHTML = '<img src="'+e.target.result+'" style="width:100%;height:100%;object-fit:cover" />';
+    showToast('Upload រូបថតរួច!','success');
+  };
+  reader.readAsDataURL(file);
+}
+
+async function saveNewAccount() {
   const name = $('acc-name')?.value.trim();
   const username = $('acc-user')?.value.trim();
   const password = $('acc-pwd')?.value;
   const role = $('acc-role')?.value;
+  const photo = window._newAccPhoto || '';
+  window._newAccPhoto = null;
+
   if (!name || !username || !password) { showToast('សូមបំពេញឱ្យគ្រប់!', 'error'); return; }
+
+  // Check local
   const users = getUsers();
   if (users.find(u => u.username === username)) { showToast('Username នេះមានរួចហើយ!', 'error'); return; }
+
   const newId = Math.max(...users.map(u=>u.id), 0) + 1;
-  users.push({ id:newId, username, password, role, name });
+  const newUser = { id:newId, username, password, role, name, photo };
+  users.push(newUser);
   saveUsers(users);
-  showToast('បន្ថែម Account បានជោគជ័យ!', 'success');
+
+  // Save photo to IndexedDB
+  if (photo) {
+    photoCache['user_' + newId] = photo;
+    await photoDB.set('user_' + newId, photo);
+  }
+
+  // Sync to Worker API (store accounts in config)
+  await syncAccountsToAPI(users);
+
+  showToast('បន្ថែម Account បានជោគជ័យ! 🎉', 'success');
   closeModal();
   renderSettings();
   setTimeout(() => switchSettingsTab('accounts', document.querySelector('.settings-tab:nth-child(3)')), 50);
+}
+
+// Sync all accounts to Worker (so all users share same account list)
+async function syncAccountsToAPI(users) {
+  if (isDemoMode()) return;
+  try {
+    // Strip passwords for security when syncing photos only
+    // Store full accounts in config key
+    await api('POST', '/config', {
+      key: 'hr_accounts',
+      value: JSON.stringify(users.map(u => ({
+        id: u.id, username: u.username,
+        password: u.password, role: u.role,
+        name: u.name,
+        photo: u.photo || (photoCache['user_'+u.id]||'')
+      })))
+    });
+  } catch(_) {}
+}
+
+// Load accounts from Worker on init
+async function loadAccountsFromAPI() {
+  if (isDemoMode()) return;
+  try {
+    const cfg = await api('GET', '/config');
+    if (cfg && cfg.hr_accounts) {
+      const remoteUsers = JSON.parse(cfg.hr_accounts);
+      if (remoteUsers && remoteUsers.length) {
+        // Merge: keep local if newer, else use remote
+        const localUsers = getUsers();
+        // Use remote as source of truth
+        saveUsers(remoteUsers);
+        // Load photos into cache
+        for (const u of remoteUsers) {
+          if (u.photo) {
+            photoCache['user_'+u.id] = u.photo;
+            await photoDB.set('user_'+u.id, u.photo);
+          }
+        }
+      }
+    }
+  } catch(_) {}
 }
 
 function openEditAccountModal(id) {
@@ -5196,6 +5281,7 @@ function saveEditAccount(id) {
   users[idx].role = $('eacc-role')?.value || users[idx].role;
   if (pwd) users[idx].password = pwd;
   saveUsers(users);
+  syncAccountsToAPI(users);
   showToast('កែប្រែ Account បានជោគជ័យ!', 'success');
   closeModal();
   renderSettings();
@@ -5204,9 +5290,9 @@ function saveEditAccount(id) {
 
 function deleteAccount(id) {
   if (!confirm('លុប Account នេះ?')) return;
-  const session = getSession();
   const users = getUsers().filter(u => u.id !== id);
   saveUsers(users);
+  syncAccountsToAPI(users);
   showToast('លុប Account រួច!', 'success');
   renderSettings();
   setTimeout(() => switchSettingsTab('accounts', document.querySelector('.settings-tab:nth-child(3)')), 50);
@@ -5673,7 +5759,7 @@ function initApp() {
   $('current-date').textContent = new Date().toLocaleDateString('km-KH', {year:'numeric',month:'short',day:'numeric'});
 
   // Load config + photos together
-  Promise.all([isDemoMode() ? Promise.resolve() : loadCompanyConfig(), loadAllPhotos()]).then(() => {
+  Promise.all([isDemoMode() ? Promise.resolve() : loadCompanyConfig(), loadAllPhotos(), loadAccountsFromAPI()]).then(() => {
     const session = getSession();
     if (session) {
       const uname = $('sidebar-user-name');
