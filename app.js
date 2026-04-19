@@ -484,30 +484,30 @@ const photoDB = {
       req.onerror = () => rej(req.error);
     });
   },
-  async get(key) {
+  async get(id) {
     try {
       const db = await this.open();
       return new Promise(res => {
-        const req = db.transaction('photos').objectStore('photos').get(key);
+        const req = db.transaction('photos').objectStore('photos').get(id);
         req.onsuccess = () => res(req.result || '');
         req.onerror = () => res('');
       });
     } catch { return ''; }
   },
-  async set(key, dataUrl) {
+  async set(id, dataUrl) {
     try {
       const db = await this.open();
       return new Promise(res => {
-        const req = db.transaction('photos','readwrite').objectStore('photos').put(dataUrl, key);
+        const req = db.transaction('photos','readwrite').objectStore('photos').put(dataUrl, id);
         req.onsuccess = () => res(true);
         req.onerror = () => res(false);
       });
     } catch { return false; }
   },
-  async del(key) {
+  async del(id) {
     try {
       const db = await this.open();
-      db.transaction('photos','readwrite').objectStore('photos').delete(key);
+      db.transaction('photos','readwrite').objectStore('photos').delete(id);
     } catch {}
   },
   async getAll() {
@@ -545,35 +545,33 @@ async function loadAllPhotos() {
   const all = await photoDB.getAll();
   Object.assign(photoCache, all);
 }
-
 function getEmpPhoto(id) { return photoCache['emp_' + id] || ''; }
-
 async function setEmpPhoto(id, dataUrl) {
   const key = 'emp_' + id;
   photoCache[key] = dataUrl;
   if (!isDemoMode()) {
-    try { await api('POST', '/employees/' + id + '/photo', { data: dataUrl }); } catch(_) {}
+    try { await api('POST', '/employees/'+id+'/photo', { data: dataUrl }); } catch(_) {}
   } else { await photoDB.set(key, dataUrl); }
 }
 async function delEmpPhoto(id) {
   const key = 'emp_' + id;
   delete photoCache[key];
   if (!isDemoMode()) {
-    try { await api('DELETE', '/employees/' + id + '/photo'); } catch(_) {}
+    try { await api('DELETE', '/employees/'+id+'/photo'); } catch(_) {}
   } else { await photoDB.del(key); }
 }
 async function setEmpQR(id, dataUrl) {
   const key = 'qr_' + id;
   photoCache[key] = dataUrl;
   if (!isDemoMode()) {
-    try { await api('POST', '/employees/' + id + '/qr', { data: dataUrl }); } catch(_) {}
+    try { await api('POST', '/employees/'+id+'/qr', { data: dataUrl }); } catch(_) {}
   } else { await photoDB.set(key, dataUrl); }
 }
 async function delEmpQR(id) {
   const key = 'qr_' + id;
   delete photoCache[key];
   if (!isDemoMode()) {
-    try { await api('DELETE', '/employees/' + id + '/qr'); } catch(_) {}
+    try { await api('DELETE', '/employees/'+id+'/qr'); } catch(_) {}
   } else { await photoDB.del(key); }
 }
 
@@ -2711,8 +2709,8 @@ function idCardHTML(e, style, cfg) {
   const qrInner = qrSize - 6;
 
   // makeQRSvg seeds from empIdRaw so "0009" → unique QR for that ID
-  const qrBlock     = '<div style="width:'+qrSize+'px;height:'+qrSize+'px;background:white;border-radius:10px;overflow:hidden;padding:4px;box-shadow:0 2px 8px rgba(0,0,0,.15)">'+makeQRSvg(empIdRaw, qrInner, '#111827','#fff')+'</div>';
-  const qrBlockDark = '<div style="width:'+qrSize+'px;height:'+qrSize+'px;background:white;border-radius:10px;overflow:hidden;padding:4px;box-shadow:0 2px 8px rgba(0,0,0,.15)">'+makeQRSvg(empIdRaw, qrInner,'#0f172a','#f8fafc')+'</div>';
+  const qrBlock     = '<div style="width:'+qrSize+'px;height:'+qrSize+'px;background:white;border-radius:10px;overflow:hidden;padding:4px">'+makeQRSvg(empIdRaw, qrInner, '#111827','#fff')+'</div>';
+  const qrBlockDark = '<div style="width:'+qrSize+'px;height:'+qrSize+'px;background:white;border-radius:10px;overflow:hidden;padding:4px">'+makeQRSvg(empIdRaw, qrInner,'#0f172a','#f8fafc')+'</div>';
 
   // ③ QR label block — shows empId text under QR
   function qrLabel(qr, idColor) {
@@ -2746,7 +2744,7 @@ function idCardHTML(e, style, cfg) {
     ['នាយកដ្ឋាន', dept],
     ['ទូរស័ព្ទ',  e.phone||'—'],
   ];
-  // bank row removed from card
+  // bank row removed
 
   const wrap = (front, back) =>
     '<div class="id-card id-flip-card" data-name="'+e.name+'" data-dept="'+dept
@@ -3078,7 +3076,7 @@ idCardHTML = function(e, style, cfg) {
   }
 
   function qrAuto(darkC, lightC) {
-    return '<div style="width:'+qrSize+'px;height:'+qrSize+'px;background:'+(lightC||'white')+';border-radius:10px;overflow:hidden;padding:4px;box-shadow:0 2px 8px rgba(0,0,0,.15)">'+makeQRSvg(empIdRaw,qrInner,darkC||'#111827',lightC||'#fff')+'</div>';
+    return '<div style="width:'+qrSize+'px;height:'+qrSize+'px;background:'+(lightC||'white')+';border-radius:10px;overflow:hidden;padding:4px">'+makeQRSvg(empIdRaw,qrInner,darkC||'#111827',lightC||'#fff')+'</div>';
   }
 
   function rows(pairs, keyC, valC, borderC) {

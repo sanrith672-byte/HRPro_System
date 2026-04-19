@@ -561,7 +561,8 @@ async function paySalary(id, env) {
 // DASHBOARD STATS
 // ============================================================
 
-// ── Employee Photo / QR ──────────────────────────────────────────────────
+
+// ── Photo/QR/Config helpers ──────────────────────────────────────────────
 async function saveEmpMedia(id, col, request, env) {
   try {
     const body = await request.json();
@@ -577,18 +578,17 @@ async function deleteEmpMedia(id, col, env) {
     return json({ message: 'deleted' });
   } catch(e) { return error(e.message); }
 }
-// ── App Config ────────────────────────────────────────────────────────────
 async function getAppConfig(env) {
   try {
     const row = await env.DB.prepare("SELECT value FROM app_config WHERE key='company'").first();
-    return json(row ? JSON.parse(row.value || '{}') : {});
+    return json(row ? JSON.parse(row.value||'{}') : {});
   } catch(_) { return json({}); }
 }
 async function saveAppConfig(request, env) {
   try {
     const body = await request.json();
     await env.DB.prepare("INSERT INTO app_config(key,value) VALUES('company',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value").bind(JSON.stringify(body)).run();
-    return json({ message: 'Config saved' });
+    return json({ message: 'saved' });
   } catch(e) { return error(e.message); }
 }
 async function getStats(env) {
