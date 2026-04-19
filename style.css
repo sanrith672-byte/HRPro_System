@@ -1285,6 +1285,8 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 /* ===== ACCOUNT ITEMS ===== */
 .account-list { display:flex;flex-direction:column;gap:10px; }
 .account-item { display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm); }
+.perm-scroll-hint { text-align:center;font-size:11px;color:var(--text3);padding:6px;background:var(--bg4);border-bottom:1px solid var(--border);animation:hint-fade 2s ease-in-out forwards; }
+@keyframes hint-fade { 0%{opacity:1} 70%{opacity:1} 100%{opacity:0} }
 .account-avatar { width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--accent));display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:white;flex-shrink:0; }
 .account-info { flex:1; }
 .account-name { font-size:13px;font-weight:600; }

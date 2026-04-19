@@ -5276,24 +5276,28 @@ function renderSettings() {
               ];
 
               return `
-                <div style="overflow-x:auto">
-                  <table style="width:100%;border-collapse:collapse;font-size:12px">
+                <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:10px;border:1px solid var(--border);position:relative">
+                  <!-- Scroll hint for mobile -->
+                  <div style="display:none" id="perm-scroll-hint" class="perm-scroll-hint">
+                    ← អូសទៅឆ្វេង/ស្តាំ →
+                  </div>
+                  <table style="width:max-content;min-width:100%;border-collapse:collapse;font-size:12px">
                     <thead>
                       <tr style="background:var(--bg4)">
-                        <th style="padding:10px 12px;text-align:left;border-bottom:2px solid var(--border);min-width:200px">មុខងារ</th>
-                        ${roles.map(r=>`<th style="padding:10px 12px;text-align:center;border-bottom:2px solid var(--border);min-width:100px;color:var(--primary)">${r}</th>`).join('')}
+                        <th style="padding:10px 12px;text-align:left;border-bottom:2px solid var(--border);min-width:160px;position:sticky;left:0;z-index:2;background:var(--bg4);white-space:nowrap">មុខងារ</th>
+                        ${roles.map(r=>`<th style="padding:10px 16px;text-align:center;border-bottom:2px solid var(--border);min-width:110px;color:var(--primary);white-space:nowrap">${r}</th>`).join('')}
                       </tr>
                     </thead>
                     <tbody>
                       ${features.map((f,i)=>`
                         <tr style="background:${i%2===0?'var(--bg3)':'var(--bg)'}">
-                          <td style="padding:10px 12px;border-bottom:1px solid var(--border);font-weight:500">${f.label}</td>
+                          <td style="padding:10px 12px;border-bottom:1px solid var(--border);font-weight:500;position:sticky;left:0;z-index:1;background:${i%2===0?'var(--bg3)':'var(--bg)'};white-space:nowrap">${f.label}</td>
                           ${roles.map(r=>`
-                            <td style="text-align:center;padding:10px 12px;border-bottom:1px solid var(--border)">
+                            <td style="text-align:center;padding:10px 16px;border-bottom:1px solid var(--border)">
                               <input type="checkbox" class="perm-cb"
                                 data-role="${r}" data-key="${f.key}"
                                 ${(perms[r]?.[f.key] !== false) ? 'checked' : ''}
-                                style="width:18px;height:18px;accent-color:var(--primary);cursor:pointer"
+                                style="width:20px;height:20px;accent-color:var(--primary);cursor:pointer"
                                 onchange="updatePermission('${r}','${f.key}',this.checked)" />
                             </td>
                           `).join('')}
@@ -5302,6 +5306,20 @@ function renderSettings() {
                     </tbody>
                   </table>
                 </div>
+                <script>
+                (function(){
+                  var el = document.querySelector('#panel-permissions .settings-section-body > div');
+                  if(!el) return;
+                  if(el.scrollWidth > el.clientWidth){
+                    var hint = document.getElementById('perm-scroll-hint');
+                    if(hint){ hint.style.display='block'; }
+                  }
+                  el.addEventListener('scroll', function(){
+                    var hint = document.getElementById('perm-scroll-hint');
+                    if(hint) hint.style.display='none';
+                  }, {once:true});
+                })();
+                </script>
 
                 <div style="margin-top:16px;padding:12px 14px;background:rgba(255,183,3,.08);border:1px solid rgba(255,183,3,.25);border-radius:8px">
                   <div style="font-size:12px;color:var(--warning);font-weight:600;margin-bottom:4px">⚠️ ចំណាំ</div>
