@@ -897,20 +897,38 @@ async function doEmployeeReport(type) {
   }
 }
 
+function calcWorkDuration(hireDate, termDate) {
+  if (!hireDate) return '—';
+  const start = new Date(hireDate);
+  const end   = (termDate && termDate !== '') ? new Date(termDate) : new Date();
+  if (isNaN(start)) return '—';
+  let years  = end.getFullYear() - start.getFullYear();
+  let months = end.getMonth()    - start.getMonth();
+  let days   = end.getDate()     - start.getDate();
+  if (days   < 0) { months--; days   += new Date(end.getFullYear(), end.getMonth(), 0).getDate(); }
+  if (months < 0) { years--;  months += 12; }
+  const parts = [];
+  if (years  > 0) parts.push(years  + ' ឆ្នាំ');
+  if (months > 0) parts.push(months + ' ខែ');
+  if (days   > 0) parts.push(days   + ' ថ្ងៃ');
+  return parts.length ? parts.join(' ') : '< 1 ថ្ងៃ';
+}
+
 function printEmployeeReport(emps, rangeLabel, leaveMap) {
   emps = emps || state.employees || [];
   rangeLabel = rangeLabel || 'ទាំងអស់';
   const cfg = getCompanyConfig();
   if (!emps.length) { showToast('មិនទាន់មានបុគ្គលិក!','error'); return; }
-  const totalSalary   = emps.reduce((s,e)=>s+(e.salary||0),0);
-  const activeCount   = emps.filter(e=>e.status==='active').length;
-  const terminatedCount = emps.filter(e=>e.termination_date&&e.termination_date!=='').length;
+  const totalSalary      = emps.reduce((s,e)=>s+(e.salary||0),0);
+  const activeCount      = emps.filter(e=>e.status==='active').length;
+  const terminatedCount  = emps.filter(e=>e.termination_date&&e.termination_date!=='').length;
 
   const rows = emps.map((e,i)=>{
-    const displayId = e.custom_id ? '#'+e.custom_id : '#EMP'+String(e.id).padStart(3,'0');
-    const gender    = e.gender==='male'?'ប្រុស':'ស្រី';
-    const statusTxt = e.status==='active'?'✅ ធ្វើការ':e.status==='on_leave'?'🌴 ច្បាប់':'⛔ ផ្អាក/លាឈប់';
-    const termDate  = (e.termination_date && e.termination_date!=='') ? e.termination_date : '—';
+    const displayId  = e.custom_id ? '#'+e.custom_id : '#EMP'+String(e.id).padStart(3,'0');
+    const gender     = e.gender==='male'?'ប្រុស':'ស្រី';
+    const statusTxt  = e.status==='active'?'✅ ធ្វើការ':e.status==='on_leave'?'🌴 ច្បាប់':'⛔ ផ្អាក/លាឈប់';
+    const termDate   = (e.termination_date && e.termination_date!=='') ? e.termination_date : '—';
+    const duration   = calcWorkDuration(e.hire_date, e.termination_date);
     return '<tr style="background:'+(i%2===0?'white':'#f8faff')+'">'
       +'<td style="text-align:center;color:#666">'+(i+1)+'</td>'
       +'<td style="font-family:monospace;font-weight:700;color:#1d4ed8">'+displayId+'</td>'
@@ -919,6 +937,7 @@ function printEmployeeReport(emps, rangeLabel, leaveMap) {
       +'<td>'+(e.position||'—')+'</td>'
       +'<td style="font-family:monospace">'+(e.phone||'—')+'</td>'
       +'<td style="font-family:monospace">'+(e.hire_date||'—')+'</td>'
+      +'<td style="font-weight:600;color:#0369a1">'+duration+'</td>'
       +'<td style="font-family:monospace;font-weight:700;color:#16a34a">$'+(e.salary||0)+'</td>'
       +'<td style="text-align:center;font-family:monospace;font-weight:700;color:'+(termDate!=='—'?'#dc2626':'#94a3b8')+'">'+termDate+'</td>'
       +'<td>'+statusTxt+'</td>'
@@ -965,10 +984,10 @@ function printEmployeeReport(emps, rangeLabel, leaveMap) {
     +'<div class="sum-box"><div class="sum-val" style="color:#0284c7;font-size:14px">$'+totalSalary.toLocaleString()+'</div><div class="sum-lbl">💵 ប្រាក់ខែសរុប</div></div>'
     +'</div>'
     +'<table><thead><tr>'
-    +'<th style="width:26px">លេខ</th><th>ID</th><th>ឈ្មោះពេញ</th><th>ភេទ</th><th>តំណែង</th><th>លេខទូរស័ព្ទ</th><th>ថ្ងៃចូលធ្វើការ</th><th>ប្រាក់ខែគោល</th><th style="text-align:center">ថ្ងៃលាឈប់ពីការងារ</th><th>ស្ថានភាព</th>'
+    +'<th style="width:26px">លេខ</th><th>ID</th><th>ឈ្មោះពេញ</th><th>ភេទ</th><th>តំណែង</th><th>លេខទូរស័ព្ទ</th><th>ថ្ងៃចូលធ្វើការ</th><th>រយៈពេលធ្វើការ</th><th>ប្រាក់ខែគោល</th><th style="text-align:center">ថ្ងៃលាឈប់ពីការងារ</th><th>ស្ថានភាព</th>'
     +'</tr></thead><tbody>'+rows
     +'<tr style="background:#dbeafe;border-top:2px solid #1a3a8f">'
-    +'<td colspan="7" style="text-align:right;font-weight:700;padding:8px 6px">សរុប:</td>'
+    +'<td colspan="8" style="text-align:right;font-weight:700;padding:8px 6px">សរុប:</td>'
     +'<td style="font-weight:800;color:#1a3a8f;font-family:monospace">$'+totalSalary.toLocaleString()+'</td>'
     +'<td style="text-align:center;font-weight:800;color:#dc2626">'+terminatedCount+' នាក់</td>'
     +'<td></td>'
@@ -988,7 +1007,7 @@ async function exportEmployeeExcelFiltered(emps, rangeLabel, leaveMap) {
   rangeLabel = rangeLabel || 'ទាំងអស់';
   leaveMap = leaveMap || {};
   const cfg = getCompanyConfig();
-  const headers = ['#','ID','ឈ្មោះពេញ','ភេទ','តំណែង','នាយកដ្ឋាន','លេខទូរស័ព្ទ','អ៊ីម៉ែល','ថ្ងៃចូលធ្វើការ','ប្រាក់ខែគោល','ថ្ងៃលាឈប់ពីការងារ','ស្ថានភាព'];
+  const headers = ['#','ID','ឈ្មោះពេញ','ភេទ','តំណែង','នាយកដ្ឋាន','លេខទូរស័ព្ទ','អ៊ីម៉ែល','ថ្ងៃចូលធ្វើការ','រយៈពេលធ្វើការ','ប្រាក់ខែគោល','ថ្ងៃលាឈប់ពីការងារ','ស្ថានភាព'];
   const rows = emps.map((e,i)=>[
     i+1,
     e.custom_id ? '#'+e.custom_id : '#EMP'+String(e.id).padStart(3,'0'),
@@ -999,6 +1018,7 @@ async function exportEmployeeExcelFiltered(emps, rangeLabel, leaveMap) {
     e.phone||'',
     e.email||'',
     e.hire_date||'',
+    calcWorkDuration(e.hire_date, e.termination_date),
     e.salary||0,
     e.termination_date||'—',
     e.status==='active'?'ធ្វើការ':e.status==='on_leave'?'ច្បាប់':'ផ្អាក/លាឈប់'
