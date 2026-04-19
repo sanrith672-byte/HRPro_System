@@ -4763,17 +4763,19 @@ function renderSettings() {
           <div class="settings-section-body">
             <div class="account-list" id="account-list-render">
               ${getUsers().map(u => {
-                const uPhoto = photoCache['user_' + u.id] || '';
+                const uPhoto = u.photo || photoCache['user_' + u.id] || '';
                 const avatarEl = uPhoto
-                  ? '<div class="account-avatar" style="overflow:hidden;padding:0"><img src="'+uPhoto+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%" /></div>'
-                  : '<div class="account-avatar">' + u.name[0] + '</div>';
-                return '<div class="account-item">'
+                  ? '<div class="account-avatar" style="overflow:hidden;padding:0;flex-shrink:0"><img src="'+uPhoto+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%" /></div>'
+                  : '<div class="account-avatar" style="flex-shrink:0;font-size:18px;font-weight:800">' + (u.name||'?')[0].toUpperCase() + '</div>';
+                return '<div class="account-item" style="flex-wrap:wrap;gap:10px">'
                   + avatarEl
-                  + '<div class="account-info"><div class="account-name">' + u.name + ' <span style="font-family:var(--mono);font-size:11px;color:var(--text3)">@' + u.username + '</span></div>'
-                  + '<div class="account-role">' + u.role + '</div></div>'
-                  + '<div class="action-btns">'
-                  + '<button class="btn btn-outline btn-sm" onclick="openUserPhotoModal('+u.id+',\''+u.name+'\')">📷</button>'
-                  + '<button class="btn btn-outline btn-sm" onclick="openEditAccountModal(' + u.id + ')">✏️</button>'
+                  + '<div class="account-info" style="flex:1;min-width:120px">'
+                  + '<div class="account-name" style="font-size:14px">' + u.name + '</div>'
+                  + '<div style="font-family:var(--mono);font-size:11px;color:var(--text3)">@' + u.username + '</div>'
+                  + '<div class="account-role" style="margin-top:2px">' + u.role + '</div>'
+                  + '</div>'
+                  + '<div class="action-btns" style="flex-shrink:0">'
+                  + '<button class="btn btn-outline btn-sm" onclick="openEditAccountModal(' + u.id + ')">✏️ កែ</button>'
                   + (u.username !== 'admin' ? '<button class="btn btn-danger btn-sm" onclick="deleteAccount(' + u.id + ')">🗑️</button>' : '')
                   + '</div></div>';
               }).join('')}
@@ -5176,34 +5178,33 @@ function handleNewAccPhoto(input) {
 }
 
 async function saveNewAccount() {
-  const name = $('acc-name')?.value.trim();
+  const name     = $('acc-name')?.value.trim();
   const username = $('acc-user')?.value.trim();
   const password = $('acc-pwd')?.value;
-  const role = $('acc-role')?.value;
-  const photo = window._newAccPhoto || '';
+  const role     = $('acc-role')?.value;
+  const photo    = window._newAccPhoto || '';
   window._newAccPhoto = null;
 
   if (!name || !username || !password) { showToast('សូមបំពេញឱ្យគ្រប់!', 'error'); return; }
 
-  // Check local
   const users = getUsers();
   if (users.find(u => u.username === username)) { showToast('Username នេះមានរួចហើយ!', 'error'); return; }
 
   const newId = Math.max(...users.map(u=>u.id), 0) + 1;
-  const newUser = { id:newId, username, password, role, name, photo };
+  const newUser = { id: newId, username, password, role, name, photo };
   users.push(newUser);
   saveUsers(users);
 
-  // Save photo to IndexedDB
+  // Save photo to IndexedDB + cache
   if (photo) {
     photoCache['user_' + newId] = photo;
     await photoDB.set('user_' + newId, photo);
   }
 
-  // Sync to Worker API (store accounts in config)
+  // Sync to Worker API
   await syncAccountsToAPI(users);
 
-  showToast('បន្ថែម Account បានជោគជ័យ! 🎉', 'success');
+  showToast('បន្ថែម Account បានជោគជ័យ! ✅', 'success');
   closeModal();
   renderSettings();
   setTimeout(() => switchSettingsTab('accounts', document.querySelector('.settings-tab:nth-child(3)')), 50);
@@ -5235,15 +5236,12 @@ async function loadAccountsFromAPI() {
     if (cfg && cfg.hr_accounts) {
       const remoteUsers = JSON.parse(cfg.hr_accounts);
       if (remoteUsers && remoteUsers.length) {
-        // Merge: keep local if newer, else use remote
-        const localUsers = getUsers();
-        // Use remote as source of truth
         saveUsers(remoteUsers);
-        // Load photos into cache
+        // Load photos into cache and IndexedDB
         for (const u of remoteUsers) {
           if (u.photo) {
             photoCache['user_'+u.id] = u.photo;
-            await photoDB.set('user_'+u.id, u.photo);
+            await photoDB.set('user_'+u.id, u.photo).catch(()=>{});
           }
         }
       }
@@ -5255,9 +5253,28 @@ function openEditAccountModal(id) {
   const users = getUsers();
   const user = users.find(u => u.id === id);
   if (!user) return;
-  $('modal-title').textContent = 'កែប្រែ Account';
+  window._editAccPhoto = null;
+  const existingPhoto = user.photo || photoCache['user_' + id] || '';
+  $('modal-title').textContent = 'កែប្រែ Account — ' + user.name;
   $('modal-body').innerHTML =
-    '<div class="form-grid">'
+    // Photo upload
+    '<div style="display:flex;align-items:center;gap:16px;padding:14px;background:var(--bg3);border-radius:10px;border:1px solid var(--border);margin-bottom:16px">'
+    +'<div id="edit-acc-photo-preview" style="width:72px;height:72px;border-radius:50%;background:var(--bg4);border:3px solid var(--border);display:flex;align-items:center;justify-content:center;overflow:hidden;cursor:pointer;flex-shrink:0" onclick="$(\'edit-acc-photo-input\').click()">'
+    +(existingPhoto
+      ? '<img src="'+existingPhoto+'" style="width:100%;height:100%;object-fit:cover" />'
+      : '<span style="font-size:24px;font-weight:800;color:var(--text2)">'+(user.name||'?')[0].toUpperCase()+'</span>')
+    +'</div>'
+    +'<div>'
+    +'<div style="font-weight:700;font-size:13px;margin-bottom:4px">រូបថត Account</div>'
+    +'<div style="font-size:11px;color:var(--text3);margin-bottom:8px">JPG, PNG — max 2MB</div>'
+    +'<div style="display:flex;gap:6px">'
+    +'<button class="btn btn-outline btn-sm" onclick="$(\'edit-acc-photo-input\').click()">📂 ជ្រើស</button>'
+    +(existingPhoto ? '<button class="btn btn-danger btn-sm" onclick="removeEditAccPhoto()">🗑️</button>' : '')
+    +'</div>'
+    +'</div>'
+    +'<input type="file" id="edit-acc-photo-input" accept="image/*" style="display:none" onchange="handleEditAccPhoto(this)" />'
+    +'</div>'
+    + '<div class="form-grid">'
     + '<div class="form-group"><label class="form-label">ឈ្មោះពេញ</label><input class="form-control" id="eacc-name" value="' + user.name + '" /></div>'
     + '<div class="form-group"><label class="form-label">Username</label><input class="form-control" id="eacc-user" value="' + user.username + '" ' + (user.username==='admin'?'readonly':'')+'/></div>'
     + '<div class="form-group"><label class="form-label">Password ថ្មី (ទទេ = មិនផ្លាស់)</label><input class="form-control" type="password" id="eacc-pwd" placeholder="••••••••" /></div>'
@@ -5267,22 +5284,58 @@ function openEditAccountModal(id) {
     + '</select></div>'
     + '</div>'
     + '<div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">បោះបង់</button>'
-    + '<button class="btn btn-primary" onclick="saveEditAccount(' + id + ')">រក្សាទុក</button></div>';
+    + '<button class="btn btn-primary" onclick="saveEditAccount(' + id + ')">💾 រក្សាទុក</button></div>';
   openModal();
 }
 
-function saveEditAccount(id) {
+function handleEditAccPhoto(input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (file.size > 2*1024*1024) { showToast('រូបថតធំពេក! max 2MB','error'); return; }
+  const reader = new FileReader();
+  reader.onload = e => {
+    window._editAccPhoto = e.target.result;
+    const prev = document.getElementById('edit-acc-photo-preview');
+    if (prev) prev.innerHTML = '<img src="'+e.target.result+'" style="width:100%;height:100%;object-fit:cover" />';
+    showToast('Upload រូបថតរួច!','success');
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeEditAccPhoto() {
+  window._editAccPhoto = '__remove__';
+  const prev = document.getElementById('edit-acc-photo-preview');
+  if (prev) prev.innerHTML = '<span style="font-size:24px;color:var(--text3)">👤</span>';
+}
+
+async function saveEditAccount(id) {
   const users = getUsers();
   const idx = users.findIndex(u => u.id === id);
   if (idx < 0) return;
   const pwd = $('eacc-pwd')?.value;
-  users[idx].name = $('eacc-name')?.value.trim() || users[idx].name;
-  users[idx].username = $('eacc-user')?.value.trim() || users[idx].username;
-  users[idx].role = $('eacc-role')?.value || users[idx].role;
+  users[idx].name     = $('eacc-name')?.value.trim()  || users[idx].name;
+  users[idx].username = $('eacc-user')?.value.trim()  || users[idx].username;
+  users[idx].role     = $('eacc-role')?.value          || users[idx].role;
   if (pwd) users[idx].password = pwd;
+
+  // Handle photo
+  if (window._editAccPhoto === '__remove__') {
+    users[idx].photo = '';
+    delete photoCache['user_' + id];
+    await photoDB.del('user_' + id);
+  } else if (window._editAccPhoto) {
+    users[idx].photo = window._editAccPhoto;
+    photoCache['user_' + id] = window._editAccPhoto;
+    await photoDB.set('user_' + id, window._editAccPhoto);
+    // Update sidebar if current user
+    const session = getSession();
+    if (session && session.id === id) updateSidebarAvatar(window._editAccPhoto, users[idx].name);
+  }
+  window._editAccPhoto = null;
+
   saveUsers(users);
-  syncAccountsToAPI(users);
-  showToast('កែប្រែ Account បានជោគជ័យ!', 'success');
+  await syncAccountsToAPI(users);
+  showToast('កែប្រែ Account បានជោគជ័យ! ✅', 'success');
   closeModal();
   renderSettings();
   setTimeout(() => switchSettingsTab('accounts', document.querySelector('.settings-tab:nth-child(3)')), 50);
