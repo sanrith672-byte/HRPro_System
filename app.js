@@ -921,7 +921,7 @@ function printEmployeeReport() {
 
 function exportEmployeePDF() { printEmployeeReport(); }
 
-
+async function deleteEmployee(id) {
   if (!confirm('តើអ្នកចង់លុបបុគ្គលិកនេះមែនទេ?')) return;
   try { await api('DELETE',`/employees/${id}`); showToast('លុបបានជោគជ័យ!','success'); renderEmployees(); }
   catch(e) { showToast('បញ្ហា: '+e.message,'error'); }
