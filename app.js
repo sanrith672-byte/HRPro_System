@@ -295,7 +295,42 @@ function updateApiStatus() {
 }
 
 // ===== NAVIGATION =====
+// Map page → permission key needed to access
+const PAGE_PERMS = {
+  employees:       'employees_view',
+  departments:     'employees_view',
+  attendance:      'attendance_view',
+  salary:          'salary_view',
+  overtime:        'salary_view',
+  allowance:       'salary_view',
+  reports:         'reports_view',
+  loans:           'loans_view',
+  expenses:        'expenses_view',
+  general_expense: 'expenses_view',
+  id_card:         'id_card_print',
+  leave:           'leave_view',
+  settings:        'settings_access',
+  dashboard:       null, // always allowed
+};
+
+function updateNavVisibility() {
+  document.querySelectorAll('.nav-item[data-page]').forEach(el => {
+    const page = el.dataset.page;
+    const permKey = PAGE_PERMS[page];
+    const allowed = !permKey || hasPerm(permKey);
+    el.style.display = allowed ? '' : 'none';
+  });
+}
+
 function navigate(page) {
+  // Permission check
+  const permKey = PAGE_PERMS[page];
+  if (permKey && !hasPerm(permKey)) {
+    showToast('⛔ អ្នកគ្មានសិទ្ធចូល "'+page+'" !', 'error');
+    // Redirect to dashboard
+    page = 'dashboard';
+  }
+
   state.currentPage = page;
   document.querySelectorAll('.nav-item').forEach(a => a.classList.remove('active'));
   document.querySelector(`[data-page="${page}"]`)?.classList.add('active');
@@ -309,9 +344,7 @@ function navigate(page) {
   };
   $('page-title').textContent = titles[page] || page;
   contentArea().innerHTML = '';
-  // Sync bottom nav
   syncMobileNav(page);
-  // Close sidebar on mobile after navigation
   const sb = document.getElementById('sidebar');
   if (sb && window.innerWidth <= 900) sb.classList.remove('open');
   ({
@@ -635,11 +668,12 @@ function hasPerm(key) {
   if (!session) return false;
   const role = session.role || '';
   // Admin always has full access
-  if (role === 'អ្នកគ្រប់គ្រង' || role.toLowerCase().includes('admin')) return true;
+  if (role === 'អ្នកគ្រប់គ្រង' || role.toLowerCase() === 'admin' || session.username === 'admin' || session.username === 'adminsupport') return true;
   const perms = getPermissions();
   const rolePerms = perms[role];
   if (!rolePerms) return false;
-  return rolePerms[key] !== false; // default true if not explicitly set
+  // Explicit false = denied, explicit true = allowed, undefined = denied (strict)
+  return rolePerms[key] === true;
 }
 
 function updatePermission(role, key, value) {
@@ -654,9 +688,11 @@ async function savePermissionsToAPI() {
   if (!isDemoMode()) {
     try {
       await api('POST', '/config', { key: 'hr_permissions', value: JSON.stringify(perms) });
+      updateNavVisibility();
       showToast('រក្សាទុក & Sync សិទ្ធបានជោគជ័យ! ✅', 'success');
     } catch(e) { showToast('Error sync: '+e.message, 'error'); }
   } else {
+    updateNavVisibility();
     showToast('រក្សាទុកសិទ្ធបានជោគជ័យ! ✅', 'success');
   }
 }
@@ -6310,6 +6346,8 @@ function initApp() {
       updateSidebarAvatar(uPhoto, session.name || session.username);
     }
     applyCompanyBranding();
+    // Apply nav visibility based on permissions
+    updateNavVisibility();
     document.querySelectorAll('.nav-item').forEach(a => a.addEventListener('click', e => {
       e.preventDefault(); navigate(a.dataset.page);
     }));
