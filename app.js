@@ -419,85 +419,13 @@ async function renderEmployees(filter='', dept='', status='') {
     state.employees = empData.employees;
     state.departments = deptData;
     $('emp-count').textContent = empData.total;
-
-    // Summary stats
-    const allEmps = empData.employees;
-    const totalSalary = allEmps.reduce((s,e)=>s+(e.salary||0),0);
-    const activeCount = allEmps.filter(e=>e.status==='active').length;
-    const leaveCount  = allEmps.filter(e=>e.status==='on_leave').length;
-    const inactiveCount = allEmps.filter(e=>e.status==='inactive').length;
-    const currentMonth = new Date().toLocaleDateString('km-KH',{month:'long',year:'numeric'});
-
     contentArea().innerHTML =
       '<div class="page-header">'
       +'<div><h2>គ្រប់គ្រងបុគ្គលិក</h2><p>សរុប '+empData.total+' នាក់</p></div>'
       +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
       +(canEdit()?'<button class="btn btn-primary" onclick="openEmployeeModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> + បន្ថែម</button>':'')
-      +'<button class="btn btn-outline" onclick="printEmployeeReport()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> 🖨️ បោះពុម្ព</button>'
-      +'<button class="btn btn-outline" onclick="exportEmployeePDF()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> PDF</button>'
-      +'<button class="btn btn-success" onclick="exportEmployeeExcel()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Excel</button>'
+      +'<button class="btn btn-outline" onclick="openEmployeeReportModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> 🖨️ បោះពុម្ព / Export</button>'
       +'</div></div>'
-
-      // Monthly summary section
-      +'<div class="card" style="margin-bottom:20px">'
-      +'<div class="card-header"><span class="card-title">📊 តារាងសរុបបុគ្គលិក — '+currentMonth+'</span></div>'
-      +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;padding:16px 20px">'
-      +'<div style="text-align:center;padding:12px;background:var(--bg3);border-radius:10px;border:1px solid var(--border)">'
-      +'<div style="font-size:28px;font-weight:800;color:var(--primary)">'+empData.total+'</div>'
-      +'<div style="font-size:11px;color:var(--text3);margin-top:2px">👥 បុគ្គលិកសរុប</div></div>'
-      +'<div style="text-align:center;padding:12px;background:var(--bg3);border-radius:10px;border:1px solid var(--border)">'
-      +'<div style="font-size:28px;font-weight:800;color:var(--success)">'+activeCount+'</div>'
-      +'<div style="font-size:11px;color:var(--text3);margin-top:2px">✅ កំពុងធ្វើការ</div></div>'
-      +'<div style="text-align:center;padding:12px;background:var(--bg3);border-radius:10px;border:1px solid var(--border)">'
-      +'<div style="font-size:28px;font-weight:800;color:var(--warning)">'+leaveCount+'</div>'
-      +'<div style="font-size:11px;color:var(--text3);margin-top:2px">🌴 ច្បាប់</div></div>'
-      +'<div style="text-align:center;padding:12px;background:var(--bg3);border-radius:10px;border:1px solid var(--border)">'
-      +'<div style="font-size:28px;font-weight:800;color:var(--danger)">'+inactiveCount+'</div>'
-      +'<div style="font-size:11px;color:var(--text3);margin-top:2px">⛔ ផ្អាក</div></div>'
-      +'<div style="text-align:center;padding:12px;background:var(--bg3);border-radius:10px;border:1px solid var(--border)">'
-      +'<div style="font-size:24px;font-weight:800;color:var(--info);font-family:var(--mono)">$'+totalSalary.toLocaleString()+'</div>'
-      +'<div style="font-size:11px;color:var(--text3);margin-top:2px">💵 ប្រាក់ខែសរុប/ខែ</div></div>'
-      +'</div>'
-
-      // Summary table
-      +'<div class="table-container" id="emp-summary-table">'
-      +'<table><thead><tr>'
-      +'<th style="width:40px">លេខ</th>'
-      +'<th>ID</th>'
-      +'<th>ឈ្មោះពេញ</th>'
-      +'<th>ភេទ</th>'
-      +'<th>តំណែង</th>'
-      +'<th>លេខទូរស័ព្ទ</th>'
-      +'<th>ថ្ងៃចូលធ្វើការ</th>'
-      +'<th>ប្រាក់ខែគោល</th>'
-      +'<th>ស្ថានភាព</th>'
-      +'</tr></thead><tbody>'
-      +(allEmps.length===0
-        ? '<tr><td colspan="9"><div class="empty-state" style="padding:30px"><p>មិនទាន់មានបុគ្គលិក</p></div></td></tr>'
-        : allEmps.map((e,i)=>{
-            const displayId = e.custom_id ? '#'+e.custom_id : '#EMP'+String(e.id).padStart(3,'0');
-            const gender = e.gender==='male'?'ប្រុស':'ស្រី';
-            return '<tr>'
-              +'<td style="text-align:center;color:var(--text3);font-size:12px">'+(i+1)+'</td>'
-              +'<td><span style="font-family:var(--mono);font-size:12px;color:var(--primary);font-weight:700">'+displayId+'</span></td>'
-              +'<td><div style="font-weight:600">'+e.name+'</div></td>'
-              +'<td style="font-size:12px">'+gender+'</td>'
-              +'<td style="font-size:12px">'+(e.position||'—')+'</td>'
-              +'<td style="font-family:var(--mono);font-size:12px">'+(e.phone||'—')+'</td>'
-              +'<td style="font-family:var(--mono);font-size:12px">'+(e.hire_date||'—')+'</td>'
-              +'<td style="font-family:var(--mono);font-weight:700;color:var(--success)">$'+(e.salary||0)+'</td>'
-              +'<td>'+statusBadge(e.status)+'</td>'
-              +'</tr>';
-          }).join('')
-      )
-      +'<tr style="background:var(--bg3);border-top:2px solid var(--border)">'
-      +'<td colspan="7" style="text-align:right;font-weight:700;padding:10px 12px;font-size:13px">សរុប:</td>'
-      +'<td style="font-family:var(--mono);font-weight:800;color:var(--success);font-size:14px">$'+totalSalary.toLocaleString()+'</td>'
-      +'<td></td>'
-      +'</tr>'
-      +'</tbody></table></div></div>'
-
-      // Filter bar + full table
       +'<div class="filter-bar">'
       +'<input class="filter-input" style="flex:1;min-width:180px" placeholder="ស្វែងរក..." value="'+filter+'" oninput="renderEmployees(this.value)" />'
       +'<select class="filter-input" onchange="renderEmployees(\'\',this.value)"><option value="">នាយកដ្ឋានទាំងអស់</option>'
@@ -843,18 +771,71 @@ async function saveEmployee() {
 
 
 
-function printEmployeeReport() {
+function openEmployeeReportModal() {
+  const firstDay = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
+  const lastDay  = new Date(new Date().getFullYear(), new Date().getMonth()+1, 0).toISOString().split('T')[0];
+  $('modal-title').textContent = '🖨️ បោះពុម្ព / Export បុគ្គលិក';
+  $('modal-body').innerHTML =
+    '<div style="margin-bottom:16px;padding:14px;background:var(--bg3);border-radius:10px;border:1px solid var(--border)">'
+    +'<div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:12px">📅 ជ្រើសរើសរយៈពេល (ថ្ងៃចូលធ្វើការ)</div>'
+    +'<div class="form-grid">'
+    +'<div class="form-group"><label class="form-label">ពីថ្ងៃទី</label>'
+    +'<input class="form-control" type="date" id="rpt-from" value="'+firstDay+'" /></div>'
+    +'<div class="form-group"><label class="form-label">ដល់ថ្ងៃទី</label>'
+    +'<input class="form-control" type="date" id="rpt-to" value="'+lastDay+'" /></div>'
+    +'</div>'
+    +'<div style="font-size:11px;color:var(--text3);margin-top:4px">💡 ទទេ = បង្ហាញបុគ្គលិកទាំងអស់</div>'
+    +'</div>'
+    +'<div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:10px">ជ្រើស Format</div>'
+    +'<div style="display:flex;flex-direction:column;gap:10px">'
+    +'<button class="btn btn-outline" style="justify-content:flex-start;gap:10px;padding:12px 16px" onclick="doEmployeeReport(\'print\')">'
+    +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;flex-shrink:0"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>'
+    +'<div style="text-align:left"><div style="font-weight:700">🖨️ បោះពុម្ព / PDF</div><div style="font-size:11px;color:var(--text3)">Print window — A4 Landscape + ហត្ថលេខា</div></div>'
+    +'</button>'
+    +'<button class="btn btn-success" style="justify-content:flex-start;gap:10px;padding:12px 16px" onclick="doEmployeeReport(\'excel\')">'
+    +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;flex-shrink:0"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>'
+    +'<div style="text-align:left"><div style="font-weight:700">📊 Export Excel (.xlsx)</div><div style="font-size:11px;color:var(--text3)">Download file Excel — មានស្ថិតិសរុប</div></div>'
+    +'</button>'
+    +'</div>'
+    +'<div class="form-actions" style="margin-top:16px"><button class="btn btn-outline" onclick="closeModal()">បិទ</button></div>';
+  openModal();
+}
+
+async function doEmployeeReport(type) {
+  const from = $('rpt-from')?.value;
+  const to   = $('rpt-to')?.value;
+  // Filter employees by hire_date range
+  let emps = state.employees || [];
+  if (from || to) {
+    emps = emps.filter(e => {
+      if (!e.hire_date) return true;
+      const d = e.hire_date;
+      if (from && d < from) return false;
+      if (to   && d > to)   return false;
+      return true;
+    });
+  }
+  const rangeLabel = (from && to) ? from+' — '+to : (from ? 'ចាប់ពី '+from : (to ? 'រហូតដល់ '+to : 'ទាំងអស់'));
+  closeModal();
+  if (type === 'print') {
+    printEmployeeReport(emps, rangeLabel);
+  } else {
+    exportEmployeeExcelFiltered(emps, rangeLabel);
+  }
+}
+
+function printEmployeeReport(emps, rangeLabel) {
+  emps = emps || state.employees || [];
+  rangeLabel = rangeLabel || 'ទាំងអស់';
   const cfg = getCompanyConfig();
-  const emps = state.employees;
-  if (!emps || !emps.length) { showToast('មិនទាន់មានបុគ្គលិក!','error'); return; }
-  const currentMonth = new Date().toLocaleDateString('km-KH',{month:'long',year:'numeric'});
+  if (!emps.length) { showToast('មិនទាន់មានបុគ្គលិក!','error'); return; }
   const totalSalary = emps.reduce((s,e)=>s+(e.salary||0),0);
   const activeCount = emps.filter(e=>e.status==='active').length;
 
   const rows = emps.map((e,i)=>{
     const displayId = e.custom_id ? '#'+e.custom_id : '#EMP'+String(e.id).padStart(3,'0');
     const gender = e.gender==='male'?'ប្រុស':'ស្រី';
-    const statusTxt = e.status==='active'?'ធ្វើការ':e.status==='on_leave'?'ច្បាប់':'ផ្អាក';
+    const statusTxt = e.status==='active'?'✅ ធ្វើការ':e.status==='on_leave'?'🌴 ច្បាប់':'⛔ ផ្អាក';
     return '<tr style="background:'+(i%2===0?'white':'#f8faff')+'">'
       +'<td style="text-align:center;color:#666">'+(i+1)+'</td>'
       +'<td style="font-family:monospace;font-weight:700;color:#1d4ed8">'+displayId+'</td>'
@@ -864,62 +845,92 @@ function printEmployeeReport() {
       +'<td style="font-family:monospace">'+(e.phone||'—')+'</td>'
       +'<td style="font-family:monospace">'+(e.hire_date||'—')+'</td>'
       +'<td style="font-family:monospace;font-weight:700;color:#16a34a">$'+(e.salary||0)+'</td>'
-      +'<td>'+(e.status==='active'?'✅ '+statusTxt:e.status==='on_leave'?'🌴 '+statusTxt:'⛔ '+statusTxt)+'</td>'
+      +'<td>'+statusTxt+'</td>'
       +'</tr>';
   }).join('');
 
   const logoHtml = cfg.logo_url
-    ? '<img src="'+cfg.logo_url+'" style="width:44px;height:44px;object-fit:contain;border-radius:6px;margin-right:12px" />'
+    ? '<img src="'+cfg.logo_url+'" style="width:44px;height:44px;object-fit:contain;border-radius:6px;margin-right:12px;flex-shrink:0" />'
     : '<div style="width:44px;height:44px;background:#1a3a8f;border-radius:6px;display:flex;align-items:center;justify-content:center;color:white;font-weight:800;font-size:18px;margin-right:12px;flex-shrink:0">HR</div>';
 
-  const win = window.open('','_blank','width=1000,height=750');
-  if (!win) { showToast('Browser blocked popup! សូម allow popup.','error'); return; }
+  const win = window.open('','_blank','width=1050,height=750');
+  if (!win) { showToast('Browser blocked popup!','error'); return; }
   win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8">'
     +'<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Khmer:wght@400;600;700;800&display=swap" rel="stylesheet">'
-    +'<title>បញ្ជីបុគ្គលិក — '+currentMonth+'</title>'
+    +'<title>បញ្ជីបុគ្គលិក</title>'
     +'<style>*{box-sizing:border-box;margin:0;padding:0;font-family:"Noto Sans Khmer",sans-serif}'
     +'body{padding:16px;color:#1a1f2e;background:white}'
     +'.header{display:flex;align-items:center;margin-bottom:12px;padding-bottom:10px;border-bottom:2px solid #1a3a8f}'
     +'.co-name{font-size:17px;font-weight:800;color:#1a3a8f}'
     +'.rpt-title{font-size:13px;font-weight:700;margin:2px 0}'
     +'.rpt-sub{font-size:10px;color:#64748b}'
-    +'.summary{display:flex;gap:12px;margin-bottom:14px}'
-    +'.sum-box{flex:1;padding:10px 14px;background:#f8faff;border:1px solid #e2eaff;border-radius:8px;text-align:center}'
-    +'.sum-val{font-size:20px;font-weight:800;color:#1d4ed8}'
+    +'.summary{display:flex;gap:10px;margin-bottom:14px}'
+    +'.sum-box{flex:1;padding:8px 12px;background:#f8faff;border:1px solid #e2eaff;border-radius:8px;text-align:center}'
+    +'.sum-val{font-size:18px;font-weight:800;color:#1d4ed8}'
     +'.sum-lbl{font-size:9px;color:#64748b;margin-top:2px}'
     +'table{width:100%;border-collapse:collapse;font-size:10px}'
-    +'th{background:#1a3a8f;color:white;padding:7px 6px;text-align:left;font-size:10px}'
+    +'th{background:#1a3a8f;color:white;padding:7px 6px;text-align:left}'
     +'td{padding:5px 6px;border-bottom:1px solid #e5e7eb}'
-    +'.footer{margin-top:14px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}'
-    +'.sign{border-top:1px dashed #999;padding-top:4px;font-size:9px;color:#64748b;text-align:center;margin-top:20px}'
+    +'.sign{border-top:1px dashed #999;padding-top:4px;font-size:9px;color:#64748b;text-align:center;margin-top:24px}'
+    +'.footer{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-top:14px}'
     +'@media print{@page{size:A4 landscape;margin:8mm}body{padding:0}}'
     +'</style></head><body>'
     +'<div class="header">'+logoHtml
     +'<div><div class="co-name">'+(cfg.company_name||'HR Pro')+'</div>'
-    +'<div class="rpt-title">បញ្ជីសរុបបុគ្គលិក — '+currentMonth+'</div>'
-    +'<div class="rpt-sub">បោះពុម្ពនៅ: '+new Date().toLocaleDateString('km-KH',{weekday:'long',year:'numeric',month:'long',day:'numeric'})+'</div>'
+    +'<div class="rpt-title">បញ្ជីសរុបបុគ្គលិក</div>'
+    +'<div class="rpt-sub">រយៈពេល: '+rangeLabel+' &nbsp;|&nbsp; បោះពុម្ព: '+new Date().toLocaleDateString('km-KH',{year:'numeric',month:'long',day:'numeric'})+'</div>'
     +'</div></div>'
     +'<div class="summary">'
     +'<div class="sum-box"><div class="sum-val">'+emps.length+'</div><div class="sum-lbl">👥 សរុប</div></div>'
     +'<div class="sum-box"><div class="sum-val" style="color:#16a34a">'+activeCount+'</div><div class="sum-lbl">✅ ធ្វើការ</div></div>'
     +'<div class="sum-box"><div class="sum-val" style="color:#d97706">'+emps.filter(e=>e.status==='on_leave').length+'</div><div class="sum-lbl">🌴 ច្បាប់</div></div>'
     +'<div class="sum-box"><div class="sum-val" style="color:#dc2626">'+emps.filter(e=>e.status==='inactive').length+'</div><div class="sum-lbl">⛔ ផ្អាក</div></div>'
-    +'<div class="sum-box"><div class="sum-val" style="color:#0284c7;font-size:16px">$'+totalSalary.toLocaleString()+'</div><div class="sum-lbl">💵 ប្រាក់ខែសរុប</div></div>'
+    +'<div class="sum-box"><div class="sum-val" style="color:#0284c7;font-size:14px">$'+totalSalary.toLocaleString()+'</div><div class="sum-lbl">💵 ប្រាក់ខែសរុប</div></div>'
     +'</div>'
     +'<table><thead><tr>'
-    +'<th style="width:30px">លេខ</th><th>ID</th><th>ឈ្មោះពេញ</th><th>ភេទ</th><th>តំណែង</th><th>លេខទូរស័ព្ទ</th><th>ថ្ងៃចូលធ្វើការ</th><th>ប្រាក់ខែគោល</th><th>ស្ថានភាព</th>'
+    +'<th style="width:28px">លេខ</th><th>ID</th><th>ឈ្មោះពេញ</th><th>ភេទ</th><th>តំណែង</th><th>លេខទូរស័ព្ទ</th><th>ថ្ងៃចូលធ្វើការ</th><th>ប្រាក់ខែគោល</th><th>ស្ថានភាព</th>'
     +'</tr></thead><tbody>'+rows
     +'<tr style="background:#dbeafe;border-top:2px solid #1a3a8f">'
     +'<td colspan="7" style="text-align:right;font-weight:700;padding:8px 6px">សរុប:</td>'
     +'<td style="font-weight:800;color:#1a3a8f;font-family:monospace">$'+totalSalary.toLocaleString()+'</td><td></td>'
     +'</tr></tbody></table>'
-    +'<div class="footer"><div class="sign">ហត្ថលេខាអ្នកត្រួតពិនិត្យ</div><div class="sign">ហត្ថលេខា HR</div><div class="sign">ហត្ថលេខានាយក</div></div>'
+    +'<div class="footer">'
+    +'<div class="sign">ហត្ថលេខាអ្នកត្រួតពិនិត្យ</div>'
+    +'<div class="sign">ហត្ថលេខា HR</div>'
+    +'<div class="sign">ហត្ថលេខានាយក</div>'
+    +'</div>'
     +'</body></html>');
   win.document.close();
   setTimeout(()=>{ win.focus(); win.print(); }, 600);
 }
 
-function exportEmployeePDF() { printEmployeeReport(); }
+async function exportEmployeeExcelFiltered(emps, rangeLabel) {
+  emps = emps || state.employees || [];
+  rangeLabel = rangeLabel || 'ទាំងអស់';
+  const cfg = getCompanyConfig();
+  const headers = ['#','ID','ឈ្មោះពេញ','ភេទ','តំណែង','នាយកដ្ឋាន','លេខទូរស័ព្ទ','អ៊ីម៉ែល','ថ្ងៃចូលធ្វើការ','ប្រាក់ខែគោល','ស្ថានភាព'];
+  const rows = emps.map((e,i)=>[
+    i+1,
+    e.custom_id ? '#'+e.custom_id : '#EMP'+String(e.id).padStart(3,'0'),
+    e.name||'',
+    e.gender==='male'?'ប្រុស':'ស្រី',
+    e.position||'',
+    e.department_name||e.department||'',
+    e.phone||'',
+    e.email||'',
+    e.hire_date||'',
+    e.salary||0,
+    e.status==='active'?'ធ្វើការ':e.status==='on_leave'?'ច្បាប់':'ផ្អាក'
+  ]);
+  downloadBlob(
+    buildXLSX([{ name:'បុគ្គលិក ('+rangeLabel+')', headers, rows }]),
+    (cfg.company_name||'HR')+'_Employees_'+rangeLabel.replace(/[^0-9a-zA-Z]/g,'_')+'.xlsx'
+  );
+  showToast('Download Excel បានជោគជ័យ! ✅','success');
+}
+
+function exportEmployeePDF() { openEmployeeReportModal(); }
+
 
 async function deleteEmployee(id) {
   if (!confirm('តើអ្នកចង់លុបបុគ្គលិកនេះមែនទេ?')) return;
