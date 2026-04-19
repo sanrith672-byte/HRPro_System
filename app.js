@@ -6068,161 +6068,115 @@ async function printPayroll() {
 function printIdCards() {
   const cards = document.querySelectorAll('.id-flip-card');
   if (!cards.length) { showToast('មិនទាន់មានកាត!','error'); return; }
-  const cfg = getCompanyConfig();
+  const cfg   = getCompanyConfig();
   const style = currentCardStyle;
 
-  // Collect card HTML pairs
+  const logoHtml = cfg.logo_url
+    ? '<img src="'+cfg.logo_url+'" style="height:28px;object-fit:contain;vertical-align:middle;margin-right:8px" />'
+    : '';
+
   let pairsHTML = '';
   cards.forEach(card => {
     if (card.style.display === 'none') return;
-    const name = card.dataset.name || '';
+    const name  = card.dataset.name || '';
     const front = card.querySelector('.id-flip-front');
     const back  = card.querySelector('.id-flip-back');
     if (!front && !back) return;
-
-    const cloneFront = front ? front.cloneNode(true) : null;
-    const cloneBack  = back  ? back.cloneNode(true)  : null;
-    [cloneFront, cloneBack].forEach(el => {
-      if (!el) return;
-      el.style.cssText = 'position:relative;transform:none;backface-visibility:visible;width:86mm;height:54mm;display:block;';
-    });
-
-    pairsHTML +=
-      '<div class="card-pair">'
-      + '<div class="emp-label">'+name+'</div>'
-      + '<div class="card-row">'
-      + '<div class="card-side">'
-      +   '<div class="side-label">▶ FRONT</div>'
-      +   '<div class="card-box">'+(cloneFront ? cloneFront.outerHTML : '')+'</div>'
-      + '</div>'
-      + '<div class="card-side">'
-      +   '<div class="side-label">◀ BACK</div>'
-      +   '<div class="card-box">'+(cloneBack ? cloneBack.outerHTML : '')+'</div>'
-      + '</div>'
-      + '</div></div>';
-  });
-
-  win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8">'
-    +'<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Khmer:wght@400;600;700;800&display=swap" rel="stylesheet">'
-    +'<title>ID Cards 55×86mm — '+(cfg.company_name||'HR Pro')+'</title>'
-    +'<style>'
-    // Reset
-    +'*{box-sizing:border-box;margin:0;padding:0}'
-    +'body{font-family:"Noto Sans Khmer",sans-serif;background:white;color:#1e293b;padding:6mm}'
-    // Header
-    +'.print-header{text-align:center;margin-bottom:5mm;padding-bottom:3mm;border-bottom:1px solid #e2e8f0}'
-    +'.print-header h1{font-size:12pt;font-weight:800;color:#1d4ed8}'
-    +'.print-header p{font-size:8pt;color:#64748b;margin-top:1mm}'
-    // Grid: 2 employees per row, each employee = FRONT + BACK side by side
-    +'.cards-grid{display:flex;flex-direction:column;gap:8mm}'
-    +'.card-pair{break-inside:avoid;page-break-inside:avoid}'
-    +'.emp-label{font-size:6pt;font-weight:700;color:#94a3b8;letter-spacing:1px;text-transform:uppercase;margin-bottom:1.5mm}'
-    +'.card-row{display:flex;gap:4mm}'
-    +'.card-side{}'
-    +'.side-label{font-size:5.5pt;font-weight:700;color:#94a3b8;letter-spacing:.5px;text-transform:uppercase;margin-bottom:1mm;text-align:center}'
-    // Exact credit card size: 85.6mm × 54mm (ISO/IEC 7810 ID-1)
-    +'.card-box{'
-    +'  width:85.6mm;'
-    +'  height:54mm;'
-    +'  border-radius:3.18mm;'
-    +'  overflow:hidden;'
-    +'  box-shadow:0 0 0 0.3mm #cbd5e1;'
-    +'  position:relative;'
-    +'  display:block;'
-    +'}'
-    +'.card-box *{font-family:"Noto Sans Khmer",sans-serif!important}'
-    // Make all inner divs fill properly
-    +'.card-box>div{width:100%!important;height:100%!important;border-radius:3.18mm!important;overflow:hidden!important}'
-    +'@media print{'
-    +'  @page{size:A4 portrait;margin:6mm}'
-    +'  body{padding:3mm}'
-    +'  .print-header{margin-bottom:3mm;padding-bottom:2mm}'
-    +'  .card-box{box-shadow:0 0 0 0.3mm #94a3b8}'
-    +'}'
-    +'</style></head><body>'
-    +'<div class="print-header">'
-    +'<h1>🪪 '+(cfg.company_name||'HR Pro')+' — Employee ID Cards</h1>'
-    +'<p>'+(CARD_STYLE_META[style]?.label||style)+' · 85.6mm × 54mm (ISO Credit Card) · '+new Date().toLocaleDateString('km-KH')+' · '+cards.length+' Cards</p>'
-    +'</div>'
-    +'<div class="cards-grid">'
-    + pairsHTML
-    +'</div>'
-    +'</body></html>');
-  win.document.close();
-  setTimeout(() => { win.focus(); win.print(); }, 900);
-}
-
-// ── Portrait ID Card Print (3 cards per row, A4 portrait) ──
-function printIdCardsPortrait() {
-  const cards = document.querySelectorAll('.id-flip-card');
-  if (!cards.length) { showToast('មិនទាន់មានកាត!','error'); return; }
-  const cfg = getCompanyConfig();
-  const style = currentCardStyle;
-
-  let cardsHTML = '';
-  cards.forEach(card => {
-    if (card.style.display === 'none') return;
-    const name = card.dataset.name || '';
-    const front = card.querySelector('.id-flip-front');
-    const back  = card.querySelector('.id-flip-back');
-    if (!front && !back) return;
-
     const cloneFront = front ? front.cloneNode(true) : null;
     const cloneBack  = back  ? back.cloneNode(true)  : null;
     [cloneFront, cloneBack].forEach(el => {
       if (!el) return;
       el.style.cssText = 'position:relative;transform:none;backface-visibility:visible;width:85.6mm;height:54mm;display:block;';
     });
-
-    // Each card = front + back stacked vertically inside one cell
-    cardsHTML +=
-      '<div class="card-cell">'
-      + '<div class="side-lbl">▶ '+ name +'</div>'
-      + '<div class="card-box">'+(cloneFront ? cloneFront.outerHTML : '')+'</div>'
-      + '<div class="side-lbl" style="margin-top:2mm">◀ ខាងក្រោយ</div>'
-      + '<div class="card-box">'+(cloneBack ? cloneBack.outerHTML : '')+'</div>'
-      + '</div>';
+    pairsHTML +=
+      '<div class="card-pair">'
+      +'<div class="emp-label">'+name+'</div>'
+      +'<div class="card-row">'
+      +'<div class="card-side"><div class="side-label">▶ FRONT</div><div class="card-box">'+(cloneFront?cloneFront.outerHTML:'')+'</div></div>'
+      +'<div class="card-side"><div class="side-label">◀ BACK</div><div class="card-box">'+(cloneBack?cloneBack.outerHTML:'')+'</div></div>'
+      +'</div></div>';
   });
 
-  win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8">'
+  printHTML('<!DOCTYPE html><html><head><meta charset="UTF-8">'
     +'<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Khmer:wght@400;600;700;800&display=swap" rel="stylesheet">'
-    +'<title>ID Cards Portrait — '+(cfg.company_name||'HR Pro')+'</title>'
-    +'<style>'
-    +'*{box-sizing:border-box;margin:0;padding:0}'
-    +'body{font-family:"Noto Sans Khmer",sans-serif;background:white;color:#1e293b;padding:8mm}'
-    +'.print-header{text-align:center;margin-bottom:5mm;padding-bottom:3mm;border-bottom:1px solid #e2e8f0}'
-    +'.print-header h1{font-size:12pt;font-weight:800;color:#1d4ed8}'
-    +'.print-header p{font-size:8pt;color:#64748b;margin-top:1mm}'
-    // Portrait: 3 cards per row, each cell has FRONT + BACK stacked
-    +'.cards-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6mm}'
-    +'.card-cell{break-inside:avoid;page-break-inside:avoid;display:flex;flex-direction:column;align-items:center}'
-    +'.side-lbl{font-size:5.5pt;font-weight:700;color:#94a3b8;letter-spacing:.5px;text-transform:uppercase;margin-bottom:1mm;text-align:center}'
-    +'.card-box{'
-    +'  width:85.6mm;'
-    +'  height:54mm;'
-    +'  border-radius:3.18mm;'
-    +'  overflow:hidden;'
-    +'  box-shadow:0 0 0 0.3mm #cbd5e1;'
-    +'  position:relative;'
-    +'  display:block;'
-    +'}'
+    +'<title>ID Cards — '+(cfg.company_name||'HR Pro')+'</title>'
+    +'<style>*{box-sizing:border-box;margin:0;padding:0}'
+    +'body{font-family:"Noto Sans Khmer",sans-serif;background:white;color:#1e293b;padding:6mm}'
+    +'.print-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:5mm;padding-bottom:3mm;border-bottom:2px solid #1d4ed8}'
+    +'.header-left{display:flex;align-items:center;gap:8px}'
+    +'.co-name{font-size:13pt;font-weight:800;color:#1d4ed8}'
+    +'.header-right{font-size:8pt;color:#64748b;text-align:right}'
+    +'.cards-grid{display:flex;flex-direction:column;gap:7mm}'
+    +'.card-pair{break-inside:avoid;page-break-inside:avoid}'
+    +'.emp-label{font-size:6.5pt;font-weight:700;color:#64748b;letter-spacing:1px;margin-bottom:1.5mm}'
+    +'.card-row{display:flex;gap:5mm;align-items:flex-start}'
+    +'.side-label{font-size:5.5pt;font-weight:700;color:#94a3b8;letter-spacing:.5px;margin-bottom:1mm;text-align:center}'
+    +'.card-box{width:85.6mm;height:54mm;border-radius:3.18mm;overflow:hidden;box-shadow:0 0 0 0.4mm #cbd5e1;display:block;flex-shrink:0}'
     +'.card-box>div{width:100%!important;height:100%!important;border-radius:3.18mm!important;overflow:hidden!important}'
-    +'@media print{'
-    +'  @page{size:A4 portrait;margin:8mm}'
-    +'  body{padding:3mm}'
-    +'  .card-box{box-shadow:0 0 0 0.3mm #94a3b8}'
-    +'}'
+    +'@media print{@page{size:A4 portrait;margin:6mm}body{padding:3mm}.card-box{box-shadow:0 0 0 0.3mm #94a3b8}}'
     +'</style></head><body>'
     +'<div class="print-header">'
-    +'<h1>🪪 '+(cfg.company_name||'HR Pro')+' — ID Cards (Portrait)</h1>'
-    +'<p>'+(CARD_STYLE_META[style]?.label||style)+' · 85.6mm × 54mm · 3 per row · '+new Date().toLocaleDateString('km-KH')+' · '+cards.length+' Cards</p>'
+    +'<div class="header-left">'+logoHtml+'<div class="co-name">'+(cfg.company_name||'HR Pro')+'</div></div>'
+    +'<div class="header-right">🪪 Employee ID Cards<br>'+(CARD_STYLE_META[style]?.label||style)+' · '+new Date().toLocaleDateString('km-KH')+'<br>'+cards.length+' Cards</div>'
     +'</div>'
-    +'<div class="cards-grid">'
-    + cardsHTML
-    +'</div>'
+    +'<div class="cards-grid">'+pairsHTML+'</div>'
     +'</body></html>');
-  win.document.close();
-  setTimeout(() => { win.focus(); win.print(); }, 900);
+}
+
+function printIdCardsPortrait() {
+  const cards = document.querySelectorAll('.id-flip-card');
+  if (!cards.length) { showToast('មិនទាន់មានកាត!','error'); return; }
+  const cfg   = getCompanyConfig();
+  const style = currentCardStyle;
+
+  const logoHtml = cfg.logo_url
+    ? '<img src="'+cfg.logo_url+'" style="height:28px;object-fit:contain;vertical-align:middle;margin-right:8px" />'
+    : '';
+
+  let cardsHTML = '';
+  cards.forEach(card => {
+    if (card.style.display === 'none') return;
+    const name  = card.dataset.name || '';
+    const front = card.querySelector('.id-flip-front');
+    const back  = card.querySelector('.id-flip-back');
+    if (!front && !back) return;
+    const cloneFront = front ? front.cloneNode(true) : null;
+    const cloneBack  = back  ? back.cloneNode(true)  : null;
+    [cloneFront, cloneBack].forEach(el => {
+      if (!el) return;
+      el.style.cssText = 'position:relative;transform:none;backface-visibility:visible;width:85.6mm;height:54mm;display:block;';
+    });
+    cardsHTML +=
+      '<div class="card-cell">'
+      +'<div class="side-lbl">▶ '+name+'</div>'
+      +'<div class="card-box">'+(cloneFront?cloneFront.outerHTML:'')+'</div>'
+      +'<div class="side-lbl" style="margin-top:2mm">◀ ខាងក្រោយ</div>'
+      +'<div class="card-box">'+(cloneBack?cloneBack.outerHTML:'')+'</div>'
+      +'</div>';
+  });
+
+  printHTML('<!DOCTYPE html><html><head><meta charset="UTF-8">'
+    +'<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Khmer:wght@400;600;700;800&display=swap" rel="stylesheet">'
+    +'<title>ID Cards Portrait — '+(cfg.company_name||'HR Pro')+'</title>'
+    +'<style>*{box-sizing:border-box;margin:0;padding:0}'
+    +'body{font-family:"Noto Sans Khmer",sans-serif;background:white;color:#1e293b;padding:6mm}'
+    +'.print-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:5mm;padding-bottom:3mm;border-bottom:2px solid #1d4ed8}'
+    +'.header-left{display:flex;align-items:center;gap:8px}'
+    +'.co-name{font-size:13pt;font-weight:800;color:#1d4ed8}'
+    +'.header-right{font-size:8pt;color:#64748b;text-align:right}'
+    +'.cards-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5mm}'
+    +'.card-cell{break-inside:avoid;page-break-inside:avoid;display:flex;flex-direction:column;align-items:center}'
+    +'.side-lbl{font-size:5.5pt;font-weight:700;color:#64748b;letter-spacing:.5px;margin-bottom:1mm;text-align:center;width:100%}'
+    +'.card-box{width:85.6mm;height:54mm;border-radius:3.18mm;overflow:hidden;box-shadow:0 0 0 0.4mm #cbd5e1;display:block}'
+    +'.card-box>div{width:100%!important;height:100%!important;border-radius:3.18mm!important;overflow:hidden!important}'
+    +'@media print{@page{size:A4 portrait;margin:6mm}body{padding:3mm}.card-box{box-shadow:0 0 0 0.3mm #94a3b8}}'
+    +'</style></head><body>'
+    +'<div class="print-header">'
+    +'<div class="header-left">'+logoHtml+'<div class="co-name">'+(cfg.company_name||'HR Pro')+'</div></div>'
+    +'<div class="header-right">🪪 ID Cards Portrait<br>'+(CARD_STYLE_META[style]?.label||style)+' · '+new Date().toLocaleDateString('km-KH')+'<br>3 per row · '+cards.length+' Cards</div>'
+    +'</div>'
+    +'<div class="cards-grid">'+cardsHTML+'</div>'
+    +'</body></html>');
 }
 
 // ===== MODAL / TOAST / BADGE =====
