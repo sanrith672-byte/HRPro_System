@@ -897,6 +897,38 @@ async function doEmployeeReport(type) {
   }
 }
 
+// ── Print helper — uses hidden iframe to avoid popup blocking ──
+function printHTML(html) {
+  // Remove any existing print iframe
+  const old = document.getElementById('_print_frame');
+  if (old) old.remove();
+
+  const iframe = document.createElement('iframe');
+  iframe.id = '_print_frame';
+  iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;border:none';
+  document.body.appendChild(iframe);
+
+  const doc = iframe.contentDocument || iframe.contentWindow.document;
+  doc.open();
+  doc.write(html);
+  doc.close();
+
+  // Wait for fonts/images to load then print
+  iframe.onload = () => {
+    setTimeout(() => {
+      try {
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+      } catch(e) {
+        // Fallback: open in new tab
+        const w = window.open('','_blank');
+        if (w) { w.document.write(html); w.document.close(); setTimeout(()=>{ w.focus(); w.print(); }, 600); }
+        else showToast('សូម allow popup ក្នុង browser settings!','warning');
+      }
+    }, 600);
+  };
+}
+
 function calcWorkDuration(hireDate, termDate) {
   if (!hireDate) return '—';
   const start = new Date(hireDate);
@@ -948,9 +980,7 @@ function printEmployeeReport(emps, rangeLabel, leaveMap) {
     ? '<img src="'+cfg.logo_url+'" style="width:44px;height:44px;object-fit:contain;border-radius:6px;margin-right:12px;flex-shrink:0" />'
     : '<div style="width:44px;height:44px;background:#1a3a8f;border-radius:6px;display:flex;align-items:center;justify-content:center;color:white;font-weight:800;font-size:18px;margin-right:12px;flex-shrink:0">HR</div>';
 
-  const win = window.open('','_blank','width=1100,height=750');
-  if (!win) { showToast('Browser blocked popup!','error'); return; }
-  win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8">'
+  printHTML('<!DOCTYPE html><html><head><meta charset="UTF-8">'
     +'<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Khmer:wght@400;600;700;800&display=swap" rel="stylesheet">'
     +'<title>បញ្ជីបុគ្គលិក</title>'
     +'<style>*{box-sizing:border-box;margin:0;padding:0;font-family:"Noto Sans Khmer",sans-serif}'
@@ -998,8 +1028,7 @@ function printEmployeeReport(emps, rangeLabel, leaveMap) {
     +'<div class="sign">ហត្ថលេខានាយក</div>'
     +'</div>'
     +'</body></html>');
-  win.document.close();
-  setTimeout(()=>{ win.focus(); win.print(); }, 600);
+
 }
 
 async function exportEmployeeExcelFiltered(emps, rangeLabel, leaveMap) {
@@ -3981,10 +4010,7 @@ async function printGenExpWithBalance() {
       +'</tr>'
     ).join('');
 
-    const win = window.open('','_blank','width=900,height=700');
-    if (!win) { showToast('Browser blocked popup! សូម allow popup ក្នុង browser settings.','error'); return; }
-
-    win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8">'
+    printHTML('<!DOCTYPE html><html><head><meta charset="UTF-8">'
       +'<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Khmer:wght@400;600;700&display=swap" rel="stylesheet">'
       +'<title>ការចំណាយទូទៅ</title>'
       +'<style>*{box-sizing:border-box;margin:0;padding:0;font-family:"Noto Sans Khmer",sans-serif}'
@@ -4028,8 +4054,7 @@ async function printGenExpWithBalance() {
       +'</table>'
       +'<div class="footer"><div class="sign">ហត្ថលេខាអ្នកត្រួតពិនិត្យ</div><div class="sign">ហត្ថលេខាអ្នកអនុម័ត</div><div class="sign">ហត្ថលេខានាយក</div></div>'
       +'</body></html>');
-    win.document.close();
-    setTimeout(()=>{win.focus();win.print();},600);
+
   } catch(e) { showToast('Error: '+e.message,'error'); }
 }
 
@@ -4047,9 +4072,7 @@ function printTableData(title) {
     span.textContent=el.textContent.trim();
     el.replaceWith(span);
   });
-  const win=window.open('','_blank','width=900,height=700');
-  if (!win) { showToast('Browser blocked popup! សូម allow popup.','error'); return; }
-  win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8">'
+  const htmlContent = '<!DOCTYPE html><html><head><meta charset="UTF-8">'
     +'<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Khmer:wght@400;600;700&display=swap" rel="stylesheet">'
     +'<title>'+reportTitle+'</title>'
     +'<style>*{box-sizing:border-box;margin:0;padding:0;font-family:"Noto Sans Khmer",sans-serif}'
@@ -4070,9 +4093,8 @@ function printTableData(title) {
     +'</div>'
     +clone.outerHTML
     +'<div class="footer"><div class="sign">ហត្ថលេខាអ្នកត្រួតពិនិត្យ</div><div class="sign">ហត្ថលេខាអ្នកអនុម័ត</div><div class="sign">ហត្ថលេខានាយក</div></div>'
-    +'</body></html>');
-  win.document.close();
-  setTimeout(()=>{win.focus();win.print();},600);
+    +'</body></html>';
+  printHTML(htmlContent);
 }
 
 // ── 8: Attendance edit ──
@@ -5058,8 +5080,6 @@ function printPayroll() {
     ? '<img src="'+cfg.logo_url+'" style="width:48px;height:48px;object-fit:contain;border-radius:6px;margin-right:12px" />'
     : '<div style="width:48px;height:48px;background:#1a3a8f;border-radius:6px;display:flex;align-items:center;justify-content:center;color:white;font-weight:800;font-size:18px;margin-right:12px">HR</div>';
 
-  const win = window.open('','_blank','width=950,height=750');
-  if (!win) { showToast('Browser blocked popup! សូម allow popup.','error'); return; }
   win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8">'
     +'<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Khmer:wght@400;600;700;800&display=swap" rel="stylesheet">'
     +'<title>Payroll '+month+'</title>'
@@ -5131,8 +5151,6 @@ function printIdCards() {
       + '</div></div>';
   });
 
-  const win = window.open('','_blank','width=900,height=750');
-  if (!win) { showToast('Browser blocked popup! សូម allow popup.','error'); return; }
   win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8">'
     +'<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Khmer:wght@400;600;700;800&display=swap" rel="stylesheet">'
     +'<title>ID Cards 55×86mm — '+(cfg.company_name||'HR Pro')+'</title>'
@@ -5215,8 +5233,6 @@ function printIdCardsPortrait() {
       + '</div>';
   });
 
-  const win = window.open('','_blank','width=800,height=1000');
-  if (!win) { showToast('Browser blocked popup! សូម allow popup.','error'); return; }
   win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8">'
     +'<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Khmer:wght@400;600;700;800&display=swap" rel="stylesheet">'
     +'<title>ID Cards Portrait — '+(cfg.company_name||'HR Pro')+'</title>'
