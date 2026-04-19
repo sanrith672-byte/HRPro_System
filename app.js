@@ -475,46 +475,36 @@ const photoDB = {
   async open() {
     if (this._db) return this._db;
     return new Promise((res, rej) => {
-      // version 2 — raw keys (no 'emp_' prefix inside DB)
-      const req = indexedDB.open('hr_photos', 2);
-      req.onupgradeneeded = e => {
-        const db = e.target.result;
-        if (!db.objectStoreNames.contains('photos')) {
-          db.createObjectStore('photos');
-        }
-      };
+      const req = indexedDB.open('hr_photos', 1);
+      req.onupgradeneeded = e => e.target.result.createObjectStore('photos');
       req.onsuccess = e => { this._db = e.target.result; res(this._db); };
       req.onerror = () => rej(req.error);
     });
   },
-  async get(key) {
+  async get(id) {
     try {
       const db = await this.open();
       return new Promise(res => {
-        const req = db.transaction('photos').objectStore('photos').get(key);
+        const req = db.transaction('photos').objectStore('photos').get('emp_' + id);
         req.onsuccess = () => res(req.result || '');
         req.onerror = () => res('');
       });
     } catch { return ''; }
   },
-  async set(key, dataUrl) {
+  async set(id, dataUrl) {
     try {
       const db = await this.open();
       return new Promise(res => {
-        const req = db.transaction('photos','readwrite').objectStore('photos').put(dataUrl, key);
+        const req = db.transaction('photos','readwrite').objectStore('photos').put(dataUrl,'emp_'+id);
         req.onsuccess = () => res(true);
         req.onerror = () => res(false);
       });
     } catch { return false; }
   },
-  async del(key) {
+  async del(id) {
     try {
       const db = await this.open();
-      return new Promise(res => {
-        const req = db.transaction('photos','readwrite').objectStore('photos').delete(key);
-        req.onsuccess = () => res(true);
-        req.onerror = () => res(false);
-      });
+      db.transaction('photos','readwrite').objectStore('photos').delete('emp_'+id);
     } catch {}
   },
   async getAll() {
@@ -537,24 +527,70 @@ const photoDB = {
 // Sync cache for rendering (avoids async in render loops)
 const photoCache = {};
 
+// Load photos: API mode → fetch from Worker employees; Demo mode → IndexedDB
 async function loadAllPhotos() {
-  const all = await photoDB.getAll();
-  Object.assign(photoCache, all);
+  if (!isDemoMode()) {
+    try {
+      // Fetch all employees with photo/qr data (limit=500)
+      const res = await api('GET', '/employees?limit=500');
+      const list = res.employees || res || [];
+      for (const e of list) {
+        if (e.photo_data) photoCache['emp_' + e.id] = e.photo_data;
+        if (e.qr_data)   photoCache['qr_'  + e.id] = e.qr_data;
+      }
+    } catch(_) {
+      // Fallback to IndexedDB if API fails
+      const all = await photoDB.getAll();
+      Object.assign(photoCache, all);
+    }
+  } else {
+    const all = await photoDB.getAll();
+    Object.assign(photoCache, all);
+  }
 }
 
-// Employee photo — key: 'emp_123'
 function getEmpPhoto(id) {
   return photoCache['emp_' + id] || '';
 }
+
 async function setEmpPhoto(id, dataUrl) {
   const key = 'emp_' + id;
   photoCache[key] = dataUrl;
-  await photoDB.set(key, dataUrl);
+  if (!isDemoMode()) {
+    try { await api('POST', '/employees/' + id + '/photo', { data: dataUrl }); } catch(_) {}
+  } else {
+    await photoDB.set(key, dataUrl);
+  }
 }
+
 async function delEmpPhoto(id) {
   const key = 'emp_' + id;
   delete photoCache[key];
-  await photoDB.del(key);
+  if (!isDemoMode()) {
+    try { await api('DELETE', '/employees/' + id + '/photo'); } catch(_) {}
+  } else {
+    await photoDB.del(key);
+  }
+}
+
+async function setEmpQR(id, dataUrl) {
+  const key = 'qr_' + id;
+  photoCache[key] = dataUrl;
+  if (!isDemoMode()) {
+    try { await api('POST', '/employees/' + id + '/qr', { data: dataUrl }); } catch(_) {}
+  } else {
+    await photoDB.set(key, dataUrl);
+  }
+}
+
+async function delEmpQR(id) {
+  const key = 'qr_' + id;
+  delete photoCache[key];
+  if (!isDemoMode()) {
+    try { await api('DELETE', '/employees/' + id + '/qr'); } catch(_) {}
+  } else {
+    await photoDB.del(key);
+  }
 }
 
 
@@ -671,14 +707,6 @@ function removeEmpPhoto() {
   }
   showToast('លុបរូបថតរួច', 'success');
 }
-
-function removeEmpQR() {
-  state._pendingQR = '__remove__';
-  const p = document.getElementById('qr-preview');
-  if (p) p.innerHTML = '<span style="font-size:28px">📷</span>';
-  showToast('លុប QR ធនាគាររួច', 'success');
-}
-
 // Handle QR upload
 function handleQRUpload(input) {
   const file = input.files[0];
@@ -734,17 +762,11 @@ async function saveEmployee() {
       await setEmpPhoto(savedId, state._pendingPhoto);
     }
     state._pendingPhoto = null;
-    // Save QR — key: 'qr_123'
+    // Save QR
     if (state._pendingQR === '__remove__') {
-      if (savedId) {
-        const qrKey = 'qr_' + savedId;
-        delete photoCache[qrKey];
-        await photoDB.del(qrKey);
-      }
+      if (savedId) await delEmpQR(savedId);
     } else if (state._pendingQR && savedId) {
-      const qrKey = 'qr_' + savedId;
-      photoCache[qrKey] = state._pendingQR;
-      await photoDB.set(qrKey, state._pendingQR);
+      await setEmpQR(savedId, state._pendingQR);
     }
     state._pendingQR = null;
 
