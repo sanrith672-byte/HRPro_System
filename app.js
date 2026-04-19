@@ -5987,12 +5987,7 @@ async function printPayroll() {
 
   let totalNet = 0, totalBase = 0;
   const tableBody = records.map((r, i) => {
-    const emp    = empMap[r.employee_id] || {};
-    const qrData = photoCache['qr_' + r.employee_id] || emp.qr_data || '';
-    const bank   = emp.bank && emp.bank !== '—' ? emp.bank : '';
-    const qrHtml = qrData
-      ? '<img src="'+qrData+'" style="width:38px;height:38px;object-fit:contain;border-radius:4px;border:1px solid #e2e8f0" />'
-      : (bank ? '<div style="font-size:8px;color:#64748b;text-align:center">'+bank+'</div>' : '<span style="color:#ccc">—</span>');
+    const emp  = empMap[r.employee_id] || {};
     totalNet  += parseFloat(r.net_salary)  || 0;
     totalBase += parseFloat(r.base_salary) || 0;
     const statusHtml = r.status === 'paid'
@@ -6006,7 +6001,6 @@ async function printPayroll() {
       +'<td style="font-family:monospace;color:#16a34a">+'+sym+(r.bonus||0)+'</td>'
       +'<td style="font-family:monospace;color:#dc2626">-'+sym+(r.deduction||0)+'</td>'
       +'<td style="font-family:monospace;font-weight:800;color:#1d4ed8">'+sym+(r.net_salary||0)+'</td>'
-      +'<td style="text-align:center">'+qrHtml+'</td>'
       +'<td>'+statusHtml+'</td>'
       +'</tr>';
   }).join('');
@@ -6015,7 +6009,7 @@ async function printPayroll() {
     +'<td style="font-family:monospace;font-weight:700">'+sym+totalBase.toFixed(2)+'</td>'
     +'<td></td><td></td>'
     +'<td style="font-family:monospace;font-weight:800;color:#1a3a8f">'+sym+totalNet.toFixed(2)+'</td>'
-    +'<td></td><td></td></tr>';
+    +'<td></td></tr>';
 
   const logoHtml = cfg.logo_url
     ? '<img src="'+cfg.logo_url+'" style="width:48px;height:48px;object-fit:contain;border-radius:6px;margin-right:12px" />'
@@ -6038,14 +6032,13 @@ async function printPayroll() {
     +'@media print{@page{size:A4 landscape;margin:8mm}body{padding:0}}'
     +'</style></head><body>'
     +'<div class="header">'+logoHtml
-    +'<div><div class="co-name">'+( cfg.company_name||'HR Pro')+'</div>'
+    +'<div><div class="co-name">'+(cfg.company_name||'HR Pro')+'</div>'
     +'<div class="rpt-title">របាយការណ៍ប្រាក់ខែ — Payroll Report</div>'
     +'<div class="rpt-sub">ខែ: '+month+' | សរុប: '+records.length+' នាក់ | បោះពុម្ពនៅ: '+new Date().toLocaleDateString('km-KH')+'</div>'
     +'</div></div>'
     +'<table><thead><tr>'
     +'<th style="width:28px">លេខ</th><th>ឈ្មោះ</th><th>នាយកដ្ឋាន</th>'
-    +'<th>មូលដ្ឋាន</th><th>រង្វាន់</th><th>កាត់</th><th>Net</th>'
-    +'<th style="text-align:center;width:50px">QR ធនាគារ</th><th>ស្ថានភាព</th>'
+    +'<th>មូលដ្ឋាន</th><th>រង្វាន់</th><th>កាត់</th><th>Net</th><th>ស្ថានភាព</th>'
     +'</tr></thead><tbody>'+tableBody+totalRow+'</tbody></table>'
     +'<div class="footer">'
     +'<div class="sign">ហត្ថលេខាអ្នកត្រួតពិនិត្យ</div>'
