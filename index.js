@@ -51,22 +51,6 @@ async function handleRequest(request, env) {
       if (method === 'PUT') return updateEmployee(id, request, env);
       if (method === 'DELETE') return deleteEmployee(id, env);
     }
-    if (path.match(/^\/employees\/\d+\/photo$/)) {
-      const id = parseInt(path.split('/')[2]);
-      if (method === 'GET') return getEmpMedia(id, 'photo_data', env);
-      if (method === 'POST') return saveEmpMedia(id, 'photo_data', request, env);
-      if (method === 'DELETE') return deleteEmpMedia(id, 'photo_data', env);
-    }
-    if (path.match(/^\/employees\/\d+\/qr$/)) {
-      const id = parseInt(path.split('/')[2]);
-      if (method === 'GET') return getEmpMedia(id, 'qr_data', env);
-      if (method === 'POST') return saveEmpMedia(id, 'qr_data', request, env);
-      if (method === 'DELETE') return deleteEmpMedia(id, 'qr_data', env);
-    }
-    if (path === '/config') {
-      if (method === 'GET') return getAppConfig(env);
-      if (method === 'POST') return saveAppConfig(request, env);
-    }
 
     // ===== DEPARTMENTS =====
     if (path === '/departments') {
@@ -220,8 +204,6 @@ async function getEmployees(request, env) {
     COALESCE(e.bank,'') as bank,
     COALESCE(e.bank_account,'') as bank_account,
     COALESCE(e.bank_holder,'') as bank_holder,
-    COALESCE(e.photo_data,'') as photo_data,
-    COALESCE(e.qr_data,'') as qr_data,
     d.name as department_name, d.icon as dept_icon
   `;
 
@@ -242,7 +224,7 @@ async function getEmployees(request, env) {
     + (status ? ` AND e.status = ?` : '')
   ).bind(...params).first();
 
-  query += ` ORDER BY e.created_at DESC LIMIT ? OFFSET ?`;
+  query += ` ORDER BY e.id ASC LIMIT ? OFFSET ?`;
   params.push(limit, offset);
 
   const result = await env.DB.prepare(query).bind(...params).all();
@@ -264,8 +246,6 @@ async function getEmployee(id, env) {
            COALESCE(e.bank,'') as bank,
            COALESCE(e.bank_account,'') as bank_account,
            COALESCE(e.bank_holder,'') as bank_holder,
-           COALESCE(e.photo_data,'') as photo_data,
-           COALESCE(e.qr_data,'') as qr_data,
            d.name as department_name
     FROM employees e
     LEFT JOIN departments d ON e.department_id = d.id
@@ -563,44 +543,6 @@ async function paySalary(id, env) {
 // DASHBOARD STATS
 // ============================================================
 
-// ── Employee Photo/QR Media ───────────────────────────────────────────────
-async function getEmpMedia(id, col, env) {
-  try {
-    const row = await env.DB.prepare('SELECT '+col+' FROM employees WHERE id=?').bind(id).first();
-    return json({ data: row ? (row[col]||'') : '' });
-  } catch(_) { return json({ data: '' }); }
-}
-async function saveEmpMedia(id, col, request, env) {
-  try {
-    const { data } = await request.json();
-    if ((data||'').length > 2500000) return error('Too large', 413);
-    await env.DB.prepare('UPDATE employees SET '+col+'=? WHERE id=?').bind(data||'', id).run();
-    return json({ message: 'saved' });
-  } catch(e) { return error(e.message); }
-}
-async function deleteEmpMedia(id, col, env) {
-  try {
-    await env.DB.prepare('UPDATE employees SET '+col+"='' WHERE id=?").bind(id).run();
-    return json({ message: 'deleted' });
-  } catch(e) { return error(e.message); }
-}
-
-// ── App Config (company logo, name…) ─────────────────────────────────────
-async function getAppConfig(env) {
-  try {
-    const row = await env.DB.prepare("SELECT value FROM app_config WHERE key='company'").first();
-    return json(row ? JSON.parse(row.value||'{}') : {});
-  } catch(_) { return json({}); }
-}
-async function saveAppConfig(request, env) {
-  try {
-    const body = await request.json();
-    const val = JSON.stringify(body);
-    await env.DB.prepare("INSERT INTO app_config(key,value) VALUES('company',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value").bind(val).run();
-    return json({ message: 'Config saved' });
-  } catch(e) { return error(e.message); }
-}
-
 async function getStats(env) {
   const [empCount, deptCount, activeEmp, todayAtt, monthlySalary] = await Promise.all([
     env.DB.prepare('SELECT COUNT(*) as count FROM employees').first(),
@@ -817,9 +759,6 @@ async function initDatabase(env) {
     `ALTER TABLE employees ADD COLUMN bank TEXT DEFAULT ''`,
     `ALTER TABLE employees ADD COLUMN bank_account TEXT DEFAULT ''`,
     `ALTER TABLE employees ADD COLUMN bank_holder TEXT DEFAULT ''`,
-    `ALTER TABLE employees ADD COLUMN photo_data TEXT DEFAULT ''`,
-    `ALTER TABLE employees ADD COLUMN qr_data TEXT DEFAULT ''`,
-    `CREATE TABLE IF NOT EXISTS app_config (key TEXT PRIMARY KEY, value TEXT DEFAULT '')`,
   ];
   for (const m of migrations) {
     try { await env.DB.prepare(m).run(); } catch(_) { /* column already exists — OK */ }
