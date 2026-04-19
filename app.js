@@ -5108,6 +5108,12 @@ function initApp() {
     $('global-search').addEventListener('input', e => { if (state.currentPage === 'employees') renderEmployees(e.target.value); });
     $('btn-settings').addEventListener('click', () => navigate('settings'));
     updateApiStatus();
+    // Auto-set production Worker URL if not yet configured
+    const PRODUCTION_WORKER = 'https://employee-management-api.sansukun3.workers.dev';
+    if (!getApiBase()) {
+      localStorage.setItem(STORAGE_KEY, PRODUCTION_WORKER);
+      localStorage.removeItem(DEMO_MODE_KEY);
+    }
     if (!getApiBase() && localStorage.getItem(DEMO_MODE_KEY) !== '1') {
       showFirstRunSetup();
     } else {
