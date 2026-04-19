@@ -6841,19 +6841,45 @@ function initApp() {
   });
 }
 
+function saveWorkerUrlFromSelector() {
+  const input = document.getElementById('cs-worker-url');
+  const url = input?.value.trim();
+  if (!url) { showToast('សូមបញ្ចូល Worker URL!', 'error'); return; }
+  localStorage.setItem(STORAGE_KEY, url);
+  showToast('Save Worker URL រួច! ✅', 'success');
+  // Reload company selector with URL now set
+  showCompanySelector();
+}
+
 async function showCompanySelector() {
+  const savedUrl = getApiBase();
   contentArea().innerHTML =
-    '<div style="max-width:500px;margin:60px auto;text-align:center">'
-    +'<div style="font-size:56px;margin-bottom:16px">🏢</div>'
-    +'<h2 style="font-size:22px;font-weight:800;margin-bottom:8px">ជ្រើសរើសក្រុមហ៊ុន</h2>'
-    +'<p style="color:var(--text3);margin-bottom:28px">ជ្រើសក្រុមហ៊ុន ឬ បង្កើតថ្មី</p>'
-    +'<div id="company-list" style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px">'
-    +'<div style="text-align:center;padding:20px;color:var(--text3)">⏳ កំពុង load...</div>'
+    '<div style="max-width:520px;margin:40px auto">'
+    // Worker URL section (show if not set)
+    +(savedUrl ? '' :
+      '<div style="margin-bottom:20px;padding:16px;background:rgba(255,107,53,.08);border:1px solid rgba(255,107,53,.25);border-radius:12px">'
+      +'<div style="font-size:13px;font-weight:700;color:var(--warning);margin-bottom:10px">⚙️ ដាក់ Worker URL មុន</div>'
+      +'<div style="display:flex;gap:8px">'
+      +'<input class="form-control" id="cs-worker-url" placeholder="https://your-worker.workers.dev" style="flex:1;font-size:12px" />'
+      +'<button class="btn btn-primary" onclick="saveWorkerUrlFromSelector()">Save</button>'
+      +'</div>'
+      +'<div style="font-size:11px;color:var(--text3);margin-top:6px">Worker URL: <code>https://employee-management-api.sansukun3.workers.dev</code></div>'
+      +'</div>'
+    )
+    +'<div style="text-align:center;margin-bottom:20px">'
+    +'<div style="font-size:48px;margin-bottom:10px">🏢</div>'
+    +'<h2 style="font-size:20px;font-weight:800;margin-bottom:6px">ជ្រើសរើសក្រុមហ៊ុន</h2>'
+    +'<p style="color:var(--text3);font-size:13px">ជ្រើសក្រុមហ៊ុន ឬ បង្កើតថ្មី</p>'
+    +'</div>'
+    +'<div id="company-list" style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">'
+    +(savedUrl ? '<div style="text-align:center;padding:20px;color:var(--text3)">⏳ កំពុង load...</div>' : '<div style="text-align:center;padding:16px;color:var(--text3);font-size:13px">⚠️ សូម​ដាក់ Worker URL ជាមុន</div>')
     +'</div>'
     +'<button class="btn btn-primary" style="width:100%" onclick="openCreateCompanyModal()">'
     +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>'
     +' + បង្កើតក្រុមហ៊ុនថ្មី</button>'
     +'</div>';
+
+  if (!savedUrl) return;
 
   try {
     const data = await api('GET', '/companies');
