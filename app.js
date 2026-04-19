@@ -804,7 +804,6 @@ function openEmployeeReportModal() {
 async function doEmployeeReport(type) {
   const from = $('rpt-from')?.value;
   const to   = $('rpt-to')?.value;
-  // Filter employees by hire_date range
   let emps = state.employees || [];
   if (from || to) {
     emps = emps.filter(e => {
@@ -816,26 +815,42 @@ async function doEmployeeReport(type) {
     });
   }
   const rangeLabel = (from && to) ? from+' — '+to : (from ? 'ចាប់ពី '+from : (to ? 'រហូតដល់ '+to : 'ទាំងអស់'));
+
+  // Fetch leave data
+  let leaveMap = {};
+  try {
+    const leaveData = await api('GET', '/leave');
+    const records = leaveData.records || [];
+    records.forEach(r => {
+      if (r.status === 'approved') {
+        leaveMap[r.employee_id] = (leaveMap[r.employee_id] || 0) + (r.days || 0);
+      }
+    });
+  } catch(_) {}
+
   closeModal();
   if (type === 'print') {
-    printEmployeeReport(emps, rangeLabel);
+    printEmployeeReport(emps, rangeLabel, leaveMap);
   } else {
-    exportEmployeeExcelFiltered(emps, rangeLabel);
+    exportEmployeeExcelFiltered(emps, rangeLabel, leaveMap);
   }
 }
 
-function printEmployeeReport(emps, rangeLabel) {
+function printEmployeeReport(emps, rangeLabel, leaveMap) {
   emps = emps || state.employees || [];
   rangeLabel = rangeLabel || 'ទាំងអស់';
+  leaveMap = leaveMap || {};
   const cfg = getCompanyConfig();
   if (!emps.length) { showToast('មិនទាន់មានបុគ្គលិក!','error'); return; }
   const totalSalary = emps.reduce((s,e)=>s+(e.salary||0),0);
   const activeCount = emps.filter(e=>e.status==='active').length;
+  const totalLeaveDays = emps.reduce((s,e)=>s+(leaveMap[e.id]||0),0);
 
   const rows = emps.map((e,i)=>{
     const displayId = e.custom_id ? '#'+e.custom_id : '#EMP'+String(e.id).padStart(3,'0');
     const gender = e.gender==='male'?'ប្រុស':'ស្រី';
     const statusTxt = e.status==='active'?'✅ ធ្វើការ':e.status==='on_leave'?'🌴 ច្បាប់':'⛔ ផ្អាក';
+    const leaveDays = leaveMap[e.id] || 0;
     return '<tr style="background:'+(i%2===0?'white':'#f8faff')+'">'
       +'<td style="text-align:center;color:#666">'+(i+1)+'</td>'
       +'<td style="font-family:monospace;font-weight:700;color:#1d4ed8">'+displayId+'</td>'
@@ -845,6 +860,7 @@ function printEmployeeReport(emps, rangeLabel) {
       +'<td style="font-family:monospace">'+(e.phone||'—')+'</td>'
       +'<td style="font-family:monospace">'+(e.hire_date||'—')+'</td>'
       +'<td style="font-family:monospace;font-weight:700;color:#16a34a">$'+(e.salary||0)+'</td>'
+      +'<td style="text-align:center;font-weight:700;color:'+(leaveDays>0?'#d97706':'#94a3b8')+'">'+leaveDays+' ថ្ងៃ</td>'
       +'<td>'+statusTxt+'</td>'
       +'</tr>';
   }).join('');
@@ -853,7 +869,7 @@ function printEmployeeReport(emps, rangeLabel) {
     ? '<img src="'+cfg.logo_url+'" style="width:44px;height:44px;object-fit:contain;border-radius:6px;margin-right:12px;flex-shrink:0" />'
     : '<div style="width:44px;height:44px;background:#1a3a8f;border-radius:6px;display:flex;align-items:center;justify-content:center;color:white;font-weight:800;font-size:18px;margin-right:12px;flex-shrink:0">HR</div>';
 
-  const win = window.open('','_blank','width=1050,height=750');
+  const win = window.open('','_blank','width:1100,height:750');
   if (!win) { showToast('Browser blocked popup!','error'); return; }
   win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8">'
     +'<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Khmer:wght@400;600;700;800&display=swap" rel="stylesheet">'
@@ -885,14 +901,17 @@ function printEmployeeReport(emps, rangeLabel) {
     +'<div class="sum-box"><div class="sum-val" style="color:#16a34a">'+activeCount+'</div><div class="sum-lbl">✅ ធ្វើការ</div></div>'
     +'<div class="sum-box"><div class="sum-val" style="color:#d97706">'+emps.filter(e=>e.status==='on_leave').length+'</div><div class="sum-lbl">🌴 ច្បាប់</div></div>'
     +'<div class="sum-box"><div class="sum-val" style="color:#dc2626">'+emps.filter(e=>e.status==='inactive').length+'</div><div class="sum-lbl">⛔ ផ្អាក</div></div>'
+    +'<div class="sum-box"><div class="sum-val" style="color:#d97706">'+totalLeaveDays+'</div><div class="sum-lbl">📅 ថ្ងៃលាសរុប</div></div>'
     +'<div class="sum-box"><div class="sum-val" style="color:#0284c7;font-size:14px">$'+totalSalary.toLocaleString()+'</div><div class="sum-lbl">💵 ប្រាក់ខែសរុប</div></div>'
     +'</div>'
     +'<table><thead><tr>'
-    +'<th style="width:28px">លេខ</th><th>ID</th><th>ឈ្មោះពេញ</th><th>ភេទ</th><th>តំណែង</th><th>លេខទូរស័ព្ទ</th><th>ថ្ងៃចូលធ្វើការ</th><th>ប្រាក់ខែគោល</th><th>ស្ថានភាព</th>'
+    +'<th style="width:26px">លេខ</th><th>ID</th><th>ឈ្មោះពេញ</th><th>ភេទ</th><th>តំណែង</th><th>លេខទូរស័ព្ទ</th><th>ថ្ងៃចូលធ្វើការ</th><th>ប្រាក់ខែគោល</th><th style="text-align:center">ថ្ងៃលាឈប់</th><th>ស្ថានភាព</th>'
     +'</tr></thead><tbody>'+rows
     +'<tr style="background:#dbeafe;border-top:2px solid #1a3a8f">'
     +'<td colspan="7" style="text-align:right;font-weight:700;padding:8px 6px">សរុប:</td>'
-    +'<td style="font-weight:800;color:#1a3a8f;font-family:monospace">$'+totalSalary.toLocaleString()+'</td><td></td>'
+    +'<td style="font-weight:800;color:#1a3a8f;font-family:monospace">$'+totalSalary.toLocaleString()+'</td>'
+    +'<td style="text-align:center;font-weight:800;color:#d97706">'+totalLeaveDays+' ថ្ងៃ</td>'
+    +'<td></td>'
     +'</tr></tbody></table>'
     +'<div class="footer">'
     +'<div class="sign">ហត្ថលេខាអ្នកត្រួតពិនិត្យ</div>'
@@ -904,11 +923,12 @@ function printEmployeeReport(emps, rangeLabel) {
   setTimeout(()=>{ win.focus(); win.print(); }, 600);
 }
 
-async function exportEmployeeExcelFiltered(emps, rangeLabel) {
+async function exportEmployeeExcelFiltered(emps, rangeLabel, leaveMap) {
   emps = emps || state.employees || [];
   rangeLabel = rangeLabel || 'ទាំងអស់';
+  leaveMap = leaveMap || {};
   const cfg = getCompanyConfig();
-  const headers = ['#','ID','ឈ្មោះពេញ','ភេទ','តំណែង','នាយកដ្ឋាន','លេខទូរស័ព្ទ','អ៊ីម៉ែល','ថ្ងៃចូលធ្វើការ','ប្រាក់ខែគោល','ស្ថានភាព'];
+  const headers = ['#','ID','ឈ្មោះពេញ','ភេទ','តំណែង','នាយកដ្ឋាន','លេខទូរស័ព្ទ','អ៊ីម៉ែល','ថ្ងៃចូលធ្វើការ','ប្រាក់ខែគោល','ថ្ងៃលាឈប់','ស្ថានភាព'];
   const rows = emps.map((e,i)=>[
     i+1,
     e.custom_id ? '#'+e.custom_id : '#EMP'+String(e.id).padStart(3,'0'),
@@ -920,6 +940,7 @@ async function exportEmployeeExcelFiltered(emps, rangeLabel) {
     e.email||'',
     e.hire_date||'',
     e.salary||0,
+    leaveMap[e.id]||0,
     e.status==='active'?'ធ្វើការ':e.status==='on_leave'?'ច្បាប់':'ផ្អាក'
   ]);
   downloadBlob(
