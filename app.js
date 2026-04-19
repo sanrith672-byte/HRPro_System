@@ -408,6 +408,12 @@ function canEdit() {
 }
 
 // ===== EMPLOYEES =====
+let _empSortBy = 'id';
+function renderEmployeesSort(sortBy) {
+  _empSortBy = sortBy;
+  renderEmployees();
+}
+
 async function renderEmployees(filter='', dept='', status='') {
   showLoading();
   try {
@@ -419,6 +425,18 @@ async function renderEmployees(filter='', dept='', status='') {
     state.employees = empData.employees;
     state.departments = deptData;
     $('emp-count').textContent = empData.total;
+
+    // Apply client-side sort
+    const sortFn = {
+      'id':            (a,b) => a.id - b.id,
+      'name':          (a,b) => (a.name||'').localeCompare(b.name||''),
+      'name_desc':     (a,b) => (b.name||'').localeCompare(a.name||''),
+      'hire_date':     (a,b) => (a.hire_date||'') > (b.hire_date||'') ? 1 : -1,
+      'hire_date_desc':(a,b) => (a.hire_date||'') < (b.hire_date||'') ? 1 : -1,
+      'salary':        (a,b) => (a.salary||0) - (b.salary||0),
+      'salary_desc':   (a,b) => (b.salary||0) - (a.salary||0),
+    };
+    if (sortFn[_empSortBy]) empData.employees = [...empData.employees].sort(sortFn[_empSortBy]);
 
     // Load leave days per employee
     window._empLeaveMap = {};
@@ -438,14 +456,23 @@ async function renderEmployees(filter='', dept='', status='') {
       +'<button class="btn btn-outline" onclick="openEmployeeReportModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> 🖨️ បោះពុម្ព / Export</button>'
       +'</div></div>'
       +'<div class="filter-bar">'
-      +'<input class="filter-input" style="flex:1;min-width:180px" placeholder="ស្វែងរក..." value="'+filter+'" oninput="renderEmployees(this.value)" />'
-      +'<select class="filter-input" onchange="renderEmployees(\'\',this.value)"><option value="">នាយកដ្ឋានទាំងអស់</option>'
+      +'<input class="filter-input" style="flex:1;min-width:180px" placeholder="ស្វែងរក..." value="'+filter+'" oninput="renderEmployees(this.value,\''+dept+'\',\''+status+'\')" />'
+      +'<select class="filter-input" onchange="renderEmployees(\''+filter+'\',this.value,\''+status+'\')"><option value="">នាយកដ្ឋានទាំងអស់</option>'
       +deptData.map(d=>'<option value="'+d.name+'"'+(dept===d.name?' selected':'')+'>'+d.name+'</option>').join('')
       +'</select>'
-      +'<select class="filter-input" onchange="renderEmployees(\'\',\'\',this.value)"><option value="">ស្ថានភាពទាំងអស់</option>'
+      +'<select class="filter-input" onchange="renderEmployees(\''+filter+'\',\''+dept+'\',this.value)"><option value="">ស្ថានភាពទាំងអស់</option>'
       +'<option value="active"'+(status==='active'?' selected':'')+'>✅ ធ្វើការ</option>'
       +'<option value="on_leave"'+(status==='on_leave'?' selected':'')+'>🌴 ច្បាប់</option>'
-      +'<option value="inactive"'+(status==='inactive'?' selected':'')+'>⛔ ផ្អាក</option>'
+      +'<option value="inactive"'+(status==='inactive'?' selected':'')+'>⛔ ផ្អាក/លាឈប់</option>'
+      +'</select>'
+      +'<select class="filter-input" onchange="renderEmployeesSort(this.value)" id="emp-sort-sel">'
+      +'<option value="id">Sort: ID</option>'
+      +'<option value="name">Sort: ឈ្មោះ A→Z</option>'
+      +'<option value="name_desc">Sort: ឈ្មោះ Z→A</option>'
+      +'<option value="hire_date">Sort: ថ្ងៃចូល ចាស់→ថ្មី</option>'
+      +'<option value="hire_date_desc">Sort: ថ្ងៃចូល ថ្មី→ចាស់</option>'
+      +'<option value="salary">Sort: ប្រាក់ខែ ទាប→ខ្ពស់</option>'
+      +'<option value="salary_desc">Sort: ប្រាក់ខែ ខ្ពស់→ទាប</option>'
       +'</select>'
       +'</div>'
       +'<div class="card"><div class="table-container"><table>'
@@ -837,17 +864,13 @@ function openEmployeeReportModal() {
   const lastDay  = new Date(new Date().getFullYear(), new Date().getMonth()+1, 0).toISOString().split('T')[0];
   $('modal-title').textContent = '🖨️ បោះពុម្ព / Export បុគ្គលិក';
   $('modal-body').innerHTML =
-    '<div style="margin-bottom:16px;padding:14px;background:var(--bg3);border-radius:10px;border:1px solid var(--border)">'
-    +'<div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:12px">📅 ជ្រើសរើសរយៈពេល (ថ្ងៃចូលធ្វើការ)</div>'
-
-    // Select All toggle
-    +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;padding:10px 12px;background:var(--bg4);border-radius:8px;cursor:pointer" onclick="toggleRptAllDates()">'
+    // Date range section
+    '<div style="margin-bottom:12px;padding:14px;background:var(--bg3);border-radius:10px;border:1px solid var(--border)">'
+    +'<div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:10px">📅 ជ្រើសរើសរយៈពេល (ថ្ងៃចូលធ្វើការ)</div>'
+    +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;padding:8px 12px;background:var(--bg4);border-radius:8px;cursor:pointer" onclick="toggleRptAllDates()">'
     +'<input type="checkbox" id="rpt-all" style="width:16px;height:16px;accent-color:var(--primary);cursor:pointer" onchange="toggleRptAllDates()" />'
-    +'<div><div style="font-weight:700;font-size:13px">ទាំងអស់ (មិន filter ថ្ងៃ)</div>'
-    +'<div style="font-size:11px;color:var(--text3)">បង្ហាញបុគ្គលិកគ្រប់គ្នា មិនគិតថ្ងៃចូលធ្វើការ</div></div>'
+    +'<div><div style="font-weight:700;font-size:12px">ទាំងអស់ (មិន filter ថ្ងៃ)</div></div>'
     +'</div>'
-
-    // Date range inputs
     +'<div id="rpt-date-range" class="form-grid">'
     +'<div class="form-group"><label class="form-label">ពីថ្ងៃទី</label>'
     +'<input class="form-control" type="date" id="rpt-from" value="'+firstDay+'" /></div>'
@@ -856,6 +879,31 @@ function openEmployeeReportModal() {
     +'</div>'
     +'</div>'
 
+    // Filter + Sort section
+    +'<div style="margin-bottom:12px;padding:14px;background:var(--bg3);border-radius:10px;border:1px solid var(--border)">'
+    +'<div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:10px">🔽 Filter & Sort</div>'
+    +'<div class="form-grid">'
+    +'<div class="form-group"><label class="form-label">ស្ថានភាព</label>'
+    +'<select class="form-control" id="rpt-status">'
+    +'<option value="">ទាំងអស់</option>'
+    +'<option value="active">✅ ធ្វើការ</option>'
+    +'<option value="on_leave">🌴 ច្បាប់</option>'
+    +'<option value="inactive">⛔ ផ្អាក/លាឈប់</option>'
+    +'</select></div>'
+    +'<div class="form-group"><label class="form-label">Sort ដោយ</label>'
+    +'<select class="form-control" id="rpt-sort">'
+    +'<option value="name">ឈ្មោះ (A→Z)</option>'
+    +'<option value="name_desc">ឈ្មោះ (Z→A)</option>'
+    +'<option value="hire_date">ថ្ងៃចូល (ចាស់→ថ្មី)</option>'
+    +'<option value="hire_date_desc">ថ្ងៃចូល (ថ្មី→ចាស់)</option>'
+    +'<option value="salary">ប្រាក់ខែ (ទាប→ខ្ពស់)</option>'
+    +'<option value="salary_desc">ប្រាក់ខែ (ខ្ពស់→ទាប)</option>'
+    +'<option value="id">ID (A→Z)</option>'
+    +'</select></div>'
+    +'</div>'
+    +'</div>'
+
+    // Format buttons
     +'<div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:10px">ជ្រើស Format</div>'
     +'<div style="display:flex;flex-direction:column;gap:10px">'
     +'<button class="btn btn-outline" style="justify-content:flex-start;gap:10px;padding:12px 16px" onclick="doEmployeeReport(\'print\')">'
@@ -883,16 +931,19 @@ function toggleRptAllDates() {
 
 async function doEmployeeReport(type) {
   const allChecked = document.getElementById('rpt-all')?.checked;
-  const from = allChecked ? '' : ($('rpt-from')?.value || '');
-  const to   = allChecked ? '' : ($('rpt-to')?.value   || '');
+  const from       = allChecked ? '' : ($('rpt-from')?.value || '');
+  const to         = allChecked ? '' : ($('rpt-to')?.value   || '');
+  const statusFilt = $('rpt-status')?.value || '';
+  const sortBy     = $('rpt-sort')?.value   || 'name';
 
-  // Always fetch fresh data from API to get termination_date
+  // Fetch fresh data
   let allEmps = state.employees || [];
   try {
     const fresh = await api('GET', '/employees?limit=500');
     if (fresh.employees && fresh.employees.length) allEmps = fresh.employees;
   } catch(_) {}
 
+  // Filter by date
   let emps = allEmps;
   if (!allChecked && (from || to)) {
     emps = emps.filter(e => {
@@ -903,7 +954,28 @@ async function doEmployeeReport(type) {
       return true;
     });
   }
-  const rangeLabel = allChecked ? 'ទាំងអស់' : (from && to) ? from+' — '+to : (from ? 'ចាប់ពី '+from : (to ? 'រហូតដល់ '+to : 'ទាំងអស់'));
+
+  // Filter by status
+  if (statusFilt) emps = emps.filter(e => e.status === statusFilt);
+
+  // Sort
+  emps = [...emps].sort((a, b) => {
+    switch(sortBy) {
+      case 'name':          return (a.name||'').localeCompare(b.name||'');
+      case 'name_desc':     return (b.name||'').localeCompare(a.name||'');
+      case 'hire_date':     return (a.hire_date||'') > (b.hire_date||'') ? 1 : -1;
+      case 'hire_date_desc':return (a.hire_date||'') < (b.hire_date||'') ? 1 : -1;
+      case 'salary':        return (a.salary||0) - (b.salary||0);
+      case 'salary_desc':   return (b.salary||0) - (a.salary||0);
+      case 'id':            return a.id - b.id;
+      default:              return 0;
+    }
+  });
+
+  const statusLabel = statusFilt === 'active' ? '✅ ធ្វើការ' : statusFilt === 'on_leave' ? '🌴 ច្បាប់' : statusFilt === 'inactive' ? '⛔ ផ្អាក/លាឈប់' : 'ទាំងអស់';
+  const sortLabel   = {'name':'ឈ្មោះ↑','name_desc':'ឈ្មោះ↓','hire_date':'ថ្ងៃចូល↑','hire_date_desc':'ថ្ងៃចូល↓','salary':'ប្រាក់ខែ↑','salary_desc':'ប្រាក់ខែ↓','id':'ID'}[sortBy]||'';
+  const rangeLabel  = allChecked ? 'ទាំងអស់' : (from && to) ? from+' — '+to : (from ? 'ចាប់ពី '+from : (to ? 'រហូតដល់ '+to : 'ទាំងអស់'));
+  const fullLabel   = rangeLabel + (statusFilt ? ' · '+statusLabel : '') + ' · Sort: '+sortLabel;
 
   // Fetch leave data
   let leaveMap = {};
@@ -919,9 +991,9 @@ async function doEmployeeReport(type) {
 
   closeModal();
   if (type === 'print') {
-    printEmployeeReport(emps, rangeLabel, leaveMap);
+    printEmployeeReport(emps, fullLabel, leaveMap);
   } else {
-    exportEmployeeExcelFiltered(emps, rangeLabel, leaveMap);
+    exportEmployeeExcelFiltered(emps, fullLabel, leaveMap);
   }
 }
 
