@@ -577,7 +577,6 @@ async function deleteEmpMedia(id, col, env) {
     return json({ message: 'deleted' });
   } catch(e) { return error(e.message); }
 }
-
 // ── App Config ────────────────────────────────────────────────────────────
 async function getAppConfig(env) {
   try {
@@ -588,12 +587,10 @@ async function getAppConfig(env) {
 async function saveAppConfig(request, env) {
   try {
     const body = await request.json();
-    await env.DB.prepare("INSERT INTO app_config(key,value) VALUES('company',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value")
-      .bind(JSON.stringify(body)).run();
+    await env.DB.prepare("INSERT INTO app_config(key,value) VALUES('company',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value").bind(JSON.stringify(body)).run();
     return json({ message: 'Config saved' });
   } catch(e) { return error(e.message); }
 }
-
 async function getStats(env) {
   const [empCount, deptCount, activeEmp, todayAtt, monthlySalary] = await Promise.all([
     env.DB.prepare('SELECT COUNT(*) as count FROM employees').first(),

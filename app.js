@@ -475,36 +475,39 @@ const photoDB = {
   async open() {
     if (this._db) return this._db;
     return new Promise((res, rej) => {
-      const req = indexedDB.open('hr_photos', 1);
-      req.onupgradeneeded = e => e.target.result.createObjectStore('photos');
+      const req = indexedDB.open('hr_photos', 2);
+      req.onupgradeneeded = e => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains('photos')) db.createObjectStore('photos');
+      };
       req.onsuccess = e => { this._db = e.target.result; res(this._db); };
       req.onerror = () => rej(req.error);
     });
   },
-  async get(id) {
+  async get(key) {
     try {
       const db = await this.open();
       return new Promise(res => {
-        const req = db.transaction('photos').objectStore('photos').get('emp_' + id);
+        const req = db.transaction('photos').objectStore('photos').get(key);
         req.onsuccess = () => res(req.result || '');
         req.onerror = () => res('');
       });
     } catch { return ''; }
   },
-  async set(id, dataUrl) {
+  async set(key, dataUrl) {
     try {
       const db = await this.open();
       return new Promise(res => {
-        const req = db.transaction('photos','readwrite').objectStore('photos').put(dataUrl,'emp_'+id);
+        const req = db.transaction('photos','readwrite').objectStore('photos').put(dataUrl, key);
         req.onsuccess = () => res(true);
         req.onerror = () => res(false);
       });
     } catch { return false; }
   },
-  async del(id) {
+  async del(key) {
     try {
       const db = await this.open();
-      db.transaction('photos','readwrite').objectStore('photos').delete('emp_'+id);
+      db.transaction('photos','readwrite').objectStore('photos').delete(key);
     } catch {}
   },
   async getAll() {
@@ -528,20 +531,50 @@ const photoDB = {
 const photoCache = {};
 
 async function loadAllPhotos() {
+  if (!isDemoMode()) {
+    try {
+      const res = await api('GET', '/employees?limit=500');
+      const list = res.employees || res || [];
+      for (const e of list) {
+        if (e.photo_data) photoCache['emp_' + e.id] = e.photo_data;
+        if (e.qr_data)   photoCache['qr_'  + e.id] = e.qr_data;
+      }
+      return;
+    } catch(_) {}
+  }
   const all = await photoDB.getAll();
   Object.assign(photoCache, all);
 }
 
-function getEmpPhoto(id) {
-  return photoCache['emp_' + id] || '';
-}
+function getEmpPhoto(id) { return photoCache['emp_' + id] || ''; }
+
 async function setEmpPhoto(id, dataUrl) {
-  photoCache['emp_' + id] = dataUrl;
-  await photoDB.set(id, dataUrl);
+  const key = 'emp_' + id;
+  photoCache[key] = dataUrl;
+  if (!isDemoMode()) {
+    try { await api('POST', '/employees/' + id + '/photo', { data: dataUrl }); } catch(_) {}
+  } else { await photoDB.set(key, dataUrl); }
 }
 async function delEmpPhoto(id) {
-  delete photoCache['emp_' + id];
-  await photoDB.del(id);
+  const key = 'emp_' + id;
+  delete photoCache[key];
+  if (!isDemoMode()) {
+    try { await api('DELETE', '/employees/' + id + '/photo'); } catch(_) {}
+  } else { await photoDB.del(key); }
+}
+async function setEmpQR(id, dataUrl) {
+  const key = 'qr_' + id;
+  photoCache[key] = dataUrl;
+  if (!isDemoMode()) {
+    try { await api('POST', '/employees/' + id + '/qr', { data: dataUrl }); } catch(_) {}
+  } else { await photoDB.set(key, dataUrl); }
+}
+async function delEmpQR(id) {
+  const key = 'qr_' + id;
+  delete photoCache[key];
+  if (!isDemoMode()) {
+    try { await api('DELETE', '/employees/' + id + '/qr'); } catch(_) {}
+  } else { await photoDB.del(key); }
 }
 
 
@@ -658,6 +691,12 @@ function removeEmpPhoto() {
   }
   showToast('លុបរូបថតរួច', 'success');
 }
+function removeEmpQR() {
+  state._pendingQR = '__remove__';
+  const p = document.getElementById('qr-preview');
+  if (p) p.innerHTML = '<span style="font-size:28px">📷</span>';
+  showToast('លុប QR រួច', 'success');
+}
 // Handle QR upload
 function handleQRUpload(input) {
   const file = input.files[0];
@@ -714,9 +753,10 @@ async function saveEmployee() {
     }
     state._pendingPhoto = null;
     // Save QR
-    if (state._pendingQR && savedId) {
-      photoCache['qr_' + savedId] = state._pendingQR;
-      await photoDB.set('qr_' + savedId, state._pendingQR);
+    if (state._pendingQR === '__remove__') {
+      if (savedId) await delEmpQR(savedId);
+    } else if (state._pendingQR && savedId) {
+      await setEmpQR(savedId, state._pendingQR);
     }
     state._pendingQR = null;
 
@@ -2671,7 +2711,6 @@ function idCardHTML(e, style, cfg) {
   const qrInner = qrSize - 6;
 
   // makeQRSvg seeds from empIdRaw so "0009" → unique QR for that ID
-  // Always auto-generate QR from Employee ID — never use bank QR
   const qrBlock     = '<div style="width:'+qrSize+'px;height:'+qrSize+'px;background:white;border-radius:10px;overflow:hidden;padding:4px;box-shadow:0 2px 8px rgba(0,0,0,.15)">'+makeQRSvg(empIdRaw, qrInner, '#111827','#fff')+'</div>';
   const qrBlockDark = '<div style="width:'+qrSize+'px;height:'+qrSize+'px;background:white;border-radius:10px;overflow:hidden;padding:4px;box-shadow:0 2px 8px rgba(0,0,0,.15)">'+makeQRSvg(empIdRaw, qrInner,'#0f172a','#f8fafc')+'</div>';
 
@@ -2707,7 +2746,7 @@ function idCardHTML(e, style, cfg) {
     ['នាយកដ្ឋាន', dept],
     ['ទូរស័ព្ទ',  e.phone||'—'],
   ];
-  // Bank QR removed from card — no duplicate bank row needed
+  // bank row removed from card
 
   const wrap = (front, back) =>
     '<div class="id-card id-flip-card" data-name="'+e.name+'" data-dept="'+dept
@@ -3039,7 +3078,6 @@ idCardHTML = function(e, style, cfg) {
   }
 
   function qrAuto(darkC, lightC) {
-    // Always auto-generate from Employee ID
     return '<div style="width:'+qrSize+'px;height:'+qrSize+'px;background:'+(lightC||'white')+';border-radius:10px;overflow:hidden;padding:4px;box-shadow:0 2px 8px rgba(0,0,0,.15)">'+makeQRSvg(empIdRaw,qrInner,darkC||'#111827',lightC||'#fff')+'</div>';
   }
 
@@ -3480,8 +3518,22 @@ function thisMonth() { return new Date().toISOString().slice(0,7); }
 const CFG_KEY = 'hr_company_config';
 const SAL_KEY = 'hr_salary_rules';
 
+let _cfgCache = null;
 function getCompanyConfig() {
+  if (_cfgCache) return _cfgCache;
   try { return JSON.parse(localStorage.getItem(CFG_KEY)) || {}; } catch { return {}; }
+}
+async function loadCompanyConfig() {
+  if (isDemoMode()) {
+    try { _cfgCache = JSON.parse(localStorage.getItem(CFG_KEY)) || {}; } catch { _cfgCache = {}; }
+    return;
+  }
+  try {
+    const data = await api('GET', '/config');
+    if (data && !data.error) { _cfgCache = data; localStorage.setItem(CFG_KEY, JSON.stringify(data)); }
+    else { _cfgCache = JSON.parse(localStorage.getItem(CFG_KEY)) || {}; }
+  } catch(_) { _cfgCache = JSON.parse(localStorage.getItem(CFG_KEY)) || {}; }
+  applyCompanyBranding();
 }
 function getSalaryRules() {
   const def = {
@@ -3660,7 +3712,12 @@ async function saveEditAtt(id, date) {
   } catch(e){showToast('Error: '+e.message,'error');}
 }
 
-function saveCompanyConfig(cfg) { localStorage.setItem(CFG_KEY, JSON.stringify(cfg)); applyCompanyBranding(); }
+function saveCompanyConfig(cfg) {
+  _cfgCache = cfg;
+  localStorage.setItem(CFG_KEY, JSON.stringify(cfg));
+  applyCompanyBranding();
+  if (!isDemoMode()) { api('POST', '/config', cfg).catch(() => {}); }
+}
 function saveSalaryRules(rules) { localStorage.setItem(SAL_KEY, JSON.stringify(rules)); }
 
 function applyCompanyBranding() {
@@ -4773,8 +4830,8 @@ document.addEventListener('DOMContentLoaded', () => {
 function initApp() {
   $('current-date').textContent = new Date().toLocaleDateString('km-KH', {year:'numeric',month:'short',day:'numeric'});
 
-  // Load all photos into cache first, then start app
-  loadAllPhotos().then(() => {
+  // Load config + photos together
+  Promise.all([isDemoMode() ? Promise.resolve() : loadCompanyConfig(), loadAllPhotos()]).then(() => {
     const session = getSession();
     if (session) {
       const uname = $('sidebar-user-name');
