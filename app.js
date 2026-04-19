@@ -5921,53 +5921,65 @@ function printSalaryPage() { printPayroll(); }
 // PRINT FUNCTIONS
 // ============================================================
 
-function printPayroll() {
-  // Clean text-only payroll PDF — no photos, no avatars
-  const cfg = getCompanyConfig();
-  const month = document.getElementById('rpt-month')?.value || thisMonth();
+async function printPayroll() {
+  const cfg   = getCompanyConfig();
+  const month = document.getElementById('rpt-month')?.value
+             || document.querySelector('input[type=month]')?.value
+             || thisMonth();
   const rules = getSalaryRules();
-  const sym = rules.currency_symbol || '$';
-  const rows = document.querySelectorAll('#content-area tbody tr');
-  if (!rows.length) { showToast('មិនទាន់មានទិន្នន័យ!','error'); return; }
+  const sym   = rules.currency_symbol || '$';
 
-  let tableBody = '';
-  let totalNet = 0, totalBase = 0, num = 0;
-  rows.forEach(tr => {
-    const tds = tr.querySelectorAll('td');
-    if (tds.length < 6) return;
-    num++;
-    const name = tr.querySelector('.emp-name')?.textContent?.trim() || tds[0]?.textContent?.trim() || '';
-    const dept = tds[1]?.textContent?.trim() || '';
-    const base = tds[2]?.textContent?.replace(/[^\d.]/g,'') || '0';
-    const bonus = tds[3]?.textContent?.replace(/[^\d.]/g,'') || '0';
-    const deduct = tds[4]?.textContent?.replace(/[^\d.]/g,'') || '0';
-    const net = tds[5]?.textContent?.replace(/[^\d.]/g,'') || '0';
-    const badge = tr.querySelector('.badge')?.textContent?.trim() || '';
-    totalNet += parseFloat(net)||0;
-    totalBase += parseFloat(base)||0;
-    tableBody += '<tr style="background:'+(num%2===0?'#f8faff':'white')+'">'
-      +'<td style="text-align:center;color:#666">'+num+'</td>'
-      +'<td style="font-weight:600">'+name+'</td>'
-      +'<td>'+dept+'</td>'
-      +'<td>'+sym+base+'</td>'
-      +'<td style="color:#22c55e">+'+sym+bonus+'</td>'
-      +'<td style="color:#ef4444">-'+sym+deduct+'</td>'
-      +'<td style="font-weight:700">'+sym+net+'</td>'
-      +'<td>'+badge+'</td>'
+  showToast('⏳ កំពុងរៀបចំ...', 'info');
+
+  let records = [], empMap = {};
+  try {
+    const [salData, empData] = await Promise.all([
+      api('GET', '/salary?month=' + month),
+      api('GET', '/employees?limit=500'),
+    ]);
+    records = salData.records || [];
+    (empData.employees || []).forEach(e => { empMap[e.id] = e; });
+  } catch(e) { showToast('Error: ' + e.message, 'error'); return; }
+
+  if (!records.length) { showToast('មិនទាន់មានទិន្នន័យ!', 'error'); return; }
+
+  let totalNet = 0, totalBase = 0;
+  const tableBody = records.map((r, i) => {
+    const emp    = empMap[r.employee_id] || {};
+    const qrData = photoCache['qr_' + r.employee_id] || emp.qr_data || '';
+    const bank   = emp.bank && emp.bank !== '—' ? emp.bank : '';
+    const qrHtml = qrData
+      ? '<img src="'+qrData+'" style="width:38px;height:38px;object-fit:contain;border-radius:4px;border:1px solid #e2e8f0" />'
+      : (bank ? '<div style="font-size:8px;color:#64748b;text-align:center">'+bank+'</div>' : '<span style="color:#ccc">—</span>');
+    totalNet  += parseFloat(r.net_salary)  || 0;
+    totalBase += parseFloat(r.base_salary) || 0;
+    const statusHtml = r.status === 'paid'
+      ? '<span style="color:#16a34a;font-weight:700">✅ បានបង់</span>'
+      : '<span style="color:#d97706;font-weight:700">⏳ រង់ចាំ</span>';
+    return '<tr style="background:'+(i%2===0?'white':'#f8faff')+'">'
+      +'<td style="text-align:center;color:#666">'+(i+1)+'</td>'
+      +'<td style="font-weight:600">'+(r.employee_name||'—')+'</td>'
+      +'<td style="font-size:10px;color:#64748b">'+(r.department||'—')+'</td>'
+      +'<td style="font-family:monospace">'+sym+(r.base_salary||0)+'</td>'
+      +'<td style="font-family:monospace;color:#16a34a">+'+sym+(r.bonus||0)+'</td>'
+      +'<td style="font-family:monospace;color:#dc2626">-'+sym+(r.deduction||0)+'</td>'
+      +'<td style="font-family:monospace;font-weight:800;color:#1d4ed8">'+sym+(r.net_salary||0)+'</td>'
+      +'<td style="text-align:center">'+qrHtml+'</td>'
+      +'<td>'+statusHtml+'</td>'
       +'</tr>';
-  });
-  tableBody += '<tr style="background:#dbeafe;border-top:2px solid #1a3a8f">'
+  }).join('');
+  const totalRow = '<tr style="background:#dbeafe;border-top:2px solid #1a3a8f">'
     +'<td colspan="3" style="text-align:right;font-weight:700;padding:8px 6px">សរុប:</td>'
-    +'<td style="font-weight:700">'+sym+totalBase.toFixed(2)+'</td>'
+    +'<td style="font-family:monospace;font-weight:700">'+sym+totalBase.toFixed(2)+'</td>'
     +'<td></td><td></td>'
-    +'<td style="font-weight:800;color:#1a3a8f">'+sym+totalNet.toFixed(2)+'</td>'
-    +'<td></td></tr>';
+    +'<td style="font-family:monospace;font-weight:800;color:#1a3a8f">'+sym+totalNet.toFixed(2)+'</td>'
+    +'<td></td><td></td></tr>';
 
   const logoHtml = cfg.logo_url
     ? '<img src="'+cfg.logo_url+'" style="width:48px;height:48px;object-fit:contain;border-radius:6px;margin-right:12px" />'
     : '<div style="width:48px;height:48px;background:#1a3a8f;border-radius:6px;display:flex;align-items:center;justify-content:center;color:white;font-weight:800;font-size:18px;margin-right:12px">HR</div>';
 
-  win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8">'
+  printHTML('<!DOCTYPE html><html><head><meta charset="UTF-8">'
     +'<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Khmer:wght@400;600;700;800&display=swap" rel="stylesheet">'
     +'<title>Payroll '+month+'</title>'
     +'<style>*{box-sizing:border-box;margin:0;padding:0;font-family:"Noto Sans Khmer",sans-serif}'
@@ -5978,27 +5990,26 @@ function printPayroll() {
     +'.rpt-sub{font-size:10px;color:#666}'
     +'table{width:100%;border-collapse:collapse;font-size:10px}'
     +'th{background:#1a3a8f;color:white;padding:7px 5px;text-align:left}'
-    +'td{padding:5px 5px;border-bottom:1px solid #e2e8f0}'
+    +'td{padding:5px;border-bottom:1px solid #e2e8f0;vertical-align:middle}'
     +'.footer{margin-top:16px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}'
-    +'.sign{border-top:1px dashed #999;padding-top:4px;font-size:9px;color:#666;text-align:center}'
+    +'.sign{border-top:1px dashed #999;padding-top:4px;font-size:9px;color:#666;text-align:center;margin-top:20px}'
     +'@media print{@page{size:A4 landscape;margin:8mm}body{padding:0}}'
     +'</style></head><body>'
     +'<div class="header">'+logoHtml
     +'<div><div class="co-name">'+( cfg.company_name||'HR Pro')+'</div>'
     +'<div class="rpt-title">របាយការណ៍ប្រាក់ខែ — Payroll Report</div>'
-    +'<div class="rpt-sub">ខែ: '+month+' &nbsp;&nbsp; បោះពុម្ពនៅ: '+new Date().toLocaleDateString('km-KH')+'</div>'
+    +'<div class="rpt-sub">ខែ: '+month+' | សរុប: '+records.length+' នាក់ | បោះពុម្ពនៅ: '+new Date().toLocaleDateString('km-KH')+'</div>'
     +'</div></div>'
     +'<table><thead><tr>'
-    +'<th style="width:32px">លេខ</th><th>ឈ្មោះ</th><th>នាយកដ្ឋាន</th>'
-    +'<th>មូលដ្ឋាន</th><th>រង្វាន់</th><th>កាត់</th><th>Net</th><th>ស្ថានភាព</th>'
-    +'</tr></thead><tbody>'+tableBody+'</tbody></table>'
+    +'<th style="width:28px">លេខ</th><th>ឈ្មោះ</th><th>នាយកដ្ឋាន</th>'
+    +'<th>មូលដ្ឋាន</th><th>រង្វាន់</th><th>កាត់</th><th>Net</th>'
+    +'<th style="text-align:center;width:50px">QR ធនាគារ</th><th>ស្ថានភាព</th>'
+    +'</tr></thead><tbody>'+tableBody+totalRow+'</tbody></table>'
     +'<div class="footer">'
     +'<div class="sign">ហត្ថលេខាអ្នកត្រួតពិនិត្យ</div>'
     +'<div class="sign">ហត្ថលេខាអ្នកអនុម័ត</div>'
     +'<div class="sign">ហត្ថលេខានាយក</div>'
     +'</div></body></html>');
-  win.document.close();
-  setTimeout(() => { win.focus(); win.print(); }, 600);
 }
 
 function printIdCards() {
