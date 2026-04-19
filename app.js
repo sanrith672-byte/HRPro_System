@@ -475,36 +475,39 @@ const photoDB = {
   async open() {
     if (this._db) return this._db;
     return new Promise((res, rej) => {
-      const req = indexedDB.open('hr_photos', 1);
-      req.onupgradeneeded = e => e.target.result.createObjectStore('photos');
+      const req = indexedDB.open('hr_photos', 2);
+      req.onupgradeneeded = e => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains('photos')) db.createObjectStore('photos');
+      };
       req.onsuccess = e => { this._db = e.target.result; res(this._db); };
       req.onerror = () => rej(req.error);
     });
   },
-  async get(id) {
+  async get(key) {
     try {
       const db = await this.open();
       return new Promise(res => {
-        const req = db.transaction('photos').objectStore('photos').get('emp_' + id);
+        const req = db.transaction('photos').objectStore('photos').get(key);
         req.onsuccess = () => res(req.result || '');
         req.onerror = () => res('');
       });
     } catch { return ''; }
   },
-  async set(id, dataUrl) {
+  async set(key, dataUrl) {
     try {
       const db = await this.open();
       return new Promise(res => {
-        const req = db.transaction('photos','readwrite').objectStore('photos').put(dataUrl,'emp_'+id);
+        const req = db.transaction('photos','readwrite').objectStore('photos').put(dataUrl, key);
         req.onsuccess = () => res(true);
         req.onerror = () => res(false);
       });
     } catch { return false; }
   },
-  async del(id) {
+  async del(key) {
     try {
       const db = await this.open();
-      db.transaction('photos','readwrite').objectStore('photos').delete('emp_'+id);
+      db.transaction('photos','readwrite').objectStore('photos').delete(key);
     } catch {}
   },
   async getAll() {
@@ -527,7 +530,20 @@ const photoDB = {
 // Sync cache for rendering (avoids async in render loops)
 const photoCache = {};
 
+// Load photos: API mode → from Worker D1; Demo → IndexedDB
 async function loadAllPhotos() {
+  if (!isDemoMode()) {
+    try {
+      const res = await api('GET', '/employees?limit=500');
+      const list = res.employees || res || [];
+      for (const e of list) {
+        if (e.photo_data) photoCache['emp_' + e.id] = e.photo_data;
+        if (e.qr_data)   photoCache['qr_'  + e.id] = e.qr_data;
+      }
+      return;
+    } catch(_) {}
+  }
+  // Fallback: IndexedDB
   const all = await photoDB.getAll();
   Object.assign(photoCache, all);
 }
@@ -535,13 +551,45 @@ async function loadAllPhotos() {
 function getEmpPhoto(id) {
   return photoCache['emp_' + id] || '';
 }
+
 async function setEmpPhoto(id, dataUrl) {
-  photoCache['emp_' + id] = dataUrl;
-  await photoDB.set(id, dataUrl);
+  const key = 'emp_' + id;
+  photoCache[key] = dataUrl;
+  if (!isDemoMode()) {
+    try { await api('POST', '/employees/' + id + '/photo', { data: dataUrl }); } catch(_) {}
+  } else {
+    await photoDB.set(key, dataUrl);
+  }
 }
+
 async function delEmpPhoto(id) {
-  delete photoCache['emp_' + id];
-  await photoDB.del(id);
+  const key = 'emp_' + id;
+  delete photoCache[key];
+  if (!isDemoMode()) {
+    try { await api('DELETE', '/employees/' + id + '/photo'); } catch(_) {}
+  } else {
+    await photoDB.del(key);
+  }
+}
+
+async function setEmpQR(id, dataUrl) {
+  const key = 'qr_' + id;
+  photoCache[key] = dataUrl;
+  if (!isDemoMode()) {
+    try { await api('POST', '/employees/' + id + '/qr', { data: dataUrl }); } catch(_) {}
+  } else {
+    await photoDB.set(key, dataUrl);
+  }
+}
+
+async function delEmpQR(id) {
+  const key = 'qr_' + id;
+  delete photoCache[key];
+  if (!isDemoMode()) {
+    try { await api('DELETE', '/employees/' + id + '/qr'); } catch(_) {}
+  } else {
+    await photoDB.del(key);
+  }
 }
 
 
@@ -658,6 +706,13 @@ function removeEmpPhoto() {
   }
   showToast('លុបរូបថតរួច', 'success');
 }
+
+function removeEmpQR() {
+  state._pendingQR = '__remove__';
+  const p = document.getElementById('qr-preview');
+  if (p) p.innerHTML = '<span style="font-size:28px">📷</span>';
+  showToast('លុប QR ធនាគាររួច', 'success');
+}
 // Handle QR upload
 function handleQRUpload(input) {
   const file = input.files[0];
@@ -714,9 +769,10 @@ async function saveEmployee() {
     }
     state._pendingPhoto = null;
     // Save QR
-    if (state._pendingQR && savedId) {
-      photoCache['qr_' + savedId] = state._pendingQR;
-      await photoDB.set('qr_' + savedId, state._pendingQR);
+    if (state._pendingQR === '__remove__') {
+      if (savedId) await delEmpQR(savedId);
+    } else if (state._pendingQR && savedId) {
+      await setEmpQR(savedId, state._pendingQR);
     }
     state._pendingQR = null;
 
@@ -3487,7 +3543,6 @@ function thisMonth() { return new Date().toISOString().slice(0,7); }
 const CFG_KEY = 'hr_company_config';
 const SAL_KEY = 'hr_salary_rules';
 
-// Config cache (in-memory, loaded on startup)
 let _cfgCache = null;
 
 function getCompanyConfig() {
@@ -3495,7 +3550,6 @@ function getCompanyConfig() {
   try { return JSON.parse(localStorage.getItem(CFG_KEY)) || {}; } catch { return {}; }
 }
 
-// Load config from API (call on startup)
 async function loadCompanyConfig() {
   if (isDemoMode()) {
     try { _cfgCache = JSON.parse(localStorage.getItem(CFG_KEY)) || {}; } catch { _cfgCache = {}; }
@@ -3513,16 +3567,6 @@ async function loadCompanyConfig() {
     _cfgCache = JSON.parse(localStorage.getItem(CFG_KEY)) || {};
   }
   applyCompanyBranding();
-}
-
-function saveCompanyConfig(cfg) {
-  _cfgCache = cfg;
-  localStorage.setItem(CFG_KEY, JSON.stringify(cfg));
-  applyCompanyBranding();
-  // Sync to API in background (non-blocking)
-  if (!isDemoMode()) {
-    api('POST', '/config', cfg).catch(() => {});
-  }
 }
 function getSalaryRules() {
   const def = {
@@ -3701,6 +3745,12 @@ async function saveEditAtt(id, date) {
   } catch(e){showToast('Error: '+e.message,'error');}
 }
 
+function saveCompanyConfig(cfg) {
+  _cfgCache = cfg;
+  localStorage.setItem(CFG_KEY, JSON.stringify(cfg));
+  applyCompanyBranding();
+  if (!isDemoMode()) { api('POST', '/config', cfg).catch(() => {}); }
+}
 function saveSalaryRules(rules) { localStorage.setItem(SAL_KEY, JSON.stringify(rules)); }
 
 function applyCompanyBranding() {
@@ -4814,13 +4864,17 @@ function initApp() {
   $('current-date').textContent = new Date().toLocaleDateString('km-KH', {year:'numeric',month:'short',day:'numeric'});
 
   // Load config + photos then start app
-  Promise.all([loadCompanyConfig(), loadAllPhotos()]).then(() => {
+  Promise.all([
+    isDemoMode() ? Promise.resolve() : loadCompanyConfig(),
+    loadAllPhotos()
+  ]).then(() => {
     const session = getSession();
     if (session) {
       const uname = $('sidebar-user-name');
       const urole = $('sidebar-user-role');
       if (uname) uname.textContent = session.name || session.username;
       if (urole) urole.textContent = session.role || '';
+      // Load user photo
       const uPhoto = photoCache['user_' + session.id] || '';
       updateSidebarAvatar(uPhoto, session.name || session.username);
     }
@@ -4830,23 +4884,7 @@ function initApp() {
     }));
     $('modal-close').addEventListener('click', closeModal);
     $('modal-overlay').addEventListener('click', e => { if (e.target === $('modal-overlay')) closeModal(); });
-    $('sidebarToggle').addEventListener('click', () => toggleSidebar());
-
-    // Swipe-to-open sidebar from left edge
-    let touchStartX = 0, touchStartY = 0;
-    document.addEventListener('touchstart', e => {
-      touchStartX = e.touches[0].clientX;
-      touchStartY = e.touches[0].clientY;
-    }, { passive: true });
-    document.addEventListener('touchend', e => {
-      const dx = e.changedTouches[0].clientX - touchStartX;
-      const dy = Math.abs(e.changedTouches[0].clientY - touchStartY);
-      const sb = $('sidebar');
-      if (!sb) return;
-      if (touchStartX < 24 && dx > 60 && dy < 80) { sb.classList.add('open'); showOverlay(); }
-      if (sb.classList.contains('open') && dx < -60 && dy < 80) { closeSidebar(); }
-    }, { passive: true });
-
+    $('sidebarToggle').addEventListener('click', () => $('sidebar').classList.toggle('open'));
     $('global-search').addEventListener('input', e => { if (state.currentPage === 'employees') renderEmployees(e.target.value); });
     $('btn-settings').addEventListener('click', () => navigate('settings'));
     updateApiStatus();
