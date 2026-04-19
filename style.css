@@ -829,6 +829,31 @@ textarea.form-control { resize: vertical; min-height: 80px; }
   .settings-row { flex-direction: column; align-items: flex-start; gap: 8px; }
   .salary-rules-grid { grid-template-columns: 1fr; }
   .color-row { flex-wrap: wrap; }
+
+  /* Permissions table mobile fix */
+  #panel-permissions .settings-section-body > div {
+    border-radius: 8px;
+    max-width: calc(100vw - 48px);
+  }
+  #panel-permissions table th,
+  #panel-permissions table td {
+    padding: 8px 10px;
+    font-size: 11px;
+  }
+  #panel-permissions table th:first-child,
+  #panel-permissions table td:first-child {
+    min-width: 130px;
+    max-width: 130px;
+    font-size: 11px;
+  }
+  #panel-permissions table th:not(:first-child),
+  #panel-permissions table td:not(:first-child) {
+    min-width: 80px;
+  }
+  #panel-permissions .perm-cb {
+    width: 22px !important;
+    height: 22px !important;
+  }
 }
 
 .settings-tabs {

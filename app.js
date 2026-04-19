@@ -5284,16 +5284,16 @@ function renderSettings() {
                   <table style="width:max-content;min-width:100%;border-collapse:collapse;font-size:12px">
                     <thead>
                       <tr style="background:var(--bg4)">
-                        <th style="padding:10px 12px;text-align:left;border-bottom:2px solid var(--border);min-width:160px;position:sticky;left:0;z-index:2;background:var(--bg4);white-space:nowrap">មុខងារ</th>
-                        ${roles.map(r=>`<th style="padding:10px 16px;text-align:center;border-bottom:2px solid var(--border);min-width:110px;color:var(--primary);white-space:nowrap">${r}</th>`).join('')}
+                        <th style="padding:10px 12px;text-align:left;border-bottom:2px solid var(--border);min-width:160px;position:sticky;left:0;z-index:2;background:var(--bg4)">មុខងារ</th>
+                        ${roles.map(r=>`<th style="padding:10px 14px;text-align:center;border-bottom:2px solid var(--border);min-width:90px;color:var(--primary);font-size:11px;white-space:nowrap">${r}</th>`).join('')}
                       </tr>
                     </thead>
                     <tbody>
                       ${features.map((f,i)=>`
                         <tr style="background:${i%2===0?'var(--bg3)':'var(--bg)'}">
-                          <td style="padding:10px 12px;border-bottom:1px solid var(--border);font-weight:500;position:sticky;left:0;z-index:1;background:${i%2===0?'var(--bg3)':'var(--bg)'};white-space:nowrap">${f.label}</td>
+                          <td style="padding:9px 12px;border-bottom:1px solid var(--border);font-weight:500;position:sticky;left:0;z-index:1;background:${i%2===0?'var(--bg3)':'var(--bg)'}">${f.label}</td>
                           ${roles.map(r=>`
-                            <td style="text-align:center;padding:10px 16px;border-bottom:1px solid var(--border)">
+                            <td style="text-align:center;padding:9px 14px;border-bottom:1px solid var(--border)">
                               <input type="checkbox" class="perm-cb"
                                 data-role="${r}" data-key="${f.key}"
                                 ${(perms[r]?.[f.key] !== false) ? 'checked' : ''}
