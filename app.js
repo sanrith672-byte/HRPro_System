@@ -2667,19 +2667,21 @@ function idCardHTML(e, style, cfg) {
   }
 
   // ② QR 3cm×3cm = 113px at 96dpi — encodes empIdRaw string
-  const qrSize  = 108;
-  const qrInner = qrSize - 8;
+  const qrSize  = 113;
+  const qrInner = qrSize - 6;
 
-  // Always use auto-generated QR from Employee ID (NOT bank QR)
-  const qrBlock     = '<div style="width:'+qrSize+'px;height:'+qrSize+'px;background:white;border-radius:10px;overflow:hidden;padding:4px;box-shadow:0 2px 8px rgba(0,0,0,.18)">'+makeQRSvg(empIdRaw, qrInner, '#111827','#fff')+'</div>';
-  const qrBlockDark = '<div style="width:'+qrSize+'px;height:'+qrSize+'px;background:white;border-radius:10px;overflow:hidden;padding:4px;box-shadow:0 2px 8px rgba(0,0,0,.18)">'+makeQRSvg(empIdRaw, qrInner,'#0f172a','#f8fafc')+'</div>';
+  // makeQRSvg seeds from empIdRaw so "0009" → unique QR for that ID
+  // Always auto-generate QR from Employee ID — never use bank QR
+  const qrBlock     = '<div style="width:'+qrSize+'px;height:'+qrSize+'px;background:white;border-radius:10px;overflow:hidden;padding:4px;box-shadow:0 2px 8px rgba(0,0,0,.15)">'+makeQRSvg(empIdRaw, qrInner, '#111827','#fff')+'</div>';
+  const qrBlockDark = '<div style="width:'+qrSize+'px;height:'+qrSize+'px;background:white;border-radius:10px;overflow:hidden;padding:4px;box-shadow:0 2px 8px rgba(0,0,0,.15)">'+makeQRSvg(empIdRaw, qrInner,'#0f172a','#f8fafc')+'</div>';
 
-  // QR label — QR + empId badge below
+  // ③ QR label block — shows empId text under QR
   function qrLabel(qr, idColor) {
     idColor = idColor || '#1d4ed8';
-    return '<div style="display:flex;flex-direction:column;align-items:center;gap:5px;flex-shrink:0">'
+    return '<div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0">'
       + qr
-      + '<div style="background:'+idColor+'22;border:1px solid '+idColor+'44;border-radius:5px;padding:2px 8px;font-family:monospace;font-size:9px;font-weight:800;color:'+idColor+';letter-spacing:.8px;text-align:center">'+empId+'</div>'
+      + '<div style="font-family:monospace;font-size:10px;font-weight:800;color:'+idColor
+      + ';letter-spacing:.5px;text-align:center;line-height:1">'+empId+'</div>'
       +'</div>';
   }
 
@@ -2705,10 +2707,7 @@ function idCardHTML(e, style, cfg) {
     ['នាយកដ្ឋាន', dept],
     ['ទូរស័ព្ទ',  e.phone||'—'],
   ];
-  // Bank info shown in QR section — not duplicated in info rows
-  // if (e.bank && e.bank !== '—' && e.bank !== '') {
-  //   infoData.push(['🏦 ធនាគារ', bankStr]);
-  // }
+  // Bank QR removed from card — no duplicate bank row needed
 
   const wrap = (front, back) =>
     '<div class="id-card id-flip-card" data-name="'+e.name+'" data-dept="'+dept
@@ -3022,8 +3021,8 @@ idCardHTML = function(e, style, cfg) {
   const rawCustom = (e.custom_id||'').trim().replace(/^#+/,'');
   const empId    = rawCustom ? '#'+rawCustom : '#'+String(e.id).padStart(4,'0');
   const empIdRaw = rawCustom || String(e.id).padStart(4,'0');
-  const qrSize   = 108;
-  const qrInner  = qrSize - 8;
+  const qrSize   = 113;
+  const qrInner  = qrSize - 6;
 
   function avatar(size, border, borderColor, radius, shadow) {
     borderColor = borderColor||'rgba(255,255,255,.5)'; radius=radius||'50%'; shadow=shadow||'';
@@ -3040,7 +3039,8 @@ idCardHTML = function(e, style, cfg) {
   }
 
   function qrAuto(darkC, lightC) {
-    return '<div style="width:'+qrSize+'px;height:'+qrSize+'px;background:'+(lightC||'white')+';border-radius:10px;overflow:hidden;padding:4px;box-shadow:0 2px 8px rgba(0,0,0,.18)">'+makeQRSvg(empIdRaw,qrInner,darkC||'#111827',lightC||'#fff')+'</div>';
+    // Always auto-generate from Employee ID
+    return '<div style="width:'+qrSize+'px;height:'+qrSize+'px;background:'+(lightC||'white')+';border-radius:10px;overflow:hidden;padding:4px;box-shadow:0 2px 8px rgba(0,0,0,.15)">'+makeQRSvg(empIdRaw,qrInner,darkC||'#111827',lightC||'#fff')+'</div>';
   }
 
   function rows(pairs, keyC, valC, borderC) {
