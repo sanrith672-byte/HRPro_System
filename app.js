@@ -6776,9 +6776,9 @@ function openCreateCompanyModal() {
   $('modal-body').innerHTML =
     '<div class="form-grid">'
     +'<div class="form-group full-width"><label class="form-label">ឈ្មោះក្រុមហ៊ុន *</label>'
-    +'<input class="form-control" id="co-name" placeholder="ឈ្មោះក្រុមហ៊ុន..." /></div>'
-    +'<div class="form-group"><label class="form-label">Code *</label>'
-    +'<input class="form-control" id="co-code" placeholder="COMPANY001" /></div>'
+    +'<input class="form-control" id="co-name" placeholder="ឈ្មោះក្រុមហ៊ុន..." oninput="autoGenCode(this.value)" /></div>'
+    +'<div class="form-group"><label class="form-label">Code * <span style="font-size:10px;color:var(--text3)">(unique)</span></label>'
+    +'<input class="form-control" id="co-code" placeholder="CO001" /></div>'
     +'<div class="form-group"><label class="form-label">ទូរស័ព្ទ</label>'
     +'<input class="form-control" id="co-phone" placeholder="023..." /></div>'
     +'<div class="form-group"><label class="form-label">អ៊ីម៉ែល</label>'
@@ -6791,6 +6791,20 @@ function openCreateCompanyModal() {
     +'<button class="btn btn-primary" onclick="saveNewCompany()">+ បង្កើត</button>'
     +'</div>';
   openModal();
+  // Auto-set a unique default code
+  const ts = Date.now().toString().slice(-4);
+  const codeEl = document.getElementById('co-code');
+  if (codeEl) codeEl.value = 'CO' + ts;
+}
+
+function autoGenCode(name) {
+  const codeEl = document.getElementById('co-code');
+  if (!codeEl) return;
+  // Generate code from first letters of each word + timestamp
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  const prefix = words.map(w => w[0]?.toUpperCase()||'').join('').slice(0,4) || 'CO';
+  const ts = Date.now().toString().slice(-3);
+  codeEl.value = prefix + ts;
 }
 
 async function saveNewCompany() {

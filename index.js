@@ -81,7 +81,10 @@ async function createCompany(request, env) {
     const r = await env.DB.prepare(`INSERT INTO companies(name,code,logo_url,address,phone,email,website,created_at) VALUES(?,?,?,?,?,?,?,datetime('now'))`).bind(b.name,b.code,b.logo_url||'',b.address||'',b.phone||'',b.email||'',b.website||'').run();
     await initDB(env);
     return json({message:'Company created',id:r.meta.last_row_id},201);
-  } catch(e) { return err(e.message); }
+  } catch(e) {
+    if(e.message&&e.message.includes('UNIQUE')) return err('Code "'+b.code+'" មានរួចហើយ! សូម​ប្រើ Code ផ្សេង',400);
+    return err(e.message);
+  }
 }
 async function updateCompany(id, request, env) {
   const b = await request.json();
@@ -339,7 +342,7 @@ async function initDB(env) {
   // Default company
   try {
     const c=await env.DB.prepare('SELECT COUNT(*) as c FROM companies').first();
-    if(!c?.c) await env.DB.prepare(`INSERT INTO companies(name,code,created_at) VALUES('ក្រុមហ៊ុន ១','COMPANY001',datetime('now'))`).run();
+    if(!c?.c) await env.DB.prepare(`INSERT OR IGNORE INTO companies(name,code,created_at) VALUES('ក្រុមហ៊ុន ១','COMPANY001',datetime('now'))`).run();
   } catch(_){}
   return json({message:'Database initialized! Multi-company ready.'});
 }
