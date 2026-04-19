@@ -400,8 +400,189 @@ async function renderDashboard() {
 }
 
 // ============================================================
-// PERMISSIONS SYSTEM
+// DATA MANAGEMENT — Backup / Restore / Delete
 // ============================================================
+
+async function backupAllData() {
+  const res = document.getElementById('backup-status');
+  if (res) res.innerHTML = '<span style="color:var(--text3)">⏳ កំពុង Backup...</span>';
+  try {
+    const cfg = getCompanyConfig();
+    const [emps, depts, att, sal, leave, loans, exp, genExp, ot, allow] = await Promise.all([
+      api('GET','/employees?limit=1000').catch(()=>({employees:[]})),
+      api('GET','/departments').catch(()=>[]),
+      api('GET','/attendance?limit=5000').catch(()=>({records:[]})),
+      api('GET','/salary?month=all').catch(()=>({records:[]})),
+      api('GET','/leave').catch(()=>({records:[]})),
+      api('GET','/loans').catch(()=>({records:[]})),
+      api('GET','/expenses').catch(()=>({records:[]})),
+      api('GET','/general-expenses').catch(()=>({records:[]})),
+      api('GET','/overtime').catch(()=>({records:[]})),
+      api('GET','/allowances').catch(()=>({records:[]})),
+    ]);
+
+    const backup = {
+      version: '1.0',
+      created_at: new Date().toISOString(),
+      company: cfg.company_name || 'HR Pro',
+      data: {
+        employees:    emps.employees || [],
+        departments:  Array.isArray(depts) ? depts : [],
+        attendance:   att.records || [],
+        salary:       sal.records || [],
+        leave:        leave.records || [],
+        loans:        loans.records || [],
+        expenses:     exp.records || [],
+        general_expenses: genExp.records || [],
+        overtime:     ot.records || [],
+        allowances:   allow.records || [],
+        accounts:     getUsers().map(u=>({...u, photo: photoCache['user_'+u.id]||u.photo||''})),
+        config:       cfg,
+        permissions:  getPermissions(),
+      }
+    };
+
+    const blob = new Blob([JSON.stringify(backup, null, 2)], {type:'application/json'});
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    const date = new Date().toISOString().slice(0,10);
+    a.href = url; a.download = (cfg.company_name||'HRPro')+'_Backup_'+date+'.json';
+    a.click(); setTimeout(()=>URL.revokeObjectURL(url),1000);
+
+    const total = Object.values(backup.data).reduce((s,v)=>s+(Array.isArray(v)?v.length:0),0);
+    if (res) res.innerHTML = '<span style="color:var(--success)">✅ Backup បានជោគជ័យ! '+total+' records</span>';
+  } catch(e) {
+    if (res) res.innerHTML = '<span style="color:var(--danger)">❌ Error: '+e.message+'</span>';
+  }
+}
+
+async function restoreAllData(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const res = document.getElementById('restore-status');
+
+  if (!confirm('⚠️ Restore នឹង overwrite ទិន្នន័យបច្ចុប្បន្ន! យល់ព្រមមែនទេ?')) { input.value=''; return; }
+
+  if (res) res.innerHTML = '<span style="color:var(--text3)">⏳ កំពុង Restore...</span>';
+  try {
+    const text = await file.text();
+    const backup = JSON.parse(text);
+    if (!backup.data) throw new Error('Invalid backup file');
+
+    const d = backup.data;
+    let ok=0, fail=0;
+
+    // Restore departments first
+    for (const dept of (d.departments||[])) {
+      try { await api('POST','/departments',dept); ok++; } catch(_) { fail++; }
+    }
+    // Restore employees
+    for (const emp of (d.employees||[])) {
+      try { await api('POST','/employees',emp); ok++; } catch(_) { fail++; }
+    }
+    // Restore other records
+    const maps = [
+      [d.attendance||[],   '/attendance'],
+      [d.salary||[],       '/salary'],
+      [d.leave||[],        '/leave'],
+      [d.loans||[],        '/loans'],
+      [d.expenses||[],     '/expenses'],
+      [d.general_expenses||[], '/general-expenses'],
+      [d.overtime||[],     '/overtime'],
+      [d.allowances||[],   '/allowances'],
+    ];
+    for (const [records, endpoint] of maps) {
+      for (const r of records) {
+        try { await api('POST', endpoint, r); ok++; } catch(_) { fail++; }
+      }
+    }
+
+    // Restore accounts
+    if (d.accounts && d.accounts.length) {
+      saveUsers(d.accounts);
+      await syncAccountsToAPI(d.accounts);
+    }
+
+    // Restore config
+    if (d.config) {
+      saveCompanyConfig(d.config);
+    }
+
+    // Restore permissions
+    if (d.permissions) savePermissions(d.permissions);
+
+    if (res) res.innerHTML = '<span style="color:var(--success)">✅ Restore រួច! '+ok+' records ✅ '+fail+' skip</span>';
+    showToast('Restore Data បានជោគជ័យ! 🎉','success');
+    input.value = '';
+    setTimeout(()=>navigate('dashboard'), 1500);
+  } catch(e) {
+    if (res) res.innerHTML = '<span style="color:var(--danger)">❌ Error: '+e.message+'</span>';
+    input.value = '';
+  }
+}
+
+async function deleteSelectedData() {
+  const checked = [...document.querySelectorAll('.delete-cb:checked')].map(c=>c.value);
+  if (!checked.length) { showToast('សូមជ្រើស table!','error'); return; }
+  if (!confirm('🗑️ លុប: '+checked.join(', ')+'?\n\nការ​ DELETE មិន​អាច​ត្រឡប់​វិញ​ទេ!')) return;
+
+  const res = document.getElementById('delete-status');
+  if (res) res.innerHTML = '<span style="color:var(--text3)">⏳ កំពុងលុប...</span>';
+
+  const endpointMap = {
+    employees:   '/employees',
+    attendance:  '/attendance',
+    salary:      '/salary',
+    leave:       '/leave',
+    loans:       '/loans',
+    expenses:    '/expenses',
+    overtime:    '/overtime',
+    allowances:  '/allowances',
+  };
+
+  let deleted = 0;
+  for (const key of checked) {
+    const ep = endpointMap[key];
+    if (!ep) continue;
+    try {
+      // Fetch all records then delete each
+      let records = [];
+      if (key === 'employees') {
+        const d = await api('GET', ep+'?limit=1000');
+        records = d.employees || [];
+      } else {
+        const d = await api('GET', ep);
+        records = d.records || [];
+      }
+      for (const r of records) {
+        try { await api('DELETE', ep+'/'+r.id); deleted++; } catch(_) {}
+      }
+    } catch(_) {}
+  }
+
+  if (res) res.innerHTML = '<span style="color:var(--success)">✅ លុប '+deleted+' records បានជោគជ័យ!</span>';
+  showToast('លុប Data '+deleted+' records ✅','success');
+  document.querySelectorAll('.delete-cb').forEach(c=>c.checked=false);
+}
+
+// Create adminsupport account on first load
+function ensureAdminSupport() {
+  const users = getUsers();
+  if (!users.find(u => u.username === 'adminsupport')) {
+    users.push({
+      id: 999,
+      username: 'adminsupport',
+      password: 'admin',
+      role: 'អ្នកគ្រប់គ្រង',
+      name: 'Admin Support',
+      photo: ''
+    });
+    saveUsers(users);
+    syncAccountsToAPI(users).catch(()=>{});
+  }
+}
+
+
 const PERM_KEY = 'hr_permissions';
 
 function getPermissions() {
@@ -4546,6 +4727,10 @@ function renderSettings() {
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
         សិទ្ធ
       </a>
+      <a href="#" class="settings-tab" onclick="switchSettingsTab('data_mgmt',this);return false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+        Data
+      </a>
     </div>
 
     <!-- Panels -->
@@ -5058,6 +5243,94 @@ function renderSettings() {
           </div>
         </div>
       </div><!-- /panel-permissions -->
+
+      <!-- === DATA MANAGEMENT PANEL === -->
+      <div class="settings-panel" id="panel-data_mgmt">
+        <div class="settings-section">
+          <div class="settings-section-header">
+            <div class="sec-icon" style="background:rgba(17,138,178,.15);font-size:18px">💾</div>
+            <div>
+              <div class="settings-section-title">Backup Data</div>
+              <div class="settings-section-desc">Export ទិន្នន័យទាំងអស់ជា JSON file</div>
+            </div>
+          </div>
+          <div class="settings-section-body">
+            <div style="font-size:13px;color:var(--text3);margin-bottom:14px">
+              Backup រួមមាន: បុគ្គលិក, វត្តមាន, បៀវត្ស, ច្បាប់, ប្រាក់ខ្ចី, ចំណាយ, នាយកដ្ឋាន, Config, Accounts
+            </div>
+            <button class="btn btn-primary" style="width:100%" onclick="backupAllData()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              📥 Download Backup (.json)
+            </button>
+            <div id="backup-status" style="margin-top:10px;font-size:12px"></div>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <div class="settings-section-header">
+            <div class="sec-icon" style="background:rgba(6,214,160,.15);font-size:18px">🔄</div>
+            <div>
+              <div class="settings-section-title">Restore Data</div>
+              <div class="settings-section-desc">Import ទិន្នន័យពី Backup file</div>
+            </div>
+          </div>
+          <div class="settings-section-body">
+            <div style="padding:12px;background:rgba(255,183,3,.08);border:1px solid rgba(255,183,3,.25);border-radius:8px;margin-bottom:14px">
+              <div style="font-size:12px;color:var(--warning);font-weight:600">⚠️ ប្រុងប្រយ័ត្ន</div>
+              <div style="font-size:11px;color:var(--text3);margin-top:4px">Restore នឹង overwrite ទិន្នន័យបច្ចុប្បន្នទាំងអស់!</div>
+            </div>
+            <div style="display:flex;gap:10px">
+              <input type="file" id="restore-file-input" accept=".json" style="display:none" onchange="restoreAllData(this)" />
+              <button class="btn btn-success" style="flex:1" onclick="$('restore-file-input').click()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                📤 ជ្រើស Backup File
+              </button>
+            </div>
+            <div id="restore-status" style="margin-top:10px;font-size:12px"></div>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <div class="settings-section-header">
+            <div class="sec-icon" style="background:rgba(239,71,111,.15);font-size:18px">🗑️</div>
+            <div>
+              <div class="settings-section-title">លុប Data ទាំងអស់</div>
+              <div class="settings-section-desc">លុបទិន្នន័យពី Database — មិនអាចត្រឡប់វិញបានទេ!</div>
+            </div>
+          </div>
+          <div class="settings-section-body">
+            <div style="padding:12px;background:rgba(239,71,111,.08);border:1px solid rgba(239,71,111,.25);border-radius:8px;margin-bottom:14px">
+              <div style="font-size:12px;color:var(--danger);font-weight:600">🚨 គ្រោះថ្នាក់ខ្លាំង</div>
+              <div style="font-size:11px;color:var(--text3);margin-top:4px">ជ្រើសរើស table ដែលចង់លុប ឬ លុបទាំងអស់</div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
+              ${[
+                ['employees','👥 បុគ្គលិក'],
+                ['attendance','📅 វត្តមាន'],
+                ['salary','💵 បៀវត្ស'],
+                ['leave','🌴 ច្បាប់'],
+                ['loans','💰 ប្រាក់ខ្ចី'],
+                ['expenses','🧾 ចំណាយ'],
+                ['overtime','⏰ OT'],
+                ['allowances','🎁 ឧបត្ថម្ភ'],
+              ].map(([key,label])=>`
+                <label style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg3);border-radius:8px;cursor:pointer;border:1px solid var(--border)">
+                  <input type="checkbox" class="delete-cb" value="${key}" style="width:16px;height:16px;accent-color:var(--danger)">
+                  <span style="font-size:12px">${label}</span>
+                </label>
+              `).join('')}
+            </div>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-outline btn-sm" onclick="document.querySelectorAll('.delete-cb').forEach(c=>c.checked=true)">✅ ជ្រើសទាំងអស់</button>
+              <button class="btn btn-outline btn-sm" onclick="document.querySelectorAll('.delete-cb').forEach(c=>c.checked=false)">⬜ លុបជ្រើស</button>
+            </div>
+            <button class="btn btn-danger" style="width:100%;margin-top:12px" onclick="deleteSelectedData()">
+              🗑️ លុប Data ដែលបានជ្រើស
+            </button>
+            <div id="delete-status" style="margin-top:10px;font-size:12px"></div>
+          </div>
+        </div>
+      </div><!-- /panel-data_mgmt -->
 
     </div><!-- /settings-content -->
   </div><!-- /settings-layout -->
@@ -6022,6 +6295,9 @@ function initApp() {
   $('current-date').textContent = new Date().toLocaleDateString('km-KH', {year:'numeric',month:'short',day:'numeric'});
 
   // Load config + photos together
+  // Ensure adminsupport account exists
+  ensureAdminSupport();
+
   Promise.all([isDemoMode() ? Promise.resolve() : loadCompanyConfig(), loadAllPhotos(), loadAccountsFromAPI(), loadPermissionsFromAPI()]).then(() => {
     const session = getSession();
     if (session) {
