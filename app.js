@@ -811,14 +811,23 @@ function openEmployeeReportModal() {
   $('modal-body').innerHTML =
     '<div style="margin-bottom:16px;padding:14px;background:var(--bg3);border-radius:10px;border:1px solid var(--border)">'
     +'<div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:12px">📅 ជ្រើសរើសរយៈពេល (ថ្ងៃចូលធ្វើការ)</div>'
-    +'<div class="form-grid">'
+
+    // Select All toggle
+    +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;padding:10px 12px;background:var(--bg4);border-radius:8px;cursor:pointer" onclick="toggleRptAllDates()">'
+    +'<input type="checkbox" id="rpt-all" style="width:16px;height:16px;accent-color:var(--primary);cursor:pointer" onchange="toggleRptAllDates()" />'
+    +'<div><div style="font-weight:700;font-size:13px">ទាំងអស់ (មិន filter ថ្ងៃ)</div>'
+    +'<div style="font-size:11px;color:var(--text3)">បង្ហាញបុគ្គលិកគ្រប់គ្នា មិនគិតថ្ងៃចូលធ្វើការ</div></div>'
+    +'</div>'
+
+    // Date range inputs
+    +'<div id="rpt-date-range" class="form-grid">'
     +'<div class="form-group"><label class="form-label">ពីថ្ងៃទី</label>'
     +'<input class="form-control" type="date" id="rpt-from" value="'+firstDay+'" /></div>'
     +'<div class="form-group"><label class="form-label">ដល់ថ្ងៃទី</label>'
     +'<input class="form-control" type="date" id="rpt-to" value="'+lastDay+'" /></div>'
     +'</div>'
-    +'<div style="font-size:11px;color:var(--text3);margin-top:4px">💡 ទទេ = បង្ហាញបុគ្គលិកទាំងអស់</div>'
     +'</div>'
+
     +'<div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:10px">ជ្រើស Format</div>'
     +'<div style="display:flex;flex-direction:column;gap:10px">'
     +'<button class="btn btn-outline" style="justify-content:flex-start;gap:10px;padding:12px 16px" onclick="doEmployeeReport(\'print\')">'
@@ -834,11 +843,22 @@ function openEmployeeReportModal() {
   openModal();
 }
 
+function toggleRptAllDates() {
+  const cb = document.getElementById('rpt-all');
+  const range = document.getElementById('rpt-date-range');
+  if (!cb || !range) return;
+  // Toggle checkbox if clicked on the div (not the checkbox itself)
+  const isChecked = cb.checked;
+  range.style.opacity = isChecked ? '0.3' : '1';
+  range.style.pointerEvents = isChecked ? 'none' : '';
+}
+
 async function doEmployeeReport(type) {
-  const from = $('rpt-from')?.value;
-  const to   = $('rpt-to')?.value;
+  const allChecked = document.getElementById('rpt-all')?.checked;
+  const from = allChecked ? '' : ($('rpt-from')?.value || '');
+  const to   = allChecked ? '' : ($('rpt-to')?.value   || '');
   let emps = state.employees || [];
-  if (from || to) {
+  if (!allChecked && (from || to)) {
     emps = emps.filter(e => {
       if (!e.hire_date) return true;
       const d = e.hire_date;
@@ -847,7 +867,7 @@ async function doEmployeeReport(type) {
       return true;
     });
   }
-  const rangeLabel = (from && to) ? from+' — '+to : (from ? 'ចាប់ពី '+from : (to ? 'រហូតដល់ '+to : 'ទាំងអស់'));
+  const rangeLabel = allChecked ? 'ទាំងអស់' : (from && to) ? from+' — '+to : (from ? 'ចាប់ពី '+from : (to ? 'រហូតដល់ '+to : 'ទាំងអស់'));
 
   // Fetch leave data
   let leaveMap = {};
