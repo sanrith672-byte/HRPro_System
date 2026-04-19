@@ -48,10 +48,19 @@ const $ = (id) => document.getElementById(id);
 const contentArea = () => $('content-area');
 
 // ===== API HELPER (Real + Demo fallback) =====
+// ── Company state ─────────────────────────────────────────────
+const COMPANY_KEY = 'hr_current_company';
+function getCurrentCompany() {
+  try { return JSON.parse(localStorage.getItem(COMPANY_KEY)) || null; } catch { return null; }
+}
+function setCurrentCompany(co) { localStorage.setItem(COMPANY_KEY, JSON.stringify(co)); }
+function getCompanyId() { return getCurrentCompany()?.id || 1; }
+
 async function api(method, path, body = null) {
   if (isDemoMode()) return demoApi(method, path, body);
   const base = getApiBase().replace(/\/$/, '');
-  const opts = { method, headers: { 'Content-Type': 'application/json' } };
+  const coId = getCompanyId();
+  const opts = { method, headers: { 'Content-Type': 'application/json', 'X-Company-ID': String(coId) } };
   if (body) opts.body = JSON.stringify(body);
   try {
     const res = await fetch(base + path, opts);
@@ -59,7 +68,6 @@ async function api(method, path, body = null) {
     if (!res.ok) throw new Error(data.error || 'API Error');
     return data;
   } catch(e) {
-    // If CORS/network error, show helpful message
     if (e.message.includes('Failed to fetch') || e.message.includes('NetworkError')) {
       throw new Error('មិនអាចភ្ជាប់ Worker បាន។ សូមពិនិត្យ URL ក្នុង ⚙️ Settings');
     }
@@ -1763,10 +1771,20 @@ async function renderAttendance(date='') {
   try {
     const [attData, empData] = await Promise.all([api('GET','/attendance?date='+today), api('GET','/employees')]);
     state.employees = empData.employees;
+    const records = attData.records || [];
     const label = new Date(today+'T00:00:00').toLocaleDateString('km-KH',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
-    const attRows = attData.records.length===0
+
+    // Compute stats from records (works with both old & new API)
+    const stats = attData.stats || {
+      present: records.filter(r=>r.status==='present').length,
+      late:    records.filter(r=>r.status==='late').length,
+      absent:  records.filter(r=>r.status==='absent').length,
+      total:   records.length,
+    };
+
+    const attRows = records.length===0
       ? '<tr><td colspan="6"><div class="empty-state" style="padding:30px"><p>មិនទាន់មានការកត់វត្តមានសម្រាប់ថ្ងៃនេះ</p></div></td></tr>'
-      : attData.records.map(a => {
+      : records.map(a => {
           const photo = getEmpPhoto(a.employee_id);
           const av = photo
             ? '<div class="emp-avatar" style="background:'+getColor(a.employee_name)+';overflow:hidden;padding:0"><img src="'+photo+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/></div>'
@@ -1797,10 +1815,10 @@ async function renderAttendance(date='') {
       +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> កត់វត្តមាន</button>'
       +'</div></div>'
       +'<div class="att-summary">'
-      +'<div class="att-box"><div class="att-num" style="color:var(--success)">'+attData.stats.present+'</div><div class="att-lbl">✅ មានវត្តមាន</div></div>'
-      +'<div class="att-box"><div class="att-num" style="color:var(--warning)">'+attData.stats.late+'</div><div class="att-lbl">⏰ មកយឺត</div></div>'
-      +'<div class="att-box"><div class="att-num" style="color:var(--danger)">'+attData.stats.absent+'</div><div class="att-lbl">❌ អវត្តមាន</div></div>'
-      +'<div class="att-box"><div class="att-num" style="color:var(--info)">'+attData.stats.total+'</div><div class="att-lbl">👥 សរុប</div></div>'
+      +'<div class="att-box"><div class="att-num" style="color:var(--success)">'+stats.present+'</div><div class="att-lbl">✅ មានវត្តមាន</div></div>'
+      +'<div class="att-box"><div class="att-num" style="color:var(--warning)">'+stats.late+'</div><div class="att-lbl">⏰ មកយឺត</div></div>'
+      +'<div class="att-box"><div class="att-num" style="color:var(--danger)">'+stats.absent+'</div><div class="att-lbl">❌ អវត្តមាន</div></div>'
+      +'<div class="att-box"><div class="att-num" style="color:var(--info)">'+stats.total+'</div><div class="att-lbl">👥 សរុប</div></div>'
       +'</div>'
       +'<div class="card">'
       +'<div class="card-header"><span class="card-title">ក្បាលបញ្ជីវត្តមាន</span></div>'
@@ -3615,6 +3633,7 @@ function makeQRSvg(text, size, darkColor, lightColor) {
 }
 
 function renderAllQRCodes() {
+  // Landscape cards: [data-qrtext]
   document.querySelectorAll('[data-qrtext]').forEach(el => {
     if (el.dataset.rendered) return;
     el.dataset.rendered = '1';
@@ -3622,6 +3641,19 @@ function renderAllQRCodes() {
     const size = parseInt(el.dataset.qrsize) || 100;
     if (window.QRCode) {
       el.innerHTML = '';
+      new QRCode(el, { text, width: size, height: size, correctLevel: QRCode.CorrectLevel.M });
+    }
+  });
+  // Portrait cards: .qr-placeholder [data-id]
+  document.querySelectorAll('.qr-placeholder').forEach(el => {
+    if (el.dataset.rendered) return;
+    el.dataset.rendered = '1';
+    const text = el.dataset.id || '';
+    const size = parseInt(el.dataset.size) || 74;
+    if (window.QRCode && text) {
+      el.innerHTML = '';
+      el.style.width  = size+'px';
+      el.style.height = size+'px';
       new QRCode(el, { text, width: size, height: size, correctLevel: QRCode.CorrectLevel.M });
     }
   });
@@ -4480,6 +4512,8 @@ function idCardPortraitHTML(e, style, cfg) {
   }
 
   const qrSize  = 80;
+  const qrSmall = '<div style="width:36px;height:36px;background:white;border-radius:5px;overflow:hidden;padding:2px;flex-shrink:0">'
+    +'<div class="qr-placeholder" data-id="'+empIdRaw+'" data-size="32" data-fg="#111" data-bg="#fff"></div></div>';
   const qrBlock = '<div style="width:'+qrSize+'px;height:'+qrSize+'px;background:white;border-radius:8px;overflow:hidden;padding:3px">'
     +'<div class="qr-placeholder" data-id="'+empIdRaw+'" data-size="'+(qrSize-6)+'" data-fg="#111" data-bg="#fff"></div></div>';
 
@@ -4517,10 +4551,10 @@ function idCardPortraitHTML(e, style, cfg) {
       +'<div style="background:rgba(255,255,255,.15);border-radius:8px;padding:4px 12px;text-align:center"><div style="color:rgba(255,255,255,.55);font-size:7px;font-weight:700">EMP ID</div><div style="color:white;font-size:13px;font-weight:800;font-family:monospace">'+empId+'</div></div>'
       +'<div style="background:rgba(255,255,255,.15);border-radius:8px;padding:4px 12px;text-align:center"><div style="color:rgba(255,255,255,.55);font-size:7px;font-weight:700">ចូលធ្វើ</div><div style="color:white;font-size:11px;font-weight:700;font-family:monospace">'+hireDate+'</div></div>'
       +'</div>'
-      // Bottom bar
+      // Bottom bar with QR
       +'<div style="margin-top:auto;padding:6px 14px;background:rgba(0,0,0,.2);display:flex;justify-content:space-between;align-items:center">'
       +'<div style="font-size:7px;color:rgba(255,255,255,.4)">OFFICIAL ID</div>'
-      +'<div style="display:flex;gap:1px;align-items:flex-end;height:14px">'+Array.from({length:18},(_,i)=>'<div style="width:2px;height:'+Math.round(3+Math.sin(i*1.1+e.id)*6)+'px;background:rgba(255,255,255,.3);border-radius:1px"></div>').join('')+'</div>'
+      +qrSmall
       +'<div style="font-size:7px;color:rgba(255,255,255,.4)">'+company+'</div></div>'
       +'</div>';
     const back =
@@ -4562,7 +4596,7 @@ function idCardPortraitHTML(e, style, cfg) {
       +'<div style="background:rgba(212,175,55,.1);border:1px solid rgba(212,175,55,.3);border-radius:6px;padding:4px 16px;text-align:center">'
       +'<div style="color:rgba(212,175,55,.6);font-size:7px">EMP ID</div>'
       +'<div style="color:'+gold+';font-size:14px;font-weight:800;font-family:monospace">'+empId+'</div></div></div>'
-      +'<div style="margin-top:auto;padding:6px 14px;display:flex;gap:1px;align-items:flex-end">'+Array.from({length:20},(_,i)=>'<div style="width:2px;height:'+Math.round(3+Math.sin(i*1.2+e.id)*7)+'px;background:rgba(212,175,55,.2);border-radius:1px"></div>').join('')+'</div>'
+      +'<div style="margin-top:auto;padding:6px 14px;background:rgba(0,0,0,.2);display:flex;justify-content:space-between;align-items:center"><div style="font-size:7px;color:rgba(212,175,55,.4)">OFFICIAL ID</div>'+qrSmall+'<div style="font-size:7px;color:rgba(212,175,55,.4)">'+company+'</div></div>'
       +'</div>';
     const back =
       '<div style="width:100%;height:100%;border-radius:14px;overflow:hidden;background:#0d1220;border:1px solid rgba(212,175,55,.2);display:flex;flex-direction:column">'
@@ -5118,6 +5152,10 @@ function renderSettings() {
       <a href="#" class="settings-tab" onclick="switchSettingsTab('data_mgmt',this);return false">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
         Data
+      </a>
+      <a href="#" class="settings-tab" onclick="switchSettingsTab('companies_mgmt',this);return false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        ក្រុមហ៊ុន
       </a>
     </div>
 
@@ -5738,6 +5776,37 @@ function renderSettings() {
         </div>
       </div><!-- /panel-data_mgmt -->
 
+      <!-- === COMPANIES PANEL === -->
+      <div class="settings-panel" id="panel-companies_mgmt">
+        <div class="settings-section">
+          <div class="settings-section-header">
+            <div class="sec-icon" style="background:rgba(17,138,178,.15);font-size:18px">🏢</div>
+            <div>
+              <div class="settings-section-title">គ្រប់គ្រងក្រុមហ៊ុន</div>
+              <div class="settings-section-desc">កែ ឬ លុបក្រុមហ៊ុន · ក្រុមហ៊ុនបច្ចុប្បន្ន: <strong id="current-co-name-display">${getCurrentCompany()?.name||'—'}</strong></div>
+            </div>
+          </div>
+          <div class="settings-section-body" id="companies-settings-list">
+            <div style="text-align:center;padding:20px;color:var(--text3)">⏳ កំពុង load...</div>
+          </div>
+        </div>
+        <div class="settings-section">
+          <div class="settings-section-header">
+            <div class="sec-icon" style="background:rgba(6,214,160,.15);font-size:18px">+</div>
+            <div>
+              <div class="settings-section-title">បង្កើតក្រុមហ៊ុនថ្មី</div>
+              <div class="settings-section-desc">បន្ថែម client ថ្មី</div>
+            </div>
+          </div>
+          <div class="settings-section-body">
+            <button class="btn btn-primary" style="width:100%" onclick="openCreateCompanyModal()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              + បង្កើតក្រុមហ៊ុនថ្មី
+            </button>
+          </div>
+        </div>
+      </div><!-- /panel-companies_mgmt -->
+
     </div><!-- /settings-content -->
   </div><!-- /settings-layout -->
   `;
@@ -5766,6 +5835,96 @@ function switchSettingsTab(panel, el) {
   el.classList.add('active');
   const pEl = $('panel-' + panel);
   if (pEl) pEl.classList.add('active');
+  // Load companies list when tab opens
+  if (panel === 'companies_mgmt') loadCompaniesSettings();
+}
+
+async function loadCompaniesSettings() {
+  const list = document.getElementById('companies-settings-list');
+  if (!list) return;
+  list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text3)">⏳ កំពុង load...</div>';
+  try {
+    const data = await api('GET', '/companies');
+    const companies = data.companies || [];
+    const current = getCurrentCompany();
+    if (!companies.length) {
+      list.innerHTML = '<div style="color:var(--text3);font-size:13px">មិនទាន់មានក្រុមហ៊ុន</div>';
+      return;
+    }
+    list.innerHTML = companies.map(co => `
+      <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--bg3);border:1px solid ${co.id===current?.id?'var(--primary)':'var(--border)'};border-radius:10px;margin-bottom:10px">
+        <div style="width:42px;height:42px;border-radius:10px;background:${co.id===current?.id?'var(--primary)':'var(--bg4)'};display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;color:white;flex-shrink:0">${(co.name||'?')[0].toUpperCase()}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:700;font-size:14px">${co.name}${co.id===current?.id?' <span style="font-size:10px;color:var(--primary);font-weight:600">(បច្ចុប្បន្ន)</span>':''}</div>
+          <div style="font-size:11px;color:var(--text3);font-family:var(--mono)">${co.code}</div>
+          ${co.phone?`<div style="font-size:11px;color:var(--text3)">${co.phone}</div>`:''}
+        </div>
+        <div style="display:flex;gap:6px;flex-shrink:0">
+          <button class="btn btn-outline btn-sm" onclick="openEditCompanyModal(${co.id},'${co.name.replace(/'/g,"\\'")}','${co.code}','${(co.phone||'').replace(/'/g,"\\'")}','${(co.email||'').replace(/'/g,"\\'")}','${(co.address||'').replace(/'/g,"\\'")}')">✏️ កែ</button>
+          ${co.id!==current?.id?`<button class="btn btn-outline btn-sm" onclick="selectCompany(${co.id},'${co.name.replace(/'/g,"\\'")}','${co.code}')" style="color:var(--success);border-color:var(--success)">🔄 ជ្រើស</button>`:''}
+          <button class="btn btn-danger btn-sm" onclick="deleteCompanyConfirm(${co.id},'${co.name.replace(/'/g,"\\'")}')">🗑️</button>
+        </div>
+      </div>
+    `).join('');
+  } catch(e) {
+    list.innerHTML = `<div style="color:var(--danger)">Error: ${e.message}</div>`;
+  }
+}
+
+function openEditCompanyModal(id, name, code, phone, email, address) {
+  $('modal-title').textContent = '✏️ កែប្រែក្រុមហ៊ុន';
+  $('modal-body').innerHTML =
+    '<div class="form-grid">'
+    +'<div class="form-group full-width"><label class="form-label">ឈ្មោះក្រុមហ៊ុន *</label>'
+    +'<input class="form-control" id="eco-name" value="'+name+'" /></div>'
+    +'<div class="form-group"><label class="form-label">Code *</label>'
+    +'<input class="form-control" id="eco-code" value="'+code+'" /></div>'
+    +'<div class="form-group"><label class="form-label">ទូរស័ព្ទ</label>'
+    +'<input class="form-control" id="eco-phone" value="'+(phone||'')+'" /></div>'
+    +'<div class="form-group full-width"><label class="form-label">អ៊ីម៉ែល</label>'
+    +'<input class="form-control" id="eco-email" value="'+(email||'')+'" /></div>'
+    +'<div class="form-group full-width"><label class="form-label">អាស័យដ្ឋាន</label>'
+    +'<input class="form-control" id="eco-address" value="'+(address||'')+'" /></div>'
+    +'</div>'
+    +'<div class="form-actions">'
+    +'<button class="btn btn-outline" onclick="closeModal()">បោះបង់</button>'
+    +'<button class="btn btn-primary" onclick="saveEditCompany('+id+')">💾 រក្សាទុក</button>'
+    +'</div>';
+  openModal();
+}
+
+async function saveEditCompany(id) {
+  const name    = document.getElementById('eco-name')?.value.trim();
+  const code    = document.getElementById('eco-code')?.value.trim().toUpperCase();
+  const phone   = document.getElementById('eco-phone')?.value.trim();
+  const email   = document.getElementById('eco-email')?.value.trim();
+  const address = document.getElementById('eco-address')?.value.trim();
+  if (!name || !code) { showToast('សូមបំពេញ ឈ្មោះ និង Code!', 'error'); return; }
+  try {
+    await api('PUT', '/companies/'+id, { name, code, phone, email, address });
+    // Update current company if editing the active one
+    const current = getCurrentCompany();
+    if (current && current.id === id) {
+      setCurrentCompany({ ...current, name, code });
+      updateCompanyIndicator();
+    }
+    showToast('កែប្រែក្រុមហ៊ុន "'+name+'" រួច! ✅', 'success');
+    closeModal();
+    loadCompaniesSettings();
+  } catch(e) { showToast('Error: '+e.message, 'error'); }
+}
+
+async function deleteCompanyConfirm(id, name) {
+  const current = getCurrentCompany();
+  if (current && current.id === id) {
+    showToast('មិនអាចលុបក្រុមហ៊ុនដែលកំពុងប្រើ!', 'error'); return;
+  }
+  if (!confirm('⚠️ លុបក្រុមហ៊ុន "'+name+'"?\n\nData ក្រុមហ៊ុននេះ (បុគ្គលិក, បៀវត្ស...) នឹងនៅក្នុង DB ប៉ុន្តែ​ company record ត្រូវបានលុប!')) return;
+  try {
+    await api('DELETE', '/companies/'+id);
+    showToast('លុបក្រុមហ៊ុន "'+name+'" រួច!', 'success');
+    loadCompaniesSettings();
+  } catch(e) { showToast('Error: '+e.message, 'error'); }
 }
 
 // Logo upload
@@ -6566,6 +6725,7 @@ function animateLoginSuccess() {
 function doLogout() {
   if (!confirm('តើអ្នកចង់ចាកចេញពីប្រព័ន្ធ?')) return;
   localStorage.removeItem(AUTH_KEY);
+  // Keep company selection for convenience (don't clear)
   document.getElementById('app-shell').style.display = 'none';
   const ls = document.getElementById('login-screen');
   if (ls) {
@@ -6674,6 +6834,8 @@ function initApp() {
       updateSidebarAvatar(uPhoto, session.name || session.username);
     }
     applyCompanyBranding();
+    // Show current company in sidebar
+    updateCompanyIndicator();
     // Apply nav visibility based on permissions
     updateNavVisibility();
     document.querySelectorAll('.nav-item').forEach(a => a.addEventListener('click', e => {
@@ -6686,11 +6848,166 @@ function initApp() {
     $('btn-settings').addEventListener('click', () => navigate('settings'));
     updateApiStatus();
     if (!getApiBase() && localStorage.getItem(DEMO_MODE_KEY) !== '1') {
+      // Show first run — needs Worker URL
       showFirstRunSetup();
+    } else if (!getApiBase() && localStorage.getItem(DEMO_MODE_KEY) === '1') {
+      // Demo mode — go to dashboard
+      navigate('dashboard');
+    } else if (getApiBase() && !getCurrentCompany()) {
+      // Has Worker URL but no company selected
+      showCompanySelector();
     } else {
       navigate('dashboard');
     }
   });
+}
+
+function saveWorkerUrlFromSelector() {
+  const input = document.getElementById('cs-worker-url');
+  const url = input?.value.trim().replace(/\/$/,'');
+  if (!url) { showToast('សូមបញ្ចូល Worker URL!', 'error'); return; }
+  localStorage.setItem(STORAGE_KEY, url);
+  localStorage.removeItem(DEMO_MODE_KEY);
+  showToast('Save Worker URL រួច! ✅', 'success');
+  // Init DB then reload selector
+  fetch(url+'/init', {method:'POST'}).catch(()=>{});
+  setTimeout(() => showCompanySelector(), 500);
+}
+
+async function showCompanySelector() {
+  const savedUrl = getApiBase();
+  contentArea().innerHTML =
+    '<div style="max-width:520px;margin:40px auto">'
+    // Worker URL section (show if not set)
+    +(savedUrl ? '' :
+      '<div style="margin-bottom:20px;padding:16px;background:rgba(255,107,53,.08);border:1px solid rgba(255,107,53,.25);border-radius:12px">'
+      +'<div style="font-size:13px;font-weight:700;color:var(--warning);margin-bottom:10px">⚙️ ដាក់ Worker URL មុន</div>'
+      +'<div style="display:flex;gap:8px">'
+      +'<input class="form-control" id="cs-worker-url" placeholder="https://your-worker.workers.dev" style="flex:1;font-size:12px" />'
+      +'<button class="btn btn-primary" onclick="saveWorkerUrlFromSelector()">Save</button>'
+      +'</div>'
+      +'<div style="font-size:11px;color:var(--text3);margin-top:6px">Worker URL: <code>https://employee-management-api.sansukun3.workers.dev</code></div>'
+      +'</div>'
+    )
+    +'<div style="text-align:center;margin-bottom:20px">'
+    +'<div style="font-size:48px;margin-bottom:10px">🏢</div>'
+    +'<h2 style="font-size:20px;font-weight:800;margin-bottom:6px">ជ្រើសរើសក្រុមហ៊ុន</h2>'
+    +'<p style="color:var(--text3);font-size:13px">ជ្រើសក្រុមហ៊ុន ឬ បង្កើតថ្មី</p>'
+    +'</div>'
+    +'<div id="company-list" style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">'
+    +(savedUrl ? '<div style="text-align:center;padding:20px;color:var(--text3)">⏳ កំពុង load...</div>' : '<div style="text-align:center;padding:16px;color:var(--text3);font-size:13px">⚠️ សូម​ដាក់ Worker URL ជាមុន</div>')
+    +'</div>'
+    +'<button class="btn btn-primary" style="width:100%" onclick="openCreateCompanyModal()">'
+    +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>'
+    +' + បង្កើតក្រុមហ៊ុនថ្មី</button>'
+    +'</div>';
+
+  if (!savedUrl) return;
+
+  try {
+    const data = await api('GET', '/companies');
+    const companies = data.companies || [];
+
+    // Auto-select if only 1 company
+    if (companies.length === 1) {
+      selectCompany(companies[0].id, companies[0].name, companies[0].code);
+      return;
+    }
+
+    const list = document.getElementById('company-list');
+    if (!list) return;
+    if (!companies.length) {
+      list.innerHTML = '<div style="padding:16px;color:var(--text3);font-size:13px">មិនទាន់មានក្រុមហ៊ុន — បង្កើតថ្មី</div>';
+    } else {
+      list.innerHTML = companies.map(co =>
+        '<div style="display:flex;align-items:center;gap:14px;padding:16px;background:var(--bg3);border:1px solid var(--border);border-radius:12px;cursor:pointer;transition:all .2s" onclick="selectCompany('+co.id+',\''+co.name+'\',\''+co.code+'\')" onmouseover="this.style.borderColor=\'var(--primary)\'" onmouseout="this.style.borderColor=\'var(--border)\'">'
+        +(co.logo_url ? '<img src="'+co.logo_url+'" style="width:44px;height:44px;border-radius:10px;object-fit:contain;background:var(--bg4)" />' : '<div style="width:44px;height:44px;border-radius:10px;background:var(--primary);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;color:white">'+(co.name[0]||'?')+'</div>')
+        +'<div style="text-align:left"><div style="font-weight:700;font-size:15px">'+co.name+'</div>'
+        +'<div style="font-size:11px;color:var(--text3);font-family:var(--mono)">'+co.code+'</div></div>'
+        +'<div style="margin-left:auto"><svg viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" style="width:20px;height:20px"><polyline points="9 18 15 12 9 6"/></svg></div>'
+        +'</div>'
+      ).join('');
+    }
+  } catch(e) {
+    const list = document.getElementById('company-list');
+    if (list) list.innerHTML = '<div style="padding:16px;color:var(--danger)">Error: '+e.message+'</div>';
+  }
+}
+
+function selectCompany(id, name, code) {
+  setCurrentCompany({ id, name, code });
+  // Update sidebar company name
+  const uname = document.getElementById('sidebar-user-name');
+  showToast('✅ ជ្រើស: '+name, 'success');
+  // Update topbar company indicator
+  updateCompanyIndicator();
+  navigate('dashboard');
+}
+
+function updateCompanyIndicator() {
+  const co = getCurrentCompany();
+  const el = document.getElementById('company-indicator');
+  const bar = document.getElementById('company-indicator-bar');
+  if (el) {
+    el.textContent = co ? co.name : '—';
+    el.style.color = co ? 'var(--primary)' : 'var(--text3)';
+  }
+  if (bar) bar.style.display = co ? '' : '';
+}
+
+function openCreateCompanyModal() {
+  $('modal-title').textContent = '🏢 បង្កើតក្រុមហ៊ុនថ្មី';
+  $('modal-body').innerHTML =
+    '<div class="form-grid">'
+    +'<div class="form-group full-width"><label class="form-label">ឈ្មោះក្រុមហ៊ុន *</label>'
+    +'<input class="form-control" id="co-name" placeholder="ឈ្មោះក្រុមហ៊ុន..." oninput="autoGenCode(this.value)" /></div>'
+    +'<div class="form-group"><label class="form-label">Code * <span style="font-size:10px;color:var(--text3)">(unique)</span></label>'
+    +'<input class="form-control" id="co-code" placeholder="CO001" /></div>'
+    +'<div class="form-group"><label class="form-label">ទូរស័ព្ទ</label>'
+    +'<input class="form-control" id="co-phone" placeholder="023..." /></div>'
+    +'<div class="form-group"><label class="form-label">អ៊ីម៉ែល</label>'
+    +'<input class="form-control" id="co-email" placeholder="info@..." /></div>'
+    +'<div class="form-group full-width"><label class="form-label">អាស័យដ្ឋាន</label>'
+    +'<input class="form-control" id="co-address" placeholder="អាស័យដ្ឋាន..." /></div>'
+    +'</div>'
+    +'<div class="form-actions">'
+    +'<button class="btn btn-outline" onclick="closeModal()">បោះបង់</button>'
+    +'<button class="btn btn-primary" onclick="saveNewCompany()">+ បង្កើត</button>'
+    +'</div>';
+  openModal();
+  // Auto-set a unique default code
+  const ts = Date.now().toString().slice(-4);
+  const codeEl = document.getElementById('co-code');
+  if (codeEl) codeEl.value = 'CO' + ts;
+}
+
+function autoGenCode(name) {
+  const codeEl = document.getElementById('co-code');
+  if (!codeEl) return;
+  // Generate code from first letters of each word + timestamp
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  const prefix = words.map(w => w[0]?.toUpperCase()||'').join('').slice(0,4) || 'CO';
+  const ts = Date.now().toString().slice(-3);
+  codeEl.value = prefix + ts;
+}
+
+async function saveNewCompany() {
+  const name = document.getElementById('co-name')?.value.trim();
+  const code = document.getElementById('co-code')?.value.trim().toUpperCase();
+  if (!name || !code) { showToast('សូមបំពេញ ឈ្មោះ និង Code!', 'error'); return; }
+  try {
+    // Init DB first (creates tables + companies table)
+    await api('POST', '/init');
+    const r = await api('POST', '/companies', {
+      name, code,
+      phone:   document.getElementById('co-phone')?.value.trim() || '',
+      email:   document.getElementById('co-email')?.value.trim() || '',
+      address: document.getElementById('co-address')?.value.trim() || '',
+    });
+    closeModal();
+    showToast('បង្កើតក្រុមហ៊ុន "'+name+'" រួច! ✅', 'success');
+    selectCompany(r.id, name, code);
+  } catch(e) { showToast('Error: '+e.message, 'error'); }
 }
 
 function showFirstRunSetup() {
@@ -6740,17 +7057,31 @@ async function connectWorkerFromSetup() {
   if (!url) { if(res) res.innerHTML='<span style="color:var(--danger)">❌ សូមវាយ URL!</span>'; return; }
   if(res) res.innerHTML='<span style="color:var(--text3)">⏳ កំពុងសាកល្បង...</span>';
   try {
-    const r = await fetch(url+'/stats');
-    if (r.ok) {
+    // Init DB first
+    const r = await fetch(url+'/init', {method:'POST', headers:{...corsHeaders,'Content-Type':'application/json'}});
+    if (!r.ok) {
+      // Try /stats as fallback
+      const s = await fetch(url+'/stats');
+      if (!s.ok) throw new Error('HTTP '+s.status);
+    }
+    localStorage.setItem(STORAGE_KEY, url);
+    localStorage.removeItem(DEMO_MODE_KEY);
+    if(res) res.innerHTML='<span style="color:var(--success)">✅ ភ្ជាប់បានជោគជ័យ! ⏳ កំពុង load...</span>';
+    updateApiStatus();
+    // Go to company selector (not dashboard directly)
+    setTimeout(() => showCompanySelector(), 600);
+  } catch(e) {
+    // Try without init
+    try {
       localStorage.setItem(STORAGE_KEY, url);
       localStorage.removeItem(DEMO_MODE_KEY);
-      if(res) res.innerHTML='<span style="color:var(--success)">✅ ភ្ជាប់បានជោគជ័យ!</span>';
+      if(res) res.innerHTML='<span style="color:var(--success)">✅ Save URL! ⏳ ជ្រើសក្រុមហ៊ុន...</span>';
       updateApiStatus();
-      setTimeout(() => navigate('dashboard'), 800);
-    } else {
-      if(res) res.innerHTML='<span style="color:var(--warning)">⚠️ Worker ឆ្លើយតប ('+r.status+') — ពិនិត្យ CORS</span>';
+      setTimeout(() => showCompanySelector(), 600);
+    } catch(e2) {
+      if(res) res.innerHTML='<span style="color:var(--danger)">❌ ភ្ជាប់មិនបាន — ពិនិត្យ URL</span>';
     }
-  } catch(e) {
-    if(res) res.innerHTML='<span style="color:var(--danger)">❌ ភ្ជាប់មិនបាន — ពិនិត្យ URL</span>';
   }
 }
+
+const corsHeaders = {};
