@@ -3615,6 +3615,7 @@ function makeQRSvg(text, size, darkColor, lightColor) {
 }
 
 function renderAllQRCodes() {
+  // Landscape cards: [data-qrtext]
   document.querySelectorAll('[data-qrtext]').forEach(el => {
     if (el.dataset.rendered) return;
     el.dataset.rendered = '1';
@@ -3622,6 +3623,19 @@ function renderAllQRCodes() {
     const size = parseInt(el.dataset.qrsize) || 100;
     if (window.QRCode) {
       el.innerHTML = '';
+      new QRCode(el, { text, width: size, height: size, correctLevel: QRCode.CorrectLevel.M });
+    }
+  });
+  // Portrait cards: .qr-placeholder [data-id]
+  document.querySelectorAll('.qr-placeholder').forEach(el => {
+    if (el.dataset.rendered) return;
+    el.dataset.rendered = '1';
+    const text = el.dataset.id || '';
+    const size = parseInt(el.dataset.size) || 74;
+    if (window.QRCode && text) {
+      el.innerHTML = '';
+      el.style.width  = size+'px';
+      el.style.height = size+'px';
       new QRCode(el, { text, width: size, height: size, correctLevel: QRCode.CorrectLevel.M });
     }
   });
@@ -4482,6 +4496,8 @@ function idCardPortraitHTML(e, style, cfg) {
   const qrSize  = 80;
   const qrBlock = '<div style="width:'+qrSize+'px;height:'+qrSize+'px;background:white;border-radius:8px;overflow:hidden;padding:3px">'
     +'<div class="qr-placeholder" data-id="'+empIdRaw+'" data-size="'+(qrSize-6)+'" data-fg="#111" data-bg="#fff"></div></div>';
+  const qrSmall = '<div style="width:36px;height:36px;background:white;border-radius:5px;overflow:hidden;padding:2px;flex-shrink:0">'
+    +'<div class="qr-placeholder" data-id="'+empIdRaw+'" data-size="32" data-fg="#111" data-bg="#fff"></div></div>';
 
   const logoEl = cfg.logo_url
     ? '<img src="'+cfg.logo_url+'" style="height:20px;object-fit:contain;filter:brightness(0) invert(1)" />'
@@ -4517,10 +4533,10 @@ function idCardPortraitHTML(e, style, cfg) {
       +'<div style="background:rgba(255,255,255,.15);border-radius:8px;padding:4px 12px;text-align:center"><div style="color:rgba(255,255,255,.55);font-size:7px;font-weight:700">EMP ID</div><div style="color:white;font-size:13px;font-weight:800;font-family:monospace">'+empId+'</div></div>'
       +'<div style="background:rgba(255,255,255,.15);border-radius:8px;padding:4px 12px;text-align:center"><div style="color:rgba(255,255,255,.55);font-size:7px;font-weight:700">ចូលធ្វើ</div><div style="color:white;font-size:11px;font-weight:700;font-family:monospace">'+hireDate+'</div></div>'
       +'</div>'
-      // Bottom bar
-      +'<div style="margin-top:auto;padding:6px 14px;background:rgba(0,0,0,.2);display:flex;justify-content:space-between;align-items:center">'
+      // Bottom bar with QR
+      +'<div style="margin-top:auto;padding:6px 10px;background:rgba(0,0,0,.2);display:flex;justify-content:space-between;align-items:center">'
       +'<div style="font-size:7px;color:rgba(255,255,255,.4)">OFFICIAL ID</div>'
-      +'<div style="display:flex;gap:1px;align-items:flex-end;height:14px">'+Array.from({length:18},(_,i)=>'<div style="width:2px;height:'+Math.round(3+Math.sin(i*1.1+e.id)*6)+'px;background:rgba(255,255,255,.3);border-radius:1px"></div>').join('')+'</div>'
+      +qrSmall
       +'<div style="font-size:7px;color:rgba(255,255,255,.4)">'+company+'</div></div>'
       +'</div>';
     const back =
@@ -4562,7 +4578,7 @@ function idCardPortraitHTML(e, style, cfg) {
       +'<div style="background:rgba(212,175,55,.1);border:1px solid rgba(212,175,55,.3);border-radius:6px;padding:4px 16px;text-align:center">'
       +'<div style="color:rgba(212,175,55,.6);font-size:7px">EMP ID</div>'
       +'<div style="color:'+gold+';font-size:14px;font-weight:800;font-family:monospace">'+empId+'</div></div></div>'
-      +'<div style="margin-top:auto;padding:6px 14px;display:flex;gap:1px;align-items:flex-end">'+Array.from({length:20},(_,i)=>'<div style="width:2px;height:'+Math.round(3+Math.sin(i*1.2+e.id)*7)+'px;background:rgba(212,175,55,.2);border-radius:1px"></div>').join('')+'</div>'
+      +'<div style="margin-top:auto;padding:6px 10px;background:rgba(0,0,0,.2);display:flex;justify-content:space-between;align-items:center"><div style="font-size:7px;color:rgba(212,175,55,.4)">OFFICIAL ID</div>'+qrSmall+'<div style="font-size:7px;color:rgba(212,175,55,.4)">'+company+'</div></div>'
       +'</div>';
     const back =
       '<div style="width:100%;height:100%;border-radius:14px;overflow:hidden;background:#0d1220;border:1px solid rgba(212,175,55,.2);display:flex;flex-direction:column">'
