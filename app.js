@@ -449,7 +449,7 @@ async function renderEmployees(filter='', dept='', status='') {
       +'</select>'
       +'</div>'
       +'<div class="card"><div class="table-container"><table>'
-      +'<thead><tr><th>បុគ្គលិក</th><th>តំណែង</th><th>នាយកដ្ឋាន</th><th>ទំនាក់ទំនង</th><th>ធនាគារ</th><th>បៀវត្ស</th><th style="text-align:center">ថ្ងៃលា</th><th>ស្ថានភាព</th><th>សកម្មភាព</th></tr></thead>'
+      +'<thead><tr><th>បុគ្គលិក</th><th>តំណែង</th><th>នាយកដ្ឋាន</th><th>ទំនាក់ទំនង</th><th>ធនាគារ</th><th>បៀវត្ស</th><th style="text-align:center">ថ្ងៃលាឈប់</th><th>ស្ថានភាព</th><th>សកម្មភាព</th></tr></thead>'
       +'<tbody>'
       +(empData.employees.length===0
         ? '<tr><td colspan="9"><div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><h3>រកមិនឃើញ</h3><p>ស្វែងរកផ្សេង ឬបន្ថែមបុគ្គលិក</p></div></td></tr>'
@@ -462,12 +462,10 @@ async function renderEmployees(filter='', dept='', status='') {
               ? '<div style="font-size:11px;font-weight:600;color:var(--text2)">'+e.bank+'</div>'
                 +(e.bank_account?'<div style="font-size:10px;color:var(--text3);font-family:var(--mono)">'+e.bank_account+'</div>':'')
               : '<span style="color:var(--text3);font-size:11px">—</span>';
-            // Leave days from empLeaveMap (loaded separately)
-            const leaveDays = (window._empLeaveMap && window._empLeaveMap[e.id]) || 0;
-            const leaveCell = '<td style="text-align:center">'
-              +'<div style="font-weight:700;font-size:13px;color:'+(leaveDays>0?'var(--warning)':'var(--text3)')+'">'+leaveDays+'</div>'
-              +'<div style="font-size:9px;color:var(--text3)">ថ្ងៃ</div>'
-              +'</td>';
+            // Termination date cell
+            const termCell = e.termination_date
+              ? '<td style="text-align:center"><div style="font-family:var(--mono);font-size:11px;font-weight:700;color:var(--danger)">'+e.termination_date+'</div></td>'
+              : '<td style="text-align:center;color:var(--text3);font-size:12px">—</td>';
             return '<tr>'
               +'<td><div class="employee-cell"><div class="emp-avatar" style="background:'+getColor(e.name)+';'+avStyle+'">'+avInner+'</div>'
               +'<div><div class="emp-name">'+e.name+'</div><div class="emp-id">'+displayId+'</div></div></div></td>'
@@ -476,12 +474,11 @@ async function renderEmployees(filter='', dept='', status='') {
               +'<td><div style="font-size:12px;color:var(--text3)">'+(e.phone||'—')+'<br/>'+(e.email||'—')+'</div></td>'
               +'<td>'+bankInfo+'</td>'
               +'<td><span style="font-family:var(--mono);color:var(--success);font-weight:600">$'+(e.salary||0)+'</span></td>'
-              +leaveCell
+              +termCell
               +'<td>'+statusBadge(e.status)+'</td>'
               +'<td><div class="action-btns">'
               +(canEdit()
                 ? '<button class="btn btn-outline btn-sm" onclick="openEmployeeModal('+e.id+')">✏️</button>'
-                  +'<button class="btn btn-warning btn-sm" onclick="openQuickLeaveModal('+e.id+',\''+e.name+'\')" style="background:rgba(255,183,3,.15);border-color:var(--warning);color:var(--warning)">🌴</button>'
                   +'<button class="btn btn-danger btn-sm" onclick="deleteEmployee('+e.id+')">🗑️</button>'
                 : '<span style="font-size:11px;color:var(--text3)">👁️</span>')
               +'</div></td></tr>';
@@ -647,7 +644,12 @@ async function openEmployeeModal(id=null) {
     + '<div class="form-group"><label class="form-label">អ៊ីម៉ែល</label><input class="form-control" id="f-email" type="email" placeholder="email@example.com" value="' + (emp?.email||'') + '" /></div>'
     + '<div class="form-group"><label class="form-label">បៀវត្ស (USD)</label><input class="form-control" id="f-salary" type="number" placeholder="1000" value="' + (emp?.salary||'') + '" /></div>'
     + '<div class="form-group"><label class="form-label">ថ្ងៃចូលធ្វើការ</label><input class="form-control" id="f-hire" type="date" value="' + (emp?.hire_date||'') + '" /></div>'
-    + '<div class="form-group full-width"><label class="form-label">ស្ថានភាព</label><select class="form-control" id="f-status"><option value="active"' + (emp?.status==='active'?' selected':'') + '>✅ ធ្វើការ</option><option value="on_leave"' + (emp?.status==='on_leave'?' selected':'') + '>🌴 ច្បាប់</option><option value="inactive"' + (emp?.status==='inactive'?' selected':'') + '>⛔ ផ្អាក</option></select></div>'
+    + '<div class="form-group full-width"><label class="form-label">ស្ថានភាព</label><select class="form-control" id="f-status" onchange="toggleTerminationDate(this.value)"><option value="active"' + (emp?.status==='active'?' selected':'') + '>✅ ធ្វើការ</option><option value="on_leave"' + (emp?.status==='on_leave'?' selected':'') + '>🌴 ច្បាប់</option><option value="inactive"' + (emp?.status==='inactive'?' selected':'') + '>⛔ ផ្អាក / លាឈប់</option></select></div>'
+    + '<div class="form-group full-width" id="termination-date-row" style="display:'+(emp?.status==='inactive'?'block':'none')+'">'
+    + '<label class="form-label">📅 ថ្ងៃលាឈប់ពីការងារ</label>'
+    + '<input class="form-control" id="f-termination-date" type="date" value="'+(emp?.termination_date||'')+'" />'
+    + '<div style="font-size:11px;color:var(--text3);margin-top:4px">ថ្ងៃចុងក្រោយនៃការងារ</div>'
+    + '</div>'
     + '</div>'
     // QR Bank section
     + '<div style="margin-top:16px;padding:14px;background:var(--bg3);border-radius:10px;border:1px solid var(--border)">'
@@ -681,6 +683,16 @@ async function openEmployeeModal(id=null) {
     + '</div>';
 
   openModal();
+}
+
+function toggleTerminationDate(status) {
+  const row = document.getElementById('termination-date-row');
+  if (row) row.style.display = status === 'inactive' ? 'block' : 'none';
+  // Auto-fill today if empty
+  if (status === 'inactive') {
+    const dateEl = document.getElementById('f-termination-date');
+    if (dateEl && !dateEl.value) dateEl.value = today();
+  }
 }
 
 // Handle photo file selection
@@ -745,6 +757,7 @@ async function saveEmployee() {
     salary:        parseFloat($('f-salary')?.value) || 0,
     hire_date:     $('f-hire')?.value,
     status:        $('f-status')?.value,
+    termination_date: $('f-termination-date')?.value || null,
     bank:          $('f-bank')?.value !== '—' ? $('f-bank')?.value : '',
     bank_account:  $('f-bank-acc')?.value.trim(),
     bank_holder:   $('f-bank-name')?.value.trim(),
@@ -869,8 +882,8 @@ function printEmployeeReport(emps, rangeLabel, leaveMap) {
   const rows = emps.map((e,i)=>{
     const displayId = e.custom_id ? '#'+e.custom_id : '#EMP'+String(e.id).padStart(3,'0');
     const gender = e.gender==='male'?'ប្រុស':'ស្រី';
-    const statusTxt = e.status==='active'?'✅ ធ្វើការ':e.status==='on_leave'?'🌴 ច្បាប់':'⛔ ផ្អាក';
-    const leaveDays = leaveMap[e.id] || 0;
+    const statusTxt = e.status==='active'?'✅ ធ្វើការ':e.status==='on_leave'?'🌴 ច្បាប់':'⛔ ផ្អាក/លាឈប់';
+    const termDate = e.termination_date || '—';
     return '<tr style="background:'+(i%2===0?'white':'#f8faff')+'">'
       +'<td style="text-align:center;color:#666">'+(i+1)+'</td>'
       +'<td style="font-family:monospace;font-weight:700;color:#1d4ed8">'+displayId+'</td>'
@@ -880,7 +893,7 @@ function printEmployeeReport(emps, rangeLabel, leaveMap) {
       +'<td style="font-family:monospace">'+(e.phone||'—')+'</td>'
       +'<td style="font-family:monospace">'+(e.hire_date||'—')+'</td>'
       +'<td style="font-family:monospace;font-weight:700;color:#16a34a">$'+(e.salary||0)+'</td>'
-      +'<td style="text-align:center;font-weight:700;color:'+(leaveDays>0?'#d97706':'#94a3b8')+'">'+leaveDays+' ថ្ងៃ</td>'
+      +'<td style="text-align:center;font-family:monospace;font-weight:700;color:'+(e.termination_date?'#dc2626':'#94a3b8')+'">'+termDate+'</td>'
       +'<td>'+statusTxt+'</td>'
       +'</tr>';
   }).join('');
@@ -948,7 +961,7 @@ async function exportEmployeeExcelFiltered(emps, rangeLabel, leaveMap) {
   rangeLabel = rangeLabel || 'ទាំងអស់';
   leaveMap = leaveMap || {};
   const cfg = getCompanyConfig();
-  const headers = ['#','ID','ឈ្មោះពេញ','ភេទ','តំណែង','នាយកដ្ឋាន','លេខទូរស័ព្ទ','អ៊ីម៉ែល','ថ្ងៃចូលធ្វើការ','ប្រាក់ខែគោល','ថ្ងៃលាឈប់','ស្ថានភាព'];
+  const headers = ['#','ID','ឈ្មោះពេញ','ភេទ','តំណែង','នាយកដ្ឋាន','លេខទូរស័ព្ទ','អ៊ីម៉ែល','ថ្ងៃចូលធ្វើការ','ប្រាក់ខែគោល','ថ្ងៃលាឈប់ពីការងារ','ស្ថានភាព'];
   const rows = emps.map((e,i)=>[
     i+1,
     e.custom_id ? '#'+e.custom_id : '#EMP'+String(e.id).padStart(3,'0'),
@@ -960,8 +973,8 @@ async function exportEmployeeExcelFiltered(emps, rangeLabel, leaveMap) {
     e.email||'',
     e.hire_date||'',
     e.salary||0,
-    leaveMap[e.id]||0,
-    e.status==='active'?'ធ្វើការ':e.status==='on_leave'?'ច្បាប់':'ផ្អាក'
+    e.termination_date||'—',
+    e.status==='active'?'ធ្វើការ':e.status==='on_leave'?'ច្បាប់':'ផ្អាក/លាឈប់'
   ]);
   downloadBlob(
     buildXLSX([{ name:'បុគ្គលិក ('+rangeLabel+')', headers, rows }]),
