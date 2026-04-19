@@ -276,21 +276,22 @@ async function getEmployee(id, env) {
 
 async function createEmployee(request, env) {
   const body = await request.json();
-  const { name, position, department_id, phone, email, salary, hire_date, status, gender, custom_id, bank, bank_account, bank_holder } = body;
+  const { name, position, department_id, phone, email, salary, hire_date, status, gender, custom_id, bank, bank_account, bank_holder, termination_date } = body;
 
   if (!name || !position || !department_id) {
     return error('name, position, department_id are required');
   }
 
   const result = await env.DB.prepare(`
-    INSERT INTO employees (name, position, department_id, phone, email, salary, hire_date, status, gender, custom_id, bank, bank_account, bank_holder, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+    INSERT INTO employees (name, position, department_id, phone, email, salary, hire_date, status, gender, custom_id, bank, bank_account, bank_holder, termination_date, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
   `).bind(
     name, position, department_id,
     phone||'', email||'', salary||0,
     hire_date||new Date().toISOString().split('T')[0],
     status||'active', gender||'male',
-    custom_id||'', bank||'', bank_account||'', bank_holder||''
+    custom_id||'', bank||'', bank_account||'', bank_holder||'',
+    termination_date||''
   ).run();
 
   const newEmp = await env.DB.prepare('SELECT * FROM employees WHERE id = ?').bind(result.meta.last_row_id).first();
@@ -299,7 +300,7 @@ async function createEmployee(request, env) {
 
 async function updateEmployee(id, request, env) {
   const body = await request.json();
-  const { name, position, department_id, phone, email, salary, hire_date, status, gender, custom_id, bank, bank_account, bank_holder } = body;
+  const { name, position, department_id, phone, email, salary, hire_date, status, gender, custom_id, bank, bank_account, bank_holder, termination_date } = body;
 
   const existing = await env.DB.prepare('SELECT id FROM employees WHERE id = ?').bind(id).first();
   if (!existing) return error('Employee not found', 404);
@@ -308,6 +309,7 @@ async function updateEmployee(id, request, env) {
     UPDATE employees SET
       name=?, position=?, department_id=?, phone=?, email=?,
       salary=?, hire_date=?, status=?, gender=?,
+      termination_date=?,
       custom_id=COALESCE(?,custom_id),
       bank=COALESCE(?,bank), bank_account=COALESCE(?,bank_account), bank_holder=COALESCE(?,bank_holder),
       updated_at=datetime('now')
@@ -315,6 +317,7 @@ async function updateEmployee(id, request, env) {
   `).bind(
     name, position, department_id, phone||'', email||'',
     salary||0, hire_date||'', status||'active', gender||'male',
+    termination_date||'',
     custom_id||null, bank||null, bank_account||null, bank_holder||null,
     id
   ).run();
@@ -683,6 +686,7 @@ async function initDatabase(env) {
       salary REAL DEFAULT 0,
       hire_date TEXT,
       status TEXT DEFAULT 'active',
+      termination_date TEXT DEFAULT '',
       bank TEXT DEFAULT '',
       bank_account TEXT DEFAULT '',
       bank_holder TEXT DEFAULT '',
@@ -809,6 +813,7 @@ async function initDatabase(env) {
     `ALTER TABLE employees ADD COLUMN bank_holder TEXT DEFAULT ''`,
     `ALTER TABLE employees ADD COLUMN photo_data TEXT DEFAULT ''`,
     `ALTER TABLE employees ADD COLUMN qr_data TEXT DEFAULT ''`,
+    `ALTER TABLE employees ADD COLUMN termination_date TEXT DEFAULT ''`,
     `CREATE TABLE IF NOT EXISTS app_config (key TEXT PRIMARY KEY, value TEXT DEFAULT '')`,
   ];
   for (const m of migrations) {
