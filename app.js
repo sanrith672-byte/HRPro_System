@@ -530,7 +530,6 @@ const photoDB = {
 // Sync cache for rendering (avoids async in render loops)
 const photoCache = {};
 
-// Load photos: API mode → from Worker D1; Demo → IndexedDB
 async function loadAllPhotos() {
   if (!isDemoMode()) {
     try {
@@ -543,7 +542,6 @@ async function loadAllPhotos() {
       return;
     } catch(_) {}
   }
-  // Fallback: IndexedDB
   const all = await photoDB.getAll();
   Object.assign(photoCache, all);
 }
@@ -706,12 +704,11 @@ function removeEmpPhoto() {
   }
   showToast('លុបរូបថតរួច', 'success');
 }
-
 function removeEmpQR() {
   state._pendingQR = '__remove__';
   const p = document.getElementById('qr-preview');
   if (p) p.innerHTML = '<span style="font-size:28px">📷</span>';
-  showToast('លុប QR ធនាគាររួច', 'success');
+  showToast('លុប QR រួច', 'success');
 }
 // Handle QR upload
 function handleQRUpload(input) {
@@ -3544,12 +3541,10 @@ const CFG_KEY = 'hr_company_config';
 const SAL_KEY = 'hr_salary_rules';
 
 let _cfgCache = null;
-
 function getCompanyConfig() {
   if (_cfgCache) return _cfgCache;
   try { return JSON.parse(localStorage.getItem(CFG_KEY)) || {}; } catch { return {}; }
 }
-
 async function loadCompanyConfig() {
   if (isDemoMode()) {
     try { _cfgCache = JSON.parse(localStorage.getItem(CFG_KEY)) || {}; } catch { _cfgCache = {}; }
@@ -3557,15 +3552,13 @@ async function loadCompanyConfig() {
   }
   try {
     const data = await api('GET', '/config');
-    if (data && typeof data === 'object' && !data.error) {
+    if (data && !data.error) {
       _cfgCache = data;
       localStorage.setItem(CFG_KEY, JSON.stringify(data));
     } else {
       _cfgCache = JSON.parse(localStorage.getItem(CFG_KEY)) || {};
     }
-  } catch(_) {
-    _cfgCache = JSON.parse(localStorage.getItem(CFG_KEY)) || {};
-  }
+  } catch(_) { _cfgCache = JSON.parse(localStorage.getItem(CFG_KEY)) || {}; }
   applyCompanyBranding();
 }
 function getSalaryRules() {
@@ -4863,11 +4856,8 @@ document.addEventListener('DOMContentLoaded', () => {
 function initApp() {
   $('current-date').textContent = new Date().toLocaleDateString('km-KH', {year:'numeric',month:'short',day:'numeric'});
 
-  // Load config + photos then start app
-  Promise.all([
-    isDemoMode() ? Promise.resolve() : loadCompanyConfig(),
-    loadAllPhotos()
-  ]).then(() => {
+  // Load config + photos together
+  Promise.all([isDemoMode() ? Promise.resolve() : loadCompanyConfig(), loadAllPhotos()]).then(() => {
     const session = getSession();
     if (session) {
       const uname = $('sidebar-user-name');
