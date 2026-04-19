@@ -327,7 +327,7 @@ function navigate(page) {
 async function renderDashboard() {
   showLoading();
   try {
-    const [stats, empData] = await Promise.all([api('GET', '/stats'), api('GET', '/employees?limit=5')]);
+    const [stats, empData] = await Promise.all([api('GET', '/stats'), api('GET', '/employees?limit=500')]);
     contentArea().innerHTML = `
       <div class="stats-grid">
         <div class="stat-card">
@@ -359,7 +359,7 @@ async function renderDashboard() {
               <tbody>
                 ${empData.employees.length === 0
                   ? `<tr><td colspan="4"><div class="empty-state" style="padding:30px"><p>មិនទាន់មានបុគ្គលិក</p></div></td></tr>`
-                  : empData.employees.map(e => {
+                  : [...empData.employees].sort((a,b) => b.id - a.id).slice(0, 5).map(e => {
                       const photo = getEmpPhoto(e.id);
                       const avInner = photo ? '<img src="'+photo+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>' : e.name[0];
                       const avStyle = photo ? 'overflow:hidden;padding:0' : '';
@@ -1158,7 +1158,7 @@ function findEmployeeByQR(raw) {
 async function processQRScan(raw, date) {
   if (!raw || !raw.trim()) { showToast('សូមបញ្ចូល ID!', 'error'); return; }
 
-  // ── Ensure employees loaded ──
+  // ── Ensure employees loaded (always refresh for QR scan accuracy) ──
   if (!state.employees || state.employees.length === 0) {
     try {
       const d = await api('GET', '/employees?limit=500');
@@ -1168,16 +1168,29 @@ async function processQRScan(raw, date) {
 
   const emp = findEmployeeByQR(raw);
   if (!emp) {
-    showToast('មិនឃើញបុគ្គលិក: "' + raw + '"', 'error');
-    const s = document.getElementById('qr-scan-status');
-    if (s) { s.textContent = '❌ ' + raw + ' — រកមិនឃើញ'; s.style.background = 'rgba(239,71,111,.7)'; }
-    setTimeout(() => {
-      const sx = document.getElementById('qr-scan-status');
-      if (sx) { sx.textContent = '📷 កំពុងស្កេន...'; sx.style.background = 'rgba(0,0,0,.6)'; }
-    }, 2000);
-    return;
+    // Try reloading employees once more in case of stale data
+    try {
+      const d = await api('GET', '/employees?limit=500');
+      state.employees = d.employees || [];
+    } catch(_) {}
+    const emp2 = findEmployeeByQR(raw);
+    if (!emp2) {
+      showToast('មិនស្គាល់ QR: "' + raw + '" — សូមផ្ទៀងផ្ទាត់ ID បុគ្គលិក', 'error');
+      const s = document.getElementById('qr-scan-status');
+      if (s) { s.textContent = '❌ QR មិនស្គាល់: ' + raw; s.style.background = 'rgba(239,71,111,.7)'; }
+      setTimeout(() => {
+        const sx = document.getElementById('qr-scan-status');
+        if (sx) { sx.textContent = '📷 កំពុងស្កេន...'; sx.style.background = 'rgba(0,0,0,.6)'; }
+      }, 2000);
+      return;
+    }
+    // Found on retry
+    return processQRScan_continue(emp2, raw, date);
   }
+  return processQRScan_continue(emp, raw, date);
+}
 
+async function processQRScan_continue(emp, raw, date) {
   const now   = new Date();
   const time  = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
   const type  = window._scanType || 'in';
@@ -2545,7 +2558,10 @@ async function renderIdCard() {
       +styleBtns+'</div>'
       +'<button class="btn btn-primary" onclick="printIdCards()">'
       +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>'
-      +' បោះពុម្ព</button>'
+      +' 🖨️ Landscape</button>'
+      +'<button class="btn btn-outline" onclick="printIdCardsPortrait()">'
+      +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>'
+      +' 📄 Portrait</button>'
       +'</div></div>'
       +'<div class="id-card-grid" id="id-card-grid">'
       +(emps.length===0
@@ -4657,6 +4673,81 @@ function printIdCards() {
     +'</div>'
     +'<div class="cards-grid">'
     + pairsHTML
+    +'</div>'
+    +'</body></html>');
+  win.document.close();
+  setTimeout(() => { win.focus(); win.print(); }, 900);
+}
+
+// ── Portrait ID Card Print (3 cards per row, A4 portrait) ──
+function printIdCardsPortrait() {
+  const cards = document.querySelectorAll('.id-flip-card');
+  if (!cards.length) { showToast('មិនទាន់មានកាត!','error'); return; }
+  const cfg = getCompanyConfig();
+  const style = currentCardStyle;
+
+  let cardsHTML = '';
+  cards.forEach(card => {
+    if (card.style.display === 'none') return;
+    const name = card.dataset.name || '';
+    const front = card.querySelector('.id-flip-front');
+    const back  = card.querySelector('.id-flip-back');
+    if (!front && !back) return;
+
+    const cloneFront = front ? front.cloneNode(true) : null;
+    const cloneBack  = back  ? back.cloneNode(true)  : null;
+    [cloneFront, cloneBack].forEach(el => {
+      if (!el) return;
+      el.style.cssText = 'position:relative;transform:none;backface-visibility:visible;width:85.6mm;height:54mm;display:block;';
+    });
+
+    // Each card = front + back stacked vertically inside one cell
+    cardsHTML +=
+      '<div class="card-cell">'
+      + '<div class="side-lbl">▶ '+ name +'</div>'
+      + '<div class="card-box">'+(cloneFront ? cloneFront.outerHTML : '')+'</div>'
+      + '<div class="side-lbl" style="margin-top:2mm">◀ ខាងក្រោយ</div>'
+      + '<div class="card-box">'+(cloneBack ? cloneBack.outerHTML : '')+'</div>'
+      + '</div>';
+  });
+
+  const win = window.open('','_blank','width=800,height=1000');
+  if (!win) { showToast('Browser blocked popup! សូម allow popup.','error'); return; }
+  win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8">'
+    +'<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Khmer:wght@400;600;700;800&display=swap" rel="stylesheet">'
+    +'<title>ID Cards Portrait — '+(cfg.company_name||'HR Pro')+'</title>'
+    +'<style>'
+    +'*{box-sizing:border-box;margin:0;padding:0}'
+    +'body{font-family:"Noto Sans Khmer",sans-serif;background:white;color:#1e293b;padding:8mm}'
+    +'.print-header{text-align:center;margin-bottom:5mm;padding-bottom:3mm;border-bottom:1px solid #e2e8f0}'
+    +'.print-header h1{font-size:12pt;font-weight:800;color:#1d4ed8}'
+    +'.print-header p{font-size:8pt;color:#64748b;margin-top:1mm}'
+    // Portrait: 3 cards per row, each cell has FRONT + BACK stacked
+    +'.cards-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6mm}'
+    +'.card-cell{break-inside:avoid;page-break-inside:avoid;display:flex;flex-direction:column;align-items:center}'
+    +'.side-lbl{font-size:5.5pt;font-weight:700;color:#94a3b8;letter-spacing:.5px;text-transform:uppercase;margin-bottom:1mm;text-align:center}'
+    +'.card-box{'
+    +'  width:85.6mm;'
+    +'  height:54mm;'
+    +'  border-radius:3.18mm;'
+    +'  overflow:hidden;'
+    +'  box-shadow:0 0 0 0.3mm #cbd5e1;'
+    +'  position:relative;'
+    +'  display:block;'
+    +'}'
+    +'.card-box>div{width:100%!important;height:100%!important;border-radius:3.18mm!important;overflow:hidden!important}'
+    +'@media print{'
+    +'  @page{size:A4 portrait;margin:8mm}'
+    +'  body{padding:3mm}'
+    +'  .card-box{box-shadow:0 0 0 0.3mm #94a3b8}'
+    +'}'
+    +'</style></head><body>'
+    +'<div class="print-header">'
+    +'<h1>🪪 '+(cfg.company_name||'HR Pro')+' — ID Cards (Portrait)</h1>'
+    +'<p>'+(CARD_STYLE_META[style]?.label||style)+' · 85.6mm × 54mm · 3 per row · '+new Date().toLocaleDateString('km-KH')+' · '+cards.length+' Cards</p>'
+    +'</div>'
+    +'<div class="cards-grid">'
+    + cardsHTML
     +'</div>'
     +'</body></html>');
   win.document.close();
