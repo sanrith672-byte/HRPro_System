@@ -741,6 +741,10 @@ select.form-control option { background: var(--bg3); }
   height: 196px;
   position: relative;
 }
+.id-portrait-card {
+  height: 323px !important;
+  width: 204px !important;
+}
 
 .id-flip-card::after {
   content: '↻ ចុចត្រឡប់';

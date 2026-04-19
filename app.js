@@ -3493,26 +3493,33 @@ if (!_validStyles.includes(_storedStyle)) {
   _storedStyle = 'royal';
 }
 var currentCardStyle = currentCardStyle || _storedStyle || 'royal';
+var currentCardMode  = localStorage.getItem('hr_card_mode') || 'landscape'; // 'landscape' | 'portrait'
 
 const CARD_STYLE_META = {
-  // ── Original 8 ──
-  royal:     { label:'👑 Royal',      desc:'Blue gradient official' },
-  midnight:  { label:'🌌 Midnight',   desc:'Dark luxury gold' },
-  nature:    { label:'🌿 Nature',     desc:'Green fresh modern' },
-  rose:      { label:'🌸 Rose',       desc:'Pink elegant soft' },
-  classic:   { label:'🏛️ Classic',   desc:'Black white minimal' },
-  ocean:     { label:'🌊 Ocean',      desc:'Deep blue teal wave' },
-  sunset:    { label:'🌅 Sunset',     desc:'Purple pink orange' },
-  corporate: { label:'💼 Corporate',  desc:'Gray professional' },
-  // ── Premium 8 ──
-  diamond:   { label:'💎 Diamond',    desc:'Crystal blue premium' },
-  ruby:      { label:'🔴 Ruby',       desc:'Deep red luxury' },
-  emerald:   { label:'💚 Emerald',    desc:'Rich green jewel' },
-  aurora:    { label:'🌈 Aurora',     desc:'Northern lights glow' },
-  carbon:    { label:'⚫ Carbon',     desc:'Carbon fiber dark' },
-  titanium:  { label:'🔘 Titanium',   desc:'Silver metallic pro' },
-  sakura:    { label:'🌺 Sakura',     desc:'Cherry blossom soft' },
-  galaxy:    { label:'🌠 Galaxy',     desc:'Space dark stars' },
+  // ── Landscape (ផ្តេក) ──
+  royal:     { label:'👑 Royal',      desc:'Blue gradient official',      mode:'landscape' },
+  midnight:  { label:'🌌 Midnight',   desc:'Dark luxury gold',            mode:'landscape' },
+  nature:    { label:'🌿 Nature',     desc:'Green fresh modern',          mode:'landscape' },
+  rose:      { label:'🌸 Rose',       desc:'Pink elegant soft',           mode:'landscape' },
+  classic:   { label:'🏛️ Classic',   desc:'Black white minimal',         mode:'landscape' },
+  ocean:     { label:'🌊 Ocean',      desc:'Deep blue teal wave',         mode:'landscape' },
+  sunset:    { label:'🌅 Sunset',     desc:'Purple pink orange',          mode:'landscape' },
+  corporate: { label:'💼 Corporate',  desc:'Gray professional',           mode:'landscape' },
+  diamond:   { label:'💎 Diamond',    desc:'Crystal blue premium',        mode:'landscape' },
+  ruby:      { label:'🔴 Ruby',       desc:'Deep red luxury',             mode:'landscape' },
+  emerald:   { label:'💚 Emerald',    desc:'Rich green jewel',            mode:'landscape' },
+  aurora:    { label:'🌈 Aurora',     desc:'Northern lights glow',        mode:'landscape' },
+  carbon:    { label:'⚫ Carbon',     desc:'Carbon fiber dark',           mode:'landscape' },
+  titanium:  { label:'🔘 Titanium',   desc:'Silver metallic pro',         mode:'landscape' },
+  sakura:    { label:'🌺 Sakura',     desc:'Cherry blossom soft',         mode:'landscape' },
+  galaxy:    { label:'🌠 Galaxy',     desc:'Space dark stars',            mode:'landscape' },
+  // ── Portrait (បញ្ឈ) ──
+  portrait_royal:    { label:'👑 Royal',     desc:'Blue official — បញ្ឈ',   mode:'portrait' },
+  portrait_midnight: { label:'🌌 Midnight',  desc:'Dark gold — បញ្ឈ',        mode:'portrait' },
+  portrait_nature:   { label:'🌿 Nature',    desc:'Green fresh — បញ្ឈ',      mode:'portrait' },
+  portrait_rose:     { label:'🌸 Rose',      desc:'Pink elegant — បញ្ឈ',     mode:'portrait' },
+  portrait_classic:  { label:'🏛️ Classic',  desc:'Minimal clean — បញ្ឈ',    mode:'portrait' },
+  portrait_ocean:    { label:'🌊 Ocean',     desc:'Deep blue — បញ្ឈ',        mode:'portrait' },
 };
 
 async function renderIdCard() {
@@ -3523,7 +3530,12 @@ async function renderIdCard() {
     state.employees = emps;
     const cfg = getCompanyConfig();
 
-    const styleBtns = Object.entries(CARD_STYLE_META).map(([s,m]) =>
+    // Filter styles by current mode
+    const modeStyles = Object.entries(CARD_STYLE_META).filter(([,m])=>m.mode===currentCardMode);
+    if (!modeStyles.find(([s])=>s===currentCardStyle)) {
+      currentCardStyle = modeStyles[0]?.[0] || 'royal';
+    }
+    const styleBtns = modeStyles.map(([s,m]) =>
       '<button onclick="setCardStyle(\''+s+'\')" id="style-btn-'+s+'"'
       +' class="btn btn-sm '+(currentCardStyle===s?'btn-primary':'btn-outline')+'" style="border:none;min-width:80px">'
       + m.label+'</button>'
@@ -3531,19 +3543,29 @@ async function renderIdCard() {
 
     contentArea().innerHTML =
       '<div class="page-header">'
-      +'<div><h2>កាតសម្គាល់ខ្លួន</h2><p>'+( CARD_STYLE_META[currentCardStyle]?.desc||'ID Card')+' · ចុចកាតដើម្បីត្រឡប់</p></div>'
+      +'<div><h2>កាតសម្គាល់ខ្លួន</h2><p id="card-subtitle">'+( CARD_STYLE_META[currentCardStyle]?.desc||'ID Card')+' · ចុចកាតដើម្បីត្រឡប់</p></div>'
       +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
       +'<input class="filter-input" placeholder="ស្វែងរក..." id="id-search" oninput="filterIdCards(this.value)" />'
-      +'<div style="display:flex;gap:3px;background:var(--bg3);padding:3px;border-radius:8px;border:1px solid var(--border)" id="style-btn-wrap">'
+
+      // Mode toggle
+      +'<div style="display:flex;gap:2px;background:var(--bg3);padding:3px;border-radius:8px;border:1px solid var(--border)">'
+      +'<button id="mode-btn-landscape" onclick="setCardMode(\'landscape\')" class="btn btn-sm '+(currentCardMode==='landscape'?'btn-primary':'btn-outline')+'" style="border:none;gap:5px">'
+      +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><rect x="2" y="6" width="20" height="12" rx="2"/></svg> ផ្តេក</button>'
+      +'<button id="mode-btn-portrait" onclick="setCardMode(\'portrait\')" class="btn btn-sm '+(currentCardMode==='portrait'?'btn-primary':'btn-outline')+'" style="border:none;gap:5px">'
+      +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><rect x="6" y="2" width="12" height="20" rx="2"/></svg> បញ្ឈ</button>'
+      +'</div>'
+
+      // Style buttons
+      +'<div style="display:flex;gap:3px;background:var(--bg3);padding:3px;border-radius:8px;border:1px solid var(--border);flex-wrap:wrap;max-width:600px" id="style-btn-wrap">'
       +styleBtns+'</div>'
+
+      // Print buttons
       +'<button class="btn btn-primary" onclick="printIdCards()">'
       +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>'
-      +' 🖨️ Landscape</button>'
-      +'<button class="btn btn-outline" onclick="printIdCardsPortrait()">'
-      +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>'
-      +' 📄 Portrait</button>'
+      +' 🖨️ Print</button>'
       +'</div></div>'
-      +'<div class="id-card-grid" id="id-card-grid">'
+
+      +'<div class="id-card-grid" id="id-card-grid" style="'+(currentCardMode==='portrait'?'grid-template-columns:repeat(auto-fill,minmax(160px,1fr))':'')+'">'
       +(emps.length===0
         ? '<div class="empty-state" style="grid-column:1/-1;padding:60px"><p>មិនទាន់មានបុគ្គលិក</p></div>'
         : emps.map(e=>idCardHTML(e,currentCardStyle,cfg)).join(''))
@@ -3551,6 +3573,16 @@ async function renderIdCard() {
     // Render QR codes after DOM
     setTimeout(() => loadQRLib(renderAllQRCodes), 100);
   } catch(e) { showError(e.message); }
+}
+
+function setCardMode(mode) {
+  currentCardMode = mode;
+  localStorage.setItem('hr_card_mode', mode);
+  // Switch to first style of this mode
+  const first = Object.entries(CARD_STYLE_META).find(([,m])=>m.mode===mode);
+  if (first) currentCardStyle = first[0];
+  const cfg = getCompanyConfig();
+  renderIdCard();
 }
 
 function setCardStyle(style) {
@@ -3708,6 +3740,12 @@ function miniQR(id) { return makeQRSvg(String(id), 30, '#000', '#fff'); }
 function idCardHTML(e, style, cfg) {
   style = style || currentCardStyle;
   cfg = cfg || getCompanyConfig();
+
+  // Route portrait styles to portrait card renderer
+  if (style && style.startsWith('portrait_')) {
+    return idCardPortraitHTML(e, style, cfg);
+  }
+
   const dept = e.department_name || e.department || '—';
   const company = cfg.company_name || 'HR Pro';
   const hireDate = e.hire_date || '—';
@@ -4417,6 +4455,278 @@ function filterIdCards(val) {
     const n=card.dataset.name||'', d=card.dataset.dept||'';
     card.style.display=(!val||n.includes(val)||d.includes(val))?'':'none';
   });
+}
+
+// ── Portrait Card Renderer (54mm × 86mm) ────────────────────
+function idCardPortraitHTML(e, style, cfg) {
+  cfg = cfg || getCompanyConfig();
+  const dept    = e.department_name || e.department || '—';
+  const company = cfg.company_name || 'HR Pro';
+  const hireDate= e.hire_date || '—';
+  const initial = (e.name||'?')[0];
+  const ac      = getColor(e.name);
+  const rawCustom = (e.custom_id||'').trim().replace(/^#+/,'');
+  const empId     = rawCustom ? '#'+rawCustom : '#'+String(e.id).padStart(4,'0');
+  const empIdRaw  = rawCustom || String(e.id);
+  const photo     = getEmpPhoto(e.id);
+
+  function av(size, borderColor, shadow) {
+    return '<div style="width:'+size+'px;height:'+size+'px;border-radius:50%;background:'+ac
+      +';display:flex;align-items:center;justify-content:center;border:3px solid '+(borderColor||'rgba(255,255,255,.5)')
+      +';overflow:hidden;box-shadow:'+(shadow||'0 4px 14px rgba(0,0,0,.3)')+';flex-shrink:0">'
+      +(photo?'<img src="'+photo+'" style="width:100%;height:100%;object-fit:cover"/>'
+        :'<span style="font-size:'+(size*.38)+'px;font-weight:800;color:white">'+initial+'</span>')
+      +'</div>';
+  }
+
+  const qrSize  = 80;
+  const qrBlock = '<div style="width:'+qrSize+'px;height:'+qrSize+'px;background:white;border-radius:8px;overflow:hidden;padding:3px">'
+    +'<div class="qr-placeholder" data-id="'+empIdRaw+'" data-size="'+(qrSize-6)+'" data-fg="#111" data-bg="#fff"></div></div>';
+
+  const logoEl = cfg.logo_url
+    ? '<img src="'+cfg.logo_url+'" style="height:20px;object-fit:contain;filter:brightness(0) invert(1)" />'
+    : '<span style="font-size:10px;font-weight:800;color:white">'+company+'</span>';
+
+  // Portrait card wrapper — 204px wide × 323px tall (54mm×86mm at 96dpi)
+  function wrapP(front, back) {
+    return '<div class="id-card id-flip-card id-portrait-card" data-name="'+e.name+'" data-dept="'+dept
+      +'" onclick="this.classList.toggle(\'flipped\')" style="cursor:pointer;width:204px;height:323px">'
+      +'<div class="id-flip-inner">'
+      +'<div class="id-flip-front" style="width:204px;height:323px">'+front+'</div>'
+      +'<div class="id-flip-back"  style="width:204px;height:323px">'+back+'</div>'
+      +'</div></div>';
+  }
+
+  // ── Portrait Royal ─────────────────────────────────────────
+  if (style === 'portrait_royal') {
+    const front =
+      '<div style="width:100%;height:100%;border-radius:14px;overflow:hidden;background:linear-gradient(175deg,#0f2c6e 0%,#1d4ed8 60%,#0ea5e9 100%);display:flex;flex-direction:column;position:relative">'
+      +'<div style="position:absolute;top:-30px;right:-30px;width:130px;height:130px;border-radius:50%;background:rgba(255,255,255,.06)"></div>'
+      // Header
+      +'<div style="padding:12px 14px 8px;display:flex;justify-content:space-between;align-items:center">'+logoEl
+      +'<div style="background:rgba(255,255,255,.18);color:white;font-size:8px;font-weight:700;padding:2px 8px;border-radius:20px">'+dept+'</div></div>'
+      // Avatar center
+      +'<div style="display:flex;justify-content:center;padding:8px 0">'+av(90,'rgba(255,255,255,.6)','0 6px 20px rgba(0,0,0,.5)')+'</div>'
+      // Name
+      +'<div style="text-align:center;padding:8px 12px 4px">'
+      +'<div style="color:rgba(255,255,255,.65);font-size:9px;font-weight:600;letter-spacing:.5px;text-transform:uppercase">'+(e.position||'—')+'</div>'
+      +'<div style="color:white;font-size:16px;font-weight:800;margin:4px 0;line-height:1.2">'+e.name+'</div>'
+      +'</div>'
+      // ID + hire
+      +'<div style="display:flex;gap:8px;justify-content:center;padding:0 12px 10px">'
+      +'<div style="background:rgba(255,255,255,.15);border-radius:8px;padding:4px 12px;text-align:center"><div style="color:rgba(255,255,255,.55);font-size:7px;font-weight:700">EMP ID</div><div style="color:white;font-size:13px;font-weight:800;font-family:monospace">'+empId+'</div></div>'
+      +'<div style="background:rgba(255,255,255,.15);border-radius:8px;padding:4px 12px;text-align:center"><div style="color:rgba(255,255,255,.55);font-size:7px;font-weight:700">ចូលធ្វើ</div><div style="color:white;font-size:11px;font-weight:700;font-family:monospace">'+hireDate+'</div></div>'
+      +'</div>'
+      // Bottom bar
+      +'<div style="margin-top:auto;padding:6px 14px;background:rgba(0,0,0,.2);display:flex;justify-content:space-between;align-items:center">'
+      +'<div style="font-size:7px;color:rgba(255,255,255,.4)">OFFICIAL ID</div>'
+      +'<div style="display:flex;gap:1px;align-items:flex-end;height:14px">'+Array.from({length:18},(_,i)=>'<div style="width:2px;height:'+Math.round(3+Math.sin(i*1.1+e.id)*6)+'px;background:rgba(255,255,255,.3);border-radius:1px"></div>').join('')+'</div>'
+      +'<div style="font-size:7px;color:rgba(255,255,255,.4)">'+company+'</div></div>'
+      +'</div>';
+    const back =
+      '<div style="width:100%;height:100%;border-radius:14px;overflow:hidden;background:white;display:flex;flex-direction:column">'
+      +'<div style="background:linear-gradient(90deg,#0f2c6e,#1d4ed8);padding:10px 14px;display:flex;justify-content:space-between;align-items:center">'
+      +'<div style="color:white;font-size:12px;font-weight:800">'+e.name+'</div>'
+      +'<div style="color:rgba(255,255,255,.7);font-size:8px">EMPLOYEE</div></div>'
+      +'<div style="display:flex;flex-direction:column;align-items:center;padding:14px;gap:10px;flex:1">'
+      +qrBlock
+      +'<div style="font-family:monospace;font-size:12px;font-weight:800;color:#1d4ed8">'+empId+'</div>'
+      +'</div>'
+      +'<div style="padding:0 14px 10px">'
+      +[['ឈ្មោះ',e.name||'—'],['តំណែង',e.position||'—'],['នាយកដ្ឋាន',dept],['ទូរស័ព្ទ',e.phone||'—']].map(([k,v])=>
+        '<div style="display:flex;gap:6px;padding:3px 0;border-bottom:1px solid #e2eaff">'
+        +'<span style="color:#94a3b8;font-weight:600;min-width:60px;font-size:9px">'+k+'</span>'
+        +'<span style="color:#1e293b;font-weight:700;font-size:9px">'+v+'</span></div>'
+      ).join('')
+      +'</div>'
+      +'<div style="background:#f8faff;border-top:1px solid #e2eaff;padding:5px 14px;text-align:center;font-size:8px;color:#94a3b8">ករណីបាត់ — If found, please return</div>'
+      +'</div>';
+    return wrapP(front, back);
+  }
+
+  // ── Portrait Midnight ──────────────────────────────────────
+  if (style === 'portrait_midnight') {
+    const gold = '#d4af37';
+    const front =
+      '<div style="width:100%;height:100%;border-radius:14px;overflow:hidden;background:linear-gradient(175deg,#0a0e1a,#141824,#0d1220);border:1px solid rgba(212,175,55,.2);display:flex;flex-direction:column;position:relative">'
+      +'<div style="height:3px;background:linear-gradient(90deg,'+gold+',#f0d060,'+gold+')"></div>'
+      +'<div style="padding:10px 14px;display:flex;justify-content:space-between;align-items:center">'
+      +(cfg.logo_url?'<img src="'+cfg.logo_url+'" style="height:16px;object-fit:contain;filter:sepia(1) saturate(3) brightness(1.2)">':'<span style="color:'+gold+';font-size:10px;font-weight:800">'+company+'</span>')
+      +'<div style="border:1px solid rgba(212,175,55,.4);color:'+gold+';font-size:8px;padding:2px 8px;border-radius:3px">'+dept+'</div></div>'
+      +'<div style="display:flex;justify-content:center;padding:6px 0">'+av(88,'rgba(212,175,55,.5)','0 0 24px rgba(212,175,55,.25)')+'</div>'
+      +'<div style="text-align:center;padding:8px 12px 4px">'
+      +'<div style="color:'+gold+';font-size:9px;font-weight:600;letter-spacing:.5px">'+(e.position||'—')+'</div>'
+      +'<div style="color:#f8f8f0;font-size:16px;font-weight:800;margin:4px 0">'+e.name+'</div>'
+      +'</div>'
+      +'<div style="display:flex;justify-content:center;padding:0 12px 10px">'
+      +'<div style="background:rgba(212,175,55,.1);border:1px solid rgba(212,175,55,.3);border-radius:6px;padding:4px 16px;text-align:center">'
+      +'<div style="color:rgba(212,175,55,.6);font-size:7px">EMP ID</div>'
+      +'<div style="color:'+gold+';font-size:14px;font-weight:800;font-family:monospace">'+empId+'</div></div></div>'
+      +'<div style="margin-top:auto;padding:6px 14px;display:flex;gap:1px;align-items:flex-end">'+Array.from({length:20},(_,i)=>'<div style="width:2px;height:'+Math.round(3+Math.sin(i*1.2+e.id)*7)+'px;background:rgba(212,175,55,.2);border-radius:1px"></div>').join('')+'</div>'
+      +'</div>';
+    const back =
+      '<div style="width:100%;height:100%;border-radius:14px;overflow:hidden;background:#0d1220;border:1px solid rgba(212,175,55,.2);display:flex;flex-direction:column">'
+      +'<div style="height:3px;background:linear-gradient(90deg,'+gold+',#f0d060,'+gold+')"></div>'
+      +'<div style="padding:10px 14px"><div style="color:'+gold+';font-size:13px;font-weight:800">'+e.name+'</div></div>'
+      +'<div style="display:flex;flex-direction:column;align-items:center;padding:10px;gap:8px;flex:1">'
+      +'<div style="background:rgba(212,175,55,.05);border:1px solid rgba(212,175,55,.2);border-radius:10px;padding:8px">'+qrBlock+'</div>'
+      +'<div style="color:'+gold+';font-family:monospace;font-size:12px;font-weight:800">'+empId+'</div>'
+      +'</div>'
+      +'<div style="padding:0 14px 12px">'
+      +[['ឈ្មោះ',e.name||'—'],['តំណែង',e.position||'—'],[' នាយកដ្ឋាន',dept],['ទូរស័ព្ទ',e.phone||'—']].map(([k,v])=>
+        '<div style="display:flex;gap:6px;padding:3px 0;border-bottom:1px solid rgba(212,175,55,.1)">'
+        +'<span style="color:rgba(212,175,55,.5);font-weight:600;min-width:60px;font-size:9px">'+k+'</span>'
+        +'<span style="color:#f8f8f0;font-weight:700;font-size:9px">'+v+'</span></div>'
+      ).join('')+'</div>'
+      +'<div style="padding:5px 14px;text-align:center;font-size:8px;color:rgba(212,175,55,.3)">'+company+'</div>'
+      +'</div>';
+    return wrapP(front, back);
+  }
+
+  // ── Portrait Nature ────────────────────────────────────────
+  if (style === 'portrait_nature') {
+    const front =
+      '<div style="width:100%;height:100%;border-radius:14px;overflow:hidden;background:linear-gradient(175deg,#064e3b,#059669,#34d399);display:flex;flex-direction:column;position:relative">'
+      +'<div style="position:absolute;bottom:-20px;left:-20px;width:100px;height:100px;border-radius:50%;background:rgba(255,255,255,.06)"></div>'
+      +'<div style="padding:10px 14px;display:flex;justify-content:space-between;align-items:center">'
+      +(cfg.logo_url?'<img src="'+cfg.logo_url+'" style="height:18px;object-fit:contain;filter:brightness(0) invert(1)">':'<span style="color:white;font-size:10px;font-weight:800">'+company+'</span>')
+      +'<div style="background:rgba(255,255,255,.2);color:white;font-size:8px;font-weight:700;padding:2px 8px;border-radius:20px">'+dept+'</div></div>'
+      +'<div style="display:flex;justify-content:center;padding:6px 0">'+av(88,'rgba(255,255,255,.6)','0 6px 20px rgba(0,0,0,.4)')+'</div>'
+      +'<div style="text-align:center;padding:8px 12px 4px">'
+      +'<div style="color:rgba(255,255,255,.7);font-size:9px;font-weight:600">'+(e.position||'—')+'</div>'
+      +'<div style="color:white;font-size:16px;font-weight:800;margin:4px 0">'+e.name+'</div>'
+      +'</div>'
+      +'<div style="display:flex;justify-content:center;padding:0 12px 10px">'
+      +'<div style="background:rgba(255,255,255,.15);border-radius:8px;padding:4px 14px;text-align:center">'
+      +'<div style="color:rgba(255,255,255,.6);font-size:7px">EMP ID</div>'
+      +'<div style="color:white;font-size:14px;font-weight:800;font-family:monospace">'+empId+'</div></div></div>'
+      +'<div style="margin-top:auto;padding:6px 14px;background:rgba(0,0,0,.15);display:flex;justify-content:space-between;font-size:7px;color:rgba(255,255,255,.4)">'
+      +'<span>OFFICIAL ID</span><span>'+company+'</span></div>'
+      +'</div>';
+    const back =
+      '<div style="width:100%;height:100%;border-radius:14px;overflow:hidden;background:white;display:flex;flex-direction:column">'
+      +'<div style="background:linear-gradient(90deg,#064e3b,#059669);padding:10px 14px;display:flex;justify-content:space-between;align-items:center">'
+      +'<div style="color:white;font-size:12px;font-weight:800">'+e.name+'</div>'
+      +'<div style="color:rgba(255,255,255,.7);font-size:8px">NATURE</div></div>'
+      +'<div style="display:flex;flex-direction:column;align-items:center;padding:12px;gap:8px;flex:1">'
+      +qrBlock
+      +'<div style="font-family:monospace;font-size:12px;font-weight:800;color:#059669">'+empId+'</div>'
+      +'</div>'
+      +'<div style="padding:0 14px 10px">'
+      +[['ឈ្មោះ',e.name||'—'],['តំណែង',e.position||'—'],['នាយកដ្ឋាន',dept],['ទូរស័ព្ទ',e.phone||'—']].map(([k,v])=>
+        '<div style="display:flex;gap:6px;padding:3px 0;border-bottom:1px solid #e8faf3">'
+        +'<span style="color:#6ee7b7;font-weight:600;min-width:60px;font-size:9px">'+k+'</span>'
+        +'<span style="color:#1e293b;font-weight:700;font-size:9px">'+v+'</span></div>'
+      ).join('')+'</div>'
+      +'<div style="background:#f0fdf4;border-top:1px solid #d1fae5;padding:5px 14px;text-align:center;font-size:8px;color:#6ee7b7">'+company+'</div>'
+      +'</div>';
+    return wrapP(front, back);
+  }
+
+  // ── Portrait Rose ──────────────────────────────────────────
+  if (style === 'portrait_rose') {
+    const front =
+      '<div style="width:100%;height:100%;border-radius:14px;overflow:hidden;background:linear-gradient(175deg,#831843,#db2777,#f9a8d4);display:flex;flex-direction:column">'
+      +'<div style="padding:10px 14px;display:flex;justify-content:space-between;align-items:center">'
+      +(cfg.logo_url?'<img src="'+cfg.logo_url+'" style="height:18px;object-fit:contain;filter:brightness(0) invert(1)">':'<span style="color:white;font-size:10px;font-weight:800">'+company+'</span>')
+      +'<div style="background:rgba(255,255,255,.2);color:white;font-size:8px;padding:2px 8px;border-radius:20px">'+dept+'</div></div>'
+      +'<div style="display:flex;justify-content:center;padding:6px 0">'+av(88,'rgba(255,255,255,.6)','0 6px 20px rgba(0,0,0,.35)')+'</div>'
+      +'<div style="text-align:center;padding:8px 12px 4px">'
+      +'<div style="color:rgba(255,255,255,.75);font-size:9px;font-weight:600">'+(e.position||'—')+'</div>'
+      +'<div style="color:white;font-size:16px;font-weight:800;margin:4px 0">'+e.name+'</div>'
+      +'</div>'
+      +'<div style="display:flex;justify-content:center;padding:0 12px 10px">'
+      +'<div style="background:rgba(255,255,255,.15);border-radius:8px;padding:4px 14px;text-align:center">'
+      +'<div style="color:rgba(255,255,255,.6);font-size:7px">EMP ID</div>'
+      +'<div style="color:white;font-size:14px;font-weight:800;font-family:monospace">'+empId+'</div></div></div>'
+      +'<div style="margin-top:auto;padding:6px 14px;background:rgba(0,0,0,.15);display:flex;justify-content:space-between;font-size:7px;color:rgba(255,255,255,.4)">'
+      +'<span>OFFICIAL ID</span><span>'+company+'</span></div></div>';
+    const back =
+      '<div style="width:100%;height:100%;border-radius:14px;overflow:hidden;background:white;display:flex;flex-direction:column">'
+      +'<div style="background:linear-gradient(90deg,#831843,#db2777);padding:10px 14px;display:flex;justify-content:space-between;align-items:center">'
+      +'<div style="color:white;font-size:12px;font-weight:800">'+e.name+'</div>'
+      +'<div style="color:rgba(255,255,255,.7);font-size:8px">ROSE</div></div>'
+      +'<div style="display:flex;flex-direction:column;align-items:center;padding:12px;gap:8px;flex:1">'+qrBlock
+      +'<div style="font-family:monospace;font-size:12px;font-weight:800;color:#db2777">'+empId+'</div></div>'
+      +'<div style="padding:0 14px 10px">'
+      +[['ឈ្មោះ',e.name||'—'],['តំណែង',e.position||'—'],['នាយកដ្ឋាន',dept],['ទូរស័ព្ទ',e.phone||'—']].map(([k,v])=>
+        '<div style="display:flex;gap:6px;padding:3px 0;border-bottom:1px solid #fce7f3">'
+        +'<span style="color:#f9a8d4;font-weight:600;min-width:60px;font-size:9px">'+k+'</span>'
+        +'<span style="color:#1e293b;font-weight:700;font-size:9px">'+v+'</span></div>'
+      ).join('')+'</div>'
+      +'<div style="background:#fff1f2;border-top:1px solid #fce7f3;padding:5px 14px;text-align:center;font-size:8px;color:#f9a8d4">'+company+'</div></div>';
+    return wrapP(front, back);
+  }
+
+  // ── Portrait Classic ───────────────────────────────────────
+  if (style === 'portrait_classic') {
+    const front =
+      '<div style="width:100%;height:100%;border-radius:14px;overflow:hidden;background:white;border:2px solid #1e293b;display:flex;flex-direction:column">'
+      +'<div style="background:#1e293b;padding:10px 14px;display:flex;justify-content:space-between;align-items:center">'
+      +(cfg.logo_url?'<img src="'+cfg.logo_url+'" style="height:18px;object-fit:contain;filter:brightness(0) invert(1)">':'<span style="color:white;font-size:10px;font-weight:800">'+company+'</span>')
+      +'<div style="color:rgba(255,255,255,.7);font-size:8px;border:1px solid rgba(255,255,255,.3);padding:2px 8px;border-radius:3px">'+dept+'</div></div>'
+      +'<div style="display:flex;justify-content:center;padding:14px 0 8px">'+av(88,'#1e293b','0 4px 12px rgba(0,0,0,.2)')+'</div>'
+      +'<div style="text-align:center;padding:0 12px 8px;flex:1">'
+      +'<div style="color:#64748b;font-size:9px;font-weight:600;letter-spacing:.5px;text-transform:uppercase">'+(e.position||'—')+'</div>'
+      +'<div style="color:#1e293b;font-size:16px;font-weight:800;margin:4px 0;border-bottom:2px solid #e2e8f0;padding-bottom:8px">'+e.name+'</div>'
+      +'<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:4px 14px;display:inline-block;margin-top:6px">'
+      +'<div style="color:#94a3b8;font-size:7px">EMP ID</div>'
+      +'<div style="color:#1e293b;font-size:14px;font-weight:800;font-family:monospace">'+empId+'</div></div></div>'
+      +'<div style="background:#f8fafc;border-top:2px solid #e2e8f0;padding:5px 14px;display:flex;justify-content:space-between;font-size:7px;color:#94a3b8">'
+      +'<span>OFFICIAL ID</span><span>'+hireDate+'</span></div></div>';
+    const back =
+      '<div style="width:100%;height:100%;border-radius:14px;overflow:hidden;background:white;border:2px solid #1e293b;display:flex;flex-direction:column">'
+      +'<div style="background:#1e293b;padding:10px 14px"><div style="color:white;font-size:12px;font-weight:800">'+e.name+'</div></div>'
+      +'<div style="display:flex;flex-direction:column;align-items:center;padding:12px;gap:8px;flex:1">'
+      +'<div style="border:2px solid #e2e8f0;border-radius:10px;padding:6px">'+qrBlock+'</div>'
+      +'<div style="font-family:monospace;font-size:12px;font-weight:800;color:#1e293b">'+empId+'</div>'
+      +'</div>'
+      +'<div style="padding:0 14px 10px">'
+      +[['ឈ្មោះ',e.name||'—'],['តំណែង',e.position||'—'],['នាយកដ្ឋាន',dept],['ទូរស័ព្ទ',e.phone||'—']].map(([k,v])=>
+        '<div style="display:flex;gap:6px;padding:3px 0;border-bottom:1px solid #f1f5f9">'
+        +'<span style="color:#94a3b8;font-weight:600;min-width:60px;font-size:9px">'+k+'</span>'
+        +'<span style="color:#1e293b;font-weight:700;font-size:9px">'+v+'</span></div>'
+      ).join('')+'</div>'
+      +'<div style="background:#f8fafc;border-top:2px solid #e2e8f0;padding:5px 14px;text-align:center;font-size:8px;color:#94a3b8">'+company+'</div></div>';
+    return wrapP(front, back);
+  }
+
+  // ── Portrait Ocean ─────────────────────────────────────────
+  if (style === 'portrait_ocean') {
+    const front =
+      '<div style="width:100%;height:100%;border-radius:14px;overflow:hidden;background:linear-gradient(175deg,#0c4a6e,#0369a1,#0ea5e9,#22d3ee);display:flex;flex-direction:column">'
+      +'<div style="padding:10px 14px;display:flex;justify-content:space-between;align-items:center">'
+      +(cfg.logo_url?'<img src="'+cfg.logo_url+'" style="height:18px;object-fit:contain;filter:brightness(0) invert(1)">':'<span style="color:white;font-size:10px;font-weight:800">'+company+'</span>')
+      +'<div style="background:rgba(255,255,255,.2);color:white;font-size:8px;padding:2px 8px;border-radius:20px">'+dept+'</div></div>'
+      +'<div style="display:flex;justify-content:center;padding:6px 0">'+av(88,'rgba(255,255,255,.6)','0 6px 20px rgba(0,0,0,.4)')+'</div>'
+      +'<div style="text-align:center;padding:8px 12px 4px">'
+      +'<div style="color:rgba(255,255,255,.7);font-size:9px;font-weight:600">'+(e.position||'—')+'</div>'
+      +'<div style="color:white;font-size:16px;font-weight:800;margin:4px 0">'+e.name+'</div></div>'
+      +'<div style="display:flex;justify-content:center;padding:0 12px 10px">'
+      +'<div style="background:rgba(255,255,255,.15);border-radius:8px;padding:4px 14px;text-align:center">'
+      +'<div style="color:rgba(255,255,255,.6);font-size:7px">EMP ID</div>'
+      +'<div style="color:white;font-size:14px;font-weight:800;font-family:monospace">'+empId+'</div></div></div>'
+      +'<div style="margin-top:auto;padding:6px 14px;background:rgba(0,0,0,.15);display:flex;justify-content:space-between;font-size:7px;color:rgba(255,255,255,.4)">'
+      +'<span>OFFICIAL ID</span><span>'+company+'</span></div></div>';
+    const back =
+      '<div style="width:100%;height:100%;border-radius:14px;overflow:hidden;background:white;display:flex;flex-direction:column">'
+      +'<div style="background:linear-gradient(90deg,#0c4a6e,#0369a1);padding:10px 14px;display:flex;justify-content:space-between;align-items:center">'
+      +'<div style="color:white;font-size:12px;font-weight:800">'+e.name+'</div>'
+      +'<div style="color:rgba(255,255,255,.7);font-size:8px">OCEAN</div></div>'
+      +'<div style="display:flex;flex-direction:column;align-items:center;padding:12px;gap:8px;flex:1">'+qrBlock
+      +'<div style="font-family:monospace;font-size:12px;font-weight:800;color:#0369a1">'+empId+'</div></div>'
+      +'<div style="padding:0 14px 10px">'
+      +[['ឈ្មោះ',e.name||'—'],['តំណែង',e.position||'—'],['នាយកដ្ឋាន',dept],['ទូរស័ព្ទ',e.phone||'—']].map(([k,v])=>
+        '<div style="display:flex;gap:6px;padding:3px 0;border-bottom:1px solid #e0f2fe">'
+        +'<span style="color:#7dd3fc;font-weight:600;min-width:60px;font-size:9px">'+k+'</span>'
+        +'<span style="color:#1e293b;font-weight:700;font-size:9px">'+v+'</span></div>'
+      ).join('')+'</div>'
+      +'<div style="background:#f0f9ff;border-top:1px solid #e0f2fe;padding:5px 14px;text-align:center;font-size:8px;color:#7dd3fc">'+company+'</div></div>';
+    return wrapP(front, back);
+  }
+
+  // Fallback
+  return idCardHTML(e, 'royal', cfg);
 }
 
 
