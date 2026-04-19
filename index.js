@@ -113,7 +113,7 @@ async function migrate(env) {
 
 async function getEmployees(request, env, url) {
   const co=cid(request,url,null), search=url.searchParams.get('search')||'', dept=url.searchParams.get('department')||'', status=url.searchParams.get('status')||'', limit=+url.searchParams.get('limit')||50, page=+url.searchParams.get('page')||1, offset=(page-1)*limit;
-  await migrate(env);
+  await initDB(env);
   const sel=`e.id,e.name,e.gender,e.position,e.department_id,e.phone,e.email,e.salary,e.hire_date,e.status,e.company_id,e.created_at,e.updated_at,COALESCE(e.custom_id,'') as custom_id,COALESCE(e.bank,'') as bank,COALESCE(e.bank_account,'') as bank_account,COALESCE(e.bank_holder,'') as bank_holder,COALESCE(e.photo_data,'') as photo_data,COALESCE(e.qr_data,'') as qr_data,COALESCE(e.termination_date,'') as termination_date,COALESCE(e.work_history,'') as work_history,d.name as department_name,d.icon as dept_icon`;
   let w='WHERE e.company_id=?'; const p=[co];
   if(search){w+=` AND (e.name LIKE ? OR e.position LIKE ?)`;p.push(`%${search}%`,`%${search}%`);}
@@ -125,19 +125,19 @@ async function getEmployees(request, env, url) {
   return json({employees:rows.results||[],total:cnt?.t||0,page,limit});
 }
 async function getEmployee(id, request, env, url) {
-  const co=cid(request,url,null); await migrate(env);
+  const co=cid(request,url,null); await initDB(env);
   const e=await env.DB.prepare(`SELECT e.*,COALESCE(e.termination_date,'') as termination_date,COALESCE(e.work_history,'') as work_history,d.name as department_name FROM employees e LEFT JOIN departments d ON e.department_id=d.id WHERE e.id=? AND e.company_id=?`).bind(id,co).first();
   return e ? json(e) : err('Not found',404);
 }
 async function createEmployee(request, env, url) {
-  const b=await request.json(); const co=cid(request,url,b); await migrate(env);
+  const b=await request.json(); const co=cid(request,url,b); await initDB(env);
   if(!b.name||!b.position||!b.department_id) return err('name,position,department_id required');
   const r=await env.DB.prepare(`INSERT INTO employees(name,position,department_id,phone,email,salary,hire_date,status,gender,custom_id,bank,bank_account,bank_holder,termination_date,work_history,company_id,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime('now'))`).bind(b.name,b.position,b.department_id,b.phone||'',b.email||'',b.salary||0,b.hire_date||new Date().toISOString().split('T')[0],b.status||'active',b.gender||'male',b.custom_id||'',b.bank||'',b.bank_account||'',b.bank_holder||'',b.termination_date||'',b.work_history||'',co).run();
   const e=await env.DB.prepare('SELECT * FROM employees WHERE id=?').bind(r.meta.last_row_id).first();
   return json({message:'Created',id:r.meta.last_row_id,employee:e},201);
 }
 async function updateEmployee(id, request, env, url) {
-  const b=await request.json(); const co=cid(request,url,b); await migrate(env);
+  const b=await request.json(); const co=cid(request,url,b); await initDB(env);
   await env.DB.prepare(`UPDATE employees SET name=?,position=?,department_id=?,phone=?,email=?,salary=?,hire_date=?,status=?,gender=?,termination_date=?,work_history=?,custom_id=COALESCE(?,custom_id),bank=COALESCE(?,bank),bank_account=COALESCE(?,bank_account),bank_holder=COALESCE(?,bank_holder),updated_at=datetime('now') WHERE id=? AND company_id=?`).bind(b.name,b.position,b.department_id,b.phone||'',b.email||'',b.salary||0,b.hire_date||'',b.status||'active',b.gender||'male',b.termination_date||'',b.work_history||'',b.custom_id||null,b.bank||null,b.bank_account||null,b.bank_holder||null,id,co).run();
   const e=await env.DB.prepare('SELECT * FROM employees WHERE id=?').bind(id).first();
   return json({message:'Updated',employee:e});
@@ -161,7 +161,7 @@ async function delMedia(id, col, env) {
 async function getConfig(request, env, url) {
   const co=cid(request,url,null);
   try {
-    await Promise.allSettled([env.DB.prepare(`ALTER TABLE app_config ADD COLUMN company_id INTEGER DEFAULT 1`).run()]);
+    await initDB(env);
     const rows=await env.DB.prepare('SELECT key,value FROM app_config WHERE company_id=?').bind(co).all();
     const cfg={};
     for(const r of rows.results||[]){try{cfg[r.key]=JSON.parse(r.value);}catch{cfg[r.key]=r.value;}}
@@ -172,7 +172,7 @@ async function getConfig(request, env, url) {
 async function saveConfig(request, env, url) {
   const b=await request.json(); const co=cid(request,url,b);
   try {
-    await Promise.allSettled([env.DB.prepare(`ALTER TABLE app_config ADD COLUMN company_id INTEGER DEFAULT 1`).run()]);
+    await initDB(env);
     const key=b.key||'company'; const val=b.key?(typeof b.value==='string'?b.value:JSON.stringify(b.value)):JSON.stringify(b);
     await env.DB.prepare(`INSERT INTO app_config(key,value,company_id) VALUES(?,?,?) ON CONFLICT(key,company_id) DO UPDATE SET value=excluded.value`).bind(key,val,co).run();
     return json({message:'saved',key});
@@ -182,13 +182,13 @@ async function saveConfig(request, env, url) {
 // ── Departments ──────────────────────────────────────────────
 async function getDepts(request, env, url) {
   const co=cid(request,url,null);
-  await Promise.allSettled([env.DB.prepare(`ALTER TABLE departments ADD COLUMN company_id INTEGER DEFAULT 1`).run()]);
+  await initDB(env); // ensure tables exist
   const r=await env.DB.prepare('SELECT * FROM departments WHERE company_id=? ORDER BY name').bind(co).all();
   return json(r.results||[]);
 }
 async function createDept(request, env, url) {
   const b=await request.json(); const co=cid(request,url,b);
-  await Promise.allSettled([env.DB.prepare(`ALTER TABLE departments ADD COLUMN company_id INTEGER DEFAULT 1`).run()]);
+  await initDB(env); // ensure tables exist
   const r=await env.DB.prepare(`INSERT INTO departments(name,manager,icon,color,company_id,created_at) VALUES(?,?,?,?,?,datetime('now'))`).bind(b.name||'',b.manager||'',b.icon||'🏢',b.color||'#118AB2',co).run();
   return json({message:'Created',id:r.meta.last_row_id},201);
 }
@@ -207,7 +207,7 @@ async function delDept(id, env) {
 // ── Attendance ───────────────────────────────────────────────
 async function getAtt(request, env, url) {
   const co=cid(request,url,null), date=url.searchParams.get('date')||'', empId=url.searchParams.get('employee_id')||'', month=url.searchParams.get('month')||'';
-  await Promise.allSettled([env.DB.prepare(`ALTER TABLE attendance ADD COLUMN company_id INTEGER DEFAULT 1`).run()]);
+  await initDB(env);
   let q=`SELECT a.*,e.name as employee_name FROM attendance a JOIN employees e ON a.employee_id=e.id WHERE a.company_id=?`; const p=[co];
   if(date){q+=' AND a.date=?';p.push(date);} if(empId){q+=' AND a.employee_id=?';p.push(+empId);} if(month){q+=` AND strftime('%Y-%m',a.date)=?`;p.push(month);}
   q+=' ORDER BY a.date DESC LIMIT 500';
@@ -216,7 +216,7 @@ async function getAtt(request, env, url) {
 }
 async function createAtt(request, env, url) {
   const b=await request.json(); const co=cid(request,url,b);
-  await Promise.allSettled([env.DB.prepare(`ALTER TABLE attendance ADD COLUMN company_id INTEGER DEFAULT 1`).run()]);
+  await initDB(env);
   const r=await env.DB.prepare(`INSERT INTO attendance(employee_id,date,check_in,check_out,status,notes,company_id,created_at) VALUES(?,?,?,?,?,?,?,datetime('now'))`).bind(b.employee_id,b.date,b.check_in||'',b.check_out||'',b.status||'present',b.notes||'',co).run();
   return json({message:'Created',id:r.meta.last_row_id},201);
 }
@@ -229,14 +229,14 @@ async function updAtt(id, request, env) {
 // ── Salary ───────────────────────────────────────────────────
 async function getSal(request, env, url) {
   const co=cid(request,url,null), month=url.searchParams.get('month')||new Date().toISOString().slice(0,7);
-  await Promise.allSettled([env.DB.prepare(`ALTER TABLE salary_records ADD COLUMN company_id INTEGER DEFAULT 1`).run()]);
+  await initDB(env);
   const r=await env.DB.prepare(`SELECT sr.*,e.name as employee_name,d.name as department FROM salary_records sr JOIN employees e ON sr.employee_id=e.id LEFT JOIN departments d ON e.department_id=d.id WHERE sr.company_id=? AND strftime('%Y-%m',sr.month)=strftime('%Y-%m',?) ORDER BY e.name`).bind(co,month+'-01').all();
   const recs=r.results||[];
   return json({records:recs,summary:{total_net:recs.reduce((s,x)=>s+(x.net_salary||0),0),total_base:recs.reduce((s,x)=>s+(x.base_salary||0),0),paid:recs.filter(x=>x.status==='paid').length}});
 }
 async function createSal(request, env, url) {
   const b=await request.json(); const co=cid(request,url,b);
-  await Promise.allSettled([env.DB.prepare(`ALTER TABLE salary_records ADD COLUMN company_id INTEGER DEFAULT 1`).run()]);
+  await initDB(env);
   const net=b.net_salary??((b.base_salary||0)+(b.bonus||0)-(b.deduction||0));
   const r=await env.DB.prepare(`INSERT INTO salary_records(employee_id,month,base_salary,bonus,deduction,net_salary,status,note,company_id,created_at) VALUES(?,?,?,?,?,?,?,?,?,datetime('now'))`).bind(b.employee_id,b.month,b.base_salary||0,b.bonus||0,b.deduction||0,net,b.status||'pending',b.note||'',co).run();
   return json({message:'Created',id:r.meta.last_row_id},201);
