@@ -6086,7 +6086,7 @@ function printIdCards() {
     const cloneBack  = back  ? back.cloneNode(true)  : null;
     [cloneFront, cloneBack].forEach(el => {
       if (!el) return;
-      el.style.cssText = 'position:relative;transform:none;backface-visibility:visible;width:85.6mm;height:54mm;display:block;';
+      el.style.cssText = 'position:relative;transform:none;backface-visibility:visible;width:323px;height:204px;display:block;border-radius:12px;overflow:hidden;';
     });
     pairsHTML +=
       '<div class="card-pair">'
@@ -6111,8 +6111,8 @@ function printIdCards() {
     +'.emp-label{font-size:6.5pt;font-weight:700;color:#64748b;letter-spacing:1px;margin-bottom:1.5mm}'
     +'.card-row{display:flex;gap:5mm;align-items:flex-start}'
     +'.side-label{font-size:5.5pt;font-weight:700;color:#94a3b8;letter-spacing:.5px;margin-bottom:1mm;text-align:center}'
-    +'.card-box{width:85.6mm;height:54mm;border-radius:3.18mm;overflow:hidden;box-shadow:0 0 0 0.4mm #cbd5e1;display:block;flex-shrink:0}'
-    +'.card-box>div{width:100%!important;height:100%!important;border-radius:3.18mm!important;overflow:hidden!important}'
+    +'.card-box{width:323px;height:204px;border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.15);display:block;flex-shrink:0}'
+    +'.card-box>div{width:100%!important;height:100%!important;border-radius:12px!important;overflow:hidden!important}'
     +'@media print{@page{size:A4 portrait;margin:6mm}body{padding:3mm}.card-box{box-shadow:0 0 0 0.3mm #94a3b8}}'
     +'</style></head><body>'
     +'<div class="print-header">'
@@ -6144,7 +6144,7 @@ function printIdCardsPortrait() {
     const cloneBack  = back  ? back.cloneNode(true)  : null;
     [cloneFront, cloneBack].forEach(el => {
       if (!el) return;
-      el.style.cssText = 'position:relative;transform:none;backface-visibility:visible;width:85.6mm;height:54mm;display:block;';
+      el.style.cssText = 'position:relative;transform:none;backface-visibility:visible;width:323px;height:204px;display:block;border-radius:12px;overflow:hidden;';
     });
     cardsHTML +=
       '<div class="card-cell">'
@@ -6167,8 +6167,8 @@ function printIdCardsPortrait() {
     +'.cards-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5mm}'
     +'.card-cell{break-inside:avoid;page-break-inside:avoid;display:flex;flex-direction:column;align-items:center}'
     +'.side-lbl{font-size:5.5pt;font-weight:700;color:#64748b;letter-spacing:.5px;margin-bottom:1mm;text-align:center;width:100%}'
-    +'.card-box{width:85.6mm;height:54mm;border-radius:3.18mm;overflow:hidden;box-shadow:0 0 0 0.4mm #cbd5e1;display:block}'
-    +'.card-box>div{width:100%!important;height:100%!important;border-radius:3.18mm!important;overflow:hidden!important}'
+    +'.card-box{width:323px;height:204px;border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.15);display:block}'
+    +'.card-box>div{width:100%!important;height:100%!important;border-radius:12px!important;overflow:hidden!important}'
     +'@media print{@page{size:A4 portrait;margin:6mm}body{padding:3mm}.card-box{box-shadow:0 0 0 0.3mm #94a3b8}}'
     +'</style></head><body>'
     +'<div class="print-header">'

@@ -776,9 +776,9 @@ select.form-control option { background: var(--bg3); }
 .id-flip-back { transform: rotateY(180deg); }
 
 @media print {
-  .id-flip-card { height: auto !important; perspective: none !important; }
+  .id-flip-card { height: 204px !important; perspective: none !important; }
   .id-flip-inner { transform: none !important; position: static; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  .id-flip-front, .id-flip-back { position: static; transform: none !important; height: 190px; }
+  .id-flip-front, .id-flip-back { position: static; transform: none !important; height: 204px !important; }
   .id-flip-card::after { display: none; }
   .id-card-grid { grid-template-columns: 1fr !important; gap: 24px !important; }
 }
