@@ -1771,10 +1771,20 @@ async function renderAttendance(date='') {
   try {
     const [attData, empData] = await Promise.all([api('GET','/attendance?date='+today), api('GET','/employees')]);
     state.employees = empData.employees;
+    const records = attData.records || [];
     const label = new Date(today+'T00:00:00').toLocaleDateString('km-KH',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
-    const attRows = attData.records.length===0
+
+    // Compute stats from records (works with both old & new API)
+    const stats = attData.stats || {
+      present: records.filter(r=>r.status==='present').length,
+      late:    records.filter(r=>r.status==='late').length,
+      absent:  records.filter(r=>r.status==='absent').length,
+      total:   records.length,
+    };
+
+    const attRows = records.length===0
       ? '<tr><td colspan="6"><div class="empty-state" style="padding:30px"><p>មិនទាន់មានការកត់វត្តមានសម្រាប់ថ្ងៃនេះ</p></div></td></tr>'
-      : attData.records.map(a => {
+      : records.map(a => {
           const photo = getEmpPhoto(a.employee_id);
           const av = photo
             ? '<div class="emp-avatar" style="background:'+getColor(a.employee_name)+';overflow:hidden;padding:0"><img src="'+photo+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/></div>'
@@ -1805,10 +1815,10 @@ async function renderAttendance(date='') {
       +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> កត់វត្តមាន</button>'
       +'</div></div>'
       +'<div class="att-summary">'
-      +'<div class="att-box"><div class="att-num" style="color:var(--success)">'+attData.stats.present+'</div><div class="att-lbl">✅ មានវត្តមាន</div></div>'
-      +'<div class="att-box"><div class="att-num" style="color:var(--warning)">'+attData.stats.late+'</div><div class="att-lbl">⏰ មកយឺត</div></div>'
-      +'<div class="att-box"><div class="att-num" style="color:var(--danger)">'+attData.stats.absent+'</div><div class="att-lbl">❌ អវត្តមាន</div></div>'
-      +'<div class="att-box"><div class="att-num" style="color:var(--info)">'+attData.stats.total+'</div><div class="att-lbl">👥 សរុប</div></div>'
+      +'<div class="att-box"><div class="att-num" style="color:var(--success)">'+stats.present+'</div><div class="att-lbl">✅ មានវត្តមាន</div></div>'
+      +'<div class="att-box"><div class="att-num" style="color:var(--warning)">'+stats.late+'</div><div class="att-lbl">⏰ មកយឺត</div></div>'
+      +'<div class="att-box"><div class="att-num" style="color:var(--danger)">'+stats.absent+'</div><div class="att-lbl">❌ អវត្តមាន</div></div>'
+      +'<div class="att-box"><div class="att-num" style="color:var(--info)">'+stats.total+'</div><div class="att-lbl">👥 សរុប</div></div>'
       +'</div>'
       +'<div class="card">'
       +'<div class="card-header"><span class="card-title">ក្បាលបញ្ជីវត្តមាន</span></div>'
