@@ -2218,18 +2218,59 @@ async function saveAttendance() {
 }
 
 // ===== SALARY =====
+function showQRPopup(el, empId) {
+  const qr = photoCache['qr_' + empId] || '';
+  if (!qr) return;
+  const emp = (state.employees||[]).find(e=>e.id==empId)||{};
+  $('modal-title').textContent = '🏦 QR ធនាគារ — ' + (emp.name||'');
+  $('modal-body').innerHTML =
+    '<div style="text-align:center;padding:10px">'
+    +'<img src="'+qr+'" style="max-width:260px;width:100%;border-radius:12px;border:2px solid var(--border)" />'
+    +(emp.bank ? '<div style="margin-top:12px;font-weight:700;font-size:15px">'+emp.bank+'</div>' : '')
+    +(emp.bank_account ? '<div style="font-family:var(--mono);color:var(--text3);font-size:13px;margin-top:4px">'+emp.bank_account+'</div>' : '')
+    +(emp.bank_holder ? '<div style="font-size:12px;color:var(--text3)">'+emp.bank_holder+'</div>' : '')
+    +'</div>'
+    +'<div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">បិទ</button></div>';
+  openModal();
+}
+
 async function renderSalary(month='') {
   showLoading();
   const currentMonth = month || new Date().toISOString().slice(0,7);
   try {
     const data = await api('GET', '/salary?month=' + currentMonth);
+    // Preload employees for QR/bank lookup
+    if (!state.employees || state.employees.length === 0) {
+      try { const ed = await api('GET','/employees?limit=500'); state.employees = ed.employees||[]; } catch(_){}
+    }
     const rows = data.records.length===0
       ? '<tr><td colspan="9"><div class="empty-state" style="padding:30px"><p>មិនទាន់មានកំណត់ត្រាបៀវត្សសម្រាប់ខែនេះ</p></div></td></tr>'
       : data.records.map(r => {
-          const photo = getEmpPhoto(r.employee_id);
+          const photo  = getEmpPhoto(r.employee_id);
+          const qrData = photoCache['qr_' + r.employee_id] || '';
+          const emp    = (state.employees||[]).find(e=>e.id===r.employee_id) || {};
+          const bank   = emp.bank && emp.bank!=='—' ? emp.bank : '';
+          const bankAcc= emp.bank_account || '';
+
           const av = photo
             ? '<div class="emp-avatar" style="background:'+getColor(r.employee_name)+';overflow:hidden;padding:0"><img src="'+photo+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/></div>'
             : '<div class="emp-avatar" style="background:'+getColor(r.employee_name)+'">'+(r.employee_name||'?')[0]+'</div>';
+
+          // QR cell: show QR image if available, else bank name+account
+          const qrCell = qrData
+            ? '<td style="text-align:center">'
+              +'<div onclick="showQRPopup(this,\''+r.employee_id+'\')" style="cursor:pointer;display:inline-block">'
+              +'<img src="'+qrData+'" style="width:44px;height:44px;object-fit:contain;border-radius:6px;border:1px solid var(--border)" />'
+              +'</div>'
+              +(bank?'<div style="font-size:9px;color:var(--text3);margin-top:2px">'+bank+'</div>':'')
+              +'</td>'
+            : '<td style="text-align:center">'
+              +(bank
+                ? '<div style="font-size:11px;font-weight:600;color:var(--text2)">'+bank+'</div>'
+                  +(bankAcc?'<div style="font-size:10px;color:var(--text3);font-family:var(--mono)">'+bankAcc+'</div>':'')
+                : '<span style="color:var(--text3);font-size:11px">—</span>')
+              +'</td>';
+
           return '<tr>'
             +'<td><div class="employee-cell">'+av+'<div class="emp-name">'+r.employee_name+'</div></div></td>'
             +'<td>'+(r.department||'—')+'</td>'
@@ -2237,6 +2278,7 @@ async function renderSalary(month='') {
             +'<td style="font-family:var(--mono);color:var(--success)">+$'+r.bonus+'</td>'
             +'<td style="font-family:var(--mono);color:var(--danger)">-$'+r.deduction+'</td>'
             +'<td style="font-family:var(--mono);font-weight:700;color:var(--text)">$'+r.net_salary+'</td>'
+            +qrCell
             +'<td>'+(r.status==='paid'?'<span class="badge badge-green">✅ បានបង់</span>':'<span class="badge badge-yellow">⏳ រង់ចាំ</span>')+'</td>'
             +'<td><div class="action-btns">'
             +(r.status!=='paid' ? '<button class="btn btn-success btn-sm" onclick="paySalary('+r.id+',\''+currentMonth+'\')">💰 បង់</button>' : '<span style="color:var(--text3);font-size:11px">✓ Done</span>')
@@ -2264,7 +2306,7 @@ async function renderSalary(month='') {
       +'<div class="salary-box"><div class="lbl">✅ បង់ / សរុប</div><div class="val" style="color:var(--info)">'+(data.summary.paid||0)+' / '+data.records.length+'</div></div>'
       +'</div>'
       +'<div class="card"><div class="table-container"><table>'
-      +'<thead><tr><th>បុគ្គលិក</th><th>នាយកដ្ឋាន</th><th>មូលដ្ឋាន</th><th>រង្វាន់</th><th>កាត់</th><th>សុទ្ធ</th><th>ស្ថានភាព</th><th>សកម្មភាព</th></tr></thead>'
+      +'<thead><tr><th>បុគ្គលិក</th><th>នាយកដ្ឋាន</th><th>មូលដ្ឋាន</th><th>រង្វាន់</th><th>កាត់</th><th>សុទ្ធ</th><th style="text-align:center">QR ធនាគារ</th><th>ស្ថានភាព</th><th>សកម្មភាព</th></tr></thead>'
       +'<tbody>'+rows+'</tbody>'
       +'</table></div></div>';
   } catch(e) { showError(e.message); }
