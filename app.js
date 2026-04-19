@@ -650,6 +650,33 @@ async function openEmployeeModal(id=null) {
     + '<input class="form-control" id="f-termination-date" type="date" value="'+(emp?.termination_date||'')+'" />'
     + '<div style="font-size:11px;color:var(--text3);margin-top:4px">ថ្ងៃចុងក្រោយនៃការងារ</div>'
     + '</div>'
+    // Re-hire section
+    + '<div class="form-group full-width" id="rehire-row" style="display:'+(emp?.status==='inactive'&&emp?.termination_date?'block':'none')+'">'
+    + '<div style="padding:12px 14px;background:rgba(6,214,160,.08);border:1px solid rgba(6,214,160,.25);border-radius:8px">'
+    + '<div style="font-size:12px;font-weight:700;color:var(--success);margin-bottom:8px">🔄 ចូលធ្វើការឡើងវិញ</div>'
+    + '<div style="font-size:11px;color:var(--text3);margin-bottom:10px">ប្រសិនបើបុគ្គលិកចូលធ្វើការថ្មីវិញ — ប្រវត្តិការងារចាស់នឹងត្រូវរក្សាទុក</div>'
+    + '<div style="display:flex;gap:8px;align-items:center">'
+    + '<input class="form-control" type="date" id="f-rehire-date" placeholder="ថ្ងៃចូលថ្មី" style="flex:1" />'
+    + '<button class="btn btn-success btn-sm" onclick="applyRehire('+id+')">🔄 ចូលថ្មី</button>'
+    + '</div>'
+    + '</div>'
+    + '</div>'
+    // Work history display
+    + (emp?.work_history ? (() => {
+        try {
+          const hist = JSON.parse(emp.work_history);
+          if (!hist.length) return '';
+          return '<div class="form-group full-width">'
+            +'<div style="padding:12px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:8px">'
+            +'<div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:8px">📋 ប្រវត្តិការងារ</div>'
+            +hist.map((h,i)=>'<div style="display:flex;justify-content:space-between;font-size:11px;padding:4px 0;border-bottom:1px solid var(--border)">'
+              +'<span style="color:var(--text3)">ដំណាក់ '+(i+1)+':</span>'
+              +'<span style="font-family:var(--mono)">'+h.hire_date+' → '+h.termination_date+'</span>'
+              +'<span style="color:var(--primary);font-weight:600">'+calcWorkDuration(h.hire_date,h.termination_date)+'</span>'
+              +'</div>').join('')
+            +'</div></div>';
+        } catch { return ''; }
+      })() : '')
     + '</div>'
     // QR Bank section
     + '<div style="margin-top:16px;padding:14px;background:var(--bg3);border-radius:10px;border:1px solid var(--border)">'
@@ -929,22 +956,73 @@ function printHTML(html) {
   };
 }
 
-function calcWorkDuration(hireDate, termDate) {
+// Calculate work duration — supports work_history JSON for re-hired employees
+function calcWorkDuration(hireDate, termDate, workHistoryJson) {
+  // Helper: days between two dates
+  function daysBetween(a, b) {
+    const d1 = new Date(a), d2 = new Date(b);
+    if (isNaN(d1)||isNaN(d2)) return 0;
+    return Math.max(0, Math.round((d2-d1)/(1000*60*60*24)));
+  }
+  // Helper: format total days → X ឆ្នាំ Y ខែ Z ថ្ងៃ
+  function formatDays(total) {
+    const years  = Math.floor(total/365);
+    const months = Math.floor((total%365)/30);
+    const days   = total%365%30;
+    const parts  = [];
+    if (years  > 0) parts.push(years  + ' ឆ្នាំ');
+    if (months > 0) parts.push(months + ' ខែ');
+    if (days   > 0) parts.push(days   + ' ថ្ងៃ');
+    return parts.length ? parts.join(' ') : '< 1 ថ្ងៃ';
+  }
+
   if (!hireDate) return '—';
-  const start = new Date(hireDate);
-  const end   = (termDate && termDate !== '') ? new Date(termDate) : new Date();
-  if (isNaN(start)) return '—';
-  let years  = end.getFullYear() - start.getFullYear();
-  let months = end.getMonth()    - start.getMonth();
-  let days   = end.getDate()     - start.getDate();
-  if (days   < 0) { months--; days   += new Date(end.getFullYear(), end.getMonth(), 0).getDate(); }
-  if (months < 0) { years--;  months += 12; }
-  const parts = [];
-  if (years  > 0) parts.push(years  + ' ឆ្នាំ');
-  if (months > 0) parts.push(months + ' ខែ');
-  if (days   > 0) parts.push(days   + ' ថ្ងៃ');
-  return parts.length ? parts.join(' ') : '< 1 ថ្ងៃ';
+
+  // Sum from work history (past periods)
+  let totalDays = 0;
+  if (workHistoryJson) {
+    try {
+      const hist = JSON.parse(workHistoryJson);
+      hist.forEach(h => { totalDays += daysBetween(h.hire_date, h.termination_date); });
+    } catch(_) {}
+  }
+
+  // Add current period
+  const endDate = (termDate && termDate !== '') ? termDate : new Date().toISOString().split('T')[0];
+  totalDays += daysBetween(hireDate, endDate);
+
+  return totalDays > 0 ? formatDays(totalDays) : '< 1 ថ្ងៃ';
 }
+
+async function applyRehire(empId) {
+  const rehireDate = document.getElementById('f-rehire-date')?.value;
+  if (!rehireDate) { showToast('សូមដាក់ថ្ងៃចូលថ្មី!','error'); return; }
+
+  // Get current employee data
+  let emp = null;
+  try { emp = await api('GET', '/employees/'+empId); } catch(e) { showToast('Error: '+e.message,'error'); return; }
+  if (!emp || !emp.hire_date) { showToast('មិនឃើញ employee!','error'); return; }
+
+  // Build new history entry
+  let history = [];
+  try { if (emp.work_history) history = JSON.parse(emp.work_history); } catch(_) {}
+  history.push({ hire_date: emp.hire_date, termination_date: emp.termination_date||today() });
+
+  // Update employee: new hire_date, clear termination, active, save history
+  try {
+    await api('PUT', '/employees/'+empId, {
+      ...emp,
+      status: 'active',
+      hire_date: rehireDate,
+      termination_date: '',
+      work_history: JSON.stringify(history),
+    });
+    showToast('ចូលធ្វើការថ្មីបានជោគជ័យ! ប្រវត្តិ '+history.length+' ដំណាក់កាល','success');
+    closeModal();
+    renderEmployees();
+  } catch(e) { showToast('Error: '+e.message,'error'); }
+}
+
 
 function printEmployeeReport(emps, rangeLabel, leaveMap) {
   emps = emps || state.employees || [];
@@ -960,7 +1038,7 @@ function printEmployeeReport(emps, rangeLabel, leaveMap) {
     const gender     = e.gender==='male'?'ប្រុស':'ស្រី';
     const statusTxt  = e.status==='active'?'✅ ធ្វើការ':e.status==='on_leave'?'🌴 ច្បាប់':'⛔ ផ្អាក/លាឈប់';
     const termDate   = (e.termination_date && e.termination_date!=='') ? e.termination_date : '—';
-    const duration   = calcWorkDuration(e.hire_date, e.termination_date);
+    const duration   = calcWorkDuration(e.hire_date, e.termination_date, e.work_history);
     return '<tr style="background:'+(i%2===0?'white':'#f8faff')+'">'
       +'<td style="text-align:center;color:#666">'+(i+1)+'</td>'
       +'<td style="font-family:monospace;font-weight:700;color:#1d4ed8">'+displayId+'</td>'
