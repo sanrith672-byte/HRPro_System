@@ -211,15 +211,18 @@ async function getEmployees(request, env) {
   const limit = parseInt(url.searchParams.get('limit') || '20');
   const offset = (page - 1) * limit;
 
-  // Auto-migrate new columns if not exist
-  try { await env.DB.prepare(`ALTER TABLE employees ADD COLUMN termination_date TEXT DEFAULT ''`).run(); } catch(_) {}
-  try { await env.DB.prepare(`ALTER TABLE employees ADD COLUMN work_history TEXT DEFAULT ''`).run(); } catch(_) {}
-  try { await env.DB.prepare(`ALTER TABLE employees ADD COLUMN custom_id TEXT DEFAULT ''`).run(); } catch(_) {}
-  try { await env.DB.prepare(`ALTER TABLE employees ADD COLUMN bank TEXT DEFAULT ''`).run(); } catch(_) {}
-  try { await env.DB.prepare(`ALTER TABLE employees ADD COLUMN bank_account TEXT DEFAULT ''`).run(); } catch(_) {}
-  try { await env.DB.prepare(`ALTER TABLE employees ADD COLUMN bank_holder TEXT DEFAULT ''`).run(); } catch(_) {}
-  try { await env.DB.prepare(`ALTER TABLE employees ADD COLUMN photo_data TEXT DEFAULT ''`).run(); } catch(_) {}
-  try { await env.DB.prepare(`ALTER TABLE employees ADD COLUMN qr_data TEXT DEFAULT ''`).run(); } catch(_) {}
+  // Run migrations once (safe — ignores if already exists)
+  const colMigrations = [
+    `ALTER TABLE employees ADD COLUMN custom_id TEXT DEFAULT ''`,
+    `ALTER TABLE employees ADD COLUMN bank TEXT DEFAULT ''`,
+    `ALTER TABLE employees ADD COLUMN bank_account TEXT DEFAULT ''`,
+    `ALTER TABLE employees ADD COLUMN bank_holder TEXT DEFAULT ''`,
+    `ALTER TABLE employees ADD COLUMN photo_data TEXT DEFAULT ''`,
+    `ALTER TABLE employees ADD COLUMN qr_data TEXT DEFAULT ''`,
+    `ALTER TABLE employees ADD COLUMN termination_date TEXT DEFAULT ''`,
+    `ALTER TABLE employees ADD COLUMN work_history TEXT DEFAULT ''`,
+  ];
+  await Promise.allSettled(colMigrations.map(sql => env.DB.prepare(sql).run()));
     e.id, e.name, e.gender, e.position, e.department_id, e.phone, e.email,
     e.salary, e.hire_date, e.status, e.created_at, e.updated_at,
     COALESCE(e.custom_id,'') as custom_id,
@@ -266,8 +269,10 @@ async function getEmployees(request, env) {
 
 async function getEmployee(id, env) {
   // Auto-migrate
-  try { await env.DB.prepare(`ALTER TABLE employees ADD COLUMN termination_date TEXT DEFAULT ''`).run(); } catch(_) {}
-  try { await env.DB.prepare(`ALTER TABLE employees ADD COLUMN work_history TEXT DEFAULT ''`).run(); } catch(_) {}
+  await Promise.allSettled([
+    env.DB.prepare(`ALTER TABLE employees ADD COLUMN termination_date TEXT DEFAULT ''`).run(),
+    env.DB.prepare(`ALTER TABLE employees ADD COLUMN work_history TEXT DEFAULT ''`).run(),
+  ]);
 
   const emp = await env.DB.prepare(`
     SELECT e.id, e.name, e.gender, e.position, e.department_id, e.phone, e.email,
@@ -298,10 +303,6 @@ async function createEmployee(request, env) {
     return error('name, position, department_id are required');
   }
 
-  // Auto-migrate: add termination_date column if not exists
-  try { await env.DB.prepare(`ALTER TABLE employees ADD COLUMN termination_date TEXT DEFAULT ''`).run(); } catch(_) {}
-  try { await env.DB.prepare(`ALTER TABLE employees ADD COLUMN work_history TEXT DEFAULT ''`).run(); } catch(_) {}
-
   const result = await env.DB.prepare(`
     INSERT INTO employees (name, position, department_id, phone, email, salary, hire_date, status, gender, custom_id, bank, bank_account, bank_holder, termination_date, work_history, created_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
@@ -324,10 +325,6 @@ async function updateEmployee(id, request, env) {
 
   const existing = await env.DB.prepare('SELECT id FROM employees WHERE id = ?').bind(id).first();
   if (!existing) return error('Employee not found', 404);
-
-  // Auto-migrate: add termination_date column if not exists
-  try { await env.DB.prepare(`ALTER TABLE employees ADD COLUMN termination_date TEXT DEFAULT ''`).run(); } catch(_) {}
-  try { await env.DB.prepare(`ALTER TABLE employees ADD COLUMN work_history TEXT DEFAULT ''`).run(); } catch(_) {}
 
   await env.DB.prepare(`
     UPDATE employees SET
