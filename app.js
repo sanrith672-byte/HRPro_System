@@ -6574,6 +6574,7 @@ function animateLoginSuccess() {
 function doLogout() {
   if (!confirm('តើអ្នកចង់ចាកចេញពីប្រព័ន្ធ?')) return;
   localStorage.removeItem(AUTH_KEY);
+  // Keep company selection for convenience (don't clear)
   document.getElementById('app-shell').style.display = 'none';
   const ls = document.getElementById('login-screen');
   if (ls) {
@@ -6722,6 +6723,13 @@ async function showCompanySelector() {
   try {
     const data = await api('GET', '/companies');
     const companies = data.companies || [];
+
+    // Auto-select if only 1 company
+    if (companies.length === 1) {
+      selectCompany(companies[0].id, companies[0].name, companies[0].code);
+      return;
+    }
+
     const list = document.getElementById('company-list');
     if (!list) return;
     if (!companies.length) {
@@ -6754,10 +6762,13 @@ function selectCompany(id, name, code) {
 
 function updateCompanyIndicator() {
   const co = getCurrentCompany();
-  if (!co) return;
-  // Show company name in topbar or sidebar
   const el = document.getElementById('company-indicator');
-  if (el) { el.textContent = co.name; el.style.display = ''; }
+  const bar = document.getElementById('company-indicator-bar');
+  if (el) {
+    el.textContent = co ? co.name : '—';
+    el.style.color = co ? 'var(--primary)' : 'var(--text3)';
+  }
+  if (bar) bar.style.display = co ? '' : '';
 }
 
 function openCreateCompanyModal() {
@@ -6787,14 +6798,16 @@ async function saveNewCompany() {
   const code = document.getElementById('co-code')?.value.trim().toUpperCase();
   if (!name || !code) { showToast('សូមបំពេញ ឈ្មោះ និង Code!', 'error'); return; }
   try {
+    // Init DB first (creates tables + companies table)
+    await api('POST', '/init');
     const r = await api('POST', '/companies', {
       name, code,
-      phone:   document.getElementById('co-phone')?.value.trim(),
-      email:   document.getElementById('co-email')?.value.trim(),
-      address: document.getElementById('co-address')?.value.trim(),
+      phone:   document.getElementById('co-phone')?.value.trim() || '',
+      email:   document.getElementById('co-email')?.value.trim() || '',
+      address: document.getElementById('co-address')?.value.trim() || '',
     });
-    showToast('បង្កើតក្រុមហ៊ុន "'+name+'" រួច! ✅', 'success');
     closeModal();
+    showToast('បង្កើតក្រុមហ៊ុន "'+name+'" រួច! ✅', 'success');
     selectCompany(r.id, name, code);
   } catch(e) { showToast('Error: '+e.message, 'error'); }
 }
