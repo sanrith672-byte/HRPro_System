@@ -6832,8 +6832,13 @@ function initApp() {
     $('btn-settings').addEventListener('click', () => navigate('settings'));
     updateApiStatus();
     if (!getApiBase() && localStorage.getItem(DEMO_MODE_KEY) !== '1') {
+      // Show first run — needs Worker URL
       showFirstRunSetup();
+    } else if (!getApiBase() && localStorage.getItem(DEMO_MODE_KEY) === '1') {
+      // Demo mode — go to dashboard
+      navigate('dashboard');
     } else if (getApiBase() && !getCurrentCompany()) {
+      // Has Worker URL but no company selected
       showCompanySelector();
     } else {
       navigate('dashboard');
@@ -6843,12 +6848,14 @@ function initApp() {
 
 function saveWorkerUrlFromSelector() {
   const input = document.getElementById('cs-worker-url');
-  const url = input?.value.trim();
+  const url = input?.value.trim().replace(/\/$/,'');
   if (!url) { showToast('សូមបញ្ចូល Worker URL!', 'error'); return; }
   localStorage.setItem(STORAGE_KEY, url);
+  localStorage.removeItem(DEMO_MODE_KEY);
   showToast('Save Worker URL រួច! ✅', 'success');
-  // Reload company selector with URL now set
-  showCompanySelector();
+  // Init DB then reload selector
+  fetch(url+'/init', {method:'POST'}).catch(()=>{});
+  setTimeout(() => showCompanySelector(), 500);
 }
 
 async function showCompanySelector() {
@@ -7034,17 +7041,31 @@ async function connectWorkerFromSetup() {
   if (!url) { if(res) res.innerHTML='<span style="color:var(--danger)">❌ សូមវាយ URL!</span>'; return; }
   if(res) res.innerHTML='<span style="color:var(--text3)">⏳ កំពុងសាកល្បង...</span>';
   try {
-    const r = await fetch(url+'/stats');
-    if (r.ok) {
+    // Init DB first
+    const r = await fetch(url+'/init', {method:'POST', headers:{...corsHeaders,'Content-Type':'application/json'}});
+    if (!r.ok) {
+      // Try /stats as fallback
+      const s = await fetch(url+'/stats');
+      if (!s.ok) throw new Error('HTTP '+s.status);
+    }
+    localStorage.setItem(STORAGE_KEY, url);
+    localStorage.removeItem(DEMO_MODE_KEY);
+    if(res) res.innerHTML='<span style="color:var(--success)">✅ ភ្ជាប់បានជោគជ័យ! ⏳ កំពុង load...</span>';
+    updateApiStatus();
+    // Go to company selector (not dashboard directly)
+    setTimeout(() => showCompanySelector(), 600);
+  } catch(e) {
+    // Try without init
+    try {
       localStorage.setItem(STORAGE_KEY, url);
       localStorage.removeItem(DEMO_MODE_KEY);
-      if(res) res.innerHTML='<span style="color:var(--success)">✅ ភ្ជាប់បានជោគជ័យ!</span>';
+      if(res) res.innerHTML='<span style="color:var(--success)">✅ Save URL! ⏳ ជ្រើសក្រុមហ៊ុន...</span>';
       updateApiStatus();
-      setTimeout(() => navigate('dashboard'), 800);
-    } else {
-      if(res) res.innerHTML='<span style="color:var(--warning)">⚠️ Worker ឆ្លើយតប ('+r.status+') — ពិនិត្យ CORS</span>';
+      setTimeout(() => showCompanySelector(), 600);
+    } catch(e2) {
+      if(res) res.innerHTML='<span style="color:var(--danger)">❌ ភ្ជាប់មិនបាន — ពិនិត្យ URL</span>';
     }
-  } catch(e) {
-    if(res) res.innerHTML='<span style="color:var(--danger)">❌ ភ្ជាប់មិនបាន — ពិនិត្យ URL</span>';
   }
 }
+
+const corsHeaders = {};
