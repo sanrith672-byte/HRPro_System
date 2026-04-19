@@ -48,10 +48,19 @@ const $ = (id) => document.getElementById(id);
 const contentArea = () => $('content-area');
 
 // ===== API HELPER (Real + Demo fallback) =====
+// ── Company state ─────────────────────────────────────────────
+const COMPANY_KEY = 'hr_current_company';
+function getCurrentCompany() {
+  try { return JSON.parse(localStorage.getItem(COMPANY_KEY)) || null; } catch { return null; }
+}
+function setCurrentCompany(co) { localStorage.setItem(COMPANY_KEY, JSON.stringify(co)); }
+function getCompanyId() { return getCurrentCompany()?.id || 1; }
+
 async function api(method, path, body = null) {
   if (isDemoMode()) return demoApi(method, path, body);
   const base = getApiBase().replace(/\/$/, '');
-  const opts = { method, headers: { 'Content-Type': 'application/json' } };
+  const coId = getCompanyId();
+  const opts = { method, headers: { 'Content-Type': 'application/json', 'X-Company-ID': String(coId) } };
   if (body) opts.body = JSON.stringify(body);
   try {
     const res = await fetch(base + path, opts);
@@ -59,7 +68,6 @@ async function api(method, path, body = null) {
     if (!res.ok) throw new Error(data.error || 'API Error');
     return data;
   } catch(e) {
-    // If CORS/network error, show helpful message
     if (e.message.includes('Failed to fetch') || e.message.includes('NetworkError')) {
       throw new Error('មិនអាចភ្ជាប់ Worker បាន។ សូមពិនិត្យ URL ក្នុង ⚙️ Settings');
     }
@@ -6674,6 +6682,8 @@ function initApp() {
       updateSidebarAvatar(uPhoto, session.name || session.username);
     }
     applyCompanyBranding();
+    // Show current company in sidebar
+    updateCompanyIndicator();
     // Apply nav visibility based on permissions
     updateNavVisibility();
     document.querySelectorAll('.nav-item').forEach(a => a.addEventListener('click', e => {
@@ -6687,10 +6697,106 @@ function initApp() {
     updateApiStatus();
     if (!getApiBase() && localStorage.getItem(DEMO_MODE_KEY) !== '1') {
       showFirstRunSetup();
+    } else if (getApiBase() && !getCurrentCompany()) {
+      showCompanySelector();
     } else {
       navigate('dashboard');
     }
   });
+}
+
+async function showCompanySelector() {
+  contentArea().innerHTML =
+    '<div style="max-width:500px;margin:60px auto;text-align:center">'
+    +'<div style="font-size:56px;margin-bottom:16px">🏢</div>'
+    +'<h2 style="font-size:22px;font-weight:800;margin-bottom:8px">ជ្រើសរើសក្រុមហ៊ុន</h2>'
+    +'<p style="color:var(--text3);margin-bottom:28px">ជ្រើសក្រុមហ៊ុន ឬ បង្កើតថ្មី</p>'
+    +'<div id="company-list" style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px">'
+    +'<div style="text-align:center;padding:20px;color:var(--text3)">⏳ កំពុង load...</div>'
+    +'</div>'
+    +'<button class="btn btn-primary" style="width:100%" onclick="openCreateCompanyModal()">'
+    +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>'
+    +' + បង្កើតក្រុមហ៊ុនថ្មី</button>'
+    +'</div>';
+
+  try {
+    const data = await api('GET', '/companies');
+    const companies = data.companies || [];
+    const list = document.getElementById('company-list');
+    if (!list) return;
+    if (!companies.length) {
+      list.innerHTML = '<div style="padding:16px;color:var(--text3);font-size:13px">មិនទាន់មានក្រុមហ៊ុន — បង្កើតថ្មី</div>';
+    } else {
+      list.innerHTML = companies.map(co =>
+        '<div style="display:flex;align-items:center;gap:14px;padding:16px;background:var(--bg3);border:1px solid var(--border);border-radius:12px;cursor:pointer;transition:all .2s" onclick="selectCompany('+co.id+',\''+co.name+'\',\''+co.code+'\')" onmouseover="this.style.borderColor=\'var(--primary)\'" onmouseout="this.style.borderColor=\'var(--border)\'">'
+        +(co.logo_url ? '<img src="'+co.logo_url+'" style="width:44px;height:44px;border-radius:10px;object-fit:contain;background:var(--bg4)" />' : '<div style="width:44px;height:44px;border-radius:10px;background:var(--primary);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;color:white">'+(co.name[0]||'?')+'</div>')
+        +'<div style="text-align:left"><div style="font-weight:700;font-size:15px">'+co.name+'</div>'
+        +'<div style="font-size:11px;color:var(--text3);font-family:var(--mono)">'+co.code+'</div></div>'
+        +'<div style="margin-left:auto"><svg viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" style="width:20px;height:20px"><polyline points="9 18 15 12 9 6"/></svg></div>'
+        +'</div>'
+      ).join('');
+    }
+  } catch(e) {
+    const list = document.getElementById('company-list');
+    if (list) list.innerHTML = '<div style="padding:16px;color:var(--danger)">Error: '+e.message+'</div>';
+  }
+}
+
+function selectCompany(id, name, code) {
+  setCurrentCompany({ id, name, code });
+  // Update sidebar company name
+  const uname = document.getElementById('sidebar-user-name');
+  showToast('✅ ជ្រើស: '+name, 'success');
+  // Update topbar company indicator
+  updateCompanyIndicator();
+  navigate('dashboard');
+}
+
+function updateCompanyIndicator() {
+  const co = getCurrentCompany();
+  if (!co) return;
+  // Show company name in topbar or sidebar
+  const el = document.getElementById('company-indicator');
+  if (el) { el.textContent = co.name; el.style.display = ''; }
+}
+
+function openCreateCompanyModal() {
+  $('modal-title').textContent = '🏢 បង្កើតក្រុមហ៊ុនថ្មី';
+  $('modal-body').innerHTML =
+    '<div class="form-grid">'
+    +'<div class="form-group full-width"><label class="form-label">ឈ្មោះក្រុមហ៊ុន *</label>'
+    +'<input class="form-control" id="co-name" placeholder="ឈ្មោះក្រុមហ៊ុន..." /></div>'
+    +'<div class="form-group"><label class="form-label">Code *</label>'
+    +'<input class="form-control" id="co-code" placeholder="COMPANY001" /></div>'
+    +'<div class="form-group"><label class="form-label">ទូរស័ព្ទ</label>'
+    +'<input class="form-control" id="co-phone" placeholder="023..." /></div>'
+    +'<div class="form-group"><label class="form-label">អ៊ីម៉ែល</label>'
+    +'<input class="form-control" id="co-email" placeholder="info@..." /></div>'
+    +'<div class="form-group full-width"><label class="form-label">អាស័យដ្ឋាន</label>'
+    +'<input class="form-control" id="co-address" placeholder="អាស័យដ្ឋាន..." /></div>'
+    +'</div>'
+    +'<div class="form-actions">'
+    +'<button class="btn btn-outline" onclick="closeModal()">បោះបង់</button>'
+    +'<button class="btn btn-primary" onclick="saveNewCompany()">+ បង្កើត</button>'
+    +'</div>';
+  openModal();
+}
+
+async function saveNewCompany() {
+  const name = document.getElementById('co-name')?.value.trim();
+  const code = document.getElementById('co-code')?.value.trim().toUpperCase();
+  if (!name || !code) { showToast('សូមបំពេញ ឈ្មោះ និង Code!', 'error'); return; }
+  try {
+    const r = await api('POST', '/companies', {
+      name, code,
+      phone:   document.getElementById('co-phone')?.value.trim(),
+      email:   document.getElementById('co-email')?.value.trim(),
+      address: document.getElementById('co-address')?.value.trim(),
+    });
+    showToast('បង្កើតក្រុមហ៊ុន "'+name+'" រួច! ✅', 'success');
+    closeModal();
+    selectCompany(r.id, name, code);
+  } catch(e) { showToast('Error: '+e.message, 'error'); }
 }
 
 function showFirstRunSetup() {
