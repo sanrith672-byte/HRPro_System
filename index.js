@@ -220,6 +220,7 @@ async function getEmployees(request, env) {
     COALESCE(e.bank_holder,'') as bank_holder,
     COALESCE(e.photo_data,'') as photo_data,
     COALESCE(e.qr_data,'') as qr_data,
+    COALESCE(e.termination_date,'') as termination_date,
     d.name as department_name, d.icon as dept_icon
   `;
 
