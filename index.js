@@ -282,6 +282,9 @@ async function createEmployee(request, env) {
     return error('name, position, department_id are required');
   }
 
+  // Auto-migrate: add termination_date column if not exists
+  try { await env.DB.prepare(`ALTER TABLE employees ADD COLUMN termination_date TEXT DEFAULT ''`).run(); } catch(_) {}
+
   const result = await env.DB.prepare(`
     INSERT INTO employees (name, position, department_id, phone, email, salary, hire_date, status, gender, custom_id, bank, bank_account, bank_holder, termination_date, created_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
@@ -304,6 +307,9 @@ async function updateEmployee(id, request, env) {
 
   const existing = await env.DB.prepare('SELECT id FROM employees WHERE id = ?').bind(id).first();
   if (!existing) return error('Employee not found', 404);
+
+  // Auto-migrate: add termination_date column if not exists
+  try { await env.DB.prepare(`ALTER TABLE employees ADD COLUMN termination_date TEXT DEFAULT ''`).run(); } catch(_) {}
 
   await env.DB.prepare(`
     UPDATE employees SET
