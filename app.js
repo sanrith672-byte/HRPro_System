@@ -4107,28 +4107,48 @@ function renderSettings() {
             </div>
           </div>
           <div class="settings-section-body">
+
+            <!-- Status -->
             <div style="margin-bottom:16px;padding:12px 16px;border-radius:8px;border:1px solid var(--border);background:var(--bg3);display:flex;align-items:center;gap:10px">
               <div class="status-dot ${!demoMd&&apiBase?'online':''}"></div>
-              <div>
+              <div style="flex:1">
                 <div style="font-weight:600;font-size:13px">${demoMd?'🟡 Demo Mode':apiBase?'🟢 Worker ភ្ជាប់':'🔴 មិនទាន់ Setting'}</div>
-                <div style="font-size:11px;color:var(--text3)">${apiBase||'ដាក់ Worker URL ខាងក្រោម'}</div>
+                <div style="font-size:11px;color:var(--text3);word-break:break-all">${apiBase||'ដាក់ Worker URL ខាងក្រោម'}</div>
               </div>
             </div>
+
+            <!-- Info box: shared DB -->
+            <div style="margin-bottom:16px;padding:12px 14px;border-radius:8px;background:rgba(6,214,160,.08);border:1px solid rgba(6,214,160,.25)">
+              <div style="font-size:12px;font-weight:700;color:var(--success);margin-bottom:4px">🌐 Database រួម (Shared)</div>
+              <div style="font-size:11px;color:var(--text3);line-height:1.6">
+                Worker URL តែមួយ → គ្រប់គ្នាប្រើ Database D1 តែមួយ<br>
+                ទិន្នន័យ sync real-time រវាង Admin, HR, Finance
+              </div>
+            </div>
+
+            <!-- URL input -->
             <div class="form-group" style="margin-bottom:14px">
               <label class="form-label">Worker URL</label>
               <input class="form-control" id="cfg-url-2" placeholder="https://my-worker.username.workers.dev" value="${apiBase}" />
+              <div style="font-size:11px;color:var(--text3);margin-top:5px">Worker URL នេះ share ទៅ user ផ្សេង ដើម្បីប្រើ Database តែមួយ</div>
             </div>
+
             <div style="display:flex;gap:10px;margin-bottom:16px">
-              <button class="btn btn-primary" style="flex:1" onclick="saveApiSettings()">💾 Save & ភ្ជាប់</button>
+              <button class="btn btn-success" style="flex:1" onclick="saveApiSettings()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><polyline points="20 6 9 17 4 12"/></svg>
+                Save & ភ្ជាប់
+              </button>
               <button class="btn btn-outline" onclick="testConnection2()">🔌 Test</button>
             </div>
             <div id="conn-result"></div>
+
             <div style="border-top:1px solid var(--border);padding-top:16px;margin-top:4px">
               <div style="font-size:12px;color:var(--text3);margin-bottom:10px">ឬប្រើ Demo Mode (In-Memory, គ្មាន API)</div>
               <button class="btn ${demoMd?'btn-primary':'btn-outline'}" style="width:100%" onclick="enableDemo()">
                 🎮 ${demoMd?'✅ Demo Mode កំពុងដំណើរការ':'ប្រើ Demo Mode'}
               </button>
             </div>
+
             ${apiBase?`
             <div style="border-top:1px solid var(--border);padding-top:16px;margin-top:16px">
               <div style="font-size:12px;color:var(--text3);margin-bottom:10px">Initialize Database (បង្កើត Tables ដំបូង)</div>
