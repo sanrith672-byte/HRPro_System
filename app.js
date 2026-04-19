@@ -1117,46 +1117,53 @@ let qrLastScan = ''; // keep for backward compat
 function findEmployeeByQR(raw) {
   if (!raw) return null;
   const s       = raw.trim();
+  // Strip leading # and normalize EMP_001 / EMP-001 / EMP001 → just digits
   const sClean  = s.replace(/^#+/, '');
+  // Extract digits only (handles "EMP_001" → "001" → 1, "EMP-013" → "013" → 13)
   const sDigits = sClean.replace(/\D/g, '');
   const sNum    = parseInt(sDigits) || 0;
   const emps    = state.employees;
 
   if (!emps || emps.length === 0) return null;
-  console.log('[QR] scan="'+s+'" clean="'+sClean+'" num='+sNum+' emps='+emps.length);
+  console.log('[QR] scan="'+s+'" clean="'+sClean+'" digits="'+sDigits+'" num='+sNum+' emps='+emps.length);
 
   for (const e of emps) {
     const cid    = (e.custom_id || '').trim().replace(/^#+/, '');
     const cidDig = cid.replace(/\D/g, '');
     const cidNum = parseInt(cidDig) || 0;
-    const autoPad = String(e.id).padStart(4, '0');
+    const autoPad4 = String(e.id).padStart(4, '0');
+    const autoPad3 = String(e.id).padStart(3, '0');
 
-    // Match 1: exact custom_id (case-insensitive)
+    // Match 1: exact raw match (case-insensitive)
     if (cid && cid.toLowerCase() === sClean.toLowerCase()) {
       console.log('[QR] exact cid:', e.name); return e;
     }
-    // Match 2: numeric value of custom_id == numeric of QR (e.g. "9"=="0009")
-    if (cid && cidNum > 0 && cidNum === sNum) {
+    // Match 2: numeric of custom_id == numeric of QR (e.g. "001"=="1", "EMP_001"=="1")
+    if (cidNum > 0 && sNum > 0 && cidNum === sNum) {
       console.log('[QR] num cid:', e.name); return e;
     }
-    // Match 3: QR == padded db id "0004"
-    if (sClean === autoPad || s === autoPad) {
+    // Match 3: QR digits == padded db id "0004" or "004"
+    if (sNum > 0 && (sDigits === autoPad4 || sDigits === autoPad3)) {
       console.log('[QR] padded id:', e.name); return e;
     }
     // Match 4: plain number == db id
     if (sNum > 0 && e.id === sNum) {
       console.log('[QR] db id:', e.name); return e;
     }
+    // Match 5: QR contains "EMP" + number matching db id (e.g. "EMP_013", "EMP-013", "EMP013")
+    if (sClean.toUpperCase().startsWith('EMP') && sNum > 0 && e.id === sNum) {
+      console.log('[QR] EMP format id:', e.name); return e;
+    }
   }
 
-  // Match 5: partial name (fallback)
-  if (sClean.length >= 2) {
+  // Match 6: partial name (fallback)
+  if (sClean.length >= 2 && !/^\d+$/.test(sClean)) {
     const lower = sClean.toLowerCase();
     const nm = emps.find(e => e.name && e.name.toLowerCase().includes(lower));
     if (nm) { console.log('[QR] name:', nm.name); return nm; }
   }
 
-  console.log('[QR] NO MATCH "'+s+'" | IDs:',
+  console.log('[QR] NO MATCH "'+s+'" digits='+sNum+' | IDs:',
     emps.map(e=>(e.custom_id?'cid='+e.custom_id:'')+'id='+e.id).join(' | '));
   return null;
 }
