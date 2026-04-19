@@ -479,6 +479,7 @@ async function renderEmployees(filter='', dept='', status='') {
               +'<td><div class="action-btns">'
               +(canEdit()
                 ? '<button class="btn btn-outline btn-sm" onclick="openEmployeeModal('+e.id+')">✏️</button>'
+                  +'<button class="btn btn-outline btn-sm" onclick="openEmpHistoryModal('+e.id+',\''+e.name+'\')" title="ប្រវត្តិការងារ">📋</button>'
                   +'<button class="btn btn-danger btn-sm" onclick="deleteEmployee('+e.id+')">🗑️</button>'
                 : '<span style="font-size:11px;color:var(--text3)">👁️</span>')
               +'</div></td></tr>';
@@ -1211,6 +1212,88 @@ async function saveQuickLeave(empId) {
     closeModal();
     renderEmployees();
   } catch(e) { showToast('បញ្ហា: '+e.message,'error'); }
+}
+
+async function openEmpHistoryModal(empId, empName) {
+  $('modal-title').textContent = '📋 ប្រវត្តិការងារ — ' + empName;
+  $('modal-body').innerHTML = '<div style="text-align:center;padding:20px;color:var(--text3)">⏳ កំពុងទាញ...</div>';
+  openModal();
+
+  let emp = null;
+  try { emp = await api('GET', '/employees/' + empId); } catch(e) { $('modal-body').innerHTML = '<p style="color:var(--danger)">Error: '+e.message+'</p>'; return; }
+
+  // Parse work history
+  let history = [];
+  try { if (emp.work_history) history = JSON.parse(emp.work_history); } catch(_) {}
+
+  // Current period
+  const currentPeriod = {
+    hire_date: emp.hire_date,
+    termination_date: emp.termination_date || '',
+    status: emp.status,
+    isCurrent: true
+  };
+
+  // All periods (history + current)
+  const allPeriods = [...history.map((h,i) => ({...h, index: i+1, isCurrent: false})),
+    {...currentPeriod, index: history.length + 1}];
+
+  const totalDuration = calcWorkDuration(
+    allPeriods[0]?.hire_date,
+    currentPeriod.termination_date,
+    emp.work_history
+  );
+
+  $('modal-body').innerHTML =
+    // Summary
+    '<div style="display:flex;gap:12px;margin-bottom:16px">'
+    +'<div style="flex:1;text-align:center;padding:12px;background:var(--bg3);border-radius:10px;border:1px solid var(--border)">'
+    +'<div style="font-size:24px;font-weight:800;color:var(--primary)">'+allPeriods.length+'</div>'
+    +'<div style="font-size:11px;color:var(--text3)">ដំណាក់កាលធ្វើការ</div></div>'
+    +'<div style="flex:1;text-align:center;padding:12px;background:var(--bg3);border-radius:10px;border:1px solid var(--border)">'
+    +'<div style="font-size:24px;font-weight:800;color:var(--danger)">'+history.length+'</div>'
+    +'<div style="font-size:11px;color:var(--text3)">ដងលាឈប់</div></div>'
+    +'<div style="flex:1;text-align:center;padding:12px;background:var(--bg3);border-radius:10px;border:1px solid var(--border)">'
+    +'<div style="font-size:24px;font-weight:800;color:var(--success)">'+history.length+'</div>'
+    +'<div style="font-size:11px;color:var(--text3)">ដងចូលថ្មី</div></div>'
+    +'<div style="flex:1;text-align:center;padding:12px;background:var(--bg3);border-radius:10px;border:1px solid var(--border)">'
+    +'<div style="font-size:13px;font-weight:800;color:var(--info)">'+totalDuration+'</div>'
+    +'<div style="font-size:11px;color:var(--text3)">រយៈពេលធ្វើការសរុប</div></div>'
+    +'</div>'
+
+    // Timeline
+    +'<div style="position:relative">'
+    + allPeriods.map((p, idx) => {
+        const dur = calcWorkDuration(p.hire_date, p.termination_date||'');
+        const isActive = p.isCurrent && (!p.termination_date || p.termination_date==='');
+        const dotColor = isActive ? 'var(--success)' : (p.termination_date ? 'var(--danger)' : 'var(--warning)');
+        const statusLabel = isActive ? '🟢 កំពុងធ្វើការ' : (p.termination_date ? '🔴 លាឈប់' : '🟡 ផ្អាក');
+
+        return '<div style="display:flex;gap:12px;margin-bottom:12px">'
+          // Dot + line
+          +'<div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0">'
+          +'<div style="width:16px;height:16px;border-radius:50%;background:'+dotColor+';border:2px solid var(--bg);box-shadow:0 0 0 2px '+dotColor+'44;flex-shrink:0"></div>'
+          +(idx < allPeriods.length-1 ? '<div style="width:2px;flex:1;background:var(--border);min-height:30px;margin:4px 0"></div>' : '')
+          +'</div>'
+          // Content
+          +'<div style="flex:1;padding:12px 14px;background:var(--bg3);border-radius:10px;border:1px solid var(--border);margin-bottom:4px">'
+          +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'
+          +'<div style="font-weight:700;font-size:13px">ដំណាក់កាល '+(idx+1)+(p.isCurrent?' <span style="font-size:10px;color:var(--success);font-weight:600">(បច្ចុប្បន្ន)</span>':'')+'</div>'
+          +'<span style="font-size:11px">'+statusLabel+'</span>'
+          +'</div>'
+          +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'
+          +'<div><div style="font-size:10px;color:var(--text3)">📅 ចូលធ្វើការ</div>'
+          +'<div style="font-family:var(--mono);font-weight:700;color:var(--success);font-size:12px">'+(p.hire_date||'—')+'</div></div>'
+          +'<div><div style="font-size:10px;color:var(--text3)">📅 ថ្ងៃលាឈប់</div>'
+          +'<div style="font-family:var(--mono);font-weight:700;color:'+(p.termination_date?'var(--danger)':'var(--text3)')+';font-size:12px">'+(p.termination_date||'—')+'</div></div>'
+          +'<div style="grid-column:1/-1"><div style="font-size:10px;color:var(--text3)">⏱ រយៈពេល</div>'
+          +'<div style="font-weight:700;color:var(--info);font-size:12px">'+dur+'</div></div>'
+          +'</div>'
+          +'</div>'
+          +'</div>';
+      }).join('')
+    +'</div>'
+    +'<div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">បិទ</button></div>';
 }
 
 async function deleteEmployee(id) {
