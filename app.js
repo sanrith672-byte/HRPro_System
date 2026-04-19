@@ -3520,6 +3520,13 @@ const CARD_STYLE_META = {
   portrait_rose:     { label:'🌸 Rose',      desc:'Pink elegant — បញ្ឈ',     mode:'portrait' },
   portrait_classic:  { label:'🏛️ Classic',  desc:'Minimal clean — បញ្ឈ',    mode:'portrait' },
   portrait_ocean:    { label:'🌊 Ocean',     desc:'Deep blue — បញ្ឈ',        mode:'portrait' },
+  // ── Portrait អត់ QR (No-QR) ──
+  portrait_noqr_royal:    { label:'👑 Royal·NoQR',     desc:'Blue official — អត់ QR',    mode:'portrait' },
+  portrait_noqr_midnight: { label:'🌌 Midnight·NoQR',  desc:'Dark gold — អត់ QR',         mode:'portrait' },
+  portrait_noqr_nature:   { label:'🌿 Nature·NoQR',    desc:'Green fresh — អត់ QR',       mode:'portrait' },
+  portrait_noqr_classic:  { label:'🏛️ Classic·NoQR',  desc:'Minimal clean — អត់ QR',     mode:'portrait' },
+  portrait_noqr_ocean:    { label:'🌊 Ocean·NoQR',     desc:'Deep blue — អត់ QR',         mode:'portrait' },
+  portrait_noqr_ruby:     { label:'🔴 Ruby·NoQR',      desc:'Deep red — អត់ QR',          mode:'portrait' },
 };
 
 async function renderIdCard() {
@@ -4722,6 +4729,207 @@ function idCardPortraitHTML(e, style, cfg) {
         +'<span style="color:#1e293b;font-weight:700;font-size:9px">'+v+'</span></div>'
       ).join('')+'</div>'
       +'<div style="background:#f0f9ff;border-top:1px solid #e0f2fe;padding:5px 14px;text-align:center;font-size:8px;color:#7dd3fc">'+company+'</div></div>';
+    return wrapP(front, back);
+  }
+
+  // ══════════════════════════════════════════════════════════
+  // ── No-QR Portrait Cards (អត់ QR) ─────────────────────────
+  // Back side shows info fields only, NO QR block
+  // ══════════════════════════════════════════════════════════
+
+  // Helper: info rows for back side (no QR version)
+  function infoRows(borderColor, labelColor, valueColor) {
+    return [
+      ['ឈ្មោះ', e.name||'—'],
+      ['តំណែង', e.position||'—'],
+      ['នាយកដ្ឋាន', dept],
+      ['ទូរស័ព្ទ', e.phone||'—'],
+      ['ចូលធ្វើ', hireDate],
+    ].map(([k,v]) =>
+      '<div style="display:flex;gap:6px;padding:5px 0;border-bottom:1px solid '+(borderColor||'#e2e8f0')+'">'
+      +'<span style="color:'+(labelColor||'#94a3b8')+';font-weight:600;min-width:64px;font-size:9px">'+k+'</span>'
+      +'<span style="color:'+(valueColor||'#1e293b')+';font-weight:700;font-size:9px">'+v+'</span></div>'
+    ).join('');
+  }
+
+  // ── NoQR Royal ─────────────────────────────────────────────
+  if (style === 'portrait_noqr_royal') {
+    const front =
+      '<div style="width:100%;height:100%;border-radius:14px;overflow:hidden;background:linear-gradient(175deg,#0f2c6e 0%,#1d4ed8 60%,#0ea5e9 100%);display:flex;flex-direction:column;position:relative">'
+      +'<div style="position:absolute;top:-30px;right:-30px;width:130px;height:130px;border-radius:50%;background:rgba(255,255,255,.06)"></div>'
+      +'<div style="padding:12px 14px 8px;display:flex;justify-content:space-between;align-items:center">'+logoEl
+      +'<div style="background:rgba(255,255,255,.18);color:white;font-size:8px;font-weight:700;padding:2px 8px;border-radius:20px">'+dept+'</div></div>'
+      +'<div style="display:flex;justify-content:center;padding:8px 0">'+av(96,'rgba(255,255,255,.6)','0 6px 20px rgba(0,0,0,.5)')+'</div>'
+      +'<div style="text-align:center;padding:8px 12px 4px">'
+      +'<div style="color:rgba(255,255,255,.65);font-size:9px;font-weight:600;letter-spacing:.5px;text-transform:uppercase">'+(e.position||'—')+'</div>'
+      +'<div style="color:white;font-size:17px;font-weight:800;margin:4px 0;line-height:1.2">'+e.name+'</div>'
+      +'</div>'
+      +'<div style="display:flex;gap:8px;justify-content:center;padding:0 12px 10px">'
+      +'<div style="background:rgba(255,255,255,.15);border-radius:8px;padding:5px 14px;text-align:center"><div style="color:rgba(255,255,255,.55);font-size:7px;font-weight:700">EMP ID</div><div style="color:white;font-size:14px;font-weight:800;font-family:monospace">'+empId+'</div></div>'
+      +'</div>'
+      +'<div style="margin-top:auto;padding:6px 14px;background:rgba(0,0,0,.2);display:flex;justify-content:space-between;align-items:center">'
+      +'<div style="font-size:7px;color:rgba(255,255,255,.4)">OFFICIAL ID</div>'
+      +'<div style="font-size:7px;color:rgba(255,255,255,.4)">'+company+'</div></div>'
+      +'</div>';
+    const back =
+      '<div style="width:100%;height:100%;border-radius:14px;overflow:hidden;background:white;display:flex;flex-direction:column">'
+      +'<div style="background:linear-gradient(90deg,#0f2c6e,#1d4ed8);padding:10px 14px;display:flex;justify-content:space-between;align-items:center">'
+      +'<div style="color:white;font-size:12px;font-weight:800">'+e.name+'</div>'
+      +'<div style="color:rgba(255,255,255,.7);font-size:8px">'+empId+'</div></div>'
+      +'<div style="display:flex;justify-content:center;padding:14px 0 6px">'+av(72,'#1d4ed8','0 4px 12px rgba(29,78,216,.3)')+'</div>'
+      +'<div style="padding:0 16px 10px;flex:1">'+infoRows('#e2eaff','#94a3b8','#1e293b')+'</div>'
+      +'<div style="background:#f8faff;border-top:1px solid #e2eaff;padding:6px 14px;text-align:center;font-size:8px;color:#94a3b8">ករណីបាត់ — If found, please return</div>'
+      +'</div>';
+    return wrapP(front, back);
+  }
+
+  // ── NoQR Midnight ──────────────────────────────────────────
+  if (style === 'portrait_noqr_midnight') {
+    const gold = '#d4af37';
+    const front =
+      '<div style="width:100%;height:100%;border-radius:14px;overflow:hidden;background:linear-gradient(175deg,#0a0e1a,#141824,#0d1220);border:1px solid rgba(212,175,55,.2);display:flex;flex-direction:column;position:relative">'
+      +'<div style="height:3px;background:linear-gradient(90deg,'+gold+',#f0d060,'+gold+')"></div>'
+      +'<div style="padding:10px 14px;display:flex;justify-content:space-between;align-items:center">'
+      +(cfg.logo_url?'<img src="'+cfg.logo_url+'" style="height:16px;object-fit:contain;filter:sepia(1) saturate(3) brightness(1.2)">':'<span style="color:'+gold+';font-size:10px;font-weight:800">'+company+'</span>')
+      +'<div style="border:1px solid rgba(212,175,55,.4);color:'+gold+';font-size:8px;padding:2px 8px;border-radius:3px">'+dept+'</div></div>'
+      +'<div style="display:flex;justify-content:center;padding:6px 0">'+av(92,'rgba(212,175,55,.5)','0 0 24px rgba(212,175,55,.25)')+'</div>'
+      +'<div style="text-align:center;padding:8px 12px 4px">'
+      +'<div style="color:'+gold+';font-size:9px;font-weight:600;letter-spacing:.5px">'+(e.position||'—')+'</div>'
+      +'<div style="color:#f8f8f0;font-size:17px;font-weight:800;margin:4px 0">'+e.name+'</div>'
+      +'</div>'
+      +'<div style="display:flex;justify-content:center;padding:0 12px 10px">'
+      +'<div style="background:rgba(212,175,55,.1);border:1px solid rgba(212,175,55,.3);border-radius:6px;padding:4px 16px;text-align:center">'
+      +'<div style="color:rgba(212,175,55,.6);font-size:7px">EMP ID</div>'
+      +'<div style="color:'+gold+';font-size:14px;font-weight:800;font-family:monospace">'+empId+'</div></div></div>'
+      +'<div style="margin-top:auto;height:3px;background:linear-gradient(90deg,'+gold+',#f0d060,'+gold+')"></div>'
+      +'</div>';
+    const back =
+      '<div style="width:100%;height:100%;border-radius:14px;overflow:hidden;background:#0d1220;border:1px solid rgba(212,175,55,.2);display:flex;flex-direction:column">'
+      +'<div style="height:3px;background:linear-gradient(90deg,'+gold+',#f0d060,'+gold+')"></div>'
+      +'<div style="padding:10px 14px;display:flex;justify-content:space-between;align-items:center">'
+      +'<div style="color:'+gold+';font-size:12px;font-weight:800">'+e.name+'</div>'
+      +'<div style="color:rgba(212,175,55,.5);font-size:8px">'+empId+'</div></div>'
+      +'<div style="display:flex;justify-content:center;padding:10px 0 6px">'+av(68,'rgba(212,175,55,.5)','0 0 20px rgba(212,175,55,.2)')+'</div>'
+      +'<div style="padding:0 16px 12px;flex:1">'+infoRows('rgba(212,175,55,.15)','rgba(212,175,55,.55)','#f8f8f0')+'</div>'
+      +'<div style="padding:6px 14px;text-align:center;font-size:8px;color:rgba(212,175,55,.3)">'+company+'</div>'
+      +'</div>';
+    return wrapP(front, back);
+  }
+
+  // ── NoQR Nature ────────────────────────────────────────────
+  if (style === 'portrait_noqr_nature') {
+    const front =
+      '<div style="width:100%;height:100%;border-radius:14px;overflow:hidden;background:linear-gradient(175deg,#064e3b,#059669,#34d399);display:flex;flex-direction:column;position:relative">'
+      +'<div style="padding:10px 14px;display:flex;justify-content:space-between;align-items:center">'
+      +(cfg.logo_url?'<img src="'+cfg.logo_url+'" style="height:18px;object-fit:contain;filter:brightness(0) invert(1)">':'<span style="color:white;font-size:10px;font-weight:800">'+company+'</span>')
+      +'<div style="background:rgba(255,255,255,.2);color:white;font-size:8px;font-weight:700;padding:2px 8px;border-radius:20px">'+dept+'</div></div>'
+      +'<div style="display:flex;justify-content:center;padding:6px 0">'+av(92,'rgba(255,255,255,.6)','0 6px 20px rgba(0,0,0,.4)')+'</div>'
+      +'<div style="text-align:center;padding:8px 12px 4px">'
+      +'<div style="color:rgba(255,255,255,.7);font-size:9px;font-weight:600">'+(e.position||'—')+'</div>'
+      +'<div style="color:white;font-size:17px;font-weight:800;margin:4px 0">'+e.name+'</div>'
+      +'</div>'
+      +'<div style="display:flex;justify-content:center;padding:0 12px 10px">'
+      +'<div style="background:rgba(255,255,255,.15);border-radius:8px;padding:4px 14px;text-align:center">'
+      +'<div style="color:rgba(255,255,255,.6);font-size:7px">EMP ID</div>'
+      +'<div style="color:white;font-size:14px;font-weight:800;font-family:monospace">'+empId+'</div></div></div>'
+      +'<div style="margin-top:auto;padding:6px 14px;background:rgba(0,0,0,.15);display:flex;justify-content:space-between;font-size:7px;color:rgba(255,255,255,.4)">'
+      +'<span>OFFICIAL ID</span><span>'+company+'</span></div>'
+      +'</div>';
+    const back =
+      '<div style="width:100%;height:100%;border-radius:14px;overflow:hidden;background:white;display:flex;flex-direction:column">'
+      +'<div style="background:linear-gradient(90deg,#064e3b,#059669);padding:10px 14px;display:flex;justify-content:space-between;align-items:center">'
+      +'<div style="color:white;font-size:12px;font-weight:800">'+e.name+'</div>'
+      +'<div style="color:rgba(255,255,255,.7);font-size:8px">'+empId+'</div></div>'
+      +'<div style="display:flex;justify-content:center;padding:12px 0 6px">'+av(72,'#059669','0 4px 12px rgba(5,150,105,.3)')+'</div>'
+      +'<div style="padding:0 16px 10px;flex:1">'+infoRows('#e8faf3','#6ee7b7','#1e293b')+'</div>'
+      +'<div style="background:#f0fdf4;border-top:1px solid #d1fae5;padding:6px 14px;text-align:center;font-size:8px;color:#6ee7b7">'+company+'</div>'
+      +'</div>';
+    return wrapP(front, back);
+  }
+
+  // ── NoQR Classic ───────────────────────────────────────────
+  if (style === 'portrait_noqr_classic') {
+    const front =
+      '<div style="width:100%;height:100%;border-radius:14px;overflow:hidden;background:white;border:2px solid #1e293b;display:flex;flex-direction:column">'
+      +'<div style="background:#1e293b;padding:10px 14px;display:flex;justify-content:space-between;align-items:center">'
+      +(cfg.logo_url?'<img src="'+cfg.logo_url+'" style="height:18px;object-fit:contain;filter:brightness(0) invert(1)">':'<span style="color:white;font-size:10px;font-weight:800">'+company+'</span>')
+      +'<div style="color:rgba(255,255,255,.7);font-size:8px;border:1px solid rgba(255,255,255,.3);padding:2px 8px;border-radius:3px">'+dept+'</div></div>'
+      +'<div style="display:flex;justify-content:center;padding:14px 0 8px">'+av(92,'#1e293b','0 4px 12px rgba(0,0,0,.2)')+'</div>'
+      +'<div style="text-align:center;padding:0 12px 8px;flex:1">'
+      +'<div style="color:#64748b;font-size:9px;font-weight:600;letter-spacing:.5px;text-transform:uppercase">'+(e.position||'—')+'</div>'
+      +'<div style="color:#1e293b;font-size:17px;font-weight:800;margin:4px 0;border-bottom:2px solid #e2e8f0;padding-bottom:8px">'+e.name+'</div>'
+      +'<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:4px 14px;display:inline-block;margin-top:6px">'
+      +'<div style="color:#94a3b8;font-size:7px">EMP ID</div>'
+      +'<div style="color:#1e293b;font-size:14px;font-weight:800;font-family:monospace">'+empId+'</div></div></div>'
+      +'<div style="background:#f8fafc;border-top:2px solid #e2e8f0;padding:5px 14px;display:flex;justify-content:space-between;font-size:7px;color:#94a3b8">'
+      +'<span>OFFICIAL ID</span><span>'+hireDate+'</span></div></div>';
+    const back =
+      '<div style="width:100%;height:100%;border-radius:14px;overflow:hidden;background:white;border:2px solid #1e293b;display:flex;flex-direction:column">'
+      +'<div style="background:#1e293b;padding:10px 14px;display:flex;justify-content:space-between;align-items:center">'
+      +'<div style="color:white;font-size:12px;font-weight:800">'+e.name+'</div>'
+      +'<div style="color:rgba(255,255,255,.6);font-size:8px">'+empId+'</div></div>'
+      +'<div style="display:flex;justify-content:center;padding:12px 0 6px">'+av(68,'#1e293b','0 4px 12px rgba(0,0,0,.15)')+'</div>'
+      +'<div style="padding:0 16px 10px;flex:1">'+infoRows('#f1f5f9','#94a3b8','#1e293b')+'</div>'
+      +'<div style="background:#f8fafc;border-top:2px solid #e2e8f0;padding:6px 14px;text-align:center;font-size:8px;color:#94a3b8">'+company+'</div></div>';
+    return wrapP(front, back);
+  }
+
+  // ── NoQR Ocean ─────────────────────────────────────────────
+  if (style === 'portrait_noqr_ocean') {
+    const front =
+      '<div style="width:100%;height:100%;border-radius:14px;overflow:hidden;background:linear-gradient(175deg,#0c4a6e,#0369a1,#0ea5e9,#22d3ee);display:flex;flex-direction:column">'
+      +'<div style="padding:10px 14px;display:flex;justify-content:space-between;align-items:center">'
+      +(cfg.logo_url?'<img src="'+cfg.logo_url+'" style="height:18px;object-fit:contain;filter:brightness(0) invert(1)">':'<span style="color:white;font-size:10px;font-weight:800">'+company+'</span>')
+      +'<div style="background:rgba(255,255,255,.2);color:white;font-size:8px;padding:2px 8px;border-radius:20px">'+dept+'</div></div>'
+      +'<div style="display:flex;justify-content:center;padding:6px 0">'+av(92,'rgba(255,255,255,.6)','0 6px 20px rgba(0,0,0,.4)')+'</div>'
+      +'<div style="text-align:center;padding:8px 12px 4px">'
+      +'<div style="color:rgba(255,255,255,.7);font-size:9px;font-weight:600">'+(e.position||'—')+'</div>'
+      +'<div style="color:white;font-size:17px;font-weight:800;margin:4px 0">'+e.name+'</div></div>'
+      +'<div style="display:flex;justify-content:center;padding:0 12px 10px">'
+      +'<div style="background:rgba(255,255,255,.15);border-radius:8px;padding:4px 14px;text-align:center">'
+      +'<div style="color:rgba(255,255,255,.6);font-size:7px">EMP ID</div>'
+      +'<div style="color:white;font-size:14px;font-weight:800;font-family:monospace">'+empId+'</div></div></div>'
+      +'<div style="margin-top:auto;padding:6px 14px;background:rgba(0,0,0,.15);display:flex;justify-content:space-between;font-size:7px;color:rgba(255,255,255,.4)">'
+      +'<span>OFFICIAL ID</span><span>'+company+'</span></div></div>';
+    const back =
+      '<div style="width:100%;height:100%;border-radius:14px;overflow:hidden;background:white;display:flex;flex-direction:column">'
+      +'<div style="background:linear-gradient(90deg,#0c4a6e,#0369a1);padding:10px 14px;display:flex;justify-content:space-between;align-items:center">'
+      +'<div style="color:white;font-size:12px;font-weight:800">'+e.name+'</div>'
+      +'<div style="color:rgba(255,255,255,.7);font-size:8px">'+empId+'</div></div>'
+      +'<div style="display:flex;justify-content:center;padding:12px 0 6px">'+av(72,'#0369a1','0 4px 12px rgba(3,105,161,.3)')+'</div>'
+      +'<div style="padding:0 16px 10px;flex:1">'+infoRows('#e0f2fe','#7dd3fc','#1e293b')+'</div>'
+      +'<div style="background:#f0f9ff;border-top:1px solid #e0f2fe;padding:6px 14px;text-align:center;font-size:8px;color:#7dd3fc">'+company+'</div></div>';
+    return wrapP(front, back);
+  }
+
+  // ── NoQR Ruby ──────────────────────────────────────────────
+  if (style === 'portrait_noqr_ruby') {
+    const front =
+      '<div style="width:100%;height:100%;border-radius:14px;overflow:hidden;background:linear-gradient(175deg,#7f1d1d,#b91c1c,#ef4444);display:flex;flex-direction:column;position:relative">'
+      +'<div style="position:absolute;top:-25px;right:-25px;width:110px;height:110px;border-radius:50%;background:rgba(255,255,255,.07)"></div>'
+      +'<div style="padding:10px 14px;display:flex;justify-content:space-between;align-items:center">'
+      +(cfg.logo_url?'<img src="'+cfg.logo_url+'" style="height:18px;object-fit:contain;filter:brightness(0) invert(1)">':'<span style="color:white;font-size:10px;font-weight:800">'+company+'</span>')
+      +'<div style="background:rgba(255,255,255,.18);color:white;font-size:8px;font-weight:700;padding:2px 8px;border-radius:20px">'+dept+'</div></div>'
+      +'<div style="display:flex;justify-content:center;padding:6px 0">'+av(92,'rgba(255,255,255,.5)','0 6px 20px rgba(0,0,0,.5)')+'</div>'
+      +'<div style="text-align:center;padding:8px 12px 4px">'
+      +'<div style="color:rgba(255,255,255,.65);font-size:9px;font-weight:600;letter-spacing:.5px">'+(e.position||'—')+'</div>'
+      +'<div style="color:white;font-size:17px;font-weight:800;margin:4px 0">'+e.name+'</div>'
+      +'</div>'
+      +'<div style="display:flex;justify-content:center;padding:0 12px 10px">'
+      +'<div style="background:rgba(255,255,255,.15);border-radius:8px;padding:4px 14px;text-align:center">'
+      +'<div style="color:rgba(255,255,255,.6);font-size:7px">EMP ID</div>'
+      +'<div style="color:white;font-size:14px;font-weight:800;font-family:monospace">'+empId+'</div></div></div>'
+      +'<div style="margin-top:auto;padding:6px 14px;background:rgba(0,0,0,.25);display:flex;justify-content:space-between;font-size:7px;color:rgba(255,255,255,.4)">'
+      +'<span>OFFICIAL ID</span><span>'+company+'</span></div>'
+      +'</div>';
+    const back =
+      '<div style="width:100%;height:100%;border-radius:14px;overflow:hidden;background:white;display:flex;flex-direction:column">'
+      +'<div style="background:linear-gradient(90deg,#7f1d1d,#b91c1c);padding:10px 14px;display:flex;justify-content:space-between;align-items:center">'
+      +'<div style="color:white;font-size:12px;font-weight:800">'+e.name+'</div>'
+      +'<div style="color:rgba(255,255,255,.7);font-size:8px">'+empId+'</div></div>'
+      +'<div style="display:flex;justify-content:center;padding:12px 0 6px">'+av(72,'#b91c1c','0 4px 12px rgba(185,28,28,.3)')+'</div>'
+      +'<div style="padding:0 16px 10px;flex:1">'+infoRows('#fee2e2','#fca5a5','#1e293b')+'</div>'
+      +'<div style="background:#fff1f2;border-top:1px solid #fee2e2;padding:6px 14px;text-align:center;font-size:8px;color:#fca5a5">'+company+'</div></div>';
     return wrapP(front, back);
   }
 
@@ -6380,6 +6588,11 @@ function printIdCards() {
   if (!cards.length) { showToast('មិនទាន់មានកាត!','error'); return; }
   const cfg   = getCompanyConfig();
   const style = currentCardStyle;
+  const isPortrait = currentCardMode === 'portrait';
+
+  // Portrait card dimensions: 204px wide × 323px tall
+  const cW = isPortrait ? 204 : 323;
+  const cH = isPortrait ? 323 : 204;
 
   const logoHtml = cfg.logo_url
     ? '<img src="'+cfg.logo_url+'" style="height:28px;object-fit:contain;vertical-align:middle;margin-right:8px" />'
@@ -6396,16 +6609,31 @@ function printIdCards() {
     const cloneBack  = back  ? back.cloneNode(true)  : null;
     [cloneFront, cloneBack].forEach(el => {
       if (!el) return;
-      el.style.cssText = 'position:relative;transform:none;backface-visibility:visible;width:323px;height:204px;display:block;border-radius:12px;overflow:hidden;';
+      el.style.cssText = 'position:relative;transform:none;backface-visibility:visible;width:'+cW+'px;height:'+cH+'px;display:block;border-radius:12px;overflow:hidden;';
     });
-    pairsHTML +=
-      '<div class="card-pair">'
-      +'<div class="emp-label">'+name+'</div>'
-      +'<div class="card-row">'
-      +'<div class="card-side"><div class="side-label">▶ FRONT</div><div class="card-box">'+(cloneFront?cloneFront.outerHTML:'')+'</div></div>'
-      +'<div class="card-side"><div class="side-label">◀ BACK</div><div class="card-box">'+(cloneBack?cloneBack.outerHTML:'')+'</div></div>'
-      +'</div></div>';
+
+    if (isPortrait) {
+      // Portrait: stack front & back side by side in a row
+      pairsHTML +=
+        '<div class="card-pair">'
+        +'<div class="emp-label">'+name+'</div>'
+        +'<div class="card-row">'
+        +'<div class="card-side"><div class="side-label">▶ FRONT</div><div class="card-box">'+(cloneFront?cloneFront.outerHTML:'')+'</div></div>'
+        +'<div class="card-side"><div class="side-label">◀ BACK</div><div class="card-box">'+(cloneBack?cloneBack.outerHTML:'')+'</div></div>'
+        +'</div></div>';
+    } else {
+      pairsHTML +=
+        '<div class="card-pair">'
+        +'<div class="emp-label">'+name+'</div>'
+        +'<div class="card-row">'
+        +'<div class="card-side"><div class="side-label">▶ FRONT</div><div class="card-box">'+(cloneFront?cloneFront.outerHTML:'')+'</div></div>'
+        +'<div class="card-side"><div class="side-label">◀ BACK</div><div class="card-box">'+(cloneBack?cloneBack.outerHTML:'')+'</div></div>'
+        +'</div></div>';
+    }
   });
+
+  const cardBoxCss = '.card-box{width:'+cW+'px;height:'+cH+'px;border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.15);display:block;flex-shrink:0}';
+  const pageSize   = isPortrait ? 'A4 portrait' : 'A4 portrait';
 
   printHTML('<!DOCTYPE html><html><head><meta charset="UTF-8">'
     +'<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Khmer:wght@400;600;700;800&display=swap" rel="stylesheet">'
@@ -6419,11 +6647,11 @@ function printIdCards() {
     +'.cards-grid{display:flex;flex-direction:column;gap:7mm}'
     +'.card-pair{break-inside:avoid;page-break-inside:avoid}'
     +'.emp-label{font-size:6.5pt;font-weight:700;color:#64748b;letter-spacing:1px;margin-bottom:1.5mm}'
-    +'.card-row{display:flex;gap:5mm;align-items:flex-start}'
+    +'.card-row{display:flex;gap:5mm;align-items:flex-start;flex-wrap:wrap}'
     +'.side-label{font-size:5.5pt;font-weight:700;color:#94a3b8;letter-spacing:.5px;margin-bottom:1mm;text-align:center}'
-    +'.card-box{width:323px;height:204px;border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.15);display:block;flex-shrink:0}'
+    +cardBoxCss
     +'.card-box>div{width:100%!important;height:100%!important;border-radius:12px!important;overflow:hidden!important}'
-    +'@media print{@page{size:A4 portrait;margin:6mm}body{padding:3mm}.card-box{box-shadow:0 0 0 0.3mm #94a3b8}}'
+    +'@media print{@page{size:'+pageSize+';margin:6mm}body{padding:3mm}.card-box{box-shadow:0 0 0 0.3mm #94a3b8}}'
     +'</style></head><body>'
     +'<div class="print-header">'
     +'<div class="header-left">'+logoHtml+'<div class="co-name">'+(cfg.company_name||'HR Pro')+'</div></div>'
