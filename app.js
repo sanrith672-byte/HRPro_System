@@ -2581,6 +2581,8 @@ async function renderIdCard() {
         ? '<div class="empty-state" style="grid-column:1/-1;padding:60px"><p>មិនទាន់មានបុគ្គលិក</p></div>'
         : emps.map(e=>idCardHTML(e,currentCardStyle,cfg)).join(''))
       +'</div>';
+    // Render QR codes after DOM
+    setTimeout(() => loadQRLib(renderAllQRCodes), 100);
   } catch(e) { showError(e.message); }
 }
 
@@ -2597,18 +2599,42 @@ function setCardStyle(style) {
   const cfg = getCompanyConfig();
   const grid = document.getElementById('id-card-grid');
   if (grid) grid.innerHTML = state.employees.map(e=>idCardHTML(e,style,cfg)).join('');
+  setTimeout(() => loadQRLib(renderAllQRCodes), 100);
 }
 
 // Miniature QR pattern
 // ── Larger QR with ID text encoded (21x21 modules)
 // ── Real QR Code generator — encodes actual text ──────────────────────
 // Implements QR Version 1-3 (numeric/alphanumeric/byte mode)
-// Real QR using Google Chart API (100% scannable by any scanner)
+// Real QR using qrcodejs (local, no network needed)
 function makeQRSvg(text, size, darkColor, lightColor) {
   text = String(text || '1');
   size = size || 100;
-  const url = 'https://chart.googleapis.com/chart?cht=qr&chs='+size+'x'+size+'&chl='+encodeURIComponent(text)+'&chld=M|1';
-  return '<img src="'+url+'" width="'+size+'" height="'+size+'" style="display:block;image-rendering:pixelated" />';
+  const id = 'qr_tmp_' + Math.random().toString(36).slice(2);
+  // Return a placeholder div that generates QR after DOM insert
+  return '<div id="'+id+'" style="width:'+size+'px;height:'+size+'px;display:flex;align-items:center;justify-content:center" data-qrtext="'+encodeURIComponent(text)+'" data-qrsize="'+size+'"></div>';
+}
+
+function renderAllQRCodes() {
+  document.querySelectorAll('[data-qrtext]').forEach(el => {
+    if (el.dataset.rendered) return;
+    el.dataset.rendered = '1';
+    const text = decodeURIComponent(el.dataset.qrtext);
+    const size = parseInt(el.dataset.qrsize) || 100;
+    if (window.QRCode) {
+      el.innerHTML = '';
+      new QRCode(el, { text, width: size, height: size, correctLevel: QRCode.CorrectLevel.M });
+    }
+  });
+}
+
+// Load qrcodejs once
+function loadQRLib(cb) {
+  if (window.QRCode) { cb(); return; }
+  const s = document.createElement('script');
+  s.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+  s.onload = cb;
+  document.head.appendChild(s);
 }
 
 // Legacy SVG QR (backup, not called)
