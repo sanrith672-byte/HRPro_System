@@ -5228,25 +5228,46 @@ async function syncAccountsToAPI(users) {
   } catch(_) {}
 }
 
-// Load accounts from Worker on init
+// Load accounts from Worker on init — must complete before login check
 async function loadAccountsFromAPI() {
   if (isDemoMode()) return;
   try {
     const cfg = await api('GET', '/config');
-    if (cfg && cfg.hr_accounts) {
-      const remoteUsers = JSON.parse(cfg.hr_accounts);
-      if (remoteUsers && remoteUsers.length) {
-        saveUsers(remoteUsers);
-        // Load photos into cache and IndexedDB
-        for (const u of remoteUsers) {
-          if (u.photo) {
-            photoCache['user_'+u.id] = u.photo;
-            await photoDB.set('user_'+u.id, u.photo).catch(()=>{});
-          }
-        }
+    const raw = cfg && cfg.hr_accounts;
+    if (!raw) return;
+
+    // cfg.hr_accounts may already be parsed (object/array) or still a string
+    let remoteUsers;
+    if (typeof raw === 'string') {
+      remoteUsers = JSON.parse(raw);
+    } else if (Array.isArray(raw)) {
+      remoteUsers = raw;
+    } else {
+      remoteUsers = JSON.parse(JSON.stringify(raw));
+    }
+
+    if (!Array.isArray(remoteUsers) || !remoteUsers.length) return;
+
+    // Merge: remote is source of truth, but keep local password if admin changed locally
+    const localUsers = getUsers();
+    const merged = remoteUsers.map(ru => {
+      const lu = localUsers.find(l => l.username === ru.username);
+      // Keep local password if both exist (security)
+      return { ...ru, password: lu?.password || ru.password };
+    });
+
+    saveUsers(merged);
+
+    // Cache photos
+    for (const u of merged) {
+      if (u.photo) {
+        photoCache['user_'+u.id] = u.photo;
+        photoDB.set('user_'+u.id, u.photo).catch(()=>{});
       }
     }
-  } catch(_) {}
+  } catch(e) {
+    console.warn('[loadAccountsFromAPI]', e.message);
+  }
 }
 
 function openEditAccountModal(id) {
@@ -5781,7 +5802,7 @@ function toggleTheme() {
 // ============================================================
 // INIT — entry point
 // ============================================================
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   // Apply saved theme immediately
   applyTheme(getTheme());
 
@@ -5799,6 +5820,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const uEl = document.getElementById('login-username');
   if (pEl) pEl.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
   if (uEl) uEl.addEventListener('keydown', e => { if (e.key === 'Enter') { pEl && pEl.focus(); } });
+
+  // Load accounts from API FIRST (so new device knows all users)
+  await loadAccountsFromAPI();
 
   // Check session
   if (isLoggedIn()) {
