@@ -527,70 +527,21 @@ const photoDB = {
 // Sync cache for rendering (avoids async in render loops)
 const photoCache = {};
 
-// Load photos: API mode → fetch from Worker employees; Demo mode → IndexedDB
 async function loadAllPhotos() {
-  if (!isDemoMode()) {
-    try {
-      // Fetch all employees with photo/qr data (limit=500)
-      const res = await api('GET', '/employees?limit=500');
-      const list = res.employees || res || [];
-      for (const e of list) {
-        if (e.photo_data) photoCache['emp_' + e.id] = e.photo_data;
-        if (e.qr_data)   photoCache['qr_'  + e.id] = e.qr_data;
-      }
-    } catch(_) {
-      // Fallback to IndexedDB if API fails
-      const all = await photoDB.getAll();
-      Object.assign(photoCache, all);
-    }
-  } else {
-    const all = await photoDB.getAll();
-    Object.assign(photoCache, all);
-  }
+  const all = await photoDB.getAll();
+  Object.assign(photoCache, all);
 }
 
 function getEmpPhoto(id) {
   return photoCache['emp_' + id] || '';
 }
-
 async function setEmpPhoto(id, dataUrl) {
-  const key = 'emp_' + id;
-  photoCache[key] = dataUrl;
-  if (!isDemoMode()) {
-    try { await api('POST', '/employees/' + id + '/photo', { data: dataUrl }); } catch(_) {}
-  } else {
-    await photoDB.set(key, dataUrl);
-  }
+  photoCache['emp_' + id] = dataUrl;
+  await photoDB.set(id, dataUrl);
 }
-
 async function delEmpPhoto(id) {
-  const key = 'emp_' + id;
-  delete photoCache[key];
-  if (!isDemoMode()) {
-    try { await api('DELETE', '/employees/' + id + '/photo'); } catch(_) {}
-  } else {
-    await photoDB.del(key);
-  }
-}
-
-async function setEmpQR(id, dataUrl) {
-  const key = 'qr_' + id;
-  photoCache[key] = dataUrl;
-  if (!isDemoMode()) {
-    try { await api('POST', '/employees/' + id + '/qr', { data: dataUrl }); } catch(_) {}
-  } else {
-    await photoDB.set(key, dataUrl);
-  }
-}
-
-async function delEmpQR(id) {
-  const key = 'qr_' + id;
-  delete photoCache[key];
-  if (!isDemoMode()) {
-    try { await api('DELETE', '/employees/' + id + '/qr'); } catch(_) {}
-  } else {
-    await photoDB.del(key);
-  }
+  delete photoCache['emp_' + id];
+  await photoDB.del(id);
 }
 
 
@@ -763,10 +714,9 @@ async function saveEmployee() {
     }
     state._pendingPhoto = null;
     // Save QR
-    if (state._pendingQR === '__remove__') {
-      if (savedId) await delEmpQR(savedId);
-    } else if (state._pendingQR && savedId) {
-      await setEmpQR(savedId, state._pendingQR);
+    if (state._pendingQR && savedId) {
+      photoCache['qr_' + savedId] = state._pendingQR;
+      await photoDB.set('qr_' + savedId, state._pendingQR);
     }
     state._pendingQR = null;
 
@@ -3537,8 +3487,42 @@ function thisMonth() { return new Date().toISOString().slice(0,7); }
 const CFG_KEY = 'hr_company_config';
 const SAL_KEY = 'hr_salary_rules';
 
+// Config cache (in-memory, loaded on startup)
+let _cfgCache = null;
+
 function getCompanyConfig() {
+  if (_cfgCache) return _cfgCache;
   try { return JSON.parse(localStorage.getItem(CFG_KEY)) || {}; } catch { return {}; }
+}
+
+// Load config from API (call on startup)
+async function loadCompanyConfig() {
+  if (isDemoMode()) {
+    try { _cfgCache = JSON.parse(localStorage.getItem(CFG_KEY)) || {}; } catch { _cfgCache = {}; }
+    return;
+  }
+  try {
+    const data = await api('GET', '/config');
+    if (data && typeof data === 'object' && !data.error) {
+      _cfgCache = data;
+      localStorage.setItem(CFG_KEY, JSON.stringify(data));
+    } else {
+      _cfgCache = JSON.parse(localStorage.getItem(CFG_KEY)) || {};
+    }
+  } catch(_) {
+    _cfgCache = JSON.parse(localStorage.getItem(CFG_KEY)) || {};
+  }
+  applyCompanyBranding();
+}
+
+function saveCompanyConfig(cfg) {
+  _cfgCache = cfg;
+  localStorage.setItem(CFG_KEY, JSON.stringify(cfg));
+  applyCompanyBranding();
+  // Sync to API in background (non-blocking)
+  if (!isDemoMode()) {
+    api('POST', '/config', cfg).catch(() => {});
+  }
 }
 function getSalaryRules() {
   const def = {
@@ -3717,7 +3701,6 @@ async function saveEditAtt(id, date) {
   } catch(e){showToast('Error: '+e.message,'error');}
 }
 
-function saveCompanyConfig(cfg) { localStorage.setItem(CFG_KEY, JSON.stringify(cfg)); applyCompanyBranding(); }
 function saveSalaryRules(rules) { localStorage.setItem(SAL_KEY, JSON.stringify(rules)); }
 
 function applyCompanyBranding() {
@@ -4830,15 +4813,14 @@ document.addEventListener('DOMContentLoaded', () => {
 function initApp() {
   $('current-date').textContent = new Date().toLocaleDateString('km-KH', {year:'numeric',month:'short',day:'numeric'});
 
-  // Load all photos into cache first, then start app
-  loadAllPhotos().then(() => {
+  // Load config + photos then start app
+  Promise.all([loadCompanyConfig(), loadAllPhotos()]).then(() => {
     const session = getSession();
     if (session) {
       const uname = $('sidebar-user-name');
       const urole = $('sidebar-user-role');
       if (uname) uname.textContent = session.name || session.username;
       if (urole) urole.textContent = session.role || '';
-      // Load user photo
       const uPhoto = photoCache['user_' + session.id] || '';
       updateSidebarAvatar(uPhoto, session.name || session.username);
     }
@@ -4848,7 +4830,23 @@ function initApp() {
     }));
     $('modal-close').addEventListener('click', closeModal);
     $('modal-overlay').addEventListener('click', e => { if (e.target === $('modal-overlay')) closeModal(); });
-    $('sidebarToggle').addEventListener('click', () => $('sidebar').classList.toggle('open'));
+    $('sidebarToggle').addEventListener('click', () => toggleSidebar());
+
+    // Swipe-to-open sidebar from left edge
+    let touchStartX = 0, touchStartY = 0;
+    document.addEventListener('touchstart', e => {
+      touchStartX = e.touches[0].clientX;
+      touchStartY = e.touches[0].clientY;
+    }, { passive: true });
+    document.addEventListener('touchend', e => {
+      const dx = e.changedTouches[0].clientX - touchStartX;
+      const dy = Math.abs(e.changedTouches[0].clientY - touchStartY);
+      const sb = $('sidebar');
+      if (!sb) return;
+      if (touchStartX < 24 && dx > 60 && dy < 80) { sb.classList.add('open'); showOverlay(); }
+      if (sb.classList.contains('open') && dx < -60 && dy < 80) { closeSidebar(); }
+    }, { passive: true });
+
     $('global-search').addEventListener('input', e => { if (state.currentPage === 'employees') renderEmployees(e.target.value); });
     $('btn-settings').addEventListener('click', () => navigate('settings'));
     updateApiStatus();
