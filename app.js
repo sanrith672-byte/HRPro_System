@@ -2603,7 +2603,16 @@ function setCardStyle(style) {
 // ── Larger QR with ID text encoded (21x21 modules)
 // ── Real QR Code generator — encodes actual text ──────────────────────
 // Implements QR Version 1-3 (numeric/alphanumeric/byte mode)
+// Real QR using Google Chart API (100% scannable by any scanner)
 function makeQRSvg(text, size, darkColor, lightColor) {
+  text = String(text || '1');
+  size = size || 100;
+  const url = 'https://chart.googleapis.com/chart?cht=qr&chs='+size+'x'+size+'&chl='+encodeURIComponent(text)+'&chld=M|1';
+  return '<img src="'+url+'" width="'+size+'" height="'+size+'" style="display:block;image-rendering:pixelated" />';
+}
+
+// Legacy SVG QR (backup, not called)
+function makeQRSvg_legacy(text, size, darkColor, lightColor) {
   darkColor  = darkColor  || '#000';
   lightColor = lightColor || '#fff';
   text = String(text || '1');
