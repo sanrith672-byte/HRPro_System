@@ -419,6 +419,17 @@ async function renderEmployees(filter='', dept='', status='') {
     state.employees = empData.employees;
     state.departments = deptData;
     $('emp-count').textContent = empData.total;
+
+    // Load leave days per employee
+    window._empLeaveMap = {};
+    try {
+      const leaveData = await api('GET', '/leave');
+      (leaveData.records||[]).forEach(r => {
+        if (r.status === 'approved') {
+          window._empLeaveMap[r.employee_id] = (window._empLeaveMap[r.employee_id]||0) + (r.days||0);
+        }
+      });
+    } catch(_) {}
     contentArea().innerHTML =
       '<div class="page-header">'
       +'<div><h2>គ្រប់គ្រងបុគ្គលិក</h2><p>សរុប '+empData.total+' នាក់</p></div>'
@@ -438,10 +449,10 @@ async function renderEmployees(filter='', dept='', status='') {
       +'</select>'
       +'</div>'
       +'<div class="card"><div class="table-container"><table>'
-      +'<thead><tr><th>បុគ្គលិក</th><th>តំណែង</th><th>នាយកដ្ឋាន</th><th>ទំនាក់ទំនង</th><th>ធនាគារ</th><th>បៀវត្ស</th><th>ស្ថានភាព</th><th>សកម្មភាព</th></tr></thead>'
+      +'<thead><tr><th>បុគ្គលិក</th><th>តំណែង</th><th>នាយកដ្ឋាន</th><th>ទំនាក់ទំនង</th><th>ធនាគារ</th><th>បៀវត្ស</th><th style="text-align:center">ថ្ងៃលា</th><th>ស្ថានភាព</th><th>សកម្មភាព</th></tr></thead>'
       +'<tbody>'
       +(empData.employees.length===0
-        ? '<tr><td colspan="8"><div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><h3>រកមិនឃើញ</h3><p>ស្វែងរកផ្សេង ឬបន្ថែមបុគ្គលិក</p></div></td></tr>'
+        ? '<tr><td colspan="9"><div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><h3>រកមិនឃើញ</h3><p>ស្វែងរកផ្សេង ឬបន្ថែមបុគ្គលិក</p></div></td></tr>'
         : empData.employees.map(e=>{
             const photo = getEmpPhoto(e.id);
             const avInner = photo ? '<img src="'+photo+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>' : e.name[0];
@@ -451,6 +462,12 @@ async function renderEmployees(filter='', dept='', status='') {
               ? '<div style="font-size:11px;font-weight:600;color:var(--text2)">'+e.bank+'</div>'
                 +(e.bank_account?'<div style="font-size:10px;color:var(--text3);font-family:var(--mono)">'+e.bank_account+'</div>':'')
               : '<span style="color:var(--text3);font-size:11px">—</span>';
+            // Leave days from empLeaveMap (loaded separately)
+            const leaveDays = (window._empLeaveMap && window._empLeaveMap[e.id]) || 0;
+            const leaveCell = '<td style="text-align:center">'
+              +'<div style="font-weight:700;font-size:13px;color:'+(leaveDays>0?'var(--warning)':'var(--text3)')+'">'+leaveDays+'</div>'
+              +'<div style="font-size:9px;color:var(--text3)">ថ្ងៃ</div>'
+              +'</td>';
             return '<tr>'
               +'<td><div class="employee-cell"><div class="emp-avatar" style="background:'+getColor(e.name)+';'+avStyle+'">'+avInner+'</div>'
               +'<div><div class="emp-name">'+e.name+'</div><div class="emp-id">'+displayId+'</div></div></div></td>'
@@ -459,10 +476,13 @@ async function renderEmployees(filter='', dept='', status='') {
               +'<td><div style="font-size:12px;color:var(--text3)">'+(e.phone||'—')+'<br/>'+(e.email||'—')+'</div></td>'
               +'<td>'+bankInfo+'</td>'
               +'<td><span style="font-family:var(--mono);color:var(--success);font-weight:600">$'+(e.salary||0)+'</span></td>'
+              +leaveCell
               +'<td>'+statusBadge(e.status)+'</td>'
               +'<td><div class="action-btns">'
               +(canEdit()
-                ? '<button class="btn btn-outline btn-sm" onclick="openEmployeeModal('+e.id+')">✏️</button><button class="btn btn-danger btn-sm" onclick="deleteEmployee('+e.id+')">🗑️</button>'
+                ? '<button class="btn btn-outline btn-sm" onclick="openEmployeeModal('+e.id+')">✏️</button>'
+                  +'<button class="btn btn-warning btn-sm" onclick="openQuickLeaveModal('+e.id+',\''+e.name+'\')" style="background:rgba(255,183,3,.15);border-color:var(--warning);color:var(--warning)">🌴</button>'
+                  +'<button class="btn btn-danger btn-sm" onclick="deleteEmployee('+e.id+')">🗑️</button>'
                 : '<span style="font-size:11px;color:var(--text3)">👁️</span>')
               +'</div></td></tr>';
           }).join('')
@@ -952,6 +972,79 @@ async function exportEmployeeExcelFiltered(emps, rangeLabel, leaveMap) {
 
 function exportEmployeePDF() { openEmployeeReportModal(); }
 
+
+function openQuickLeaveModal(empId, empName) {
+  $('modal-title').textContent = '🌴 ច្បាប់ឈប់សម្រាក — ' + empName;
+  const leaveDays = (window._empLeaveMap && window._empLeaveMap[empId]) || 0;
+  $('modal-body').innerHTML =
+    // Leave summary
+    '<div style="display:flex;align-items:center;gap:16px;padding:14px;background:var(--bg3);border-radius:10px;border:1px solid var(--border);margin-bottom:16px">'
+    +'<div style="font-size:36px">🌴</div>'
+    +'<div>'
+    +'<div style="font-size:12px;color:var(--text3)">ថ្ងៃលាឈប់សរុប (អនុម័ត)</div>'
+    +'<div style="font-size:28px;font-weight:800;color:var(--warning)">'+leaveDays+' <span style="font-size:14px;font-weight:400">ថ្ងៃ</span></div>'
+    +'</div>'
+    +'</div>'
+    // New leave form
+    +'<div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:12px">+ ស្នើរច្បាប់ថ្មី</div>'
+    +'<div class="form-grid">'
+    +'<div class="form-group"><label class="form-label">ប្រភេទ *</label>'
+    +'<select class="form-control" id="ql-type" onchange="calcQLDays()">'
+    +'<option>ច្បាប់ប្រចាំឆ្នាំ</option>'
+    +'<option>ច្បាប់ជំងឺ</option>'
+    +'<option>ច្បាប់សម្ភព</option>'
+    +'<option>ច្បាប់អាពាហ៍ពិពាហ៍</option>'
+    +'<option>ច្បាប់គ្មានប្រាក់</option>'
+    +'<option>ផ្សេងៗ</option>'
+    +'</select></div>'
+    +'<div class="form-group"><label class="form-label">ថ្ងៃចាប់ផ្តើម *</label>'
+    +'<input class="form-control" type="date" id="ql-start" value="'+today()+'" onchange="calcQLDays()" /></div>'
+    +'<div class="form-group"><label class="form-label">ថ្ងៃបញ្ចប់ *</label>'
+    +'<input class="form-control" type="date" id="ql-end" value="'+today()+'" onchange="calcQLDays()" /></div>'
+    +'<div class="form-group"><label class="form-label">ចំនួនថ្ងៃ</label>'
+    +'<div id="ql-days-display" style="padding:10px 12px;background:var(--bg3);border-radius:8px;font-family:var(--mono);color:var(--warning);font-weight:700;font-size:16px">1 ថ្ងៃ</div>'
+    +'</div>'
+    +'<div class="form-group full-width"><label class="form-label">មូលហេតុ</label>'
+    +'<textarea class="form-control" id="ql-reason" rows="2" placeholder="មូលហេតុ..."></textarea></div>'
+    +'</div>'
+    +'<div class="form-actions">'
+    +'<button class="btn btn-outline" onclick="closeModal()">បោះបង់</button>'
+    +'<button class="btn btn-primary" onclick="saveQuickLeave('+empId+')">🌴 ស្នើរ</button>'
+    +'</div>';
+  openModal();
+}
+
+function calcQLDays() {
+  const s = new Date($('ql-start')?.value);
+  const e = new Date($('ql-end')?.value);
+  const el = $('ql-days-display');
+  if (!isNaN(s)&&!isNaN(e)&&e>=s) {
+    const days = Math.round((e-s)/(1000*60*60*24))+1;
+    if (el) el.textContent = days+' ថ្ងៃ';
+  } else {
+    if (el) el.textContent = '—';
+  }
+}
+
+async function saveQuickLeave(empId) {
+  const s = new Date($('ql-start')?.value);
+  const e = new Date($('ql-end')?.value);
+  if (isNaN(s)||isNaN(e)||e<s) { showToast('ថ្ងៃមិនត្រឹមត្រូវ!','error'); return; }
+  const days = Math.round((e-s)/(1000*60*60*24))+1;
+  try {
+    await api('POST','/leave',{
+      employee_id: empId,
+      leave_type: $('ql-type')?.value,
+      start_date: $('ql-start')?.value,
+      end_date: $('ql-end')?.value,
+      days, reason: $('ql-reason')?.value,
+      status: 'approved'
+    });
+    showToast('ស្នើរច្បាប់ '+days+' ថ្ងៃ បានជោគជ័យ!','success');
+    closeModal();
+    renderEmployees();
+  } catch(e) { showToast('បញ្ហា: '+e.message,'error'); }
+}
 
 async function deleteEmployee(id) {
   if (!confirm('តើអ្នកចង់លុបបុគ្គលិកនេះមែនទេ?')) return;
