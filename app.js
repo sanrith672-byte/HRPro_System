@@ -865,6 +865,7 @@ async function renderAttendance(date='') {
             +'<td><div class="action-btns">'
             +'<button class="btn btn-outline btn-sm" onclick="openEditAttModal('+a.id+',\''+a.employee_name+'\')">✏️</button>'
             +'<button class="btn btn-outline btn-sm" onclick="quickCheckOut('+a.employee_id+',\''+today+'\')">🚪</button>'
+            +'<button class="btn btn-danger btn-sm" onclick="deleteAttendance('+a.id+',\''+today+'\')">🗑️</button>'
             +'</div></td>'
             +'</tr>';
         }).join('');
@@ -893,6 +894,15 @@ async function renderAttendance(date='') {
       +'<tbody>'+attRows+'</tbody>'
       +'</table></div></div>';
   } catch(e) { showError(e.message); }
+}
+
+async function deleteAttendance(id, date) {
+  if (!confirm('លុបកំណត់ត្រាវត្តមាននេះ?')) return;
+  try {
+    await api('DELETE', '/attendance/' + id);
+    showToast('លុបបានជោគជ័យ!', 'success');
+    renderAttendance(date);
+  } catch(e) { showToast('បញ្ហា: ' + e.message, 'error'); }
 }
 
 // Quick checkout button
