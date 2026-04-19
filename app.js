@@ -5108,12 +5108,6 @@ function initApp() {
     $('global-search').addEventListener('input', e => { if (state.currentPage === 'employees') renderEmployees(e.target.value); });
     $('btn-settings').addEventListener('click', () => navigate('settings'));
     updateApiStatus();
-    // Auto-set production Worker URL if not yet configured
-    const PRODUCTION_WORKER = 'https://employee-management-api.sansukun3.workers.dev';
-    if (!getApiBase()) {
-      localStorage.setItem(STORAGE_KEY, PRODUCTION_WORKER);
-      localStorage.removeItem(DEMO_MODE_KEY);
-    }
     if (!getApiBase() && localStorage.getItem(DEMO_MODE_KEY) !== '1') {
       showFirstRunSetup();
     } else {
@@ -5124,21 +5118,62 @@ function initApp() {
 
 function showFirstRunSetup() {
   contentArea().innerHTML = `
-    <div style="max-width:480px;margin:60px auto;text-align:center">
+    <div style="max-width:500px;margin:40px auto;text-align:center">
       <div style="font-size:48px;margin-bottom:16px">🚀</div>
       <h2 style="font-size:22px;font-weight:800;margin-bottom:8px">សូមស្វាគមន៍មកកាន់ HR Pro!</h2>
-      <p style="color:var(--text3);margin-bottom:32px">ជ្រើសរើសរបៀបដំណើរការប្រព័ន្ធ</p>
-      <div style="display:grid;gap:16px">
-        <div class="card" style="padding:24px;cursor:pointer;border-color:var(--primary)" onclick="enableDemo()">
-          <div style="font-size:28px;margin-bottom:10px">🎮</div>
-          <div style="font-weight:700;font-size:15px;margin-bottom:6px">Demo Mode</div>
-          <div style="font-size:13px;color:var(--text3)">ដំណើរការភ្លាមៗ ដោយគ្មាន API<br/>ទិន្នន័យរក្សាក្នុង memory</div>
+      <p style="color:var(--text3);margin-bottom:28px">ជ្រើសរើសរបៀបដំណើរការប្រព័ន្ធ</p>
+
+      <!-- Option 1: Worker URL -->
+      <div class="card" style="padding:22px;margin-bottom:14px;text-align:left">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+          <div style="font-size:24px">☁️</div>
+          <div>
+            <div style="font-weight:700;font-size:14px">ភ្ជាប់ Cloudflare Worker</div>
+            <div style="font-size:12px;color:var(--text3)">ប្រើ D1 Database ពិតប្រាកដ — sync គ្រប់គ្នា</div>
+          </div>
         </div>
-        <div class="card" style="padding:24px;cursor:pointer" onclick="openSettings()">
-          <div style="font-size:28px;margin-bottom:10px">☁️</div>
-          <div style="font-weight:700;font-size:15px;margin-bottom:6px">ភ្ជាប់ Cloudflare Worker</div>
-          <div style="font-size:13px;color:var(--text3)">ដាក់ Worker URL ដើម្បីប្រើ<br/>D1 Database ពិតប្រាកដ</div>
+        <div style="display:flex;gap:8px">
+          <input class="form-control" id="setup-worker-url" placeholder="https://my-worker.username.workers.dev"
+            style="flex:1;font-size:12px"
+            onkeydown="if(event.key==='Enter') connectWorkerFromSetup()" />
+          <button class="btn btn-success" onclick="connectWorkerFromSetup()">
+            ✅ ភ្ជាប់
+          </button>
+        </div>
+        <div id="setup-conn-result" style="margin-top:8px;font-size:12px"></div>
+      </div>
+
+      <!-- Option 2: Demo Mode -->
+      <div class="card" style="padding:22px;cursor:pointer;text-align:left" onclick="enableDemo()">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="font-size:24px">🎮</div>
+          <div>
+            <div style="font-weight:700;font-size:14px">Demo Mode</div>
+            <div style="font-size:12px;color:var(--text3)">ដំណើរការភ្លាមៗ គ្មាន API — ទិន្នន័យក្នុង memory</div>
+          </div>
+          <div style="margin-left:auto;color:var(--text3);font-size:18px">›</div>
         </div>
       </div>
     </div>`;
+}
+
+async function connectWorkerFromSetup() {
+  const url = document.getElementById('setup-worker-url')?.value.trim().replace(/\/$/,'');
+  const res = document.getElementById('setup-conn-result');
+  if (!url) { if(res) res.innerHTML='<span style="color:var(--danger)">❌ សូមវាយ URL!</span>'; return; }
+  if(res) res.innerHTML='<span style="color:var(--text3)">⏳ កំពុងសាកល្បង...</span>';
+  try {
+    const r = await fetch(url+'/stats');
+    if (r.ok) {
+      localStorage.setItem(STORAGE_KEY, url);
+      localStorage.removeItem(DEMO_MODE_KEY);
+      if(res) res.innerHTML='<span style="color:var(--success)">✅ ភ្ជាប់បានជោគជ័យ!</span>';
+      updateApiStatus();
+      setTimeout(() => navigate('dashboard'), 800);
+    } else {
+      if(res) res.innerHTML='<span style="color:var(--warning)">⚠️ Worker ឆ្លើយតប ('+r.status+') — ពិនិត្យ CORS</span>';
+    }
+  } catch(e) {
+    if(res) res.innerHTML='<span style="color:var(--danger)">❌ ភ្ជាប់មិនបាន — ពិនិត្យ URL</span>';
+  }
 }
