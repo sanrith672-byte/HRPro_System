@@ -4035,9 +4035,44 @@ function renderSettings() {
                 <div class="settings-row-desc">គណនា និងបង្កើតកំណត់ត្រាប្រាក់ខែដោយស្វ័យប្រវត្តិ</div>
               </div>
               <label class="toggle-switch">
-                <input type="checkbox" id="sr-auto" ${rules.payroll_auto?'checked':''}>
+                <input type="checkbox" id="sr-auto" ${rules.payroll_auto?'checked':''} onchange="toggleAutoPayrollUI(this.checked)">
                 <span class="toggle-slider"></span>
               </label>
+            </div>
+
+            <!-- Auto Payroll config panel — show only when ON -->
+            <div id="auto-payroll-panel" style="display:${rules.payroll_auto?'block':'none'};margin-top:12px;padding:14px 16px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm)">
+              <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:12px">⚙️ Auto Payroll Configuration</div>
+              <div class="salary-rules-grid">
+                <div class="salary-rule-card">
+                  <div class="rule-label">ថ្ងៃបើកប្រាក់ខែ (Day of Month)</div>
+                  <div class="rule-input-wrap">
+                    <input type="number" id="sr-payday-auto" value="${rules.payroll_day||25}" min="1" max="31" />
+                    <span class="rule-unit">ថ្ងៃ</span>
+                  </div>
+                  <div style="font-size:10px;color:var(--text3);margin-top:4px">ប្រព័ន្ធនឹងបង្កើត payroll ដោយស្វ័យប្រវត្តិនៅថ្ងៃនេះ</div>
+                </div>
+                <div class="salary-rule-card">
+                  <div class="rule-label">ស្ថានភាព Auto Payroll</div>
+                  <div style="margin-top:8px">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+                      <div class="status-dot online"></div>
+                      <span style="font-size:12px;color:var(--success);font-weight:600">បើកដំណើរការ</span>
+                    </div>
+                    <div style="font-size:11px;color:var(--text3)">ថ្ងៃបើក: ថ្ងៃទី ${rules.payroll_day||25} រៀងរាល់ខែ</div>
+                    <div style="font-size:11px;color:var(--text3)">ខែបន្ទាប់: ${(()=>{ const d=new Date(); d.setDate(rules.payroll_day||25); if(d<=new Date()) d.setMonth(d.getMonth()+1); return d.toLocaleDateString('km-KH',{month:'long',day:'numeric',year:'numeric'}); })()}</div>
+                  </div>
+                </div>
+              </div>
+              <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+                <button class="btn btn-success btn-sm" onclick="runAutoPayrollNow()">
+                  ▶ បើកប្រាក់ខែខែនេះឥឡូវ
+                </button>
+                <button class="btn btn-outline btn-sm" onclick="checkAutoPayrollStatus()">
+                  📋 ពិនិត្យស្ថានភាព
+                </button>
+              </div>
+              <div id="auto-payroll-result" style="margin-top:10px;font-size:12px"></div>
             </div>
 
             <!-- Salary formula preview -->
@@ -4311,6 +4346,53 @@ function saveSalarySettings() {
   };
   saveSalaryRules(rules);
   showToast('រក្សាទុកការកំណត់បៀវត្សបានជោគជ័យ! ✅','success');
+}
+
+function toggleAutoPayrollUI(on) {
+  const panel = document.getElementById('auto-payroll-panel');
+  if (panel) panel.style.display = on ? 'block' : 'none';
+}
+
+async function runAutoPayrollNow() {
+  const res = document.getElementById('auto-payroll-result');
+  if (res) res.innerHTML = '<span style="color:var(--text3)">⏳ កំពុងដំណើរការ...</span>';
+  const rules = getSalaryRules();
+  const month = thisMonth();
+  try {
+    const empData = await api('GET', '/employees?limit=500');
+    const emps = (empData.employees || []).filter(e => e.status === 'active');
+    if (!emps.length) {
+      if (res) res.innerHTML = '<span style="color:var(--warning)">⚠️ មិនមានបុគ្គលិក Active</span>';
+      return;
+    }
+    let success = 0, skip = 0;
+    for (const e of emps) {
+      const base = e.salary || 0;
+      const net = base;
+      try {
+        await api('POST', '/salary', { employee_id: e.id, month, base_salary: base, bonus: 0, deduction: 0, net_salary: net });
+        success++;
+      } catch(_) { skip++; }
+    }
+    if (res) res.innerHTML = '<span style="color:var(--success)">✅ បង្កើត '+success+' កំណត់ត្រា'+(skip?' · រំលង '+skip+' (មានរួច)':'')+'</span>';
+    showToast('Auto Payroll '+month+' — '+success+' នាក់ ✅', 'success');
+  } catch(e) {
+    if (res) res.innerHTML = '<span style="color:var(--danger)">❌ Error: '+e.message+'</span>';
+  }
+}
+
+async function checkAutoPayrollStatus() {
+  const res = document.getElementById('auto-payroll-result');
+  if (res) res.innerHTML = '<span style="color:var(--text3)">⏳ កំពុងពិនិត្យ...</span>';
+  const month = thisMonth();
+  try {
+    const data = await api('GET', '/salary?month=' + month);
+    const count = (data.records || []).length;
+    const paid = (data.records || []).filter(r => r.status === 'paid').length;
+    if (res) res.innerHTML = '<span style="color:var(--info)">📋 ខែ '+month+': '+count+' កំណត់ត្រា · បង់រួច '+paid+'</span>';
+  } catch(e) {
+    if (res) res.innerHTML = '<span style="color:var(--danger)">❌ '+e.message+'</span>';
+  }
 }
 
 function resetSalarySettings() {
