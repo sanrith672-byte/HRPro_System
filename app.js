@@ -399,13 +399,112 @@ async function renderDashboard() {
   } catch(e) { showError(e.message); }
 }
 
-// ── Role-based access: Viewer cannot edit/delete ──
-function canEdit() {
+// ============================================================
+// PERMISSIONS SYSTEM
+// ============================================================
+const PERM_KEY = 'hr_permissions';
+
+function getPermissions() {
+  try {
+    const p = JSON.parse(localStorage.getItem(PERM_KEY));
+    if (p && typeof p === 'object') return p;
+  } catch(_) {}
+  // Default: HR Officer & Finance have most access, Viewer is read-only
+  return {
+    'HR Officer': {
+      employees_view:true, employees_edit:true,
+      attendance_view:true, attendance_edit:true,
+      salary_view:true, salary_edit:false,
+      reports_view:true, reports_export:true,
+      leave_view:true, leave_edit:true,
+      loans_view:true, loans_edit:false,
+      expenses_view:true, expenses_edit:true,
+      departments_edit:false, id_card_print:true, settings_access:false,
+    },
+    'Finance': {
+      employees_view:true, employees_edit:false,
+      attendance_view:true, attendance_edit:false,
+      salary_view:true, salary_edit:true,
+      reports_view:true, reports_export:true,
+      leave_view:true, leave_edit:false,
+      loans_view:true, loans_edit:true,
+      expenses_view:true, expenses_edit:true,
+      departments_edit:false, id_card_print:false, settings_access:false,
+    },
+    'Viewer': {
+      employees_view:true, employees_edit:false,
+      attendance_view:true, attendance_edit:false,
+      salary_view:false, salary_edit:false,
+      reports_view:false, reports_export:false,
+      leave_view:true, leave_edit:false,
+      loans_view:false, loans_edit:false,
+      expenses_view:false, expenses_edit:false,
+      departments_edit:false, id_card_print:false, settings_access:false,
+    },
+  };
+}
+
+function savePermissions(perms) {
+  localStorage.setItem(PERM_KEY, JSON.stringify(perms));
+}
+
+// Check if current user has a specific permission
+function hasPerm(key) {
   const session = getSession();
   if (!session) return false;
-  const role = (session.role || '').toLowerCase();
-  return role !== 'viewer';
+  const role = session.role || '';
+  // Admin always has full access
+  if (role === 'អ្នកគ្រប់គ្រង' || role.toLowerCase().includes('admin')) return true;
+  const perms = getPermissions();
+  const rolePerms = perms[role];
+  if (!rolePerms) return false;
+  return rolePerms[key] !== false; // default true if not explicitly set
 }
+
+function updatePermission(role, key, value) {
+  const perms = getPermissions();
+  if (!perms[role]) perms[role] = {};
+  perms[role][key] = value;
+  savePermissions(perms);
+}
+
+async function savePermissionsToAPI() {
+  const perms = getPermissions();
+  if (!isDemoMode()) {
+    try {
+      await api('POST', '/config', { key: 'hr_permissions', value: JSON.stringify(perms) });
+      showToast('រក្សាទុក & Sync សិទ្ធបានជោគជ័យ! ✅', 'success');
+    } catch(e) { showToast('Error sync: '+e.message, 'error'); }
+  } else {
+    showToast('រក្សាទុកសិទ្ធបានជោគជ័យ! ✅', 'success');
+  }
+}
+
+async function loadPermissionsFromAPI() {
+  if (isDemoMode()) return;
+  try {
+    const cfg = await api('GET', '/config');
+    const raw = cfg && cfg.hr_permissions;
+    if (!raw) return;
+    const perms = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if (perms && typeof perms === 'object') savePermissions(perms);
+  } catch(_) {}
+}
+
+function resetPermissions() {
+  if (!confirm('Reset សិទ្ធទៅ Default?')) return;
+  localStorage.removeItem(PERM_KEY);
+  showToast('Reset រួច!', 'success');
+  renderSettings();
+  setTimeout(() => switchSettingsTab('permissions', document.querySelector('.settings-tab:nth-child(6)')), 50);
+}
+
+// Override canEdit to use new permission system
+function canEdit() {
+  return hasPerm('employees_edit');
+}
+
+
 
 // ===== EMPLOYEES =====
 let _empSortBy = 'id';
@@ -4443,6 +4542,10 @@ function renderSettings() {
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 0 20"/></svg>
         រូបរាង
       </a>
+      <a href="#" class="settings-tab" onclick="switchSettingsTab('permissions',this);return false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        សិទ្ធ
+      </a>
     </div>
 
     <!-- Panels -->
@@ -4873,6 +4976,88 @@ function renderSettings() {
           </div>
         </div>
       </div><!-- /panel-appearance -->
+
+      <!-- === PERMISSIONS PANEL === -->
+      <div class="settings-panel" id="panel-permissions">
+        <div class="settings-section">
+          <div class="settings-section-header">
+            <div class="sec-icon" style="background:rgba(239,71,111,.15);font-size:18px">🔐</div>
+            <div>
+              <div class="settings-section-title">ការកំណត់សិទ្ធអ្នកប្រើប្រាស់</div>
+              <div class="settings-section-desc">កំណត់ថា Role នីមួយៗ អាចធ្វើអ្វីបាន</div>
+            </div>
+          </div>
+          <div class="settings-section-body">
+
+            ${(()=>{
+              const perms = getPermissions();
+              const roles = ['HR Officer','Finance','Viewer'];
+              const features = [
+                { key:'employees_view',    label:'👥 មើលបុគ្គលិក' },
+                { key:'employees_edit',    label:'✏️ កែ/បន្ថែម/លុប បុគ្គលិក' },
+                { key:'attendance_view',   label:'📅 មើលវត្តមាន' },
+                { key:'attendance_edit',   label:'✏️ កែ/បន្ថែម វត្តមាន' },
+                { key:'salary_view',       label:'💵 មើលបៀវត្ស' },
+                { key:'salary_edit',       label:'✏️ កែ/បន្ថែម បៀវត្ស' },
+                { key:'reports_view',      label:'📊 មើលរបាយការណ៍' },
+                { key:'reports_export',    label:'📤 Export PDF/Excel' },
+                { key:'leave_view',        label:'🌴 មើលច្បាប់' },
+                { key:'leave_edit',        label:'✏️ អនុម័ត/លុប ច្បាប់' },
+                { key:'loans_view',        label:'💰 មើលប្រាក់ខ្ចី' },
+                { key:'loans_edit',        label:'✏️ កែ/បន្ថែម ប្រាក់ខ្ចី' },
+                { key:'expenses_view',     label:'🧾 មើលចំណាយ' },
+                { key:'expenses_edit',     label:'✏️ អនុម័ត/លុប ចំណាយ' },
+                { key:'departments_edit',  label:'🏢 កែ/បន្ថែម នាយកដ្ឋាន' },
+                { key:'id_card_print',     label:'🪪 បោះពុម្ព ID Card' },
+                { key:'settings_access',   label:'⚙️ ចូល Settings' },
+              ];
+
+              return `
+                <div style="overflow-x:auto">
+                  <table style="width:100%;border-collapse:collapse;font-size:12px">
+                    <thead>
+                      <tr style="background:var(--bg4)">
+                        <th style="padding:10px 12px;text-align:left;border-bottom:2px solid var(--border);min-width:200px">មុខងារ</th>
+                        ${roles.map(r=>`<th style="padding:10px 12px;text-align:center;border-bottom:2px solid var(--border);min-width:100px;color:var(--primary)">${r}</th>`).join('')}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${features.map((f,i)=>`
+                        <tr style="background:${i%2===0?'var(--bg3)':'var(--bg)'}">
+                          <td style="padding:10px 12px;border-bottom:1px solid var(--border);font-weight:500">${f.label}</td>
+                          ${roles.map(r=>`
+                            <td style="text-align:center;padding:10px 12px;border-bottom:1px solid var(--border)">
+                              <input type="checkbox" class="perm-cb"
+                                data-role="${r}" data-key="${f.key}"
+                                ${(perms[r]?.[f.key] !== false) ? 'checked' : ''}
+                                style="width:18px;height:18px;accent-color:var(--primary);cursor:pointer"
+                                onchange="updatePermission('${r}','${f.key}',this.checked)" />
+                            </td>
+                          `).join('')}
+                        </tr>
+                      `).join('')}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div style="margin-top:16px;padding:12px 14px;background:rgba(255,183,3,.08);border:1px solid rgba(255,183,3,.25);border-radius:8px">
+                  <div style="font-size:12px;color:var(--warning);font-weight:600;margin-bottom:4px">⚠️ ចំណាំ</div>
+                  <div style="font-size:11px;color:var(--text3)">
+                    • <strong>អ្នកគ្រប់គ្រង (Admin)</strong> — មានសិទ្ធពេញលេញ មិនអាចកំណត់<br>
+                    • ការផ្លាស់ប្ដូរ apply ភ្លាម — user ត្រូវ logout/login ម្តងទៀត
+                  </div>
+                </div>
+
+                <div class="form-actions" style="margin-top:16px">
+                  <button class="btn btn-outline" onclick="resetPermissions()">↩️ Reset Default</button>
+                  <button class="btn btn-success" onclick="savePermissionsToAPI()">💾 រក្សាទុក & Sync</button>
+                </div>
+              `;
+            })()}
+
+          </div>
+        </div>
+      </div><!-- /panel-permissions -->
 
     </div><!-- /settings-content -->
   </div><!-- /settings-layout -->
@@ -5821,8 +6006,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (pEl) pEl.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
   if (uEl) uEl.addEventListener('keydown', e => { if (e.key === 'Enter') { pEl && pEl.focus(); } });
 
-  // Load accounts from API FIRST (so new device knows all users)
+  // Load accounts and permissions from API FIRST
   await loadAccountsFromAPI();
+  await loadPermissionsFromAPI();
 
   // Check session
   if (isLoggedIn()) {
@@ -5836,7 +6022,7 @@ function initApp() {
   $('current-date').textContent = new Date().toLocaleDateString('km-KH', {year:'numeric',month:'short',day:'numeric'});
 
   // Load config + photos together
-  Promise.all([isDemoMode() ? Promise.resolve() : loadCompanyConfig(), loadAllPhotos(), loadAccountsFromAPI()]).then(() => {
+  Promise.all([isDemoMode() ? Promise.resolve() : loadCompanyConfig(), loadAllPhotos(), loadAccountsFromAPI(), loadPermissionsFromAPI()]).then(() => {
     const session = getSession();
     if (session) {
       const uname = $('sidebar-user-name');
