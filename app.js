@@ -366,7 +366,7 @@ async function renderDashboard() {
                       return '<tr>'
                         +'<td><div class="employee-cell">'
                         +'<div class="emp-avatar" style="background:'+getColor(e.name)+';'+avStyle+'">'+avInner+'</div>'
-                        +'<div><div class="emp-name">'+e.name+'</div><div class="emp-id">#EMP'+String(e.id).padStart(3,'0')+'</div></div>'
+                        +'<div><div class="emp-name">'+e.name+'</div><div class="emp-id">'+(e.custom_id ? '#'+e.custom_id : '#EMP'+String(e.id).padStart(3,'0'))+'</div></div>'
                         +'</div></td>'
                         +'<td>'+e.position+'</td><td>'+(e.department_name||'—')+'</td><td>'+statusBadge(e.status)+'</td>'
                         +'</tr>';
@@ -907,7 +907,13 @@ async function quickCheckOut(empId, date) {
 }
 
 // QR Scanner modal (uses camera)
-function openQRScanModal(date) {
+async function openQRScanModal(date) {
+  // Always load fresh employee list before opening scanner
+  try {
+    const d = await api('GET', '/employees?limit=500');
+    state.employees = d.employees || [];
+  } catch(_) {}
+
   $('modal-title').textContent = '📷 ស្កេន QR — វត្តមាន';
   $('modal-body').innerHTML =
     // Camera box
@@ -2702,8 +2708,7 @@ function idCardHTML(e, style, cfg) {
   // ① ID from custom_id field ("លេខ ID" in employee form)
   const rawCustom = (e.custom_id || '').trim().replace(/^#+/, '');
   const empId    = rawCustom ? '#' + rawCustom : '#' + String(e.id).padStart(4,'0');
-  // QR encodes: custom_id if set, else plain db id (not zero-padded)
-  // Scanner reads this → findEmployeeByQR matches by number comparison
+  // QR encodes: custom_id if set, else plain db id (not zero-padded) — consistent with findEmployeeByQR
   const empIdRaw = rawCustom || String(e.id);
 
   const photo    = getEmpPhoto(e.id);
@@ -3073,7 +3078,7 @@ idCardHTML = function(e, style, cfg) {
 
   const rawCustom = (e.custom_id||'').trim().replace(/^#+/,'');
   const empId    = rawCustom ? '#'+rawCustom : '#'+String(e.id).padStart(4,'0');
-  const empIdRaw = rawCustom || String(e.id).padStart(4,'0');
+  const empIdRaw = rawCustom || String(e.id); // no padStart — must match findEmployeeByQR logic
   const qrSize   = 113;
   const qrInner  = qrSize - 6;
 
@@ -4479,6 +4484,14 @@ function changePassword() {
   if ($('chpwd-old')) $('chpwd-old').value = '';
   if ($('chpwd-new')) $('chpwd-new').value = '';
   if ($('chpwd-confirm')) $('chpwd-confirm').value = '';
+}
+
+// Fix missing closeSidebar (called from index.html sidebar overlay)
+function closeSidebar() {
+  const sb = document.getElementById('sidebar');
+  if (sb) sb.classList.remove('open');
+  const ov = document.getElementById('sidebar-overlay');
+  if (ov) ov.classList.remove('open');
 }
 
 // ===== MOBILE NAV =====
