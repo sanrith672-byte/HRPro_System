@@ -211,7 +211,15 @@ async function getEmployees(request, env) {
   const limit = parseInt(url.searchParams.get('limit') || '20');
   const offset = (page - 1) * limit;
 
-  const selectCols = `
+  // Auto-migrate new columns if not exist
+  try { await env.DB.prepare(`ALTER TABLE employees ADD COLUMN termination_date TEXT DEFAULT ''`).run(); } catch(_) {}
+  try { await env.DB.prepare(`ALTER TABLE employees ADD COLUMN work_history TEXT DEFAULT ''`).run(); } catch(_) {}
+  try { await env.DB.prepare(`ALTER TABLE employees ADD COLUMN custom_id TEXT DEFAULT ''`).run(); } catch(_) {}
+  try { await env.DB.prepare(`ALTER TABLE employees ADD COLUMN bank TEXT DEFAULT ''`).run(); } catch(_) {}
+  try { await env.DB.prepare(`ALTER TABLE employees ADD COLUMN bank_account TEXT DEFAULT ''`).run(); } catch(_) {}
+  try { await env.DB.prepare(`ALTER TABLE employees ADD COLUMN bank_holder TEXT DEFAULT ''`).run(); } catch(_) {}
+  try { await env.DB.prepare(`ALTER TABLE employees ADD COLUMN photo_data TEXT DEFAULT ''`).run(); } catch(_) {}
+  try { await env.DB.prepare(`ALTER TABLE employees ADD COLUMN qr_data TEXT DEFAULT ''`).run(); } catch(_) {}
     e.id, e.name, e.gender, e.position, e.department_id, e.phone, e.email,
     e.salary, e.hire_date, e.status, e.created_at, e.updated_at,
     COALESCE(e.custom_id,'') as custom_id,
@@ -257,6 +265,10 @@ async function getEmployees(request, env) {
 }
 
 async function getEmployee(id, env) {
+  // Auto-migrate
+  try { await env.DB.prepare(`ALTER TABLE employees ADD COLUMN termination_date TEXT DEFAULT ''`).run(); } catch(_) {}
+  try { await env.DB.prepare(`ALTER TABLE employees ADD COLUMN work_history TEXT DEFAULT ''`).run(); } catch(_) {}
+
   const emp = await env.DB.prepare(`
     SELECT e.id, e.name, e.gender, e.position, e.department_id, e.phone, e.email,
            e.salary, e.hire_date, e.status, e.created_at, e.updated_at,
@@ -266,6 +278,8 @@ async function getEmployee(id, env) {
            COALESCE(e.bank_holder,'') as bank_holder,
            COALESCE(e.photo_data,'') as photo_data,
            COALESCE(e.qr_data,'') as qr_data,
+           COALESCE(e.termination_date,'') as termination_date,
+           COALESCE(e.work_history,'') as work_history,
            d.name as department_name
     FROM employees e
     LEFT JOIN departments d ON e.department_id = d.id
