@@ -223,6 +223,8 @@ async function getEmployees(request, env) {
     `ALTER TABLE employees ADD COLUMN work_history TEXT DEFAULT ''`,
   ];
   await Promise.allSettled(colMigrations.map(sql => env.DB.prepare(sql).run()));
+
+  const selectCols = `
     e.id, e.name, e.gender, e.position, e.department_id, e.phone, e.email,
     e.salary, e.hire_date, e.status, e.created_at, e.updated_at,
     COALESCE(e.custom_id,'') as custom_id,
