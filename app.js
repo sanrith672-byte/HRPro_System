@@ -5421,6 +5421,10 @@ function renderSettings() {
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
         ម៉ោងធ្វើការ
       </a>
+      <a href="#" class="settings-tab" onclick="switchSettingsTab('companies_mgmt',this);return false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        ក្រុមហ៊ុន
+      </a>
       <a href="#" class="settings-tab" onclick="switchSettingsTab('holidays',this);return false">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
         ថ្ងៃបុណ្យ
@@ -6166,6 +6170,31 @@ function renderSettings() {
         </div>
       </div><!-- /panel-holidays -->
 
+      <!-- === COMPANIES MGMT PANEL === -->
+      <div class="settings-panel" id="panel-companies_mgmt">
+        <div class="settings-section">
+          <div class="settings-section-header">
+            <div class="sec-icon" style="background:rgba(17,138,178,.15);font-size:18px">🏢</div>
+            <div>
+              <div class="settings-section-title">គ្រប់គ្រងក្រុមហ៊ុន</div>
+              <div class="settings-section-desc">កែ លុប ឬ switch ក្រុមហ៊ុន · បច្ចុប្បន្ន: <strong id="cur-co-lbl">${getCurrentCompany()?.name||'—'}</strong></div>
+            </div>
+          </div>
+          <div class="settings-section-body" id="companies-settings-list">
+            <div style="text-align:center;padding:20px;color:var(--text3)">⏳ កំពុង load...</div>
+          </div>
+        </div>
+        <div class="settings-section">
+          <div class="settings-section-header">
+            <div class="sec-icon" style="background:rgba(6,214,160,.15);font-size:18px">+</div>
+            <div><div class="settings-section-title">បង្កើតក្រុមហ៊ុនថ្មី</div></div>
+          </div>
+          <div class="settings-section-body">
+            <button class="btn btn-primary" style="width:100%" onclick="openCreateCompanyModal()">+ បង្កើតក្រុមហ៊ុនថ្មី</button>
+          </div>
+        </div>
+      </div><!-- /panel-companies_mgmt -->
+
     </div><!-- /settings-content -->
   </div><!-- /settings-layout -->
   `;
@@ -6194,8 +6223,88 @@ function switchSettingsTab(panel, el) {
   el.classList.add('active');
   const pEl = $('panel-' + panel);
   if (pEl) pEl.classList.add('active');
-  if (panel === 'workhours') previewWorkHours();
-  if (panel === 'holidays')  renderHolidayList();
+  if (panel === 'workhours')      previewWorkHours();
+  if (panel === 'holidays')       renderHolidayList();
+  if (panel === 'companies_mgmt') loadCompaniesSettings();
+}
+
+async function loadCompaniesSettings() {
+  const list = document.getElementById('companies-settings-list');
+  if (!list) return;
+  list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text3)">⏳ load...</div>';
+  try {
+    const base = getApiBase().replace(/\/$/,'');
+    const res  = await fetch(base+'/companies', {headers:{'Content-Type':'application/json'}});
+    const data = await res.json();
+    const companies = data.companies || [];
+    const current   = getCurrentCompany();
+    if (!companies.length) {
+      list.innerHTML = '<div style="color:var(--text3);font-size:13px">មិនទាន់មានក្រុមហ៊ុន</div>';
+      return;
+    }
+    list.innerHTML = companies.map(co => `
+      <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--bg3);border:1px solid ${co.id===current?.id?'var(--primary)':'var(--border)'};border-radius:10px;margin-bottom:10px">
+        <div style="width:38px;height:38px;border-radius:8px;background:${co.id===current?.id?'var(--primary)':'var(--bg4)'};display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;color:white;flex-shrink:0">${(co.name||'?')[0].toUpperCase()}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:700;font-size:13px">${co.name}${co.id===current?.id?' <span style="font-size:10px;color:var(--primary)">(បច្ចុប្បន្ន)</span>':''}</div>
+          <div style="font-size:11px;color:var(--text3);font-family:var(--mono)">${co.code}</div>
+        </div>
+        <div style="display:flex;gap:6px;flex-shrink:0">
+          <button class="btn btn-outline btn-sm" onclick="openEditCoModal(${co.id},'${co.name.replace(/'/g,"\\'")}','${co.code}','${(co.phone||'').replace(/'/g,"\\'")}','${(co.email||'').replace(/'/g,"\\'")}')">✏️</button>
+          ${co.id!==current?.id?`<button class="btn btn-outline btn-sm" onclick="selectCompany(${co.id},'${co.name.replace(/'/g,"\\'")}','${co.code}')" style="color:var(--success);border-color:var(--success)">🔄</button>`:''}
+          <button class="btn btn-danger btn-sm" onclick="deleteCoConfirm(${co.id},'${co.name.replace(/'/g,"\\'")}')">🗑️</button>
+        </div>
+      </div>`).join('');
+  } catch(e) {
+    if (list) list.innerHTML = `<div style="color:var(--danger)">Error: ${e.message}</div>`;
+  }
+}
+
+function openEditCoModal(id, name, code, phone, email) {
+  $('modal-title').textContent = '✏️ កែប្រែក្រុមហ៊ុន';
+  $('modal-body').innerHTML =
+    '<div class="form-grid">'
+    +'<div class="form-group full-width"><label class="form-label">ឈ្មោះក្រុមហ៊ុន *</label>'
+    +'<input class="form-control" id="eco-name" value="'+name+'" /></div>'
+    +'<div class="form-group"><label class="form-label">Code *</label>'
+    +'<input class="form-control" id="eco-code" value="'+code+'" /></div>'
+    +'<div class="form-group"><label class="form-label">ទូរស័ព្ទ</label>'
+    +'<input class="form-control" id="eco-phone" value="'+(phone||'')+'" /></div>'
+    +'<div class="form-group full-width"><label class="form-label">អ៊ីម៉ែល</label>'
+    +'<input class="form-control" id="eco-email" value="'+(email||'')+'" /></div>'
+    +'</div>'
+    +'<div class="form-actions">'
+    +'<button class="btn btn-outline" onclick="closeModal()">បោះបង់</button>'
+    +'<button class="btn btn-primary" onclick="saveEditCo('+id+')">💾 Save</button>'
+    +'</div>';
+  openModal();
+}
+
+async function saveEditCo(id) {
+  const name  = document.getElementById('eco-name')?.value.trim();
+  const code  = document.getElementById('eco-code')?.value.trim().toUpperCase();
+  const phone = document.getElementById('eco-phone')?.value.trim() || '';
+  const email = document.getElementById('eco-email')?.value.trim() || '';
+  if (!name||!code) { showToast('សូមបំពេញ ឈ្មោះ និង Code!','error'); return; }
+  try {
+    const base = getApiBase().replace(/\/$/,'');
+    await fetch(base+'/companies/'+id, {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name,code,phone,email})});
+    const current = getCurrentCompany();
+    if (current && current.id===id) { setCurrentCompany({...current,name,code}); updateCompanyIndicator(); }
+    showToast('កែប្រែរួច! ✅','success');
+    closeModal(); loadCompaniesSettings();
+  } catch(e) { showToast('Error: '+e.message,'error'); }
+}
+
+async function deleteCoConfirm(id, name) {
+  const current = getCurrentCompany();
+  if (current && current.id===id) { showToast('មិនអាចលុបក្រុមហ៊ុនបច្ចុប្បន្ន!','error'); return; }
+  if (!confirm('⚠️ លុបក្រុមហ៊ុន "'+name+'"?')) return;
+  try {
+    const base = getApiBase().replace(/\/$/,'');
+    await fetch(base+'/companies/'+id, {method:'DELETE', headers:{'Content-Type':'application/json'}});
+    showToast('លុបរួច!','success'); loadCompaniesSettings();
+  } catch(e) { showToast('Error: '+e.message,'error'); }
 }
 
 // ── Holidays ─────────────────────────────────────────────────
@@ -7353,9 +7462,12 @@ async function showCompanySelector() {
   if (!savedUrl) return;
 
   try {
-    // Init DB first
-    await fetch(savedUrl.replace(/\/$/,'')+'/init', {method:'POST'}).catch(()=>{});
-    const data = await api('GET', '/companies');
+    const base = savedUrl.replace(/\/$/,'');
+    // Init DB (no company header needed)
+    await fetch(base+'/init', {method:'POST', headers:{'Content-Type':'application/json'}}).catch(()=>{});
+    // Get companies (no company header needed)
+    const res  = await fetch(base+'/companies', {headers:{'Content-Type':'application/json'}});
+    const data = await res.json();
     const companies = data.companies || [];
 
     // Auto-select if only 1
@@ -7440,30 +7552,29 @@ async function saveNewCompany() {
   const email   = document.getElementById('co-email')?.value.trim() || '';
   const address = document.getElementById('co-address')?.value.trim() || '';
   if (!name||!code) { showToast('សូមបំពេញ ឈ្មោះ និង Code!','error'); return; }
-
-  // Check Worker URL first
-  const workerUrl = getApiBase();
-  if (!workerUrl) {
-    showToast('⚠️ សូមដាក់ Worker URL ក្នុង Settings មុន!','error');
-    return;
-  }
-
   try {
-    // Init silently — don't block company creation if /init fails
-    try { await fetch(workerUrl.replace(/\/$/,'')+'/init', {method:'POST'}); } catch(_) {}
-    const r = await api('POST','/companies',{name,code,phone,email,address});
+    const base = getApiBase().replace(/\/$/,'');
+    // Init DB without company filter
+    await fetch(base+'/init', {method:'POST', headers:{'Content-Type':'application/json'}}).catch(()=>{});
+    // Create company
+    const res = await fetch(base+'/companies', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({name,code,phone,email,address})
+    });
+    const r = await res.json();
+    if (!res.ok) {
+      if (r.error&&r.error.includes('UNIQUE')) {
+        showToast('Code "'+code+'" មានរួចហើយ! Code ថ្មី: '+code+(Date.now()%100),'error');
+      } else {
+        showToast('Error: '+(r.error||'Unknown'),'error');
+      }
+      return;
+    }
     closeModal();
     showToast('បង្កើតក្រុមហ៊ុន "'+name+'" រួច! ✅','success');
     selectCompany(r.id, name, code);
-  } catch(e) {
-    if (e.message&&e.message.includes('UNIQUE')) {
-      showToast('Code "'+code+'" មានរួចហើយ! សូមប្រើ Code ផ្សេង','error');
-    } else if (e.message&&(e.message.includes('fetch')||e.message.includes('Worker')||e.message.includes('Network'))) {
-      showToast('❌ មិនអាចភ្ជាប់ Worker! សូមពិនិត្យ URL ក្នុង ⚙️ Settings','error');
-    } else {
-      showToast('Error: '+e.message,'error');
-    }
-  }
+  } catch(e) { showToast('Error: '+e.message,'error'); }
 }
 
 function showFirstRunSetup() {
