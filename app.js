@@ -3181,29 +3181,95 @@ async function saveEditOvertime(id) {
 
 async function openOvertimeModal() {
   await ensureEmployees();
-  $('modal-title').textContent = 'កត់ត្រាថែមម៉ោង';
+
+  const dateVal  = today();
+  const holiday  = getHolidays().find(h => h.date === dateVal);
+  const typeIcon = { public:'🏛️', company:'🏢', religious:'🙏', special:'⭐' };
+
+  // Holiday notice inside modal
+  const holNotice = holiday
+    ? `<div style="margin-bottom:12px;padding:10px 14px;background:rgba(255,183,3,.1);border:1px solid rgba(255,183,3,.3);border-radius:8px;display:flex;align-items:center;gap:10px">
+        <span style="font-size:20px">${typeIcon[holiday.type]||'🎉'}</span>
+        <div>
+          <div style="font-size:12px;font-weight:700;color:var(--warning)">ថ្ងៃបុណ្យ: ${holiday.name}</div>
+          <div style="font-size:11px;color:var(--text3)">OT Rate x1.5 ត្រូវបាន set ដោយស្វ័យប្រវត្តិ</div>
+        </div>
+       </div>`
+    : '';
+
+  $('modal-title').textContent = holiday ? '🎉 OT ថ្ងៃបុណ្យ — ' + holiday.name : 'កត់ត្រាថែមម៉ោង';
+
   $('modal-body').innerHTML = `
+    ${holNotice}
     <div class="form-grid">
       <div class="form-group full-width"><label class="form-label">បុគ្គលិក *</label>
-        <select class="form-control" id="ot-emp">${state.employees.map(e=>`<option value="${e.id}">${e.name}</option>`).join('')}</select></div>
-      <div class="form-group"><label class="form-label">កាលបរិច្ឆេទ *</label><input class="form-control" id="ot-date" type="date" value="${today()}" /></div>
-      <div class="form-group"><label class="form-label">ចំនួនម៉ោង *</label><input class="form-control" id="ot-hours" type="number" placeholder="2" min="0.5" step="0.5" /></div>
-      <div class="form-group"><label class="form-label">អត្រា/ម៉ោង (USD) *</label><input class="form-control" id="ot-rate" type="number" placeholder="5" /></div>
-      <div class="form-group full-width"><label class="form-label">មូលហេតុ</label><input class="form-control" id="ot-reason" placeholder="មូលហេតុថែមម៉ោង..." /></div>
+        <select class="form-control" id="ot-emp" onchange="autoCalcOTRate()">${state.employees.map(e=>`<option value="${e.id}|${e.salary||0}">${e.name} (${e.department_name||'—'})</option>`).join('')}</select></div>
+      <div class="form-group"><label class="form-label">កាលបរិច្ឆេទ *</label>
+        <input class="form-control" id="ot-date" type="date" value="${dateVal}" onchange="checkOTDateHoliday(this.value)" /></div>
+      <div class="form-group"><label class="form-label">ចំនួនម៉ោង *</label>
+        <input class="form-control" id="ot-hours" type="number" placeholder="2" min="0.5" step="0.5" value="${holiday?'8':''}" oninput="autoCalcOTRate()" /></div>
+      <div class="form-group"><label class="form-label">គុណ OT</label>
+        <select class="form-control" id="ot-multiplier" onchange="autoCalcOTRate()">
+          <option value="1.5" ${holiday?'selected':''}>x1.5 — ថ្ងៃបុណ្យ</option>
+          <option value="1.0" ${!holiday?'selected':''}>x1.0 — ធម្មតា</option>
+          <option value="2.0">x2.0 — Double</option>
+          <option value="0.5">x0.5 — ពាក់កណ្ដាល</option>
+        </select></div>
+      <div class="form-group"><label class="form-label">អត្រា/ម៉ោង (auto)</label>
+        <input class="form-control" id="ot-rate" type="number" placeholder="5" step="0.01" /></div>
+      <div class="form-group"><label class="form-label">ប្រាក់ OT សរុប</label>
+        <input class="form-control" id="ot-pay" readonly style="color:var(--success);font-weight:700" placeholder="$0" /></div>
+      <div class="form-group full-width"><label class="form-label">មូលហេតុ</label>
+        <input class="form-control" id="ot-reason" placeholder="មូលហេតុថែមម៉ោង..." value="${holiday?'ធ្វើការថ្ងៃ'+holiday.name:''}" /></div>
     </div>
     <div class="form-actions">
       <button class="btn btn-outline" onclick="closeModal()">បោះបង់</button>
-      <button class="btn btn-primary" onclick="saveOvertime()">រក្សាទុក</button>
+      <button class="btn ${holiday?'btn-warning':'btn-primary'}" onclick="saveOvertime()">${holiday?'🎉 ':''} រក្សាទុក</button>
     </div>`;
   openModal();
+  autoCalcOTRate();
+}
+
+function autoCalcOTRate() {
+  const sel        = document.getElementById('ot-emp');
+  const salary     = sel ? parseFloat((sel.value||'0').split('|')[1])||0 : 0;
+  const multiplier = parseFloat(document.getElementById('ot-multiplier')?.value)||1;
+  const hours      = parseFloat(document.getElementById('ot-hours')?.value)||0;
+  const hourlyBase = salary / 26 / 8;
+  const rate       = (hourlyBase * multiplier).toFixed(2);
+  const pay        = (hourlyBase * multiplier * hours).toFixed(2);
+  const rateEl = document.getElementById('ot-rate');
+  const payEl  = document.getElementById('ot-pay');
+  if (rateEl && salary > 0) rateEl.value = rate;
+  if (payEl)  payEl.value  = '$' + pay;
+}
+
+function checkOTDateHoliday(dateVal) {
+  const holiday = getHolidays().find(h => h.date === dateVal);
+  const mul     = document.getElementById('ot-multiplier');
+  const reason  = document.getElementById('ot-reason');
+  if (holiday) {
+    if (mul)    mul.value = '1.5';
+    if (reason) reason.value = 'ធ្វើការថ្ងៃ' + holiday.name;
+    showToast('🎉 ថ្ងៃបុណ្យ: '+holiday.name+' — OT x1.5', 'warning');
+  } else {
+    if (mul)    mul.value = '1.0';
+  }
+  autoCalcOTRate();
 }
 
 async function saveOvertime() {
-  const hours = parseFloat($('ot-hours').value)||0;
-  const rate = parseFloat($('ot-rate').value)||0;
-  if (!hours||!rate) { showToast('សូមបំពេញម៉ោង និងអត្រា!','error'); return; }
+  const sel   = document.getElementById('ot-emp');
+  const empId = sel ? parseInt((sel.value||'0').split('|')[0]) : null;
+  const hours = parseFloat($('ot-hours')?.value)||0;
+  const rate  = parseFloat($('ot-rate')?.value)||0;
+  const pay   = hours * rate;
+  const reason= $('ot-reason')?.value || '';
+  const dateVal=$('ot-date')?.value || today();
+  if (!empId||!hours) { showToast('សូមបំពេញ បុគ្គលិក និង ម៉ោង!','error'); return; }
+  if (!rate) { showToast('សូមបំពេញ អត្រា/ម៉ោង!','error'); return; }
   try {
-    await api('POST','/overtime',{ employee_id:parseInt($('ot-emp').value), date:$('ot-date').value, hours, rate, pay:hours*rate, reason:$('ot-reason').value, status:'pending' });
+    await api('POST','/overtime',{ employee_id:empId, date:dateVal, hours, rate, pay, reason, status:'pending' });
     showToast('កត់ត្រាថែមម៉ោងបានជោគជ័យ!','success'); closeModal(); renderOvertime();
   } catch(e) { showToast('បញ្ហា: '+e.message,'error'); }
 }
