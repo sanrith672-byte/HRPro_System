@@ -3013,6 +3013,23 @@ async function renderOvertime() {
     const records = data.records || [];
     const totalHrs = records.reduce((s,r)=>s+(r.hours||0),0);
     const totalPay = records.reduce((s,r)=>s+(r.pay||0),0);
+
+    // Check today holiday
+    const todayStr = new Date().toISOString().split('T')[0];
+    const holiday  = getHolidays().find(h => h.date === todayStr);
+    const typeIcon = { public:'🏛️', company:'🏢', religious:'🙏', special:'⭐' };
+
+    // Holiday banner
+    const hBanner = holiday
+      ? '<div style="margin-bottom:16px;padding:14px 18px;background:rgba(255,183,3,.1);border:1px solid rgba(255,183,3,.3);border-radius:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">'
+        +'<div style="font-size:26px">'+(typeIcon[holiday.type]||'🎉')+'</div>'
+        +'<div style="flex:1;min-width:140px">'
+        +'<div style="font-weight:800;font-size:14px;color:var(--warning)">'+holiday.name+'</div>'
+        +'<div style="font-size:11px;color:var(--text3)">ថ្ងៃបុណ្យ '+todayStr+' — OT x1.5</div></div>'
+        +'<button class="btn btn-warning" onclick="openHolidayOTModal(\''+todayStr+'\',\''+holiday.name.replace(/'/g,"\'")+'\')">🎉 កត់ OT ថ្ងៃបុណ្យ</button>'
+        +'</div>'
+      : '';
+
     const rows = records.length===0
       ? '<tr><td colspan="9"><div class="empty-state" style="padding:30px"><p>មិនទាន់មានកំណត់ត្រាថែមម៉ោង</p></div></td></tr>'
       : records.map(r=>{
@@ -3020,8 +3037,10 @@ async function renderOvertime() {
           const av = photo
             ? '<div class="emp-avatar" style="background:'+getColor(r.employee_name)+';overflow:hidden;padding:0"><img src="'+photo+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/></div>'
             : '<div class="emp-avatar" style="background:'+getColor(r.employee_name)+'">'+(r.employee_name||'?')[0]+'</div>';
+          const isHolOT = (r.reason||'').includes('ថ្ងៃបុណ្យ');
+          const holBadge = isHolOT ? '<span style="margin-left:4px;font-size:9px;background:rgba(255,183,3,.2);color:var(--warning);padding:1px 5px;border-radius:4px;font-weight:700">🎉</span>' : '';
           return '<tr>'
-            +'<td><div class="employee-cell">'+av+'<div class="emp-name">'+r.employee_name+'</div></div></td>'
+            +'<td><div class="employee-cell">'+av+'<div class="emp-name">'+r.employee_name+holBadge+'</div></div></td>'
             +'<td style="font-family:var(--mono);font-size:12px">'+r.date+'</td>'
             +'<td><span style="font-weight:700;color:var(--primary)">'+r.hours+'h</span></td>'
             +'<td style="font-family:var(--mono)">$'+r.rate+'/h</td>'
@@ -3032,19 +3051,20 @@ async function renderOvertime() {
             +(r.status==='pending'?'<button class="btn btn-success btn-sm" onclick="approveOvertime('+r.id+')">✅</button><button class="btn btn-danger btn-sm" onclick="rejectOvertime('+r.id+')">❌</button>':'')
             +'<button class="btn btn-outline btn-sm" onclick="openEditOvertimeModal('+r.id+')">✏️</button>'
             +'<button class="btn btn-danger btn-sm" onclick="deleteRecord(\'overtime\','+r.id+',renderOvertime)">🗑️</button>'
-            +'</div></td>'
-            +'</tr>';
+            +'</div></td></tr>';
         }).join('');
 
     contentArea().innerHTML =
       '<div class="page-header">'
-      +'<div><h2>ថែមម៉ោង</h2><p>OT — '+records.length+' កំណត់ត្រា</p></div>'
+      +'<div><h2>ថែមម៉ោង</h2><p>OT — '+records.length+' កំណត់ត្រា'+(holiday?' · 🎉 '+holiday.name:'')+'</p></div>'
       +'<div style="display:flex;gap:8px;flex-wrap:wrap">'
       +'<button class="btn btn-outline" onclick="printTableData(\'overtime\')">'
       +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> PDF</button>'
+      +(holiday?'<button class="btn btn-warning" onclick="openHolidayOTModal(\''+todayStr+'\',\''+holiday.name.replace(/'/g,"\'")+'\')" >🎉 OT ថ្ងៃបុណ្យ</button>':'')
       +'<button class="btn btn-primary" onclick="openOvertimeModal()">'
       +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> បន្ថែម</button>'
       +'</div></div>'
+      + hBanner
       +'<div class="stats-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:20px">'
       +'<div class="stat-card"><div class="stat-icon orange"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>'
       +'<div><div class="stat-label">ម៉ោងសរុប</div><div class="stat-value">'+totalHrs+'h</div></div></div>'
@@ -3058,6 +3078,70 @@ async function renderOvertime() {
       +'<tbody>'+rows+'</tbody>'
       +'</table></div></div>';
   } catch(e) { showError(e.message); }
+}
+
+function openHolidayOTModal(date, holidayName) {
+  const emps = state.employees || [];
+  if (!emps.length) {
+    api('GET','/employees?limit=500').then(d=>{ state.employees=d.employees||[]; openHolidayOTModal(date,holidayName); }).catch(()=>{});
+    return;
+  }
+  $('modal-title').textContent = '🎉 OT ថ្ងៃបុណ្យ — ' + holidayName;
+  $('modal-body').innerHTML =
+    '<div style="margin-bottom:12px;padding:10px 14px;background:rgba(255,183,3,.08);border:1px solid rgba(255,183,3,.25);border-radius:8px;font-size:12px;color:var(--warning)">'
+    +'🎉 ថ្ងៃបុណ្យ: <strong>'+holidayName+'</strong> — '+date+'</div>'
+    +'<div class="form-grid">'
+    +'<div class="form-group full-width"><label class="form-label">បុគ្គលិក *</label>'
+    +'<select class="form-control" id="hot-emp" onchange="calcHolidayOT()">'
+    +emps.map(e=>'<option value="'+e.id+'|'+(e.salary||0)+'">'+e.name+' ('+(e.department_name||'—')+')</option>').join('')
+    +'</select></div>'
+    +'<div class="form-group"><label class="form-label">ម៉ោង OT *</label>'
+    +'<input class="form-control" type="number" id="hot-hours" value="8" min="1" max="24" oninput="calcHolidayOT()" /></div>'
+    +'<div class="form-group"><label class="form-label">អត្រា OT</label>'
+    +'<select class="form-control" id="hot-rate" onchange="calcHolidayOT()">'
+    +'<option value="1.5">x1.5 — ថ្ងៃបុណ្យ standard</option>'
+    +'<option value="2.0">x2.0 — Double pay</option>'
+    +'<option value="1.0">x1.0 — ធម្មតា</option>'
+    +'</select></div>'
+    +'<div class="form-group"><label class="form-label">ប្រាក់ OT (auto)</label>'
+    +'<input class="form-control" id="hot-pay" readonly style="color:var(--success);font-weight:700" placeholder="$0" /></div>'
+    +'<div class="form-group full-width"><label class="form-label">មូលហេតុ</label>'
+    +'<input class="form-control" id="hot-reason" value="ធ្វើការថ្ងៃ'+holidayName+'" /></div>'
+    +'</div>'
+    +'<div class="form-actions">'
+    +'<button class="btn btn-outline" onclick="closeModal()">បោះបង់</button>'
+    +'<button class="btn btn-warning" onclick="saveHolidayOT(\''+date+'\')">🎉 Save OT</button>'
+    +'</div>';
+  openModal();
+  calcHolidayOT();
+}
+
+function calcHolidayOT() {
+  const sel = document.getElementById('hot-emp');
+  const salary = sel ? parseFloat((sel.value||'0').split('|')[1])||0 : 0;
+  const hours  = parseFloat(document.getElementById('hot-hours')?.value)||0;
+  const rate   = parseFloat(document.getElementById('hot-rate')?.value)||1.5;
+  const hourlyBase = salary / 26 / 8;
+  const pay = (hourlyBase * rate * hours).toFixed(2);
+  const payEl = document.getElementById('hot-pay');
+  if (payEl) payEl.value = '$' + pay;
+}
+
+async function saveHolidayOT(date) {
+  const sel   = document.getElementById('hot-emp');
+  const empId = sel ? parseInt((sel.value||'0').split('|')[0]) : null;
+  const hours = parseFloat(document.getElementById('hot-hours')?.value)||0;
+  const rate  = parseFloat(document.getElementById('hot-rate')?.value)||1.5;
+  const reason= document.getElementById('hot-reason')?.value||'';
+  const salary= sel ? parseFloat((sel.value||'0').split('|')[1])||0 : 0;
+  const hourlyBase = salary / 26 / 8;
+  const pay   = (hourlyBase * rate * hours).toFixed(2);
+  if (!empId||!hours) { showToast('សូមបំពេញ ឱ្យពេញ!','error'); return; }
+  try {
+    await api('POST','/overtime',{ employee_id:empId, date, hours, rate:(hourlyBase*rate).toFixed(2), pay:parseFloat(pay), reason, status:'pending' });
+    showToast('កត់ OT ថ្ងៃបុណ្យ រួច! ✅','success');
+    closeModal(); renderOvertime();
+  } catch(e) { showToast('Error: '+e.message,'error'); }
 }
 
 async function openEditOvertimeModal(id) {
