@@ -6,7 +6,7 @@ const USERS_KEY     = 'hr_users';
 const THEME_KEY     = 'hr_theme';
 
 function getApiBase()  { return localStorage.getItem(STORAGE_KEY) || ''; }
-function isDemoMode()  { return localStorage.getItem(DEMO_MODE_KEY) === '1' || !getApiBase(); }
+function isDemoMode()  { return localStorage.getItem(DEMO_MODE_KEY) === '1'; }
 function isLoggedIn()  { return !!localStorage.getItem(AUTH_KEY); }
 function getSession()  { try { return JSON.parse(localStorage.getItem(AUTH_KEY)) || null; } catch { return null; } }
 
@@ -277,10 +277,16 @@ function saveSettings() {
   if (!url) { showToast('សូមដាក់ Worker URL!','error'); return; }
   localStorage.setItem(STORAGE_KEY, url);
   localStorage.removeItem(DEMO_MODE_KEY);
-  showToast('រក្សាទុកហើយ! ភ្ជាប់ Worker...','success');
+  showToast('រក្សាទុកហើយ!','success');
   closeModal();
   updateApiStatus();
-  navigate(state.currentPage);
+  // If no company selected, go to selector
+  if (!getCurrentCompany()) {
+    fetch(url+'/init',{method:'POST',headers:{'Content-Type':'application/json'}}).catch(()=>{});
+    setTimeout(() => showCompanySelector(), 300);
+  } else {
+    navigate(state.currentPage);
+  }
 }
 
 function enableDemo() {
@@ -7624,16 +7630,15 @@ async function connectWorkerFromSetup() {
   if (!url) { if(res) res.innerHTML='<span style="color:var(--danger)">❌ សូមវាយ URL!</span>'; return; }
   if(res) res.innerHTML='<span style="color:var(--text3)">⏳ កំពុងសាកល្បង...</span>';
   try {
-    const r = await fetch(url+'/stats');
-    if (r.ok) {
-      localStorage.setItem(STORAGE_KEY, url);
-      localStorage.removeItem(DEMO_MODE_KEY);
-      if(res) res.innerHTML='<span style="color:var(--success)">✅ ភ្ជាប់បានជោគជ័យ!</span>';
-      updateApiStatus();
-      setTimeout(() => navigate('dashboard'), 800);
-    } else {
-      if(res) res.innerHTML='<span style="color:var(--warning)">⚠️ Worker ឆ្លើយតប ('+r.status+') — ពិនិត្យ CORS</span>';
-    }
+    // Save URL first
+    localStorage.setItem(STORAGE_KEY, url);
+    localStorage.removeItem(DEMO_MODE_KEY);
+    // Init DB
+    await fetch(url+'/init', {method:'POST', headers:{'Content-Type':'application/json'}}).catch(()=>{});
+    if(res) res.innerHTML='<span style="color:var(--success)">✅ ភ្ជាប់បានជោគជ័យ! ⏳...</span>';
+    updateApiStatus();
+    // Go to company selector
+    setTimeout(() => showCompanySelector(), 600);
   } catch(e) {
     if(res) res.innerHTML='<span style="color:var(--danger)">❌ ភ្ជាប់មិនបាន — ពិនិត្យ URL</span>';
   }
