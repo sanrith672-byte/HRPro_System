@@ -4494,10 +4494,10 @@ function idCardPortraitHTML(e, style, cfg) {
   }
 
   const qrSize  = 80;
-  const qrBlock = '<div style="width:'+qrSize+'px;height:'+qrSize+'px;background:white;border-radius:8px;overflow:hidden;padding:3px">'
-    +'<div class="qr-placeholder" data-id="'+empIdRaw+'" data-size="'+(qrSize-6)+'" data-fg="#111" data-bg="#fff"></div></div>';
+  const qrBlock = '<div style="width:'+qrSize+'px;height:'+qrSize+'px;background:white;border-radius:8px;overflow:hidden;padding:4px;flex-shrink:0">'
+    + makeQRSvg(empIdRaw, qrSize-8, '#111827', '#ffffff') + '</div>';
   const qrSmall = '<div style="width:36px;height:36px;background:white;border-radius:5px;overflow:hidden;padding:2px;flex-shrink:0">'
-    +'<div class="qr-placeholder" data-id="'+empIdRaw+'" data-size="32" data-fg="#111" data-bg="#fff"></div></div>';
+    + makeQRSvg(empIdRaw, 32, '#111827', '#ffffff') + '</div>';
 
   const logoEl = cfg.logo_url
     ? '<img src="'+cfg.logo_url+'" style="height:20px;object-fit:contain;filter:brightness(0) invert(1)" />'
