@@ -25,3 +25,68 @@ https://hr-pro.pages.dev/
 # admin / admin123
 # hr / hr1234
 # finance / fin1234
+
+#"update"
+
+cd C:\Users\TUF-17\Desktop\HRPro_System
+git add .
+git commit -m "update"
+git push
+
+
+# Open
+https://sanrith672-byte.github.io/HRPro_System/
+https://github.com/sanrith672-byte/HRPro_System.git
+
+
+
+
+
+
+cd C:\Users\TUF-17\Desktop\HRPro_System
+
+# ① Copy index.js + app.js ថ្មី ពី Claude → HRPro_System folder
+
+# ② Deploy Worker
+wrangler deploy
+
+# ③ Migration (run 1 ដង)
+Invoke-WebRequest -Uri "https://employee-management-api.sansukun3.workers.dev/init" -Method POST -UseBasicParsing
+
+# ④ Deploy Frontend
+git add app.js index.js
+git commit -m "sync photo QR logo"
+git push
+
+
+✅ Verify ថា deploy ត្រឹមត្រូវ:
+
+# Test /config endpoint — response: {}
+Invoke-WebRequest -Uri "https://employee-management-api.sansukun3.workers.dev/config" -UseBasicParsing
+
+# Test employees has photo_data field
+Invoke-WebRequest -Uri "https://employee-management-api.sansukun3.workers.dev/employees?limit=1" -UseBasicParsing
+
+
+
+
+git add app.js index.html style.css
+git commit -m "feat: portrait/landscape card mode toggle v68"
+git push origin main
+wrangler pages deploy .
+
+
+
+Account adminsupport:
+
+Username: adminsupport
+Password: admin
+Role: អ្នកគ្រប់គ្រង ✅
+
+
+
+git add app.js index.html index.js style.css
+git commit -m "restore: back to v68 single company"
+git push origin main
+wrangler deploy
+wrangler pages deploy .
