@@ -47,11 +47,20 @@ const getColor = (name) => COLORS[(name?.charCodeAt(0) || 0) % COLORS.length];
 const $ = (id) => document.getElementById(id);
 const contentArea = () => $('content-area');
 
+// ===== MULTI-COMPANY STATE =====
+const COMPANY_KEY = 'hr_current_company';
+function getCurrentCompany() {
+  try { return JSON.parse(localStorage.getItem(COMPANY_KEY)) || null; } catch { return null; }
+}
+function setCurrentCompany(co) { localStorage.setItem(COMPANY_KEY, JSON.stringify(co)); }
+function getCompanyId() { return getCurrentCompany()?.id || 1; }
+
 // ===== API HELPER (Real + Demo fallback) =====
 async function api(method, path, body = null) {
   if (isDemoMode()) return demoApi(method, path, body);
   const base = getApiBase().replace(/\/$/, '');
-  const opts = { method, headers: { 'Content-Type': 'application/json' } };
+  const coId = getCompanyId();
+  const opts = { method, headers: { 'Content-Type': 'application/json', 'X-Company-ID': String(coId) } };
   if (body) opts.body = JSON.stringify(body);
   try {
     const res = await fetch(base + path, opts);
@@ -59,7 +68,6 @@ async function api(method, path, body = null) {
     if (!res.ok) throw new Error(data.error || 'API Error');
     return data;
   } catch(e) {
-    // If CORS/network error, show helpful message
     if (e.message.includes('Failed to fetch') || e.message.includes('NetworkError')) {
       throw new Error('មិនអាចភ្ជាប់ Worker បាន។ សូមពិនិត្យ URL ក្នុង ⚙️ Settings');
     }
@@ -7298,12 +7306,153 @@ function initApp() {
     $('global-search').addEventListener('input', e => { if (state.currentPage === 'employees') renderEmployees(e.target.value); });
     $('btn-settings').addEventListener('click', () => navigate('settings'));
     updateApiStatus();
+    updateCompanyIndicator();
     if (!getApiBase() && localStorage.getItem(DEMO_MODE_KEY) !== '1') {
       showFirstRunSetup();
+    } else if (getApiBase() && !isDemoMode() && !getCurrentCompany()) {
+      showCompanySelector();
     } else {
       navigate('dashboard');
     }
   });
+}
+
+// ── Company Indicator ─────────────────────────────────────────
+function updateCompanyIndicator() {
+  const co  = getCurrentCompany();
+  const el  = document.getElementById('company-indicator');
+  if (el) el.textContent = co ? co.name : '—';
+}
+
+// ── Company Selector Screen ───────────────────────────────────
+async function showCompanySelector() {
+  const savedUrl = getApiBase();
+  contentArea().innerHTML =
+    '<div style="max-width:520px;margin:40px auto">'
+    +(savedUrl ? '' :
+      '<div style="margin-bottom:20px;padding:16px;background:rgba(255,107,53,.08);border:1px solid rgba(255,107,53,.25);border-radius:12px">'
+      +'<div style="font-size:13px;font-weight:700;color:var(--warning);margin-bottom:10px">⚙️ ដាក់ Worker URL មុន</div>'
+      +'<div style="display:flex;gap:8px">'
+      +'<input class="form-control" id="cs-worker-url" placeholder="https://your-worker.workers.dev" style="flex:1;font-size:12px" />'
+      +'<button class="btn btn-primary" onclick="saveWorkerUrlFromSelector()">Save</button>'
+      +'</div></div>'
+    )
+    +'<div style="text-align:center;margin-bottom:20px">'
+    +'<div style="font-size:48px;margin-bottom:10px">🏢</div>'
+    +'<h2 style="font-size:20px;font-weight:800;margin-bottom:6px">ជ្រើសរើសក្រុមហ៊ុន</h2>'
+    +'<p style="color:var(--text3);font-size:13px">ជ្រើស ឬ បង្កើតក្រុមហ៊ុនថ្មី</p>'
+    +'</div>'
+    +'<div id="company-list" style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">'
+    +(savedUrl ? '<div style="text-align:center;padding:20px;color:var(--text3)">⏳ កំពុង load...</div>'
+               : '<div style="text-align:center;padding:16px;color:var(--text3);font-size:13px">⚠️ សូមដាក់ Worker URL ជាមុន</div>')
+    +'</div>'
+    +'<button class="btn btn-primary" style="width:100%" onclick="openCreateCompanyModal()">'
+    +'+ បង្កើតក្រុមហ៊ុនថ្មី</button>'
+    +'</div>';
+
+  if (!savedUrl) return;
+
+  try {
+    // Init DB first
+    await fetch(savedUrl.replace(/\/$/,'')+'/init', {method:'POST'}).catch(()=>{});
+    const data = await api('GET', '/companies');
+    const companies = data.companies || [];
+
+    // Auto-select if only 1
+    if (companies.length === 1) {
+      selectCompany(companies[0].id, companies[0].name, companies[0].code);
+      return;
+    }
+
+    const list = document.getElementById('company-list');
+    if (!list) return;
+    if (!companies.length) {
+      list.innerHTML = '<div style="color:var(--text3);font-size:13px;text-align:center;padding:16px">មិនទាន់មានក្រុមហ៊ុន — បន្ថែមខាងក្រោម</div>';
+      return;
+    }
+    list.innerHTML = companies.map(co =>
+      '<div style="display:flex;align-items:center;gap:12px;padding:14px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;cursor:pointer" onclick="selectCompany('+co.id+',\''+co.name.replace(/'/g,"\\'")+ '\',\''+co.code+'\')" onmouseover="this.style.borderColor=\'var(--primary)\'" onmouseout="this.style.borderColor=\'var(--border)\'">'
+      +'<div style="width:42px;height:42px;border-radius:10px;background:var(--primary);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;color:white;flex-shrink:0">'+(co.name[0]||'?').toUpperCase()+'</div>'
+      +'<div style="flex:1"><div style="font-weight:700;font-size:14px">'+co.name+'</div>'
+      +'<div style="font-size:11px;color:var(--text3);font-family:var(--mono)">'+co.code+'</div></div>'
+      +'<svg viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" style="width:18px;height:18px"><polyline points="9 18 15 12 9 6"/></svg>'
+      +'</div>'
+    ).join('');
+  } catch(e) {
+    const list = document.getElementById('company-list');
+    if (list) list.innerHTML = '<div style="color:var(--danger);font-size:13px">Error: '+e.message+'</div>';
+  }
+}
+
+function saveWorkerUrlFromSelector() {
+  const input = document.getElementById('cs-worker-url');
+  const url = input?.value.trim().replace(/\/$/,'');
+  if (!url) { showToast('សូមបញ្ចូល Worker URL!','error'); return; }
+  localStorage.setItem(STORAGE_KEY, url);
+  localStorage.removeItem(DEMO_MODE_KEY);
+  showToast('Save Worker URL រួច! ✅','success');
+  fetch(url+'/init',{method:'POST'}).catch(()=>{});
+  setTimeout(() => showCompanySelector(), 500);
+}
+
+function selectCompany(id, name, code) {
+  setCurrentCompany({ id, name, code });
+  updateCompanyIndicator();
+  showToast('✅ ជ្រើស: '+name,'success');
+  navigate('dashboard');
+}
+
+function openCreateCompanyModal() {
+  $('modal-title').textContent = '🏢 បង្កើតក្រុមហ៊ុនថ្មី';
+  const ts = Date.now().toString().slice(-4);
+  $('modal-body').innerHTML =
+    '<div class="form-grid">'
+    +'<div class="form-group full-width"><label class="form-label">ឈ្មោះក្រុមហ៊ុន *</label>'
+    +'<input class="form-control" id="co-name" placeholder="ឈ្មោះក្រុមហ៊ុន..." oninput="autoGenCode(this.value)" /></div>'
+    +'<div class="form-group"><label class="form-label">Code *</label>'
+    +'<input class="form-control" id="co-code" value="CO'+ts+'" /></div>'
+    +'<div class="form-group"><label class="form-label">ទូរស័ព្ទ</label>'
+    +'<input class="form-control" id="co-phone" placeholder="023..." /></div>'
+    +'<div class="form-group"><label class="form-label">អ៊ីម៉ែល</label>'
+    +'<input class="form-control" id="co-email" placeholder="info@..." /></div>'
+    +'<div class="form-group full-width"><label class="form-label">អាស័យដ្ឋាន</label>'
+    +'<input class="form-control" id="co-address" placeholder="អាស័យដ្ឋាន..." /></div>'
+    +'</div>'
+    +'<div class="form-actions">'
+    +'<button class="btn btn-outline" onclick="closeModal()">បោះបង់</button>'
+    +'<button class="btn btn-primary" onclick="saveNewCompany()">+ បង្កើត</button>'
+    +'</div>';
+  openModal();
+}
+
+function autoGenCode(name) {
+  const el = document.getElementById('co-code');
+  if (!el) return;
+  const words  = name.trim().split(/\s+/).filter(Boolean);
+  const prefix = words.map(w=>(w[0]||'').toUpperCase()).join('').slice(0,4) || 'CO';
+  el.value = prefix + Date.now().toString().slice(-3);
+}
+
+async function saveNewCompany() {
+  const name    = document.getElementById('co-name')?.value.trim();
+  const code    = document.getElementById('co-code')?.value.trim().toUpperCase();
+  const phone   = document.getElementById('co-phone')?.value.trim() || '';
+  const email   = document.getElementById('co-email')?.value.trim() || '';
+  const address = document.getElementById('co-address')?.value.trim() || '';
+  if (!name||!code) { showToast('សូមបំពេញ ឈ្មោះ និង Code!','error'); return; }
+  try {
+    await api('POST','/init');
+    const r = await api('POST','/companies',{name,code,phone,email,address});
+    closeModal();
+    showToast('បង្កើតក្រុមហ៊ុន "'+name+'" រួច! ✅','success');
+    selectCompany(r.id, name, code);
+  } catch(e) {
+    if (e.message&&e.message.includes('UNIQUE')) {
+      showToast('Code "'+code+'" មានរួចហើយ! សូមប្រើ Code ផ្សេង','error');
+    } else {
+      showToast('Error: '+e.message,'error');
+    }
+  }
 }
 
 function showFirstRunSetup() {

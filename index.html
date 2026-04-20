@@ -184,6 +184,15 @@
   </nav>
 
   <div class="sidebar-footer">
+    <!-- Company indicator -->
+    <div onclick="showCompanySelector()" style="padding:8px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;cursor:pointer;transition:background .15s" onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''">
+      <span style="font-size:16px">🏢</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:10px;color:var(--text3)">ក្រុមហ៊ុន</div>
+        <div id="company-indicator" style="font-size:12px;font-weight:700;color:var(--primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">—</div>
+      </div>
+      <svg viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2" style="width:12px;height:12px;flex-shrink:0"><polyline points="9 18 15 12 9 6"/></svg>
+    </div>
     <div class="user-profile">
       <div class="user-avatar" id="sidebar-user-avatar">A</div>
       <div class="user-info">
@@ -271,6 +280,6 @@
 <!-- Toast -->
 <div class="toast-container" id="toast-container"></div>
 
-<script src="app.js?v=86"></script>
+<script src="app.js?v=87"></script>
 </body>
 </html>
