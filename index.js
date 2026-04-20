@@ -1,9 +1,21 @@
 // ============================================================
-// HR Pro Multi-Company API — Cloudflare Workers + D1 v88
+// HR Pro Multi-Company API — Cloudflare Workers + D1 v90
 // ============================================================
-export default { async fetch(request, env) { return handleRequest(request, env); } };
+export default {
+  async fetch(request, env) {
+    if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: { 'Access-Control-Allow-Origin':'*','Access-Control-Allow-Methods':'GET,POST,PUT,DELETE,OPTIONS','Access-Control-Allow-Headers':'Content-Type,Authorization,X-Company-ID,x-company-id','Access-Control-Max-Age':'86400' } });
+    try { return await handleRequest(request, env); }
+    catch(e) { return new Response(JSON.stringify({error:'Server Error',message:e.message}),{status:500,headers:{'Content-Type':'application/json','Access-Control-Allow-Origin':'*','Access-Control-Allow-Methods':'GET,POST,PUT,DELETE,OPTIONS','Access-Control-Allow-Headers':'Content-Type,Authorization,X-Company-ID,x-company-id'}}); }
+  }
+};
 
-const cors = { 'Access-Control-Allow-Origin':'*','Access-Control-Allow-Methods':'GET,POST,PUT,DELETE,OPTIONS','Access-Control-Allow-Headers':'Content-Type,Authorization,X-Company-ID' };
+const cors = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type,Authorization,X-Company-ID,x-company-id',
+  'Access-Control-Expose-Headers': 'Content-Type,Authorization,X-Company-ID',
+  'Access-Control-Max-Age': '86400',
+};
 const json = (d,s=200) => new Response(JSON.stringify(d),{status:s,headers:{'Content-Type':'application/json',...cors}});
 const err  = (m,s=400) => json({error:m},s);
 

@@ -5427,10 +5427,7 @@ function renderSettings() {
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
         ម៉ោងធ្វើការ
       </a>
-      <a href="#" class="settings-tab" onclick="switchSettingsTab('companies_mgmt',this);return false">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-        ក្រុមហ៊ុន
-      </a>
+
       <a href="#" class="settings-tab" onclick="switchSettingsTab('holidays',this);return false">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
         ថ្ងៃបុណ្យ
@@ -6176,30 +6173,6 @@ function renderSettings() {
         </div>
       </div><!-- /panel-holidays -->
 
-      <!-- === COMPANIES MGMT PANEL === -->
-      <div class="settings-panel" id="panel-companies_mgmt">
-        <div class="settings-section">
-          <div class="settings-section-header">
-            <div class="sec-icon" style="background:rgba(17,138,178,.15);font-size:18px">🏢</div>
-            <div>
-              <div class="settings-section-title">គ្រប់គ្រងក្រុមហ៊ុន</div>
-              <div class="settings-section-desc">កែ លុប ឬ switch ក្រុមហ៊ុន · បច្ចុប្បន្ន: <strong id="cur-co-lbl">${getCurrentCompany()?.name||'—'}</strong></div>
-            </div>
-          </div>
-          <div class="settings-section-body" id="companies-settings-list">
-            <div style="text-align:center;padding:20px;color:var(--text3)">⏳ កំពុង load...</div>
-          </div>
-        </div>
-        <div class="settings-section">
-          <div class="settings-section-header">
-            <div class="sec-icon" style="background:rgba(6,214,160,.15);font-size:18px">+</div>
-            <div><div class="settings-section-title">បង្កើតក្រុមហ៊ុនថ្មី</div></div>
-          </div>
-          <div class="settings-section-body">
-            <button class="btn btn-primary" style="width:100%" onclick="openCreateCompanyModal()">+ បង្កើតក្រុមហ៊ុនថ្មី</button>
-          </div>
-        </div>
-      </div><!-- /panel-companies_mgmt -->
 
     </div><!-- /settings-content -->
   </div><!-- /settings-layout -->
@@ -6231,7 +6204,7 @@ function switchSettingsTab(panel, el) {
   if (pEl) pEl.classList.add('active');
   if (panel === 'workhours')      previewWorkHours();
   if (panel === 'holidays')       renderHolidayList();
-  if (panel === 'companies_mgmt') loadCompaniesSettings();
+
 }
 
 async function loadCompaniesSettings() {
@@ -7455,14 +7428,13 @@ async function showCompanySelector() {
     +'<div style="text-align:center;margin-bottom:20px">'
     +'<div style="font-size:48px;margin-bottom:10px">🏢</div>'
     +'<h2 style="font-size:20px;font-weight:800;margin-bottom:6px">ជ្រើសរើសក្រុមហ៊ុន</h2>'
-    +'<p style="color:var(--text3);font-size:13px">ជ្រើស ឬ បង្កើតក្រុមហ៊ុនថ្មី</p>'
+    
     +'</div>'
     +'<div id="company-list" style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">'
     +(savedUrl ? '<div style="text-align:center;padding:20px;color:var(--text3)">⏳ កំពុង load...</div>'
                : '<div style="text-align:center;padding:16px;color:var(--text3);font-size:13px">⚠️ សូមដាក់ Worker URL ជាមុន</div>')
     +'</div>'
-    +'<button class="btn btn-primary" style="width:100%" onclick="openCreateCompanyModal()">'
-    +'+ បង្កើតក្រុមហ៊ុនថ្មី</button>'
+    
     +'</div>';
 
   if (!savedUrl) return;
