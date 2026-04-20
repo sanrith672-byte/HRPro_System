@@ -5162,6 +5162,10 @@ function renderSettings() {
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
         ម៉ោងធ្វើការ
       </a>
+      <a href="#" class="settings-tab" onclick="switchSettingsTab('holidays',this);return false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        ថ្ងៃបុណ្យ
+      </a>
     </div>
 
     <!-- Panels -->
@@ -5867,6 +5871,42 @@ function renderSettings() {
         </div>
       </div><!-- /panel-workhours -->
 
+      <!-- === HOLIDAYS PANEL === -->
+      <div class="settings-panel" id="panel-holidays">
+        <div class="settings-section">
+          <div class="settings-section-header">
+            <div class="sec-icon" style="background:rgba(255,183,3,.15);font-size:18px">🎉</div>
+            <div>
+              <div class="settings-section-title">ថ្ងៃបុណ្យ / ថ្ងៃឈប់សម្រាក</div>
+              <div class="settings-section-desc">គ្រប់គ្រងថ្ងៃបុណ្យ និងថ្ងៃឈប់សម្រាកផ្លូវការ</div>
+            </div>
+          </div>
+          <div class="settings-section-body">
+            <!-- Add holiday form -->
+            <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+              <input class="form-control" type="date" id="hd-date" style="flex:1;min-width:140px" />
+              <input class="form-control" id="hd-name" placeholder="ឈ្មោះថ្ងៃបុណ្យ..." style="flex:2;min-width:180px" />
+              <select class="form-control" id="hd-type" style="flex:1;min-width:120px">
+                <option value="public">🏛️ ផ្លូវការ</option>
+                <option value="company">🏢 ក្រុមហ៊ុន</option>
+                <option value="religious">🙏 សាសនា</option>
+                <option value="special">⭐ ពិសេស</option>
+              </select>
+              <button class="btn btn-primary" onclick="addHoliday()" style="white-space:nowrap">
+                + បន្ថែម
+              </button>
+            </div>
+            <!-- Holiday list -->
+            <div id="holiday-list"></div>
+            <!-- Bulk add Khmer holidays -->
+            <div style="margin-top:14px;padding:12px;background:var(--bg3);border-radius:10px;border:1px solid var(--border)">
+              <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:8px">📅 បន្ថែមថ្ងៃបុណ្យខ្មែរ ${new Date().getFullYear()} ដោយស្វ័យប្រវត្តិ</div>
+              <button class="btn btn-outline btn-sm" onclick="addKhmerHolidays()">🇰🇭 Load ថ្ងៃបុណ្យខ្មែរ ${new Date().getFullYear()}</button>
+            </div>
+          </div>
+        </div>
+      </div><!-- /panel-holidays -->
+
     </div><!-- /settings-content -->
   </div><!-- /settings-layout -->
   `;
@@ -5896,6 +5936,119 @@ function switchSettingsTab(panel, el) {
   const pEl = $('panel-' + panel);
   if (pEl) pEl.classList.add('active');
   if (panel === 'workhours') previewWorkHours();
+  if (panel === 'holidays')  renderHolidayList();
+}
+
+// ── Holidays ─────────────────────────────────────────────────
+function getHolidays() {
+  try { return JSON.parse(localStorage.getItem('hr_holidays') || '[]'); } catch { return []; }
+}
+function saveHolidays(list) {
+  localStorage.setItem('hr_holidays', JSON.stringify(list));
+  try { api('POST', '/config', { key: 'hr_holidays', value: JSON.stringify(list) }); } catch(_) {}
+}
+function isHoliday(dateStr) {
+  return getHolidays().some(h => h.date === dateStr);
+}
+
+function renderHolidayList() {
+  const list = document.getElementById('holiday-list');
+  if (!list) return;
+  const holidays = getHolidays().sort((a,b) => a.date.localeCompare(b.date));
+  if (!holidays.length) {
+    list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text3);font-size:13px">មិនទាន់មានថ្ងៃបុណ្យ — បន្ថែមខាងលើ</div>';
+    return;
+  }
+  const typeIcon  = { public:'🏛️', company:'🏢', religious:'🙏', special:'⭐' };
+  const typeName  = { public:'ផ្លូវការ', company:'ក្រុមហ៊ុន', religious:'សាសនា', special:'ពិសេស' };
+  const typeColor = { public:'var(--info)', company:'var(--primary)', religious:'var(--warning)', special:'var(--success)' };
+  const today = new Date().toISOString().split('T')[0];
+
+  // Group by month
+  const byMonth = {};
+  holidays.forEach(h => {
+    const mo = h.date.slice(0,7);
+    if (!byMonth[mo]) byMonth[mo] = [];
+    byMonth[mo].push(h);
+  });
+
+  const khMonth = ['','មករា','កុម្ភៈ','មីនា','មេសា','ឧសភា','មិថុនា','កក្កដា','សីហា','កញ្ញា','តុលា','វិច្ឆិកា','ធ្នូ'];
+  list.innerHTML = Object.entries(byMonth).map(([mo, items]) => {
+    const [y,m] = mo.split('-');
+    return `<div style="margin-bottom:14px">
+      <div style="font-size:11px;font-weight:700;color:var(--text3);letter-spacing:1px;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid var(--border)">${khMonth[parseInt(m)]} ${y}</div>
+      ${items.map(h => {
+        const isPast = h.date < today;
+        const isToday = h.date === today;
+        const dow = new Date(h.date+'T00:00:00').toLocaleDateString('km-KH',{weekday:'short'});
+        return `<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:${isToday?'rgba(255,183,3,.08)':'var(--bg3)'};border:1px solid ${isToday?'var(--warning)':'var(--border)'};border-radius:8px;margin-bottom:6px;opacity:${isPast?'.6':'1'}">
+          <div style="font-size:18px">${typeIcon[h.type]||'🎉'}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:700;font-size:13px">${h.name}${isToday?' <span style="font-size:10px;background:var(--warning);color:#000;padding:1px 6px;border-radius:4px">ថ្ងៃនេះ</span>':''}</div>
+            <div style="font-size:11px;color:var(--text3)">${h.date} · ${dow} · <span style="color:${typeColor[h.type]||'var(--text3)'}">${typeName[h.type]||''}</span></div>
+          </div>
+          <button class="btn btn-danger btn-sm" onclick="deleteHoliday('${h.date}')">🗑️</button>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }).join('');
+}
+
+function addHoliday() {
+  const date = document.getElementById('hd-date')?.value;
+  const name = document.getElementById('hd-name')?.value.trim();
+  const type = document.getElementById('hd-type')?.value || 'public';
+  if (!date || !name) { showToast('សូមបញ្ចូល ថ្ងៃ និង ឈ្មោះ!', 'error'); return; }
+  const list = getHolidays();
+  if (list.find(h => h.date === date)) { showToast('ថ្ងៃ '+date+' មានរួចហើយ!', 'warning'); return; }
+  list.push({ date, name, type });
+  saveHolidays(list);
+  document.getElementById('hd-date').value = '';
+  document.getElementById('hd-name').value = '';
+  showToast('បន្ថែម "'+name+'" រួច! ✅', 'success');
+  renderHolidayList();
+}
+
+function deleteHoliday(date) {
+  const list = getHolidays().filter(h => h.date !== date);
+  saveHolidays(list);
+  renderHolidayList();
+  showToast('លុបថ្ងៃបុណ្យរួច!', 'info');
+}
+
+function addKhmerHolidays() {
+  const y = new Date().getFullYear();
+  const khmerHolidays = [
+    { date:`${y}-01-01`, name:'ទិវាចូលឆ្នាំគ្រីស្ទ', type:'public' },
+    { date:`${y}-01-07`, name:'ទិវាជ័យជម្នះ ០៧ មករា', type:'public' },
+    { date:`${y}-03-08`, name:'ទិវានារីអន្តរជាតិ', type:'public' },
+    { date:`${y}-04-13`, name:'ចូលឆ្នាំខ្មែរ ថ្ងៃទី ១', type:'public' },
+    { date:`${y}-04-14`, name:'ចូលឆ្នាំខ្មែរ ថ្ងៃទី ២', type:'public' },
+    { date:`${y}-04-15`, name:'ចូលឆ្នាំខ្មែរ ថ្ងៃទី ៣', type:'public' },
+    { date:`${y}-04-16`, name:'ចូលឆ្នាំខ្មែរ ថ្ងៃទី ៤', type:'public' },
+    { date:`${y}-04-17`, name:'ទិវាជ័យជម្នះអំពើប្រល័យពូជសាសន៍', type:'public' },
+    { date:`${y}-05-01`, name:'ទិវាពលករអន្តរជាតិ', type:'public' },
+    { date:`${y}-05-14`, name:'ព្រះរាជពិធីបុណ្យចម្រើនព្រះជន្ម (ស្ដេច)', type:'public' },
+    { date:`${y}-06-01`, name:'ទិវាកុមារអន្តរជាតិ', type:'public' },
+    { date:`${y}-06-18`, name:'ព្រះរាជពិធីបុណ្យចម្រើនព្រះជន្ម (ព្រះម្ដាយ)', type:'public' },
+    { date:`${y}-09-24`, name:'ទិវារដ្ឋធម្មនុញ្ញ', type:'public' },
+    { date:`${y}-10-15`, name:'ទិវាប្ញស្ចាស', type:'religious' },
+    { date:`${y}-10-23`, name:'ទិវាហ៊ុនសែន (ស.ហ.ប.)', type:'public' },
+    { date:`${y}-10-29`, name:'ព្រះរាជពិធីគ្រងរាជ្យ', type:'public' },
+    { date:`${y}-11-09`, name:'ទិវាឯករាជ្យជាតិ', type:'public' },
+    { date:`${y}-11-14`, name:'ព្រះរាជពិធីបុណ្យអុំទូក ថ្ងៃទី ១', type:'public' },
+    { date:`${y}-11-15`, name:'ព្រះរាជពិធីបុណ្យអុំទូក ថ្ងៃទី ២', type:'public' },
+    { date:`${y}-11-16`, name:'ព្រះរាជពិធីបុណ្យអុំទូក ថ្ងៃទី ៣', type:'public' },
+    { date:`${y}-12-10`, name:'ទិវាសិទ្ធិមនុស្ស', type:'public' },
+  ];
+  const existing = getHolidays();
+  let added = 0;
+  khmerHolidays.forEach(h => {
+    if (!existing.find(e => e.date === h.date)) { existing.push(h); added++; }
+  });
+  saveHolidays(existing);
+  showToast(`បន្ថែម ${added} ថ្ងៃបុណ្យខ្មែរ ${y} រួច! ✅`, 'success');
+  renderHolidayList();
 }
 
 // ── Work Hours ───────────────────────────────────────────────
