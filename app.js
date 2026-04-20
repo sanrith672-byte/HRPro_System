@@ -2132,7 +2132,13 @@ async function processQRScan_continue(emp, raw, date) {
   const now   = new Date();
   const time  = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
   const type  = window._scanType || 'in';
-  const isLate = type === 'in' && (now.getHours() > 8 || (now.getHours() === 8 && now.getMinutes() > 15));
+  // Use saved work hours for late check
+  const wh = getWorkHours();
+  const [startH, startM] = wh.work_start.split(':').map(Number);
+  const graceM = wh.late_grace_minutes || 15;
+  const lateH  = Math.floor((startH * 60 + startM + graceM) / 60);
+  const lateMn = (startH * 60 + startM + graceM) % 60;
+  const isLate = type === 'in' && (now.getHours() > lateH || (now.getHours() === lateH && now.getMinutes() >= lateMn));
   const status = type === 'in' ? (isLate ? 'late' : 'present') : 'present';
 
   const payload = { employee_id: emp.id, date };
@@ -5152,6 +5158,10 @@ function renderSettings() {
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
         Data
       </a>
+      <a href="#" class="settings-tab" onclick="switchSettingsTab('workhours',this);return false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        ម៉ោងធ្វើការ
+      </a>
     </div>
 
     <!-- Panels -->
@@ -5771,6 +5781,92 @@ function renderSettings() {
         </div>
       </div><!-- /panel-data_mgmt -->
 
+      <!-- === WORK HOURS PANEL === -->
+      <div class="settings-panel" id="panel-workhours">
+        <div class="settings-section">
+          <div class="settings-section-header">
+            <div class="sec-icon" style="background:rgba(17,138,178,.15);font-size:18px">⏰</div>
+            <div>
+              <div class="settings-section-title">ម៉ោងធ្វើការ</div>
+              <div class="settings-section-desc">កំណត់ម៉ោងចូល/ចេញ និង threshold យឺត</div>
+            </div>
+          </div>
+          <div class="settings-section-body">
+            <div class="form-grid">
+              <div class="form-group">
+                <label class="form-label">⏰ ម៉ោងចូលធ្វើការ</label>
+                <input class="form-control" type="time" id="wh-start"
+                  value="${cfg.work_start||'08:00'}"
+                  onchange="previewWorkHours()" />
+                <div style="font-size:11px;color:var(--text3);margin-top:4px">ម៉ោងចូលធ្វើការ standard</div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">🏁 ម៉ោងចេញធ្វើការ</label>
+                <input class="form-control" type="time" id="wh-end"
+                  value="${cfg.work_end||'17:00'}"
+                  onchange="previewWorkHours()" />
+                <div style="font-size:11px;color:var(--text3);margin-top:4px">ម៉ោងចេញធ្វើការ standard</div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">⏳ អត់ទ្រាំ (នាទី)</label>
+                <input class="form-control" type="number" id="wh-grace" min="0" max="60"
+                  value="${cfg.late_grace_minutes||'15'}"
+                  onchange="previewWorkHours()" />
+                <div style="font-size:11px;color:var(--text3);margin-top:4px">នាទីក្រោយ start → ចាប់ count "យឺត"</div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">🌙 ម៉ោងសម្រាក昼</label>
+                <div style="display:flex;gap:8px">
+                  <input class="form-control" type="time" id="wh-break-start"
+                    value="${cfg.break_start||'12:00'}"
+                    style="flex:1" onchange="previewWorkHours()" />
+                  <span style="align-self:center;color:var(--text3)">→</span>
+                  <input class="form-control" type="time" id="wh-break-end"
+                    value="${cfg.break_end||'13:00'}"
+                    style="flex:1" onchange="previewWorkHours()" />
+                </div>
+                <div style="font-size:11px;color:var(--text3);margin-top:4px">ម៉ោងសម្រាកថ្ងៃត្រង់</div>
+              </div>
+            </div>
+
+            <!-- Preview -->
+            <div id="wh-preview" style="margin-top:16px;padding:14px;background:var(--bg3);border-radius:10px;border:1px solid var(--border)">
+              <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:10px">📋 សង្ខេបម៉ោងធ្វើការ</div>
+              <div id="wh-preview-content" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px"></div>
+            </div>
+
+            <div class="form-actions" style="margin-top:16px">
+              <button class="btn btn-outline" onclick="resetWorkHours()">↩️ លំនាំដើម</button>
+              <button class="btn btn-primary" onclick="saveWorkHours()">💾 រក្សាទុក</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Work days -->
+        <div class="settings-section">
+          <div class="settings-section-header">
+            <div class="sec-icon" style="background:rgba(6,214,160,.15);font-size:18px">📅</div>
+            <div>
+              <div class="settings-section-title">ថ្ងៃធ្វើការ</div>
+              <div class="settings-section-desc">ជ្រើសរើសថ្ងៃធ្វើការប្រចាំសប្ដាហ៍</div>
+            </div>
+          </div>
+          <div class="settings-section-body">
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+              ${['ច័ន្ទ','អង្គារ','ពុធ','ព្រហស្បតិ៍','សុក្រ','សៅរ៍','អាទិត្យ'].map((d,i)=>`
+                <label style="display:flex;align-items:center;gap:6px;padding:8px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;cursor:pointer;user-select:none">
+                  <input type="checkbox" id="wd-${i}" ${(cfg.work_days||[0,1,2,3,4]).includes(i)?'checked':''} onchange="previewWorkHours()" style="width:16px;height:16px;accent-color:var(--primary)" />
+                  <span style="font-size:13px;font-weight:500">${d}</span>
+                </label>
+              `).join('')}
+            </div>
+            <div class="form-actions">
+              <button class="btn btn-primary" onclick="saveWorkHours()">💾 រក្សាទុក</button>
+            </div>
+          </div>
+        </div>
+      </div><!-- /panel-workhours -->
+
     </div><!-- /settings-content -->
   </div><!-- /settings-layout -->
   `;
@@ -5799,6 +5895,86 @@ function switchSettingsTab(panel, el) {
   el.classList.add('active');
   const pEl = $('panel-' + panel);
   if (pEl) pEl.classList.add('active');
+  if (panel === 'workhours') previewWorkHours();
+}
+
+// ── Work Hours ───────────────────────────────────────────────
+function getWorkHours() {
+  const cfg = getCompanyConfig();
+  return {
+    work_start:          cfg.work_start          || '08:00',
+    work_end:            cfg.work_end             || '17:00',
+    late_grace_minutes:  parseInt(cfg.late_grace_minutes) || 15,
+    break_start:         cfg.break_start          || '12:00',
+    break_end:           cfg.break_end            || '13:00',
+    work_days:           cfg.work_days            || [0,1,2,3,4],
+  };
+}
+
+function previewWorkHours() {
+  const start  = document.getElementById('wh-start')?.value  || '08:00';
+  const end    = document.getElementById('wh-end')?.value    || '17:00';
+  const grace  = parseInt(document.getElementById('wh-grace')?.value || '15');
+  const bStart = document.getElementById('wh-break-start')?.value || '12:00';
+  const bEnd   = document.getElementById('wh-break-end')?.value   || '13:00';
+
+  // Calculate work hours
+  const toMins = t => { const [h,m] = t.split(':').map(Number); return h*60+m; };
+  const toTime = m => String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0');
+  const totalMins = toMins(end) - toMins(start) - (toMins(bEnd) - toMins(bStart));
+  const lateTime  = toTime(toMins(start) + grace);
+  const days = ['ច័ន្ទ','អង្គារ','ពុធ','ព្រហស្បតិ៍','សុក្រ','សៅរ៍','អាទិត្យ'];
+  const selDays = days.filter((_,i) => document.getElementById('wd-'+i)?.checked).join(', ');
+
+  const content = document.getElementById('wh-preview-content');
+  if (!content) return;
+  content.innerHTML = [
+    ['⏰ ចូលធ្វើការ', start],
+    ['🏁 ចេញធ្វើការ', end],
+    ['⚠️ ចាប់ count យឺត', lateTime + ' ('+grace+' នាទី)'],
+    ['🌙 សម្រាក', bStart + ' → ' + bEnd],
+    ['⏱️ ម៉ោងធ្វើការ/ថ្ងៃ', (totalMins/60).toFixed(1) + ' ម៉ោង'],
+    ['📅 ថ្ងៃធ្វើការ', selDays || '—'],
+  ].map(([k,v]) =>
+    `<div style="color:var(--text3)">${k}</div><div style="font-weight:700;color:var(--text)">${v}</div>`
+  ).join('');
+}
+
+async function saveWorkHours() {
+  const start  = document.getElementById('wh-start')?.value;
+  const end    = document.getElementById('wh-end')?.value;
+  const grace  = document.getElementById('wh-grace')?.value;
+  const bStart = document.getElementById('wh-break-start')?.value;
+  const bEnd   = document.getElementById('wh-break-end')?.value;
+  const days   = [0,1,2,3,4,5,6].filter(i => document.getElementById('wd-'+i)?.checked);
+
+  const cfg = getCompanyConfig();
+  const updated = {
+    ...cfg,
+    work_start:         start  || '08:00',
+    work_end:           end    || '17:00',
+    late_grace_minutes: parseInt(grace) || 15,
+    break_start:        bStart || '12:00',
+    break_end:          bEnd   || '13:00',
+    work_days:          days,
+  };
+  localStorage.setItem('hr_company_config', JSON.stringify(updated));
+  try { await api('POST', '/config', updated); } catch(_) {}
+  showToast('រក្សាទុក ម៉ោងធ្វើការ រួច! ✅', 'success');
+  previewWorkHours();
+}
+
+function resetWorkHours() {
+  const def = { work_start:'08:00', work_end:'17:00', late_grace_minutes:15, break_start:'12:00', break_end:'13:00' };
+  const s = document.getElementById('wh-start');     if(s) s.value = def.work_start;
+  const e = document.getElementById('wh-end');       if(e) e.value = def.work_end;
+  const g = document.getElementById('wh-grace');     if(g) g.value = def.late_grace_minutes;
+  const bs= document.getElementById('wh-break-start'); if(bs) bs.value = def.break_start;
+  const be= document.getElementById('wh-break-end');   if(be) be.value = def.break_end;
+  [0,1,2,3,4].forEach(i => { const c = document.getElementById('wd-'+i); if(c) c.checked = true; });
+  [5,6].forEach(i => { const c = document.getElementById('wd-'+i); if(c) c.checked = false; });
+  previewWorkHours();
+  showToast('Reset ម៉ោងធ្វើការ រួច!', 'info');
 }
 
 // Logo upload
