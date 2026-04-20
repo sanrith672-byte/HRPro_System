@@ -6,7 +6,7 @@ const USERS_KEY     = 'hr_users';
 const THEME_KEY     = 'hr_theme';
 
 function getApiBase()  { return localStorage.getItem(STORAGE_KEY) || ''; }
-function isDemoMode()  { return localStorage.getItem(DEMO_MODE_KEY) === '1'; }
+function isDemoMode()  { return localStorage.getItem(DEMO_MODE_KEY) === '1' || !getApiBase(); }
 function isLoggedIn()  { return !!localStorage.getItem(AUTH_KEY); }
 function getSession()  { try { return JSON.parse(localStorage.getItem(AUTH_KEY)) || null; } catch { return null; } }
 
@@ -47,20 +47,11 @@ const getColor = (name) => COLORS[(name?.charCodeAt(0) || 0) % COLORS.length];
 const $ = (id) => document.getElementById(id);
 const contentArea = () => $('content-area');
 
-// ===== MULTI-COMPANY STATE =====
-const COMPANY_KEY = 'hr_current_company';
-function getCurrentCompany() {
-  try { return JSON.parse(localStorage.getItem(COMPANY_KEY)) || null; } catch { return null; }
-}
-function setCurrentCompany(co) { localStorage.setItem(COMPANY_KEY, JSON.stringify(co)); }
-function getCompanyId() { return getCurrentCompany()?.id || 1; }
-
 // ===== API HELPER (Real + Demo fallback) =====
 async function api(method, path, body = null) {
   if (isDemoMode()) return demoApi(method, path, body);
   const base = getApiBase().replace(/\/$/, '');
-  const coId = getCompanyId();
-  const opts = { method, headers: { 'Content-Type': 'application/json', 'X-Company-ID': String(coId) } };
+  const opts = { method, headers: { 'Content-Type': 'application/json' } };
   if (body) opts.body = JSON.stringify(body);
   try {
     const res = await fetch(base + path, opts);
@@ -68,6 +59,7 @@ async function api(method, path, body = null) {
     if (!res.ok) throw new Error(data.error || 'API Error');
     return data;
   } catch(e) {
+    // If CORS/network error, show helpful message
     if (e.message.includes('Failed to fetch') || e.message.includes('NetworkError')) {
       throw new Error('មិនអាចភ្ជាប់ Worker បាន។ សូមពិនិត្យ URL ក្នុង ⚙️ Settings');
     }
@@ -277,16 +269,10 @@ function saveSettings() {
   if (!url) { showToast('សូមដាក់ Worker URL!','error'); return; }
   localStorage.setItem(STORAGE_KEY, url);
   localStorage.removeItem(DEMO_MODE_KEY);
-  showToast('រក្សាទុកហើយ!','success');
+  showToast('រក្សាទុកហើយ! ភ្ជាប់ Worker...','success');
   closeModal();
   updateApiStatus();
-  // If no company selected, go to selector
-  if (!getCurrentCompany()) {
-    fetch(url+'/init',{method:'POST',headers:{'Content-Type':'application/json'}}).catch(()=>{});
-    setTimeout(() => showCompanySelector(), 300);
-  } else {
-    navigate(state.currentPage);
-  }
+  navigate(state.currentPage);
 }
 
 function enableDemo() {
@@ -1777,43 +1763,20 @@ async function renderAttendance(date='') {
   try {
     const [attData, empData] = await Promise.all([api('GET','/attendance?date='+today), api('GET','/employees')]);
     state.employees = empData.employees;
-    const records = attData.records || [];
-
-    // Check if holiday
-    const holiday = getHolidays().find(h => h.date === today);
-    const typeIcon = { public:'🏛️', company:'🏢', religious:'🙏', special:'⭐' };
-
-    // Compute stats
-    const stats = {
-      present: records.filter(r=>r.status==='present').length,
-      late:    records.filter(r=>r.status==='late').length,
-      absent:  records.filter(r=>r.status==='absent').length,
-      total:   records.length,
-      holiday: records.filter(r=>r.status==='holiday_work').length,
-    };
-
     const label = new Date(today+'T00:00:00').toLocaleDateString('km-KH',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
-    const attRows = records.length===0
-      ? '<tr><td colspan="7"><div class="empty-state" style="padding:30px"><p>'+(holiday?'🎉 ថ្ងៃបុណ្យ — ':'')+'មិនទាន់មានការកត់វត្តមានសម្រាប់ថ្ងៃនេះ</p></div></td></tr>'
-      : records.map(a => {
+    const attRows = attData.records.length===0
+      ? '<tr><td colspan="6"><div class="empty-state" style="padding:30px"><p>មិនទាន់មានការកត់វត្តមានសម្រាប់ថ្ងៃនេះ</p></div></td></tr>'
+      : attData.records.map(a => {
           const photo = getEmpPhoto(a.employee_id);
           const av = photo
             ? '<div class="emp-avatar" style="background:'+getColor(a.employee_name)+';overflow:hidden;padding:0"><img src="'+photo+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/></div>'
             : '<div class="emp-avatar" style="background:'+getColor(a.employee_name)+'">'+(a.employee_name||'?')[0]+'</div>';
-          const statusBadge = a.status==='present' ? '<span class="badge badge-green">✅ វត្តមាន</span>'
-            : a.status==='late'         ? '<span class="badge badge-yellow">⏰ យឺត</span>'
-            : a.status==='holiday_work' ? '<span class="badge" style="background:rgba(255,183,3,.2);color:var(--warning)">🎉 បុណ្យ+OT</span>'
-            : '<span class="badge badge-red">❌ អវត្តមាន</span>';
-          // OT rate badge
-          const otBadge = a.notes && a.notes.includes('OT:')
-            ? '<span style="font-size:10px;color:var(--warning);font-weight:700;margin-left:4px">'+a.notes.match(/OT:[^\s]*/)?.[0]+'</span>' : '';
           return '<tr>'
             +'<td><div class="employee-cell">'+av+'<div class="emp-name">'+a.employee_name+'</div></div></td>'
             +'<td>'+(a.department||'—')+'</td>'
             +'<td><span style="font-family:var(--mono);color:var(--success)">'+(a.check_in||'—')+'</span></td>'
             +'<td><span style="font-family:var(--mono);color:var(--text3)">'+(a.check_out||'—')+'</span></td>'
-            +'<td>'+statusBadge+otBadge+'</td>'
-            +'<td>'+(a.notes&&!a.notes.includes('OT:')?'<span style="font-size:11px;color:var(--text3)">'+a.notes+'</span>':'—')+'</td>'
+            +'<td>'+(a.status==='present'?'<span class="badge badge-green">✅ វត្តមាន</span>':a.status==='late'?'<span class="badge badge-yellow">⏰ យឺត</span>':'<span class="badge badge-red">❌ អវត្តមាន</span>')+'</td>'
             +'<td><div class="action-btns">'
             +'<button class="btn btn-outline btn-sm" onclick="openEditAttModal('+a.id+',\''+a.employee_name+'\')">✏️</button>'
             +'<button class="btn btn-outline btn-sm" onclick="quickCheckOut('+a.employee_id+',\''+today+'\')">🚪</button>'
@@ -1822,22 +1785,9 @@ async function renderAttendance(date='') {
             +'</tr>';
         }).join('');
 
-    // Holiday banner
-    const holidayBanner = holiday
-      ? '<div style="margin-bottom:16px;padding:14px 18px;background:rgba(255,183,3,.1);border:1px solid rgba(255,183,3,.3);border-radius:12px;display:flex;align-items:center;gap:12px">'
-        +'<div style="font-size:28px">'+(typeIcon[holiday.type]||'🎉')+'</div>'
-        +'<div style="flex:1">'
-        +'<div style="font-weight:800;font-size:15px;color:var(--warning)">'+holiday.name+'</div>'
-        +'<div style="font-size:12px;color:var(--text3)">ថ្ងៃបុណ្យ — បុគ្គលិកដែលមកធ្វើការ នឹងត្រូវបានកត់ជា OT</div>'
-        +'</div>'
-        +'<button class="btn btn-warning btn-sm" onclick="openHolidayWorkModal(\''+today+'\',\''+holiday.name.replace(/'/g,"\\'")+'\')" style="white-space:nowrap">'
-        +'🎉 កត់ធ្វើការថ្ងៃបុណ្យ</button>'
-        +'</div>'
-      : '';
-
     contentArea().innerHTML =
       '<div class="page-header">'
-      +'<div><h2>វត្តមានប្រចាំថ្ងៃ</h2><p>'+label+(holiday?' 🎉 '+holiday.name:'')+'</p></div>'
+      +'<div><h2>វត្តមានប្រចាំថ្ងៃ</h2><p>'+label+'</p></div>'
       +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
       +'<input class="filter-input" type="date" value="'+today+'" onchange="renderAttendance(this.value)" />'
       +'<button class="btn btn-success" onclick="openQRScanModal(\''+today+'\')">'
@@ -1846,76 +1796,19 @@ async function renderAttendance(date='') {
       +'<button class="btn btn-primary" onclick="openAttModal(\''+today+'\')">'
       +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> កត់វត្តមាន</button>'
       +'</div></div>'
-      + holidayBanner
       +'<div class="att-summary">'
-      +'<div class="att-box"><div class="att-num" style="color:var(--success)">'+stats.present+'</div><div class="att-lbl">✅ វត្តមាន</div></div>'
-      +'<div class="att-box"><div class="att-num" style="color:var(--warning)">'+stats.late+'</div><div class="att-lbl">⏰ យឺត</div></div>'
-      +'<div class="att-box"><div class="att-num" style="color:var(--danger)">'+stats.absent+'</div><div class="att-lbl">❌ អវត្តមាន</div></div>'
-      +(holiday?'<div class="att-box"><div class="att-num" style="color:var(--warning)">'+stats.holiday+'</div><div class="att-lbl">🎉 OT បុណ្យ</div></div>':'')
-      +'<div class="att-box"><div class="att-num" style="color:var(--info)">'+stats.total+'</div><div class="att-lbl">👥 សរុប</div></div>'
+      +'<div class="att-box"><div class="att-num" style="color:var(--success)">'+attData.stats.present+'</div><div class="att-lbl">✅ មានវត្តមាន</div></div>'
+      +'<div class="att-box"><div class="att-num" style="color:var(--warning)">'+attData.stats.late+'</div><div class="att-lbl">⏰ មកយឺត</div></div>'
+      +'<div class="att-box"><div class="att-num" style="color:var(--danger)">'+attData.stats.absent+'</div><div class="att-lbl">❌ អវត្តមាន</div></div>'
+      +'<div class="att-box"><div class="att-num" style="color:var(--info)">'+attData.stats.total+'</div><div class="att-lbl">👥 សរុប</div></div>'
       +'</div>'
       +'<div class="card">'
       +'<div class="card-header"><span class="card-title">ក្បាលបញ្ជីវត្តមាន</span></div>'
       +'<div class="table-container"><table>'
-      +'<thead><tr><th>បុគ្គលិក</th><th>នាយកដ្ឋាន</th><th>ម៉ោងចូល</th><th>ម៉ោងចេញ</th><th>ស្ថានភាព</th><th>កំណត់ចំណាំ</th><th>សកម្មភាព</th></tr></thead>'
+      +'<thead><tr><th>បុគ្គលិក</th><th>នាយកដ្ឋាន</th><th>ម៉ោងចូល</th><th>ម៉ោងចេញ</th><th>ស្ថានភាព</th><th>សកម្មភាព</th></tr></thead>'
       +'<tbody>'+attRows+'</tbody>'
       +'</table></div></div>';
   } catch(e) { showError(e.message); }
-}
-
-// ── Holiday Work Modal ────────────────────────────────────────
-function openHolidayWorkModal(date, holidayName) {
-  const emps = state.employees || [];
-  $('modal-title').textContent = '🎉 កត់ធ្វើការថ្ងៃបុណ្យ — ' + holidayName;
-  $('modal-body').innerHTML =
-    '<div style="margin-bottom:14px;padding:10px 14px;background:rgba(255,183,3,.08);border:1px solid rgba(255,183,3,.25);border-radius:8px;font-size:12px;color:var(--warning)">'
-    +'⚠️ បុគ្គលិកដែលមកធ្វើការថ្ងៃបុណ្យ នឹងត្រូវបានកត់ជា <strong>OT x1.5</strong> (អាចផ្លាស់ប្ដូរ)</div>'
-    +'<div class="form-grid">'
-    +'<div class="form-group"><label class="form-label">បុគ្គលិក *</label>'
-    +'<select class="form-control" id="hw-emp">'
-    +emps.map(e=>'<option value="'+e.id+'">'+e.name+' ('+( e.department_name||'—')+')</option>').join('')
-    +'</select></div>'
-    +'<div class="form-group"><label class="form-label">ម៉ោងចូល</label>'
-    +'<input class="form-control" type="time" id="hw-in" value="08:00" /></div>'
-    +'<div class="form-group"><label class="form-label">ម៉ោងចេញ</label>'
-    +'<input class="form-control" type="time" id="hw-out" value="17:00" /></div>'
-    +'<div class="form-group"><label class="form-label">អត្រា OT</label>'
-    +'<select class="form-control" id="hw-rate">'
-    +'<option value="1.5">x1.5 — OT ថ្ងៃបុណ្យ</option>'
-    +'<option value="2.0">x2.0 — OT Double</option>'
-    +'<option value="1.0">x1.0 — ធម្មតា</option>'
-    +'</select></div>'
-    +'<div class="form-group full-width"><label class="form-label">កំណត់ចំណាំ</label>'
-    +'<input class="form-control" id="hw-note" value="ធ្វើការថ្ងៃ'+holidayName+'" /></div>'
-    +'</div>'
-    +'<div class="form-actions">'
-    +'<button class="btn btn-outline" onclick="closeModal()">បោះបង់</button>'
-    +'<button class="btn btn-warning" onclick="saveHolidayWork(\''+date+'\')">🎉 កត់ OT</button>'
-    +'</div>';
-  openModal();
-}
-
-async function saveHolidayWork(date) {
-  const empId  = document.getElementById('hw-emp')?.value;
-  const checkIn  = document.getElementById('hw-in')?.value  || '08:00';
-  const checkOut = document.getElementById('hw-out')?.value || '17:00';
-  const rate   = document.getElementById('hw-rate')?.value  || '1.5';
-  const note   = document.getElementById('hw-note')?.value  || 'ធ្វើការថ្ងៃបុណ្យ';
-  if (!empId) { showToast('សូមជ្រើសបុគ្គលិក!','error'); return; }
-
-  try {
-    await api('POST','/attendance',{
-      employee_id: parseInt(empId),
-      date,
-      check_in:  checkIn,
-      check_out: checkOut,
-      status: 'holiday_work',
-      notes: note + ' OT:x'+rate,
-    });
-    showToast('កត់ OT ថ្ងៃបុណ្យ រួច! ✅','success');
-    closeModal();
-    renderAttendance(date);
-  } catch(e) { showToast('Error: '+e.message,'error'); }
 }
 
 async function deleteAttendance(id, date) {
@@ -2239,13 +2132,7 @@ async function processQRScan_continue(emp, raw, date) {
   const now   = new Date();
   const time  = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
   const type  = window._scanType || 'in';
-  // Use saved work hours for late check
-  const wh = getWorkHours();
-  const [startH, startM] = wh.work_start.split(':').map(Number);
-  const graceM = wh.late_grace_minutes || 15;
-  const lateH  = Math.floor((startH * 60 + startM + graceM) / 60);
-  const lateMn = (startH * 60 + startM + graceM) % 60;
-  const isLate = type === 'in' && (now.getHours() > lateH || (now.getHours() === lateH && now.getMinutes() >= lateMn));
+  const isLate = type === 'in' && (now.getHours() > 8 || (now.getHours() === 8 && now.getMinutes() > 15));
   const status = type === 'in' ? (isLate ? 'late' : 'present') : 'present';
 
   const payload = { employee_id: emp.id, date };
@@ -3027,23 +2914,6 @@ async function renderOvertime() {
     const records = data.records || [];
     const totalHrs = records.reduce((s,r)=>s+(r.hours||0),0);
     const totalPay = records.reduce((s,r)=>s+(r.pay||0),0);
-
-    // Check today holiday
-    const todayStr = new Date().toISOString().split('T')[0];
-    const holiday  = getHolidays().find(h => h.date === todayStr);
-    const typeIcon = { public:'🏛️', company:'🏢', religious:'🙏', special:'⭐' };
-
-    // Holiday banner
-    const hBanner = holiday
-      ? '<div style="margin-bottom:16px;padding:14px 18px;background:rgba(255,183,3,.1);border:1px solid rgba(255,183,3,.3);border-radius:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">'
-        +'<div style="font-size:26px">'+(typeIcon[holiday.type]||'🎉')+'</div>'
-        +'<div style="flex:1;min-width:140px">'
-        +'<div style="font-weight:800;font-size:14px;color:var(--warning)">'+holiday.name+'</div>'
-        +'<div style="font-size:11px;color:var(--text3)">ថ្ងៃបុណ្យ '+todayStr+' — OT x1.5</div></div>'
-        +'<button class="btn btn-warning" onclick="openHolidayOTModal(\''+todayStr+'\',\''+holiday.name.replace(/'/g,"\'")+'\')">🎉 កត់ OT ថ្ងៃបុណ្យ</button>'
-        +'</div>'
-      : '';
-
     const rows = records.length===0
       ? '<tr><td colspan="9"><div class="empty-state" style="padding:30px"><p>មិនទាន់មានកំណត់ត្រាថែមម៉ោង</p></div></td></tr>'
       : records.map(r=>{
@@ -3051,10 +2921,8 @@ async function renderOvertime() {
           const av = photo
             ? '<div class="emp-avatar" style="background:'+getColor(r.employee_name)+';overflow:hidden;padding:0"><img src="'+photo+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/></div>'
             : '<div class="emp-avatar" style="background:'+getColor(r.employee_name)+'">'+(r.employee_name||'?')[0]+'</div>';
-          const isHolOT = (r.reason||'').includes('ថ្ងៃបុណ្យ');
-          const holBadge = isHolOT ? '<span style="margin-left:4px;font-size:9px;background:rgba(255,183,3,.2);color:var(--warning);padding:1px 5px;border-radius:4px;font-weight:700">🎉</span>' : '';
           return '<tr>'
-            +'<td><div class="employee-cell">'+av+'<div class="emp-name">'+r.employee_name+holBadge+'</div></div></td>'
+            +'<td><div class="employee-cell">'+av+'<div class="emp-name">'+r.employee_name+'</div></div></td>'
             +'<td style="font-family:var(--mono);font-size:12px">'+r.date+'</td>'
             +'<td><span style="font-weight:700;color:var(--primary)">'+r.hours+'h</span></td>'
             +'<td style="font-family:var(--mono)">$'+r.rate+'/h</td>'
@@ -3065,20 +2933,19 @@ async function renderOvertime() {
             +(r.status==='pending'?'<button class="btn btn-success btn-sm" onclick="approveOvertime('+r.id+')">✅</button><button class="btn btn-danger btn-sm" onclick="rejectOvertime('+r.id+')">❌</button>':'')
             +'<button class="btn btn-outline btn-sm" onclick="openEditOvertimeModal('+r.id+')">✏️</button>'
             +'<button class="btn btn-danger btn-sm" onclick="deleteRecord(\'overtime\','+r.id+',renderOvertime)">🗑️</button>'
-            +'</div></td></tr>';
+            +'</div></td>'
+            +'</tr>';
         }).join('');
 
     contentArea().innerHTML =
       '<div class="page-header">'
-      +'<div><h2>ថែមម៉ោង</h2><p>OT — '+records.length+' កំណត់ត្រា'+(holiday?' · 🎉 '+holiday.name:'')+'</p></div>'
+      +'<div><h2>ថែមម៉ោង</h2><p>OT — '+records.length+' កំណត់ត្រា</p></div>'
       +'<div style="display:flex;gap:8px;flex-wrap:wrap">'
       +'<button class="btn btn-outline" onclick="printTableData(\'overtime\')">'
       +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> PDF</button>'
-      +(holiday?'<button class="btn btn-warning" onclick="openHolidayOTModal(\''+todayStr+'\',\''+holiday.name.replace(/'/g,"\'")+'\')" >🎉 OT ថ្ងៃបុណ្យ</button>':'')
       +'<button class="btn btn-primary" onclick="openOvertimeModal()">'
       +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> បន្ថែម</button>'
       +'</div></div>'
-      + hBanner
       +'<div class="stats-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:20px">'
       +'<div class="stat-card"><div class="stat-icon orange"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>'
       +'<div><div class="stat-label">ម៉ោងសរុប</div><div class="stat-value">'+totalHrs+'h</div></div></div>'
@@ -3092,70 +2959,6 @@ async function renderOvertime() {
       +'<tbody>'+rows+'</tbody>'
       +'</table></div></div>';
   } catch(e) { showError(e.message); }
-}
-
-function openHolidayOTModal(date, holidayName) {
-  const emps = state.employees || [];
-  if (!emps.length) {
-    api('GET','/employees?limit=500').then(d=>{ state.employees=d.employees||[]; openHolidayOTModal(date,holidayName); }).catch(()=>{});
-    return;
-  }
-  $('modal-title').textContent = '🎉 OT ថ្ងៃបុណ្យ — ' + holidayName;
-  $('modal-body').innerHTML =
-    '<div style="margin-bottom:12px;padding:10px 14px;background:rgba(255,183,3,.08);border:1px solid rgba(255,183,3,.25);border-radius:8px;font-size:12px;color:var(--warning)">'
-    +'🎉 ថ្ងៃបុណ្យ: <strong>'+holidayName+'</strong> — '+date+'</div>'
-    +'<div class="form-grid">'
-    +'<div class="form-group full-width"><label class="form-label">បុគ្គលិក *</label>'
-    +'<select class="form-control" id="hot-emp" onchange="calcHolidayOT()">'
-    +emps.map(e=>'<option value="'+e.id+'|'+(e.salary||0)+'">'+e.name+' ('+(e.department_name||'—')+')</option>').join('')
-    +'</select></div>'
-    +'<div class="form-group"><label class="form-label">ម៉ោង OT *</label>'
-    +'<input class="form-control" type="number" id="hot-hours" value="8" min="1" max="24" oninput="calcHolidayOT()" /></div>'
-    +'<div class="form-group"><label class="form-label">អត្រា OT</label>'
-    +'<select class="form-control" id="hot-rate" onchange="calcHolidayOT()">'
-    +'<option value="1.5">x1.5 — ថ្ងៃបុណ្យ standard</option>'
-    +'<option value="2.0">x2.0 — Double pay</option>'
-    +'<option value="1.0">x1.0 — ធម្មតា</option>'
-    +'</select></div>'
-    +'<div class="form-group"><label class="form-label">ប្រាក់ OT (auto)</label>'
-    +'<input class="form-control" id="hot-pay" readonly style="color:var(--success);font-weight:700" placeholder="$0" /></div>'
-    +'<div class="form-group full-width"><label class="form-label">មូលហេតុ</label>'
-    +'<input class="form-control" id="hot-reason" value="ធ្វើការថ្ងៃ'+holidayName+'" /></div>'
-    +'</div>'
-    +'<div class="form-actions">'
-    +'<button class="btn btn-outline" onclick="closeModal()">បោះបង់</button>'
-    +'<button class="btn btn-warning" onclick="saveHolidayOT(\''+date+'\')">🎉 Save OT</button>'
-    +'</div>';
-  openModal();
-  calcHolidayOT();
-}
-
-function calcHolidayOT() {
-  const sel = document.getElementById('hot-emp');
-  const salary = sel ? parseFloat((sel.value||'0').split('|')[1])||0 : 0;
-  const hours  = parseFloat(document.getElementById('hot-hours')?.value)||0;
-  const rate   = parseFloat(document.getElementById('hot-rate')?.value)||1.5;
-  const hourlyBase = salary / 26 / 8;
-  const pay = (hourlyBase * rate * hours).toFixed(2);
-  const payEl = document.getElementById('hot-pay');
-  if (payEl) payEl.value = '$' + pay;
-}
-
-async function saveHolidayOT(date) {
-  const sel   = document.getElementById('hot-emp');
-  const empId = sel ? parseInt((sel.value||'0').split('|')[0]) : null;
-  const hours = parseFloat(document.getElementById('hot-hours')?.value)||0;
-  const rate  = parseFloat(document.getElementById('hot-rate')?.value)||1.5;
-  const reason= document.getElementById('hot-reason')?.value||'';
-  const salary= sel ? parseFloat((sel.value||'0').split('|')[1])||0 : 0;
-  const hourlyBase = salary / 26 / 8;
-  const pay   = (hourlyBase * rate * hours).toFixed(2);
-  if (!empId||!hours) { showToast('សូមបំពេញ ឱ្យពេញ!','error'); return; }
-  try {
-    await api('POST','/overtime',{ employee_id:empId, date, hours, rate:(hourlyBase*rate).toFixed(2), pay:parseFloat(pay), reason, status:'pending' });
-    showToast('កត់ OT ថ្ងៃបុណ្យ រួច! ✅','success');
-    closeModal(); renderOvertime();
-  } catch(e) { showToast('Error: '+e.message,'error'); }
 }
 
 async function openEditOvertimeModal(id) {
@@ -3195,103 +2998,29 @@ async function saveEditOvertime(id) {
 
 async function openOvertimeModal() {
   await ensureEmployees();
-
-  const dateVal  = today();
-  const holiday  = getHolidays().find(h => h.date === dateVal);
-  const typeIcon = { public:'🏛️', company:'🏢', religious:'🙏', special:'⭐' };
-
-  // Holiday notice inside modal
-  const holNotice = holiday
-    ? `<div style="margin-bottom:12px;padding:10px 14px;background:rgba(255,183,3,.1);border:1px solid rgba(255,183,3,.3);border-radius:8px;display:flex;align-items:center;gap:10px">
-        <span style="font-size:20px">${typeIcon[holiday.type]||'🎉'}</span>
-        <div>
-          <div style="font-size:12px;font-weight:700;color:var(--warning)">ថ្ងៃបុណ្យ: ${holiday.name}</div>
-          <div style="font-size:11px;color:var(--text3)">OT Rate x1.5 ត្រូវបាន set ដោយស្វ័យប្រវត្តិ</div>
-        </div>
-       </div>`
-    : '';
-
-  $('modal-title').textContent = holiday ? '🎉 OT ថ្ងៃបុណ្យ — ' + holiday.name : 'កត់ត្រាថែមម៉ោង';
-
+  $('modal-title').textContent = 'កត់ត្រាថែមម៉ោង';
   $('modal-body').innerHTML = `
-    ${holNotice}
     <div class="form-grid">
       <div class="form-group full-width"><label class="form-label">បុគ្គលិក *</label>
-        <select class="form-control" id="ot-emp" onchange="autoCalcOTRate()">${state.employees.map(e=>`<option value="${e.id}|${e.salary||0}">${e.name} (${e.department_name||'—'})</option>`).join('')}</select></div>
-      <div class="form-group"><label class="form-label">កាលបរិច្ឆេទ *</label>
-        <input class="form-control" id="ot-date" type="date" value="${dateVal}" onchange="checkOTDateHoliday(this.value)" /></div>
-      <div class="form-group"><label class="form-label">ចំនួនម៉ោង *</label>
-        <input class="form-control" id="ot-hours" type="number" placeholder="2" min="0.5" step="0.5" value="${holiday?'8':''}" oninput="autoCalcOTRate()" /></div>
-      <div class="form-group"><label class="form-label">គុណ OT</label>
-        <select class="form-control" id="ot-multiplier" onchange="autoCalcOTRate()">
-          <option value="1.5" ${holiday?'selected':''}>x1.5 — ថ្ងៃបុណ្យ</option>
-          <option value="1.0" ${!holiday?'selected':''}>x1.0 — ធម្មតា</option>
-          <option value="2.0">x2.0 — Double</option>
-          <option value="0.5">x0.5 — ពាក់កណ្ដាល</option>
-        </select></div>
-      <div class="form-group"><label class="form-label">អត្រា/ម៉ោង (USD)</label>
-        <input class="form-control" id="ot-rate" type="number" placeholder="5" step="0.01" oninput="updateOTPay()" /></div>
-      <div class="form-group"><label class="form-label">ប្រាក់ OT សរុប</label>
-        <input class="form-control" id="ot-pay" readonly style="color:var(--success);font-weight:700" placeholder="$0" /></div>
-      <div class="form-group full-width"><label class="form-label">មូលហេតុ</label>
-        <input class="form-control" id="ot-reason" placeholder="មូលហេតុថែមម៉ោង..." value="${holiday?'ធ្វើការថ្ងៃ'+holiday.name:''}" /></div>
+        <select class="form-control" id="ot-emp">${state.employees.map(e=>`<option value="${e.id}">${e.name}</option>`).join('')}</select></div>
+      <div class="form-group"><label class="form-label">កាលបរិច្ឆេទ *</label><input class="form-control" id="ot-date" type="date" value="${today()}" /></div>
+      <div class="form-group"><label class="form-label">ចំនួនម៉ោង *</label><input class="form-control" id="ot-hours" type="number" placeholder="2" min="0.5" step="0.5" /></div>
+      <div class="form-group"><label class="form-label">អត្រា/ម៉ោង (USD) *</label><input class="form-control" id="ot-rate" type="number" placeholder="5" /></div>
+      <div class="form-group full-width"><label class="form-label">មូលហេតុ</label><input class="form-control" id="ot-reason" placeholder="មូលហេតុថែមម៉ោង..." /></div>
     </div>
     <div class="form-actions">
       <button class="btn btn-outline" onclick="closeModal()">បោះបង់</button>
-      <button class="btn ${holiday?'btn-warning':'btn-primary'}" onclick="saveOvertime()">${holiday?'🎉 ':''} រក្សាទុក</button>
+      <button class="btn btn-primary" onclick="saveOvertime()">រក្សាទុក</button>
     </div>`;
   openModal();
-  autoCalcOTRate();
-}
-
-function autoCalcOTRate() {
-  const sel        = document.getElementById('ot-emp');
-  const salary     = sel ? parseFloat((sel.value||'0').split('|')[1])||0 : 0;
-  const multiplier = parseFloat(document.getElementById('ot-multiplier')?.value)||1;
-  const hours      = parseFloat(document.getElementById('ot-hours')?.value)||0;
-  const hourlyBase = salary / 26 / 8;
-  const rate       = parseFloat((hourlyBase * multiplier).toFixed(2));
-  const rateEl     = document.getElementById('ot-rate');
-  // Only auto-fill rate if salary known (allow manual override)
-  if (rateEl && salary > 0) rateEl.value = rate;
-  updateOTPay();
-}
-
-function updateOTPay() {
-  const hours = parseFloat(document.getElementById('ot-hours')?.value)||0;
-  const rate  = parseFloat(document.getElementById('ot-rate')?.value)||0;
-  const pay   = (hours * rate).toFixed(2);
-  const payEl = document.getElementById('ot-pay');
-  if (payEl) payEl.value = '$' + pay;
-}
-
-function checkOTDateHoliday(dateVal) {
-  const holiday = getHolidays().find(h => h.date === dateVal);
-  const mul     = document.getElementById('ot-multiplier');
-  const reason  = document.getElementById('ot-reason');
-  if (holiday) {
-    if (mul)    mul.value = '1.5';
-    if (reason) reason.value = 'ធ្វើការថ្ងៃ' + holiday.name;
-    showToast('🎉 ថ្ងៃបុណ្យ: '+holiday.name+' — OT x1.5', 'warning');
-  } else {
-    if (mul) mul.value = '1.0';
-  }
-  autoCalcOTRate();
-  updateOTPay();
 }
 
 async function saveOvertime() {
-  const sel   = document.getElementById('ot-emp');
-  const empId = sel ? parseInt((sel.value||'0').split('|')[0]) : null;
-  const hours = parseFloat($('ot-hours')?.value)||0;
-  const rate  = parseFloat($('ot-rate')?.value)||0;
-  const pay   = hours * rate;
-  const reason= $('ot-reason')?.value || '';
-  const dateVal=$('ot-date')?.value || today();
-  if (!empId||!hours) { showToast('សូមបំពេញ បុគ្គលិក និង ម៉ោង!','error'); return; }
-  if (!rate) { showToast('សូមបំពេញ អត្រា/ម៉ោង!','error'); return; }
+  const hours = parseFloat($('ot-hours').value)||0;
+  const rate = parseFloat($('ot-rate').value)||0;
+  if (!hours||!rate) { showToast('សូមបំពេញម៉ោង និងអត្រា!','error'); return; }
   try {
-    await api('POST','/overtime',{ employee_id:empId, date:dateVal, hours, rate, pay, reason, status:'pending' });
+    await api('POST','/overtime',{ employee_id:parseInt($('ot-emp').value), date:$('ot-date').value, hours, rate, pay:hours*rate, reason:$('ot-reason').value, status:'pending' });
     showToast('កត់ត្រាថែមម៉ោងបានជោគជ័យ!','success'); closeModal(); renderOvertime();
   } catch(e) { showToast('បញ្ហា: '+e.message,'error'); }
 }
@@ -5423,15 +5152,6 @@ function renderSettings() {
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
         Data
       </a>
-      <a href="#" class="settings-tab" onclick="switchSettingsTab('workhours',this);return false">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-        ម៉ោងធ្វើការ
-      </a>
-
-      <a href="#" class="settings-tab" onclick="switchSettingsTab('holidays',this);return false">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-        ថ្ងៃបុណ្យ
-      </a>
     </div>
 
     <!-- Panels -->
@@ -6051,129 +5771,6 @@ function renderSettings() {
         </div>
       </div><!-- /panel-data_mgmt -->
 
-      <!-- === WORK HOURS PANEL === -->
-      <div class="settings-panel" id="panel-workhours">
-        <div class="settings-section">
-          <div class="settings-section-header">
-            <div class="sec-icon" style="background:rgba(17,138,178,.15);font-size:18px">⏰</div>
-            <div>
-              <div class="settings-section-title">ម៉ោងធ្វើការ</div>
-              <div class="settings-section-desc">កំណត់ម៉ោងចូល/ចេញ និង threshold យឺត</div>
-            </div>
-          </div>
-          <div class="settings-section-body">
-            <div class="form-grid">
-              <div class="form-group">
-                <label class="form-label">⏰ ម៉ោងចូលធ្វើការ</label>
-                <input class="form-control" type="time" id="wh-start"
-                  value="${cfg.work_start||'08:00'}"
-                  onchange="previewWorkHours()" />
-                <div style="font-size:11px;color:var(--text3);margin-top:4px">ម៉ោងចូលធ្វើការ standard</div>
-              </div>
-              <div class="form-group">
-                <label class="form-label">🏁 ម៉ោងចេញធ្វើការ</label>
-                <input class="form-control" type="time" id="wh-end"
-                  value="${cfg.work_end||'17:00'}"
-                  onchange="previewWorkHours()" />
-                <div style="font-size:11px;color:var(--text3);margin-top:4px">ម៉ោងចេញធ្វើការ standard</div>
-              </div>
-              <div class="form-group">
-                <label class="form-label">⏳ អត់ទ្រាំ (នាទី)</label>
-                <input class="form-control" type="number" id="wh-grace" min="0" max="60"
-                  value="${cfg.late_grace_minutes||'15'}"
-                  onchange="previewWorkHours()" />
-                <div style="font-size:11px;color:var(--text3);margin-top:4px">នាទីក្រោយ start → ចាប់ count "យឺត"</div>
-              </div>
-              <div class="form-group">
-                <label class="form-label">🌙 ម៉ោងសម្រាក昼</label>
-                <div style="display:flex;gap:8px">
-                  <input class="form-control" type="time" id="wh-break-start"
-                    value="${cfg.break_start||'12:00'}"
-                    style="flex:1" onchange="previewWorkHours()" />
-                  <span style="align-self:center;color:var(--text3)">→</span>
-                  <input class="form-control" type="time" id="wh-break-end"
-                    value="${cfg.break_end||'13:00'}"
-                    style="flex:1" onchange="previewWorkHours()" />
-                </div>
-                <div style="font-size:11px;color:var(--text3);margin-top:4px">ម៉ោងសម្រាកថ្ងៃត្រង់</div>
-              </div>
-            </div>
-
-            <!-- Preview -->
-            <div id="wh-preview" style="margin-top:16px;padding:14px;background:var(--bg3);border-radius:10px;border:1px solid var(--border)">
-              <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:10px">📋 សង្ខេបម៉ោងធ្វើការ</div>
-              <div id="wh-preview-content" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px"></div>
-            </div>
-
-            <div class="form-actions" style="margin-top:16px">
-              <button class="btn btn-outline" onclick="resetWorkHours()">↩️ លំនាំដើម</button>
-              <button class="btn btn-primary" onclick="saveWorkHours()">💾 រក្សាទុក</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Work days -->
-        <div class="settings-section">
-          <div class="settings-section-header">
-            <div class="sec-icon" style="background:rgba(6,214,160,.15);font-size:18px">📅</div>
-            <div>
-              <div class="settings-section-title">ថ្ងៃធ្វើការ</div>
-              <div class="settings-section-desc">ជ្រើសរើសថ្ងៃធ្វើការប្រចាំសប្ដាហ៍</div>
-            </div>
-          </div>
-          <div class="settings-section-body">
-            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
-              ${['ច័ន្ទ','អង្គារ','ពុធ','ព្រហស្បតិ៍','សុក្រ','សៅរ៍','អាទិត្យ'].map((d,i)=>`
-                <label style="display:flex;align-items:center;gap:6px;padding:8px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;cursor:pointer;user-select:none">
-                  <input type="checkbox" id="wd-${i}" ${(cfg.work_days||[0,1,2,3,4]).includes(i)?'checked':''} onchange="previewWorkHours()" style="width:16px;height:16px;accent-color:var(--primary)" />
-                  <span style="font-size:13px;font-weight:500">${d}</span>
-                </label>
-              `).join('')}
-            </div>
-            <div class="form-actions">
-              <button class="btn btn-primary" onclick="saveWorkHours()">💾 រក្សាទុក</button>
-            </div>
-          </div>
-        </div>
-      </div><!-- /panel-workhours -->
-
-      <!-- === HOLIDAYS PANEL === -->
-      <div class="settings-panel" id="panel-holidays">
-        <div class="settings-section">
-          <div class="settings-section-header">
-            <div class="sec-icon" style="background:rgba(255,183,3,.15);font-size:18px">🎉</div>
-            <div>
-              <div class="settings-section-title">ថ្ងៃបុណ្យ / ថ្ងៃឈប់សម្រាក</div>
-              <div class="settings-section-desc">គ្រប់គ្រងថ្ងៃបុណ្យ និងថ្ងៃឈប់សម្រាកផ្លូវការ</div>
-            </div>
-          </div>
-          <div class="settings-section-body">
-            <!-- Add holiday form -->
-            <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap">
-              <input class="form-control" type="date" id="hd-date" style="flex:1;min-width:140px" />
-              <input class="form-control" id="hd-name" placeholder="ឈ្មោះថ្ងៃបុណ្យ..." style="flex:2;min-width:180px" />
-              <select class="form-control" id="hd-type" style="flex:1;min-width:120px">
-                <option value="public">🏛️ ផ្លូវការ</option>
-                <option value="company">🏢 ក្រុមហ៊ុន</option>
-                <option value="religious">🙏 សាសនា</option>
-                <option value="special">⭐ ពិសេស</option>
-              </select>
-              <button class="btn btn-primary" onclick="addHoliday()" style="white-space:nowrap">
-                + បន្ថែម
-              </button>
-            </div>
-            <!-- Holiday list -->
-            <div id="holiday-list"></div>
-            <!-- Bulk add Khmer holidays -->
-            <div style="margin-top:14px;padding:12px;background:var(--bg3);border-radius:10px;border:1px solid var(--border)">
-              <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:8px">📅 បន្ថែមថ្ងៃបុណ្យខ្មែរ ${new Date().getFullYear()} ដោយស្វ័យប្រវត្តិ</div>
-              <button class="btn btn-outline btn-sm" onclick="addKhmerHolidays()">🇰🇭 Load ថ្ងៃបុណ្យខ្មែរ ${new Date().getFullYear()}</button>
-            </div>
-          </div>
-        </div>
-      </div><!-- /panel-holidays -->
-
-
     </div><!-- /settings-content -->
   </div><!-- /settings-layout -->
   `;
@@ -6202,279 +5799,6 @@ function switchSettingsTab(panel, el) {
   el.classList.add('active');
   const pEl = $('panel-' + panel);
   if (pEl) pEl.classList.add('active');
-  if (panel === 'workhours')      previewWorkHours();
-  if (panel === 'holidays')       renderHolidayList();
-
-}
-
-async function loadCompaniesSettings() {
-  const list = document.getElementById('companies-settings-list');
-  if (!list) return;
-  list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text3)">⏳ load...</div>';
-  try {
-    const base = getApiBase().replace(/\/$/,'');
-    const res  = await fetch(base+'/companies', {headers:{'Content-Type':'application/json'}});
-    const data = await res.json();
-    const companies = data.companies || [];
-    const current   = getCurrentCompany();
-    if (!companies.length) {
-      list.innerHTML = '<div style="color:var(--text3);font-size:13px">មិនទាន់មានក្រុមហ៊ុន</div>';
-      return;
-    }
-    list.innerHTML = companies.map(co => `
-      <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--bg3);border:1px solid ${co.id===current?.id?'var(--primary)':'var(--border)'};border-radius:10px;margin-bottom:10px">
-        <div style="width:38px;height:38px;border-radius:8px;background:${co.id===current?.id?'var(--primary)':'var(--bg4)'};display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;color:white;flex-shrink:0">${(co.name||'?')[0].toUpperCase()}</div>
-        <div style="flex:1;min-width:0">
-          <div style="font-weight:700;font-size:13px">${co.name}${co.id===current?.id?' <span style="font-size:10px;color:var(--primary)">(បច្ចុប្បន្ន)</span>':''}</div>
-          <div style="font-size:11px;color:var(--text3);font-family:var(--mono)">${co.code}</div>
-        </div>
-        <div style="display:flex;gap:6px;flex-shrink:0">
-          <button class="btn btn-outline btn-sm" onclick="openEditCoModal(${co.id},'${co.name.replace(/'/g,"\\'")}','${co.code}','${(co.phone||'').replace(/'/g,"\\'")}','${(co.email||'').replace(/'/g,"\\'")}')">✏️</button>
-          ${co.id!==current?.id?`<button class="btn btn-outline btn-sm" onclick="selectCompany(${co.id},'${co.name.replace(/'/g,"\\'")}','${co.code}')" style="color:var(--success);border-color:var(--success)">🔄</button>`:''}
-          <button class="btn btn-danger btn-sm" onclick="deleteCoConfirm(${co.id},'${co.name.replace(/'/g,"\\'")}')">🗑️</button>
-        </div>
-      </div>`).join('');
-  } catch(e) {
-    if (list) list.innerHTML = `<div style="color:var(--danger)">Error: ${e.message}</div>`;
-  }
-}
-
-function openEditCoModal(id, name, code, phone, email) {
-  $('modal-title').textContent = '✏️ កែប្រែក្រុមហ៊ុន';
-  $('modal-body').innerHTML =
-    '<div class="form-grid">'
-    +'<div class="form-group full-width"><label class="form-label">ឈ្មោះក្រុមហ៊ុន *</label>'
-    +'<input class="form-control" id="eco-name" value="'+name+'" /></div>'
-    +'<div class="form-group"><label class="form-label">Code *</label>'
-    +'<input class="form-control" id="eco-code" value="'+code+'" /></div>'
-    +'<div class="form-group"><label class="form-label">ទូរស័ព្ទ</label>'
-    +'<input class="form-control" id="eco-phone" value="'+(phone||'')+'" /></div>'
-    +'<div class="form-group full-width"><label class="form-label">អ៊ីម៉ែល</label>'
-    +'<input class="form-control" id="eco-email" value="'+(email||'')+'" /></div>'
-    +'</div>'
-    +'<div class="form-actions">'
-    +'<button class="btn btn-outline" onclick="closeModal()">បោះបង់</button>'
-    +'<button class="btn btn-primary" onclick="saveEditCo('+id+')">💾 Save</button>'
-    +'</div>';
-  openModal();
-}
-
-async function saveEditCo(id) {
-  const name  = document.getElementById('eco-name')?.value.trim();
-  const code  = document.getElementById('eco-code')?.value.trim().toUpperCase();
-  const phone = document.getElementById('eco-phone')?.value.trim() || '';
-  const email = document.getElementById('eco-email')?.value.trim() || '';
-  if (!name||!code) { showToast('សូមបំពេញ ឈ្មោះ និង Code!','error'); return; }
-  try {
-    const base = getApiBase().replace(/\/$/,'');
-    await fetch(base+'/companies/'+id, {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name,code,phone,email})});
-    const current = getCurrentCompany();
-    if (current && current.id===id) { setCurrentCompany({...current,name,code}); updateCompanyIndicator(); }
-    showToast('កែប្រែរួច! ✅','success');
-    closeModal(); loadCompaniesSettings();
-  } catch(e) { showToast('Error: '+e.message,'error'); }
-}
-
-async function deleteCoConfirm(id, name) {
-  const current = getCurrentCompany();
-  if (current && current.id===id) { showToast('មិនអាចលុបក្រុមហ៊ុនបច្ចុប្បន្ន!','error'); return; }
-  if (!confirm('⚠️ លុបក្រុមហ៊ុន "'+name+'"?')) return;
-  try {
-    const base = getApiBase().replace(/\/$/,'');
-    await fetch(base+'/companies/'+id, {method:'DELETE', headers:{'Content-Type':'application/json'}});
-    showToast('លុបរួច!','success'); loadCompaniesSettings();
-  } catch(e) { showToast('Error: '+e.message,'error'); }
-}
-
-// ── Holidays ─────────────────────────────────────────────────
-function getHolidays() {
-  try { return JSON.parse(localStorage.getItem('hr_holidays') || '[]'); } catch { return []; }
-}
-function saveHolidays(list) {
-  localStorage.setItem('hr_holidays', JSON.stringify(list));
-  try { api('POST', '/config', { key: 'hr_holidays', value: JSON.stringify(list) }); } catch(_) {}
-}
-function isHoliday(dateStr) {
-  return getHolidays().some(h => h.date === dateStr);
-}
-
-function renderHolidayList() {
-  const list = document.getElementById('holiday-list');
-  if (!list) return;
-  const holidays = getHolidays().sort((a,b) => a.date.localeCompare(b.date));
-  if (!holidays.length) {
-    list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text3);font-size:13px">មិនទាន់មានថ្ងៃបុណ្យ — បន្ថែមខាងលើ</div>';
-    return;
-  }
-  const typeIcon  = { public:'🏛️', company:'🏢', religious:'🙏', special:'⭐' };
-  const typeName  = { public:'ផ្លូវការ', company:'ក្រុមហ៊ុន', religious:'សាសនា', special:'ពិសេស' };
-  const typeColor = { public:'var(--info)', company:'var(--primary)', religious:'var(--warning)', special:'var(--success)' };
-  const today = new Date().toISOString().split('T')[0];
-
-  // Group by month
-  const byMonth = {};
-  holidays.forEach(h => {
-    const mo = h.date.slice(0,7);
-    if (!byMonth[mo]) byMonth[mo] = [];
-    byMonth[mo].push(h);
-  });
-
-  const khMonth = ['','មករា','កុម្ភៈ','មីនា','មេសា','ឧសភា','មិថុនា','កក្កដា','សីហា','កញ្ញា','តុលា','វិច្ឆិកា','ធ្នូ'];
-  list.innerHTML = Object.entries(byMonth).map(([mo, items]) => {
-    const [y,m] = mo.split('-');
-    return `<div style="margin-bottom:14px">
-      <div style="font-size:11px;font-weight:700;color:var(--text3);letter-spacing:1px;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid var(--border)">${khMonth[parseInt(m)]} ${y}</div>
-      ${items.map(h => {
-        const isPast = h.date < today;
-        const isToday = h.date === today;
-        const dow = new Date(h.date+'T00:00:00').toLocaleDateString('km-KH',{weekday:'short'});
-        return `<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:${isToday?'rgba(255,183,3,.08)':'var(--bg3)'};border:1px solid ${isToday?'var(--warning)':'var(--border)'};border-radius:8px;margin-bottom:6px;opacity:${isPast?'.6':'1'}">
-          <div style="font-size:18px">${typeIcon[h.type]||'🎉'}</div>
-          <div style="flex:1;min-width:0">
-            <div style="font-weight:700;font-size:13px">${h.name}${isToday?' <span style="font-size:10px;background:var(--warning);color:#000;padding:1px 6px;border-radius:4px">ថ្ងៃនេះ</span>':''}</div>
-            <div style="font-size:11px;color:var(--text3)">${h.date} · ${dow} · <span style="color:${typeColor[h.type]||'var(--text3)'}">${typeName[h.type]||''}</span></div>
-          </div>
-          <button class="btn btn-danger btn-sm" onclick="deleteHoliday('${h.date}')">🗑️</button>
-        </div>`;
-      }).join('')}
-    </div>`;
-  }).join('');
-}
-
-function addHoliday() {
-  const date = document.getElementById('hd-date')?.value;
-  const name = document.getElementById('hd-name')?.value.trim();
-  const type = document.getElementById('hd-type')?.value || 'public';
-  if (!date || !name) { showToast('សូមបញ្ចូល ថ្ងៃ និង ឈ្មោះ!', 'error'); return; }
-  const list = getHolidays();
-  if (list.find(h => h.date === date)) { showToast('ថ្ងៃ '+date+' មានរួចហើយ!', 'warning'); return; }
-  list.push({ date, name, type });
-  saveHolidays(list);
-  document.getElementById('hd-date').value = '';
-  document.getElementById('hd-name').value = '';
-  showToast('បន្ថែម "'+name+'" រួច! ✅', 'success');
-  renderHolidayList();
-}
-
-function deleteHoliday(date) {
-  const list = getHolidays().filter(h => h.date !== date);
-  saveHolidays(list);
-  renderHolidayList();
-  showToast('លុបថ្ងៃបុណ្យរួច!', 'info');
-}
-
-function addKhmerHolidays() {
-  const y = new Date().getFullYear();
-  const khmerHolidays = [
-    { date:`${y}-01-01`, name:'ទិវាចូលឆ្នាំគ្រីស្ទ', type:'public' },
-    { date:`${y}-01-07`, name:'ទិវាជ័យជម្នះ ០៧ មករា', type:'public' },
-    { date:`${y}-03-08`, name:'ទិវានារីអន្តរជាតិ', type:'public' },
-    { date:`${y}-04-13`, name:'ចូលឆ្នាំខ្មែរ ថ្ងៃទី ១', type:'public' },
-    { date:`${y}-04-14`, name:'ចូលឆ្នាំខ្មែរ ថ្ងៃទី ២', type:'public' },
-    { date:`${y}-04-15`, name:'ចូលឆ្នាំខ្មែរ ថ្ងៃទី ៣', type:'public' },
-    { date:`${y}-04-16`, name:'ចូលឆ្នាំខ្មែរ ថ្ងៃទី ៤', type:'public' },
-    { date:`${y}-04-17`, name:'ទិវាជ័យជម្នះអំពើប្រល័យពូជសាសន៍', type:'public' },
-    { date:`${y}-05-01`, name:'ទិវាពលករអន្តរជាតិ', type:'public' },
-    { date:`${y}-05-14`, name:'ព្រះរាជពិធីបុណ្យចម្រើនព្រះជន្ម (ស្ដេច)', type:'public' },
-    { date:`${y}-06-01`, name:'ទិវាកុមារអន្តរជាតិ', type:'public' },
-    { date:`${y}-06-18`, name:'ព្រះរាជពិធីបុណ្យចម្រើនព្រះជន្ម (ព្រះម្ដាយ)', type:'public' },
-    { date:`${y}-09-24`, name:'ទិវារដ្ឋធម្មនុញ្ញ', type:'public' },
-    { date:`${y}-10-15`, name:'ទិវាប្ញស្ចាស', type:'religious' },
-    { date:`${y}-10-23`, name:'ទិវាហ៊ុនសែន (ស.ហ.ប.)', type:'public' },
-    { date:`${y}-10-29`, name:'ព្រះរាជពិធីគ្រងរាជ្យ', type:'public' },
-    { date:`${y}-11-09`, name:'ទិវាឯករាជ្យជាតិ', type:'public' },
-    { date:`${y}-11-14`, name:'ព្រះរាជពិធីបុណ្យអុំទូក ថ្ងៃទី ១', type:'public' },
-    { date:`${y}-11-15`, name:'ព្រះរាជពិធីបុណ្យអុំទូក ថ្ងៃទី ២', type:'public' },
-    { date:`${y}-11-16`, name:'ព្រះរាជពិធីបុណ្យអុំទូក ថ្ងៃទី ៣', type:'public' },
-    { date:`${y}-12-10`, name:'ទិវាសិទ្ធិមនុស្ស', type:'public' },
-  ];
-  const existing = getHolidays();
-  let added = 0;
-  khmerHolidays.forEach(h => {
-    if (!existing.find(e => e.date === h.date)) { existing.push(h); added++; }
-  });
-  saveHolidays(existing);
-  showToast(`បន្ថែម ${added} ថ្ងៃបុណ្យខ្មែរ ${y} រួច! ✅`, 'success');
-  renderHolidayList();
-}
-
-// ── Work Hours ───────────────────────────────────────────────
-function getWorkHours() {
-  const cfg = getCompanyConfig();
-  return {
-    work_start:          cfg.work_start          || '08:00',
-    work_end:            cfg.work_end             || '17:00',
-    late_grace_minutes:  parseInt(cfg.late_grace_minutes) || 15,
-    break_start:         cfg.break_start          || '12:00',
-    break_end:           cfg.break_end            || '13:00',
-    work_days:           cfg.work_days            || [0,1,2,3,4],
-  };
-}
-
-function previewWorkHours() {
-  const start  = document.getElementById('wh-start')?.value  || '08:00';
-  const end    = document.getElementById('wh-end')?.value    || '17:00';
-  const grace  = parseInt(document.getElementById('wh-grace')?.value || '15');
-  const bStart = document.getElementById('wh-break-start')?.value || '12:00';
-  const bEnd   = document.getElementById('wh-break-end')?.value   || '13:00';
-
-  // Calculate work hours
-  const toMins = t => { const [h,m] = t.split(':').map(Number); return h*60+m; };
-  const toTime = m => String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0');
-  const totalMins = toMins(end) - toMins(start) - (toMins(bEnd) - toMins(bStart));
-  const lateTime  = toTime(toMins(start) + grace);
-  const days = ['ច័ន្ទ','អង្គារ','ពុធ','ព្រហស្បតិ៍','សុក្រ','សៅរ៍','អាទិត្យ'];
-  const selDays = days.filter((_,i) => document.getElementById('wd-'+i)?.checked).join(', ');
-
-  const content = document.getElementById('wh-preview-content');
-  if (!content) return;
-  content.innerHTML = [
-    ['⏰ ចូលធ្វើការ', start],
-    ['🏁 ចេញធ្វើការ', end],
-    ['⚠️ ចាប់ count យឺត', lateTime + ' ('+grace+' នាទី)'],
-    ['🌙 សម្រាក', bStart + ' → ' + bEnd],
-    ['⏱️ ម៉ោងធ្វើការ/ថ្ងៃ', (totalMins/60).toFixed(1) + ' ម៉ោង'],
-    ['📅 ថ្ងៃធ្វើការ', selDays || '—'],
-  ].map(([k,v]) =>
-    `<div style="color:var(--text3)">${k}</div><div style="font-weight:700;color:var(--text)">${v}</div>`
-  ).join('');
-}
-
-async function saveWorkHours() {
-  const start  = document.getElementById('wh-start')?.value;
-  const end    = document.getElementById('wh-end')?.value;
-  const grace  = document.getElementById('wh-grace')?.value;
-  const bStart = document.getElementById('wh-break-start')?.value;
-  const bEnd   = document.getElementById('wh-break-end')?.value;
-  const days   = [0,1,2,3,4,5,6].filter(i => document.getElementById('wd-'+i)?.checked);
-
-  const cfg = getCompanyConfig();
-  const updated = {
-    ...cfg,
-    work_start:         start  || '08:00',
-    work_end:           end    || '17:00',
-    late_grace_minutes: parseInt(grace) || 15,
-    break_start:        bStart || '12:00',
-    break_end:          bEnd   || '13:00',
-    work_days:          days,
-  };
-  localStorage.setItem('hr_company_config', JSON.stringify(updated));
-  try { await api('POST', '/config', updated); } catch(_) {}
-  showToast('រក្សាទុក ម៉ោងធ្វើការ រួច! ✅', 'success');
-  previewWorkHours();
-}
-
-function resetWorkHours() {
-  const def = { work_start:'08:00', work_end:'17:00', late_grace_minutes:15, break_start:'12:00', break_end:'13:00' };
-  const s = document.getElementById('wh-start');     if(s) s.value = def.work_start;
-  const e = document.getElementById('wh-end');       if(e) e.value = def.work_end;
-  const g = document.getElementById('wh-grace');     if(g) g.value = def.late_grace_minutes;
-  const bs= document.getElementById('wh-break-start'); if(bs) bs.value = def.break_start;
-  const be= document.getElementById('wh-break-end');   if(be) be.value = def.break_end;
-  [0,1,2,3,4].forEach(i => { const c = document.getElementById('wd-'+i); if(c) c.checked = true; });
-  [5,6].forEach(i => { const c = document.getElementById('wd-'+i); if(c) c.checked = false; });
-  previewWorkHours();
-  showToast('Reset ម៉ោងធ្វើការ រួច!', 'info');
 }
 
 // Logo upload
@@ -7394,165 +6718,12 @@ function initApp() {
     $('global-search').addEventListener('input', e => { if (state.currentPage === 'employees') renderEmployees(e.target.value); });
     $('btn-settings').addEventListener('click', () => navigate('settings'));
     updateApiStatus();
-    updateCompanyIndicator();
     if (!getApiBase() && localStorage.getItem(DEMO_MODE_KEY) !== '1') {
       showFirstRunSetup();
-    } else if (getApiBase() && !isDemoMode() && !getCurrentCompany()) {
-      showCompanySelector();
     } else {
       navigate('dashboard');
     }
   });
-}
-
-// ── Company Indicator ─────────────────────────────────────────
-function updateCompanyIndicator() {
-  const co  = getCurrentCompany();
-  const el  = document.getElementById('company-indicator');
-  if (el) el.textContent = co ? co.name : '—';
-}
-
-// ── Company Selector Screen ───────────────────────────────────
-async function showCompanySelector() {
-  const savedUrl = getApiBase();
-  contentArea().innerHTML =
-    '<div style="max-width:520px;margin:40px auto">'
-    +(savedUrl ? '' :
-      '<div style="margin-bottom:20px;padding:16px;background:rgba(255,107,53,.08);border:1px solid rgba(255,107,53,.25);border-radius:12px">'
-      +'<div style="font-size:13px;font-weight:700;color:var(--warning);margin-bottom:10px">⚙️ ដាក់ Worker URL មុន</div>'
-      +'<div style="display:flex;gap:8px">'
-      +'<input class="form-control" id="cs-worker-url" placeholder="https://your-worker.workers.dev" style="flex:1;font-size:12px" />'
-      +'<button class="btn btn-primary" onclick="saveWorkerUrlFromSelector()">Save</button>'
-      +'</div></div>'
-    )
-    +'<div style="text-align:center;margin-bottom:20px">'
-    +'<div style="font-size:48px;margin-bottom:10px">🏢</div>'
-    +'<h2 style="font-size:20px;font-weight:800;margin-bottom:6px">ជ្រើសរើសក្រុមហ៊ុន</h2>'
-    
-    +'</div>'
-    +'<div id="company-list" style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">'
-    +(savedUrl ? '<div style="text-align:center;padding:20px;color:var(--text3)">⏳ កំពុង load...</div>'
-               : '<div style="text-align:center;padding:16px;color:var(--text3);font-size:13px">⚠️ សូមដាក់ Worker URL ជាមុន</div>')
-    +'</div>'
-    
-    +'</div>';
-
-  if (!savedUrl) return;
-
-  try {
-    const base = savedUrl.replace(/\/$/,'');
-    // Init DB (no company header needed)
-    await fetch(base+'/init', {method:'POST', headers:{'Content-Type':'application/json'}}).catch(()=>{});
-    // Get companies (no company header needed)
-    const res  = await fetch(base+'/companies', {headers:{'Content-Type':'application/json'}});
-    const data = await res.json();
-    const companies = data.companies || [];
-
-    // Auto-select if only 1
-    if (companies.length === 1) {
-      selectCompany(companies[0].id, companies[0].name, companies[0].code);
-      return;
-    }
-
-    const list = document.getElementById('company-list');
-    if (!list) return;
-    if (!companies.length) {
-      list.innerHTML = '<div style="color:var(--text3);font-size:13px;text-align:center;padding:16px">មិនទាន់មានក្រុមហ៊ុន — បន្ថែមខាងក្រោម</div>';
-      return;
-    }
-    list.innerHTML = companies.map(co =>
-      '<div style="display:flex;align-items:center;gap:12px;padding:14px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;cursor:pointer" onclick="selectCompany('+co.id+',\''+co.name.replace(/'/g,"\\'")+ '\',\''+co.code+'\')" onmouseover="this.style.borderColor=\'var(--primary)\'" onmouseout="this.style.borderColor=\'var(--border)\'">'
-      +'<div style="width:42px;height:42px;border-radius:10px;background:var(--primary);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;color:white;flex-shrink:0">'+(co.name[0]||'?').toUpperCase()+'</div>'
-      +'<div style="flex:1"><div style="font-weight:700;font-size:14px">'+co.name+'</div>'
-      +'<div style="font-size:11px;color:var(--text3);font-family:var(--mono)">'+co.code+'</div></div>'
-      +'<svg viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" style="width:18px;height:18px"><polyline points="9 18 15 12 9 6"/></svg>'
-      +'</div>'
-    ).join('');
-  } catch(e) {
-    const list = document.getElementById('company-list');
-    if (list) list.innerHTML = '<div style="color:var(--danger);font-size:13px">Error: '+e.message+'</div>';
-  }
-}
-
-function saveWorkerUrlFromSelector() {
-  const input = document.getElementById('cs-worker-url');
-  const url = input?.value.trim().replace(/\/$/,'');
-  if (!url) { showToast('សូមបញ្ចូល Worker URL!','error'); return; }
-  localStorage.setItem(STORAGE_KEY, url);
-  localStorage.removeItem(DEMO_MODE_KEY);
-  showToast('Save Worker URL រួច! ✅','success');
-  fetch(url+'/init',{method:'POST'}).catch(()=>{});
-  setTimeout(() => showCompanySelector(), 500);
-}
-
-function selectCompany(id, name, code) {
-  setCurrentCompany({ id, name, code });
-  updateCompanyIndicator();
-  showToast('✅ ជ្រើស: '+name,'success');
-  navigate('dashboard');
-}
-
-function openCreateCompanyModal() {
-  $('modal-title').textContent = '🏢 បង្កើតក្រុមហ៊ុនថ្មី';
-  const ts = Date.now().toString().slice(-4);
-  $('modal-body').innerHTML =
-    '<div class="form-grid">'
-    +'<div class="form-group full-width"><label class="form-label">ឈ្មោះក្រុមហ៊ុន *</label>'
-    +'<input class="form-control" id="co-name" placeholder="ឈ្មោះក្រុមហ៊ុន..." oninput="autoGenCode(this.value)" /></div>'
-    +'<div class="form-group"><label class="form-label">Code *</label>'
-    +'<input class="form-control" id="co-code" value="CO'+ts+'" /></div>'
-    +'<div class="form-group"><label class="form-label">ទូរស័ព្ទ</label>'
-    +'<input class="form-control" id="co-phone" placeholder="023..." /></div>'
-    +'<div class="form-group"><label class="form-label">អ៊ីម៉ែល</label>'
-    +'<input class="form-control" id="co-email" placeholder="info@..." /></div>'
-    +'<div class="form-group full-width"><label class="form-label">អាស័យដ្ឋាន</label>'
-    +'<input class="form-control" id="co-address" placeholder="អាស័យដ្ឋាន..." /></div>'
-    +'</div>'
-    +'<div class="form-actions">'
-    +'<button class="btn btn-outline" onclick="closeModal()">បោះបង់</button>'
-    +'<button class="btn btn-primary" onclick="saveNewCompany()">+ បង្កើត</button>'
-    +'</div>';
-  openModal();
-}
-
-function autoGenCode(name) {
-  const el = document.getElementById('co-code');
-  if (!el) return;
-  const words  = name.trim().split(/\s+/).filter(Boolean);
-  const prefix = words.map(w=>(w[0]||'').toUpperCase()).join('').slice(0,4) || 'CO';
-  el.value = prefix + Date.now().toString().slice(-3);
-}
-
-async function saveNewCompany() {
-  const name    = document.getElementById('co-name')?.value.trim();
-  const code    = document.getElementById('co-code')?.value.trim().toUpperCase();
-  const phone   = document.getElementById('co-phone')?.value.trim() || '';
-  const email   = document.getElementById('co-email')?.value.trim() || '';
-  const address = document.getElementById('co-address')?.value.trim() || '';
-  if (!name||!code) { showToast('សូមបំពេញ ឈ្មោះ និង Code!','error'); return; }
-  try {
-    const base = getApiBase().replace(/\/$/,'');
-    // Init DB without company filter
-    await fetch(base+'/init', {method:'POST', headers:{'Content-Type':'application/json'}}).catch(()=>{});
-    // Create company
-    const res = await fetch(base+'/companies', {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({name,code,phone,email,address})
-    });
-    const r = await res.json();
-    if (!res.ok) {
-      if (r.error&&r.error.includes('UNIQUE')) {
-        showToast('Code "'+code+'" មានរួចហើយ! Code ថ្មី: '+code+(Date.now()%100),'error');
-      } else {
-        showToast('Error: '+(r.error||'Unknown'),'error');
-      }
-      return;
-    }
-    closeModal();
-    showToast('បង្កើតក្រុមហ៊ុន "'+name+'" រួច! ✅','success');
-    selectCompany(r.id, name, code);
-  } catch(e) { showToast('Error: '+e.message,'error'); }
 }
 
 function showFirstRunSetup() {
@@ -7602,15 +6773,16 @@ async function connectWorkerFromSetup() {
   if (!url) { if(res) res.innerHTML='<span style="color:var(--danger)">❌ សូមវាយ URL!</span>'; return; }
   if(res) res.innerHTML='<span style="color:var(--text3)">⏳ កំពុងសាកល្បង...</span>';
   try {
-    // Save URL first
-    localStorage.setItem(STORAGE_KEY, url);
-    localStorage.removeItem(DEMO_MODE_KEY);
-    // Init DB
-    await fetch(url+'/init', {method:'POST', headers:{'Content-Type':'application/json'}}).catch(()=>{});
-    if(res) res.innerHTML='<span style="color:var(--success)">✅ ភ្ជាប់បានជោគជ័យ! ⏳...</span>';
-    updateApiStatus();
-    // Go to company selector
-    setTimeout(() => showCompanySelector(), 600);
+    const r = await fetch(url+'/stats');
+    if (r.ok) {
+      localStorage.setItem(STORAGE_KEY, url);
+      localStorage.removeItem(DEMO_MODE_KEY);
+      if(res) res.innerHTML='<span style="color:var(--success)">✅ ភ្ជាប់បានជោគជ័យ!</span>';
+      updateApiStatus();
+      setTimeout(() => navigate('dashboard'), 800);
+    } else {
+      if(res) res.innerHTML='<span style="color:var(--warning)">⚠️ Worker ឆ្លើយតប ('+r.status+') — ពិនិត្យ CORS</span>';
+    }
   } catch(e) {
     if(res) res.innerHTML='<span style="color:var(--danger)">❌ ភ្ជាប់មិនបាន — ពិនិត្យ URL</span>';
   }
