@@ -1763,20 +1763,43 @@ async function renderAttendance(date='') {
   try {
     const [attData, empData] = await Promise.all([api('GET','/attendance?date='+today), api('GET','/employees')]);
     state.employees = empData.employees;
+    const records = attData.records || [];
+
+    // Check if holiday
+    const holiday = getHolidays().find(h => h.date === today);
+    const typeIcon = { public:'🏛️', company:'🏢', religious:'🙏', special:'⭐' };
+
+    // Compute stats
+    const stats = {
+      present: records.filter(r=>r.status==='present').length,
+      late:    records.filter(r=>r.status==='late').length,
+      absent:  records.filter(r=>r.status==='absent').length,
+      total:   records.length,
+      holiday: records.filter(r=>r.status==='holiday_work').length,
+    };
+
     const label = new Date(today+'T00:00:00').toLocaleDateString('km-KH',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
-    const attRows = attData.records.length===0
-      ? '<tr><td colspan="6"><div class="empty-state" style="padding:30px"><p>មិនទាន់មានការកត់វត្តមានសម្រាប់ថ្ងៃនេះ</p></div></td></tr>'
-      : attData.records.map(a => {
+    const attRows = records.length===0
+      ? '<tr><td colspan="7"><div class="empty-state" style="padding:30px"><p>'+(holiday?'🎉 ថ្ងៃបុណ្យ — ':'')+'មិនទាន់មានការកត់វត្តមានសម្រាប់ថ្ងៃនេះ</p></div></td></tr>'
+      : records.map(a => {
           const photo = getEmpPhoto(a.employee_id);
           const av = photo
             ? '<div class="emp-avatar" style="background:'+getColor(a.employee_name)+';overflow:hidden;padding:0"><img src="'+photo+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/></div>'
             : '<div class="emp-avatar" style="background:'+getColor(a.employee_name)+'">'+(a.employee_name||'?')[0]+'</div>';
+          const statusBadge = a.status==='present' ? '<span class="badge badge-green">✅ វត្តមាន</span>'
+            : a.status==='late'         ? '<span class="badge badge-yellow">⏰ យឺត</span>'
+            : a.status==='holiday_work' ? '<span class="badge" style="background:rgba(255,183,3,.2);color:var(--warning)">🎉 បុណ្យ+OT</span>'
+            : '<span class="badge badge-red">❌ អវត្តមាន</span>';
+          // OT rate badge
+          const otBadge = a.notes && a.notes.includes('OT:')
+            ? '<span style="font-size:10px;color:var(--warning);font-weight:700;margin-left:4px">'+a.notes.match(/OT:[^\s]*/)?.[0]+'</span>' : '';
           return '<tr>'
             +'<td><div class="employee-cell">'+av+'<div class="emp-name">'+a.employee_name+'</div></div></td>'
             +'<td>'+(a.department||'—')+'</td>'
             +'<td><span style="font-family:var(--mono);color:var(--success)">'+(a.check_in||'—')+'</span></td>'
             +'<td><span style="font-family:var(--mono);color:var(--text3)">'+(a.check_out||'—')+'</span></td>'
-            +'<td>'+(a.status==='present'?'<span class="badge badge-green">✅ វត្តមាន</span>':a.status==='late'?'<span class="badge badge-yellow">⏰ យឺត</span>':'<span class="badge badge-red">❌ អវត្តមាន</span>')+'</td>'
+            +'<td>'+statusBadge+otBadge+'</td>'
+            +'<td>'+(a.notes&&!a.notes.includes('OT:')?'<span style="font-size:11px;color:var(--text3)">'+a.notes+'</span>':'—')+'</td>'
             +'<td><div class="action-btns">'
             +'<button class="btn btn-outline btn-sm" onclick="openEditAttModal('+a.id+',\''+a.employee_name+'\')">✏️</button>'
             +'<button class="btn btn-outline btn-sm" onclick="quickCheckOut('+a.employee_id+',\''+today+'\')">🚪</button>'
@@ -1785,9 +1808,22 @@ async function renderAttendance(date='') {
             +'</tr>';
         }).join('');
 
+    // Holiday banner
+    const holidayBanner = holiday
+      ? '<div style="margin-bottom:16px;padding:14px 18px;background:rgba(255,183,3,.1);border:1px solid rgba(255,183,3,.3);border-radius:12px;display:flex;align-items:center;gap:12px">'
+        +'<div style="font-size:28px">'+(typeIcon[holiday.type]||'🎉')+'</div>'
+        +'<div style="flex:1">'
+        +'<div style="font-weight:800;font-size:15px;color:var(--warning)">'+holiday.name+'</div>'
+        +'<div style="font-size:12px;color:var(--text3)">ថ្ងៃបុណ្យ — បុគ្គលិកដែលមកធ្វើការ នឹងត្រូវបានកត់ជា OT</div>'
+        +'</div>'
+        +'<button class="btn btn-warning btn-sm" onclick="openHolidayWorkModal(\''+today+'\',\''+holiday.name.replace(/'/g,"\\'")+'\')" style="white-space:nowrap">'
+        +'🎉 កត់ធ្វើការថ្ងៃបុណ្យ</button>'
+        +'</div>'
+      : '';
+
     contentArea().innerHTML =
       '<div class="page-header">'
-      +'<div><h2>វត្តមានប្រចាំថ្ងៃ</h2><p>'+label+'</p></div>'
+      +'<div><h2>វត្តមានប្រចាំថ្ងៃ</h2><p>'+label+(holiday?' 🎉 '+holiday.name:'')+'</p></div>'
       +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
       +'<input class="filter-input" type="date" value="'+today+'" onchange="renderAttendance(this.value)" />'
       +'<button class="btn btn-success" onclick="openQRScanModal(\''+today+'\')">'
@@ -1796,19 +1832,76 @@ async function renderAttendance(date='') {
       +'<button class="btn btn-primary" onclick="openAttModal(\''+today+'\')">'
       +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> កត់វត្តមាន</button>'
       +'</div></div>'
+      + holidayBanner
       +'<div class="att-summary">'
-      +'<div class="att-box"><div class="att-num" style="color:var(--success)">'+attData.stats.present+'</div><div class="att-lbl">✅ មានវត្តមាន</div></div>'
-      +'<div class="att-box"><div class="att-num" style="color:var(--warning)">'+attData.stats.late+'</div><div class="att-lbl">⏰ មកយឺត</div></div>'
-      +'<div class="att-box"><div class="att-num" style="color:var(--danger)">'+attData.stats.absent+'</div><div class="att-lbl">❌ អវត្តមាន</div></div>'
-      +'<div class="att-box"><div class="att-num" style="color:var(--info)">'+attData.stats.total+'</div><div class="att-lbl">👥 សរុប</div></div>'
+      +'<div class="att-box"><div class="att-num" style="color:var(--success)">'+stats.present+'</div><div class="att-lbl">✅ វត្តមាន</div></div>'
+      +'<div class="att-box"><div class="att-num" style="color:var(--warning)">'+stats.late+'</div><div class="att-lbl">⏰ យឺត</div></div>'
+      +'<div class="att-box"><div class="att-num" style="color:var(--danger)">'+stats.absent+'</div><div class="att-lbl">❌ អវត្តមាន</div></div>'
+      +(holiday?'<div class="att-box"><div class="att-num" style="color:var(--warning)">'+stats.holiday+'</div><div class="att-lbl">🎉 OT បុណ្យ</div></div>':'')
+      +'<div class="att-box"><div class="att-num" style="color:var(--info)">'+stats.total+'</div><div class="att-lbl">👥 សរុប</div></div>'
       +'</div>'
       +'<div class="card">'
       +'<div class="card-header"><span class="card-title">ក្បាលបញ្ជីវត្តមាន</span></div>'
       +'<div class="table-container"><table>'
-      +'<thead><tr><th>បុគ្គលិក</th><th>នាយកដ្ឋាន</th><th>ម៉ោងចូល</th><th>ម៉ោងចេញ</th><th>ស្ថានភាព</th><th>សកម្មភាព</th></tr></thead>'
+      +'<thead><tr><th>បុគ្គលិក</th><th>នាយកដ្ឋាន</th><th>ម៉ោងចូល</th><th>ម៉ោងចេញ</th><th>ស្ថានភាព</th><th>កំណត់ចំណាំ</th><th>សកម្មភាព</th></tr></thead>'
       +'<tbody>'+attRows+'</tbody>'
       +'</table></div></div>';
   } catch(e) { showError(e.message); }
+}
+
+// ── Holiday Work Modal ────────────────────────────────────────
+function openHolidayWorkModal(date, holidayName) {
+  const emps = state.employees || [];
+  $('modal-title').textContent = '🎉 កត់ធ្វើការថ្ងៃបុណ្យ — ' + holidayName;
+  $('modal-body').innerHTML =
+    '<div style="margin-bottom:14px;padding:10px 14px;background:rgba(255,183,3,.08);border:1px solid rgba(255,183,3,.25);border-radius:8px;font-size:12px;color:var(--warning)">'
+    +'⚠️ បុគ្គលិកដែលមកធ្វើការថ្ងៃបុណ្យ នឹងត្រូវបានកត់ជា <strong>OT x1.5</strong> (អាចផ្លាស់ប្ដូរ)</div>'
+    +'<div class="form-grid">'
+    +'<div class="form-group"><label class="form-label">បុគ្គលិក *</label>'
+    +'<select class="form-control" id="hw-emp">'
+    +emps.map(e=>'<option value="'+e.id+'">'+e.name+' ('+( e.department_name||'—')+')</option>').join('')
+    +'</select></div>'
+    +'<div class="form-group"><label class="form-label">ម៉ោងចូល</label>'
+    +'<input class="form-control" type="time" id="hw-in" value="08:00" /></div>'
+    +'<div class="form-group"><label class="form-label">ម៉ោងចេញ</label>'
+    +'<input class="form-control" type="time" id="hw-out" value="17:00" /></div>'
+    +'<div class="form-group"><label class="form-label">អត្រា OT</label>'
+    +'<select class="form-control" id="hw-rate">'
+    +'<option value="1.5">x1.5 — OT ថ្ងៃបុណ្យ</option>'
+    +'<option value="2.0">x2.0 — OT Double</option>'
+    +'<option value="1.0">x1.0 — ធម្មតា</option>'
+    +'</select></div>'
+    +'<div class="form-group full-width"><label class="form-label">កំណត់ចំណាំ</label>'
+    +'<input class="form-control" id="hw-note" value="ធ្វើការថ្ងៃ'+holidayName+'" /></div>'
+    +'</div>'
+    +'<div class="form-actions">'
+    +'<button class="btn btn-outline" onclick="closeModal()">បោះបង់</button>'
+    +'<button class="btn btn-warning" onclick="saveHolidayWork(\''+date+'\')">🎉 កត់ OT</button>'
+    +'</div>';
+  openModal();
+}
+
+async function saveHolidayWork(date) {
+  const empId  = document.getElementById('hw-emp')?.value;
+  const checkIn  = document.getElementById('hw-in')?.value  || '08:00';
+  const checkOut = document.getElementById('hw-out')?.value || '17:00';
+  const rate   = document.getElementById('hw-rate')?.value  || '1.5';
+  const note   = document.getElementById('hw-note')?.value  || 'ធ្វើការថ្ងៃបុណ្យ';
+  if (!empId) { showToast('សូមជ្រើសបុគ្គលិក!','error'); return; }
+
+  try {
+    await api('POST','/attendance',{
+      employee_id: parseInt(empId),
+      date,
+      check_in:  checkIn,
+      check_out: checkOut,
+      status: 'holiday_work',
+      notes: note + ' OT:x'+rate,
+    });
+    showToast('កត់ OT ថ្ងៃបុណ្យ រួច! ✅','success');
+    closeModal();
+    renderAttendance(date);
+  } catch(e) { showToast('Error: '+e.message,'error'); }
 }
 
 async function deleteAttendance(id, date) {
