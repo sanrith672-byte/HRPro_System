@@ -7440,8 +7440,17 @@ async function saveNewCompany() {
   const email   = document.getElementById('co-email')?.value.trim() || '';
   const address = document.getElementById('co-address')?.value.trim() || '';
   if (!name||!code) { showToast('សូមបំពេញ ឈ្មោះ និង Code!','error'); return; }
+
+  // Check Worker URL first
+  const workerUrl = getApiBase();
+  if (!workerUrl) {
+    showToast('⚠️ សូមដាក់ Worker URL ក្នុង Settings មុន!','error');
+    return;
+  }
+
   try {
-    await api('POST','/init');
+    // Init silently — don't block company creation if /init fails
+    try { await fetch(workerUrl.replace(/\/$/,'')+'/init', {method:'POST'}); } catch(_) {}
     const r = await api('POST','/companies',{name,code,phone,email,address});
     closeModal();
     showToast('បង្កើតក្រុមហ៊ុន "'+name+'" រួច! ✅','success');
@@ -7449,6 +7458,8 @@ async function saveNewCompany() {
   } catch(e) {
     if (e.message&&e.message.includes('UNIQUE')) {
       showToast('Code "'+code+'" មានរួចហើយ! សូមប្រើ Code ផ្សេង','error');
+    } else if (e.message&&(e.message.includes('fetch')||e.message.includes('Worker')||e.message.includes('Network'))) {
+      showToast('❌ មិនអាចភ្ជាប់ Worker! សូមពិនិត្យ URL ក្នុង ⚙️ Settings','error');
     } else {
       showToast('Error: '+e.message,'error');
     }
