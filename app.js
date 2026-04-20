@@ -3215,8 +3215,8 @@ async function openOvertimeModal() {
           <option value="2.0">x2.0 — Double</option>
           <option value="0.5">x0.5 — ពាក់កណ្ដាល</option>
         </select></div>
-      <div class="form-group"><label class="form-label">អត្រា/ម៉ោង (auto)</label>
-        <input class="form-control" id="ot-rate" type="number" placeholder="5" step="0.01" /></div>
+      <div class="form-group"><label class="form-label">អត្រា/ម៉ោង (USD)</label>
+        <input class="form-control" id="ot-rate" type="number" placeholder="5" step="0.01" oninput="updateOTPay()" /></div>
       <div class="form-group"><label class="form-label">ប្រាក់ OT សរុប</label>
         <input class="form-control" id="ot-pay" readonly style="color:var(--success);font-weight:700" placeholder="$0" /></div>
       <div class="form-group full-width"><label class="form-label">មូលហេតុ</label>
@@ -3236,12 +3236,19 @@ function autoCalcOTRate() {
   const multiplier = parseFloat(document.getElementById('ot-multiplier')?.value)||1;
   const hours      = parseFloat(document.getElementById('ot-hours')?.value)||0;
   const hourlyBase = salary / 26 / 8;
-  const rate       = (hourlyBase * multiplier).toFixed(2);
-  const pay        = (hourlyBase * multiplier * hours).toFixed(2);
-  const rateEl = document.getElementById('ot-rate');
-  const payEl  = document.getElementById('ot-pay');
+  const rate       = parseFloat((hourlyBase * multiplier).toFixed(2));
+  const rateEl     = document.getElementById('ot-rate');
+  // Only auto-fill rate if salary known (allow manual override)
   if (rateEl && salary > 0) rateEl.value = rate;
-  if (payEl)  payEl.value  = '$' + pay;
+  updateOTPay();
+}
+
+function updateOTPay() {
+  const hours = parseFloat(document.getElementById('ot-hours')?.value)||0;
+  const rate  = parseFloat(document.getElementById('ot-rate')?.value)||0;
+  const pay   = (hours * rate).toFixed(2);
+  const payEl = document.getElementById('ot-pay');
+  if (payEl) payEl.value = '$' + pay;
 }
 
 function checkOTDateHoliday(dateVal) {
@@ -3253,9 +3260,10 @@ function checkOTDateHoliday(dateVal) {
     if (reason) reason.value = 'ធ្វើការថ្ងៃ' + holiday.name;
     showToast('🎉 ថ្ងៃបុណ្យ: '+holiday.name+' — OT x1.5', 'warning');
   } else {
-    if (mul)    mul.value = '1.0';
+    if (mul) mul.value = '1.0';
   }
   autoCalcOTRate();
+  updateOTPay();
 }
 
 async function saveOvertime() {
