@@ -2147,16 +2147,33 @@ async function processQRScan_continue(emp, raw, date) {
     const cnt = document.getElementById('qr-count');
     if (cnt) cnt.textContent = window._scanCount + ' នាក់';
 
-    // Update status bar
+    // Update status bar — success
     const sv = document.getElementById('qr-scan-status');
     const icon = type === 'in' ? '✅' : '🚪';
     const label = type === 'in' ? 'ចូល ' : 'ចេញ ';
     const bg = type === 'in' ? 'rgba(6,214,160,.8)' : 'rgba(255,107,53,.8)';
     if (sv) { sv.textContent = icon + ' ' + emp.name + ' — ' + label + time; sv.style.background = bg; }
+
+    // ── AUTO STOP + CLOSE after success ──────────────────
     setTimeout(() => {
-      const sx = document.getElementById('qr-scan-status');
-      if (sx) { sx.textContent = '📷 កំពុងស្កេន...'; sx.style.background = 'rgba(0,0,0,.6)'; }
-    }, 2200);
+      stopQRScanner();
+      // Show brief success overlay then close
+      const overlay = document.createElement('div');
+      overlay.style.cssText = 'position:fixed;inset:0;background:rgba(6,214,160,.15);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;pointer-events:none';
+      overlay.innerHTML =
+        '<div style="background:var(--bg2);border:2px solid var(--success);border-radius:20px;padding:28px 40px;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.5)">'
+        +'<div style="font-size:48px;margin-bottom:10px">'+(type==='in'?'✅':'🚪')+'</div>'
+        +'<div style="font-size:18px;font-weight:800;color:var(--text)">'+emp.name+'</div>'
+        +'<div style="font-size:13px;color:var(--success);font-weight:700;margin-top:4px">'+(type==='in'?'ចូល ':'ចេញ ')+time+(isLate?' ⏰ យឺត':'')+'</div>'
+        +'<div style="font-size:11px;color:var(--text3);margin-top:8px">'+(emp.custom_id||emp.department_name||'')+'</div>'
+        +'</div>';
+      document.body.appendChild(overlay);
+      setTimeout(() => {
+        overlay.remove();
+        closeModal();
+        renderAttendance(date);
+      }, 1400);
+    }, 300);
 
     // Log entry
     const log = document.getElementById('qr-result-log');
