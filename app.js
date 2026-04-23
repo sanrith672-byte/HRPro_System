@@ -5681,56 +5681,59 @@ async function openDaySwapModal(id = null) {
     // Build emp map for quick lookup of off_days
     const empMap = {};
     emps.forEach(e => { empMap[e.id] = e; });
-
-    // Store emps data globally for onchange access
     window._dsEmps = empMap;
+    window._dsWdNames = wdNames;
 
     const empOptions = emps.map(e => {
       const offDays = parseOffDays(e);
       return `<option value="${e.id}" data-offdays="${JSON.stringify(offDays)}" ${rec?.employee_id===e.id?'selected':''}>${e.name}</option>`;
     }).join('');
 
-    const wdOptions = (sel) => {
-      const placeholder = `<option value="" disabled ${sel===-1?'selected':''}>-- ជ្រើសរើសថ្ងៃ --</option>`;
-      return placeholder + wdNames.map((n,i) =>
-        `<option value="${i}" ${sel===i?'selected':''}>${n}</option>`
-      ).join('');
-    };
-
-    // Determine initial auto-select for work_day (employee's off day)
+    // Determine initial employee & their off days
     const initEmp = rec ? emps.find(e=>e.id===rec.employee_id) : emps[0];
-    const initOffDays = initEmp ? parseOffDays(initEmp) : [];
-    const initWorkDay = rec?.work_day ?? (initOffDays.length ? initOffDays[0] : -1);
+    const initOffDays = initEmp ? parseOffDays(initEmp) : [0];
+    const initWorkDay = rec?.work_day ?? (initOffDays.length ? initOffDays[0] : 0);
     const initOffDay  = rec?.off_day  ?? -1;
+    const initWorkDate = rec?.swap_date || '';
+    const initOffDate  = rec?.off_date  || '';
 
     $('modal-title').textContent = id ? 'កែការស្នើប្តូរថ្ងៃ' : '🔄 ស្នើប្តូរថ្ងៃឈប់សម្រាក';
     $('modal-body').innerHTML = `
-      <div style="background:var(--bg3);border-radius:10px;padding:14px;margin-bottom:16px;font-size:12px;color:var(--text3)">
-        💡 <b>ឧទាហរណ៍:</b> បុគ្គលិក OFF ថ្ងៃអាទិត្យ → ស្នើធ្វើការថ្ងៃអាទិត្យ (OFF ធ្វើការ) ហើយសម្រាកថ្ងៃច័ន្ទ (ច័ន្ទ OFF ជំនួស)
+      <div style="background:var(--bg3);border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:12px;color:var(--text3)">
+        💡 <b>ឧទាហរណ៍:</b> OFF ថ្ងៃអាទិត្យ → ចូលធ្វើការថ្ងៃអាទិត្យ ហើយ OFF ថ្ងៃច័ន្ទ ជំនួស
       </div>
       <div class="form-grid">
         <div class="form-group full-width">
           <label class="form-label">បុគ្គលិក *</label>
           <select class="form-control" id="ds-emp" onchange="dsAutoFillOffDay(this)">${empOptions}</select>
         </div>
-        <div class="form-group">
-          <label class="form-label">ថ្ងៃ OFF ដែលត្រូវធ្វើការ *</label>
-          <select class="form-control" id="ds-work-day">
-            ${wdOptions(initWorkDay)}
-          </select>
-          <div style="font-size:11px;color:var(--text3);margin-top:4px">ថ្ងៃ OFF ដែលបុគ្គលិកចូលធ្វើការ (Auto ពី Day Off)</div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">ថ្ងៃធ្វើការ ដែលត្រូវ OFF ជំនួស *</label>
-          <select class="form-control" id="ds-off-day">
-            ${wdOptions(initOffDay)}
-          </select>
-          <div style="font-size:11px;color:var(--text3);margin-top:4px">ថ្ងៃធ្វើការ ដែលត្រូវ OFF ជំនួស</div>
-        </div>
+
+        <!-- ===== ថ្ងៃ OFF ដែលត្រូវធ្វើការ ===== -->
         <div class="form-group full-width">
-          <label class="form-label">កាលបរិច្ឆេទ (ថ្ងៃ OFF ដែលធ្វើការ) *</label>
-          <input class="form-control" type="date" id="ds-date" value="${rec?.swap_date||''}"/>
+          <label class="form-label" style="color:var(--danger);font-weight:700">📅 ថ្ងៃ OFF ដែលត្រូវធ្វើការ *</label>
+          <div style="display:flex;gap:8px;align-items:center">
+            <select class="form-control" id="ds-work-day" style="flex:0 0 140px" onchange="dsFilterWorkDate()">
+              <option value="" disabled ${initWorkDay===-1?'selected':''}>-- ថ្ងៃ --</option>
+              ${wdNames.map((n,i)=>`<option value="${i}" ${initWorkDay===i?'selected':''}>${n}</option>`).join('')}
+            </select>
+            <input class="form-control" type="date" id="ds-work-date" style="flex:1" value="${initWorkDate}" onchange="dsOnWorkDateChange(this.value)"/>
+          </div>
+          <div style="font-size:11px;color:var(--text3);margin-top:4px" id="ds-work-hint">Auto ពី Day Off របស់បុគ្គលិក — ជ្រើសថ្ងៃទីជាក់លាក់</div>
         </div>
+
+        <!-- ===== ថ្ងៃធ្វើការ ដែលត្រូវ OFF ===== -->
+        <div class="form-group full-width">
+          <label class="form-label" style="color:var(--success);font-weight:700">✅ ថ្ងៃធ្វើការ ដែលត្រូវ OFF ជំនួស *</label>
+          <div style="display:flex;gap:8px;align-items:center">
+            <select class="form-control" id="ds-off-day" style="flex:0 0 140px" onchange="dsFilterOffDate()">
+              <option value="" disabled ${initOffDay===-1?'selected':''}>-- ថ្ងៃ --</option>
+              ${wdNames.map((n,i)=>`<option value="${i}" ${initOffDay===i?'selected':''}>${n}</option>`).join('')}
+            </select>
+            <input class="form-control" type="date" id="ds-off-date" style="flex:1" value="${initOffDate}" onchange="dsOnOffDateChange(this.value)"/>
+          </div>
+          <div style="font-size:11px;color:var(--text3);margin-top:4px" id="ds-off-hint">ជ្រើសថ្ងៃធ្វើការ ដែលត្រូវឈប់ជំនួស</div>
+        </div>
+
         <div class="form-group full-width">
           <label class="form-label">មូលហេតុ</label>
           <input class="form-control" id="ds-reason" placeholder="មូលហេតុ..." value="${rec?.reason||''}"/>
@@ -5744,26 +5747,39 @@ async function openDaySwapModal(id = null) {
         </button>
       </div>`;
     openModal();
+    // Trigger hint update after render
+    dsFilterWorkDate();
+    dsFilterOffDate();
   } catch(e) { showToast('បញ្ហា: ' + e.message, 'error'); }
 }
 
 async function saveDaySwap(id = null) {
-  const empId   = parseInt($('ds-emp')?.value);
+  const empId      = parseInt($('ds-emp')?.value);
   const workDayVal = $('ds-work-day')?.value;
   const offDayVal  = $('ds-off-day')?.value;
-  const workDay = workDayVal !== '' ? parseInt(workDayVal) : NaN;
-  const offDay  = offDayVal  !== '' ? parseInt(offDayVal)  : NaN;
-  const date    = $('ds-date')?.value;
-  const reason  = $('ds-reason')?.value.trim();
+  const workDay    = workDayVal !== '' ? parseInt(workDayVal) : NaN;
+  const offDay     = offDayVal  !== '' ? parseInt(offDayVal)  : NaN;
+  const workDate   = $('ds-work-date')?.value;   // ថ្ងៃ OFF ដែលមកធ្វើការ
+  const offDate    = $('ds-off-date')?.value;    // ថ្ងៃធ្វើការ ដែល OFF ជំនួស
+  const reason     = $('ds-reason')?.value.trim();
 
-  if (!empId || isNaN(workDay) || isNaN(offDay) || !date) {
+  if (!empId || isNaN(workDay) || isNaN(offDay) || !workDate) {
     showToast('សូមបំពេញព័ត៌មានឱ្យបរិបូរណ៍!', 'error'); return;
   }
   if (workDay === offDay) {
     showToast('ថ្ងៃ OFF និងថ្ងៃ OFF ជំនួស មិនអាចដូចគ្នា!', 'error'); return;
   }
+  // Validate work date matches selected weekday
+  if (workDate) {
+    const wd = new Date(workDate + 'T00:00:00').getDay();
+    if (wd !== workDay) {
+      const wdNames = ['អាទិត្យ','ច័ន្ទ','អង្គារ','ពុធ','ព្រហស្បតិ៍','សុក្រ','សៅរ៍'];
+      showToast(`ថ្ងៃទី ${workDate} មិនមែនជាថ្ងៃ${wdNames[workDay]}!`, 'error'); return;
+    }
+  }
 
-  const body = { employee_id: empId, work_day: workDay, off_day: offDay, swap_date: date, reason, status: 'pending' };
+  const body = { employee_id: empId, work_day: workDay, off_day: offDay,
+                 swap_date: workDate, off_date: offDate || null, reason, status: 'pending' };
   try {
     if (id) {
       await api('PUT', '/dayswap/' + id, body);
@@ -5777,7 +5793,9 @@ async function saveDaySwap(id = null) {
   } catch(e) { showToast('បញ្ហា: ' + e.message, 'error'); }
 }
 
-// Auto-fill "ថ្ងៃ OFF ដែលត្រូវធ្វើការ" based on selected employee's off_days
+// ===== DAY SWAP HELPERS =====
+
+// When employee changes → auto-fill work_day from their off_days
 function dsAutoFillOffDay(sel) {
   const opt = sel.options[sel.selectedIndex];
   if (!opt) return;
@@ -5786,8 +5804,77 @@ function dsAutoFillOffDay(sel) {
     const workDaySel = $('ds-work-day');
     if (workDaySel && offDays.length) {
       workDaySel.value = String(offDays[0]);
+      dsFilterWorkDate();
     }
   } catch(_) {}
+}
+
+// When work_day select changes → update date hint & clear date if mismatch
+function dsFilterWorkDate() {
+  const wdSel = $('ds-work-day');
+  const dateEl = $('ds-work-date');
+  const hint = $('ds-work-hint');
+  if (!wdSel || !dateEl) return;
+  const wd = parseInt(wdSel.value);
+  if (isNaN(wd)) return;
+  const wdNames = ['អាទិត្យ','ច័ន្ទ','អង្គារ','ពុធ','ព្រហស្បតិ៍','សុក្រ','សៅរ៍'];
+  // If current date doesn't match weekday, clear it
+  if (dateEl.value) {
+    const curWd = new Date(dateEl.value + 'T00:00:00').getDay();
+    if (curWd !== wd) dateEl.value = '';
+  }
+  // Suggest nearest upcoming date of this weekday
+  if (!dateEl.value) {
+    const suggested = dsNextWeekday(wd);
+    dateEl.value = suggested;
+  }
+  if (hint) hint.textContent = `ជ្រើសថ្ងៃ${wdNames[wd]}ជាក់លាក់ ដែលបុគ្គលិកចូលធ្វើការ`;
+}
+
+// When off_day select changes → update date hint & suggest date
+function dsFilterOffDate() {
+  const wdSel = $('ds-off-day');
+  const dateEl = $('ds-off-date');
+  const hint = $('ds-off-hint');
+  if (!wdSel || !dateEl) return;
+  const wd = parseInt(wdSel.value);
+  if (isNaN(wd)) return;
+  const wdNames = ['អាទិត្យ','ច័ន្ទ','អង្គារ','ពុធ','ព្រហស្បតិ៍','សុក្រ','សៅរ៍'];
+  if (dateEl.value) {
+    const curWd = new Date(dateEl.value + 'T00:00:00').getDay();
+    if (curWd !== wd) dateEl.value = '';
+  }
+  if (!dateEl.value) {
+    dateEl.value = dsNextWeekday(wd);
+  }
+  if (hint) hint.textContent = `ជ្រើសថ្ងៃ${wdNames[wd]}ជាក់លាក់ ដែលត្រូវ OFF ជំនួស`;
+}
+
+// When work date picked → auto-set work_day select to match
+function dsOnWorkDateChange(val) {
+  if (!val) return;
+  const wd = new Date(val + 'T00:00:00').getDay();
+  const sel = $('ds-work-day');
+  if (sel) { sel.value = String(wd); dsFilterWorkDate(); }
+}
+
+// When off date picked → auto-set off_day select to match
+function dsOnOffDateChange(val) {
+  if (!val) return;
+  const wd = new Date(val + 'T00:00:00').getDay();
+  const sel = $('ds-off-day');
+  if (sel) { sel.value = String(wd); dsFilterOffDate(); }
+}
+
+// Get nearest upcoming date for a given weekday (0=Sun..6=Sat)
+function dsNextWeekday(wd) {
+  const now = new Date();
+  let d = new Date(now);
+  const cur = d.getDay();
+  let diff = (wd - cur + 7) % 7;
+  if (diff === 0) diff = 7; // push to next week if same day
+  d.setDate(d.getDate() + diff);
+  return d.toISOString().slice(0,10);
 }
 
 async function updateDaySwap(id, status) {
