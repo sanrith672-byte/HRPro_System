@@ -1861,13 +1861,23 @@ async function renderMonthlyAttendance(month='') {
       api('GET','/attendance?date='+currentMonth+'-01&limit=9999'),
       api('GET','/dayswap').catch(()=>({records:[]}))
     ]);
-    // Build swap map: empId -> { dd -> swapRecord } for approved swaps this month
+    // Build swap map: empId -> { dd -> swapRecord } keyed by swap_date (work date this month)
     const swapMap = {};
+    // Build off-date map: empId -> { dd -> swapRecord } keyed by off_date (compensation OFF date)
+    const offDateMap = {};
     (swapDataRaw.records||[]).forEach(s => {
-      if (s.status === 'approved' && s.swap_date && s.swap_date.startsWith(currentMonth)) {
+      if (s.status !== 'approved') return;
+      // swap_date = ថ្ងៃ OFF ដែលមកធ្វើការ
+      if (s.swap_date && s.swap_date.startsWith(currentMonth)) {
         if (!swapMap[s.employee_id]) swapMap[s.employee_id] = {};
         const dd = s.swap_date.slice(-2);
         swapMap[s.employee_id][dd] = s;
+      }
+      // off_date = ថ្ងៃធ្វើការ ដែល OFF ជំនួស (exact date)
+      if (s.off_date && s.off_date.startsWith(currentMonth)) {
+        if (!offDateMap[s.employee_id]) offDateMap[s.employee_id] = {};
+        const dd = s.off_date.slice(-2);
+        offDateMap[s.employee_id][dd] = s;
       }
     });
     // Load all attendance for the month by fetching each week? No — use limit trick with month filter
@@ -1971,12 +1981,8 @@ async function renderMonthlyAttendance(month='') {
           }
           return '<td style="text-align:center;font-size:9px;color:var(--danger);background:var(--bg2)">OFF</td>';
         }
-        // Check if this working day is the compensation OFF day for a swap
-        const compSwap = Object.values(swapMap[emp.id]||{}).find(s => {
-          // off_day is weekday number, check if this date's weekday matches
-          const dt = new Date(currentMonth + '-' + dd);
-          return s.off_day === dt.getDay();
-        });
+        // Check if this working day is the exact compensation OFF date
+        const compSwap = (offDateMap[emp.id]||{})[dd];
         if (compSwap) {
           return '<td style="text-align:center;font-size:9px;font-weight:700;color:var(--warning);background:rgba(255,190,11,.1)" title="ឈប់ជំនួស OFF">OFF+</td>';
         }
