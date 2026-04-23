@@ -5658,9 +5658,12 @@ async function openDaySwapModal(id = null) {
       `<option value="${e.id}" ${rec?.employee_id===e.id?'selected':''}>${e.name}</option>`
     ).join('');
 
-    const wdOptions = (sel) => wdNames.map((n,i) =>
-      `<option value="${i}" ${sel===i?'selected':''}>${n}</option>`
-    ).join('');
+    const wdOptions = (sel) => {
+      const placeholder = `<option value="" disabled ${sel===-1?'selected':''}>-- ជ្រើសរើសថ្ងៃ --</option>`;
+      return placeholder + wdNames.map((n,i) =>
+        `<option value="${i}" ${sel===i?'selected':''}>${n}</option>`
+      ).join('');
+    };
 
     $('modal-title').textContent = id ? 'កែការស្នើប្តូរថ្ងៃ' : '🔄 ស្នើប្តូរថ្ងៃឈប់សម្រាក';
     $('modal-body').innerHTML = `
@@ -5708,8 +5711,10 @@ async function openDaySwapModal(id = null) {
 
 async function saveDaySwap(id = null) {
   const empId   = parseInt($('ds-emp')?.value);
-  const workDay = parseInt($('ds-work-day')?.value);
-  const offDay  = parseInt($('ds-off-day')?.value);
+  const workDayVal = $('ds-work-day')?.value;
+  const offDayVal  = $('ds-off-day')?.value;
+  const workDay = workDayVal !== '' ? parseInt(workDayVal) : NaN;
+  const offDay  = offDayVal  !== '' ? parseInt(offDayVal)  : NaN;
   const date    = $('ds-date')?.value;
   const reason  = $('ds-reason')?.value.trim();
 
