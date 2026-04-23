@@ -4101,7 +4101,7 @@ async function renderIdCard() {
       +' 🖨️ Print</button>'
       +'</div></div>'
 
-      +'<div class="id-card-grid" id="id-card-grid" style="'+(currentCardMode==='portrait'?'grid-template-columns:repeat(auto-fill,minmax(160px,1fr))':'')+'">'
+      +'<div class="id-card-grid'+(currentCardMode==="portrait"?" portrait-mode":"")+' id="id-card-grid">'
       +(emps.length===0
         ? '<div class="empty-state" style="grid-column:1/-1;padding:60px"><p>មិនទាន់មានបុគ្គលិក</p></div>'
         : emps.map(e=>idCardHTML(e,currentCardStyle,cfg)).join(''))
