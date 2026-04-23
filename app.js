@@ -4101,7 +4101,7 @@ async function renderIdCard() {
       +' 🖨️ Print</button>'
       +'</div></div>'
 
-      +'<div class="id-card-grid'+(currentCardMode==="portrait"?" portrait-mode":"")+' id="id-card-grid">'
+      +'<div class="id-card-grid'+(currentCardMode==='portrait'?' portrait-mode':'')+' " id="id-card-grid">'
       +(emps.length===0
         ? '<div class="empty-state" style="grid-column:1/-1;padding:60px"><p>មិនទាន់មានបុគ្គលិក</p></div>'
         : emps.map(e=>idCardHTML(e,currentCardStyle,cfg)).join(''))
@@ -7483,8 +7483,8 @@ function printIdCardsPortrait() {
     +'.pair-row{'
       +'display:flex;flex-direction:row;gap:3px;align-items:flex-start;'
       +'transform:scale('+SCALE+');transform-origin:top center;'
-      // collapsed height = CARD_H * SCALE to remove whitespace
-      +'margin-bottom:calc('+CARD_H+'px * ('+SCALE+' - 1));'
+      // collapsed height = CARD_H * SCALE to remove whitespace from transform
+      +'margin-bottom:-'+(Math.round(CARD_H*(1-SCALE)))+'px;'
     +'}'
     +'.card-side{display:flex;flex-direction:column;align-items:center}'
     +'.side-label{font-size:7pt;font-weight:700;color:#94a3b8;letter-spacing:.5px;margin-bottom:2px;text-align:center}'
