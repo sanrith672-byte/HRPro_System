@@ -5667,7 +5667,9 @@ async function renderDaySwap() {
                 </td>
                 <td>
                   <span style="background:rgba(6,214,160,.12);color:var(--success);padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600">✔ ${offDay}</span>
-                  ${r.off_date ? `<div style="font-family:var(--mono);font-size:11px;color:var(--text3);margin-top:3px;padding-left:2px">📅 ${r.off_date}</div>` : ''}
+                  ${r.off_date
+                    ? `<div style="font-family:var(--mono);font-size:11px;color:var(--text3);margin-top:3px;padding-left:2px">📅 ${r.off_date}</div>`
+                    : `<div style="font-size:10px;color:var(--warning);margin-top:3px;padding-left:2px">⚠️ មិនមានថ្ងៃទី</div>`}
                 </td>
                 <td style="font-family:var(--mono);font-size:12px">${r.swap_date||'—'}</td>
                 <td style="color:var(--text3);font-size:12px">${r.reason||'—'}</td>
@@ -5742,7 +5744,7 @@ async function openDaySwapModal(id = null) {
 
         <!-- ===== ថ្ងៃធ្វើការ ដែលត្រូវ OFF ===== -->
         <div class="form-group full-width">
-          <label class="form-label" style="color:var(--success);font-weight:700">✅ ថ្ងៃធ្វើការ ដែលត្រូវ OFF ជំនួស *</label>
+          <label class="form-label" style="color:var(--success);font-weight:700">✅ ថ្ងៃធ្វើការ ដែលត្រូវ OFF ជំនួស * <span style="color:var(--danger);font-size:10px">(ចាំបាច់)</span></label>
           <div style="display:flex;gap:8px;align-items:center">
             <select class="form-control" id="ds-off-day" style="flex:0 0 140px" onchange="dsFilterOffDate()">
               <option value="" disabled ${initOffDay===-1?'selected':''}>-- ថ្ងៃ --</option>
@@ -5785,6 +5787,9 @@ async function saveDaySwap(id = null) {
   if (!empId || isNaN(workDay) || isNaN(offDay) || !workDate) {
     showToast('សូមបំពេញព័ត៌មានឱ្យបរិបូរណ៍!', 'error'); return;
   }
+  if (!offDate) {
+    showToast('សូមបញ្ចូលថ្ងៃទី OFF ជំនួស (ធ្វើការជំនួស)!', 'error'); return;
+  }
   if (workDay === offDay) {
     showToast('ថ្ងៃ OFF និងថ្ងៃ OFF ជំនួស មិនអាចដូចគ្នា!', 'error'); return;
   }
@@ -5794,6 +5799,14 @@ async function saveDaySwap(id = null) {
     if (wd !== workDay) {
       const wdNames = ['អាទិត្យ','ច័ន្ទ','អង្គារ','ពុធ','ព្រហស្បតិ៍','សុក្រ','សៅរ៍'];
       showToast(`ថ្ងៃទី ${workDate} មិនមែនជាថ្ងៃ${wdNames[workDay]}!`, 'error'); return;
+    }
+  }
+  // Validate off_date matches selected off_day
+  if (offDate) {
+    const wdNames = ['អាទិត្យ','ច័ន្ទ','អង្គារ','ពុធ','ព្រហស្បតិ៍','សុក្រ','សៅរ៍'];
+    const od = new Date(offDate + 'T00:00:00').getDay();
+    if (od !== offDay) {
+      showToast(`ថ្ងៃទី ${offDate} មិនមែនជាថ្ងៃ${wdNames[offDay]}!`, 'error'); return;
     }
   }
 
