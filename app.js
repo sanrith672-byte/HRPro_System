@@ -2474,82 +2474,121 @@ async function processQRScan_continue(emp, raw, date) {
 
 // ===== BULK ABSENCE MODAL =====
 // ===== BULK ABSENCE / LEAVE MODAL =====
+// ===== BULK ABSENCE / LEAVE MODAL (per-employee date) =====
 function openBulkAbsenceModal(dateVal) {
   var d = dateVal || new Date().toISOString().split('T')[0];
   var emps = state.employees || [];
   if (!emps.length) { showToast('មិនទាន់មានបុគ្គលិក!', 'error'); return; }
 
-  var empCheckboxes = emps.map(function(e) {
+  // Build row per employee: checkbox + avatar + name + individual date picker
+  var empRows = emps.map(function(e) {
     var photo = getEmpPhoto(e.id);
     var av = photo
-      ? '<img src="' + photo + '" style="width:28px;height:28px;border-radius:50%;object-fit:cover;margin-right:8px"/>'
-      : '<div style="width:28px;height:28px;border-radius:50%;background:' + getColor(e.name) + ';display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:700;margin-right:8px">' + (e.name||'?')[0] + '</div>';
-    return '<label style="display:flex;align-items:center;padding:8px 10px;border-radius:8px;cursor:pointer;border:1.5px solid var(--border);margin-bottom:6px;gap:4px" onclick="var inp=this.querySelector(\'input\');inp.checked=!inp.checked;this.style.borderColor=inp.checked?\'var(--primary)\':\'var(--border)\';this.style.background=inp.checked?\'var(--bg2)\':\'\';return false;">'
-      + '<input type="checkbox" value="' + e.id + '" id="ba-emp-' + e.id + '" style="width:16px;height:16px;cursor:pointer" onclick="event.stopPropagation();this.closest(\'label\').style.borderColor=this.checked?\'var(--primary)\':\'var(--border)\';this.closest(\'label\').style.background=this.checked?\'var(--bg2)\':\'\';"/>'
+      ? '<img src="' + photo + '" style="width:32px;height:32px;border-radius:50%;object-fit:cover;flex-shrink:0"/>'
+      : '<div style="width:32px;height:32px;border-radius:50%;background:' + getColor(e.name) + ';display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:700;flex-shrink:0">' + (e.name||'?')[0] + '</div>';
+
+    return '<div class="ba-row" id="ba-row-' + e.id + '" style="display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:8px;border:1.5px solid var(--border);margin-bottom:6px;transition:all .15s">'
+      + '<input type="checkbox" class="ba-chk" data-id="' + e.id + '" style="width:16px;height:16px;cursor:pointer;flex-shrink:0"'
+      + ' onchange="'
+      + 'var row=document.getElementById(\'ba-row-' + e.id + '\');'
+      + 'var dp=document.getElementById(\'ba-date-' + e.id + '\');'
+      + 'row.style.borderColor=this.checked?\'var(--primary)\':\'var(--border)\';'
+      + 'row.style.background=this.checked?\'var(--bg2)\':\'\';'
+      + 'dp.disabled=!this.checked;dp.style.opacity=this.checked?\'1\':\'0.4\';'
+      + '"/>'
       + av
-      + '<span style="font-size:13px;font-weight:600">' + e.name + '</span>'
-      + '<span style="font-size:11px;color:var(--text3);margin-left:4px">' + (e.position||'') + '</span>'
-      + '</label>';
+      + '<div style="flex:1;min-width:0">'
+      + '<div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + e.name + '</div>'
+      + '<div style="font-size:11px;color:var(--text3)">' + (e.position||'&nbsp;') + '</div>'
+      + '</div>'
+      + '<input type="date" id="ba-date-' + e.id + '" value="' + d + '" disabled'
+      + ' style="font-size:12px;padding:4px 6px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);opacity:0.4;width:130px;flex-shrink:0"'
+      + '/>'
+      + '</div>';
   }).join('');
 
-  $('modal-title').textContent = '\uD83D\uDCCB កត់អវត្តមាន / ឈប់';
+  $('modal-title').textContent = '\uD83D\uDCCB កត់អវត្តមាន / ឈប់ (ម្នាក់ៗ)';
   $('modal-body').innerHTML =
-    '<div class="form-grid">'
-    + '<div class="form-group"><label class="form-label">ថ្ងៃខែ *</label>'
-    + '<input class="form-control" id="ba-date" type="date" value="' + d + '" /></div>'
+    // Type selector + global date setter
+    '<div class="form-grid" style="margin-bottom:10px">'
     + '<div class="form-group"><label class="form-label">ប្រភេទ *</label>'
     + '<select class="form-control" id="ba-status">'
     + '<option value="absent">❌ អវត្តមាន (ខ្វះច្បាប់)</option>'
     + '<option value="leave">🌴 ឈប់សម្រាក (មានច្បាប់)</option>'
     + '<option value="sick">🤒 ឈប់ព្យាបាល</option>'
     + '<option value="holiday">🎉 ថ្ងៃឈប់សម្រាក</option>'
-    + '</select></div></div>'
-    + '<div class="form-group" style="margin-bottom:8px">'
-    + '<label class="form-label" style="display:flex;justify-content:space-between;align-items:center">'
-    + '<span>ជ្រើសបុគ្គលិក *</span>'
-    + '<span style="font-size:11px;color:var(--primary);cursor:pointer;font-weight:500" onclick="'
-    + 'var cbs=document.querySelectorAll(\'[id^=ba-emp-]\');'
-    + 'var allChecked=[...cbs].every(function(c){return c.checked;});'
-    + 'cbs.forEach(function(c){c.checked=!allChecked;var lbl=c.closest(\'label\');lbl.style.borderColor=c.checked?\'var(--primary)\':\'var(--border)\';lbl.style.background=c.checked?\'var(--bg2)\':\'\';});'
-    + '">☑ ជ្រើសទាំងអស់</span>'
-    + '</label>'
-    + '<div id="ba-emp-list" style="max-height:280px;overflow-y:auto;padding:2px;border:1px solid var(--border);border-radius:8px;padding:6px">'
-    + empCheckboxes
-    + '</div></div>'
+    + '</select></div>'
     + '<div class="form-group"><label class="form-label">កំណត់ចំណាំ</label>'
-    + '<input class="form-control" id="ba-note" type="text" placeholder="ហេតុផលឈប់ (ជាជម្រើស)" /></div>'
-    + '<div class="form-actions">'
+    + '<input class="form-control" id="ba-note" type="text" placeholder="ហេតុផល (ជាជម្រើស)"/>'
+    + '</div></div>'
+
+    // Quick date setter bar
+    + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;padding:8px;background:var(--bg2);border-radius:8px;flex-wrap:wrap">'
+    + '<span style="font-size:12px;color:var(--text3);flex-shrink:0">📅 កំណត់ថ្ងៃសម្រាប់ដែលបានជ្រើស:</span>'
+    + '<input type="date" id="ba-global-date" value="' + d + '" style="font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text)"/>'
+    + '<button onclick="'
+    + 'var gd=document.getElementById(\'ba-global-date\').value;'
+    + 'document.querySelectorAll(\'.ba-chk:checked\').forEach(function(c){'
+    + 'var dp=document.getElementById(\'ba-date-\'+c.dataset.id);'
+    + 'if(dp)dp.value=gd;'
+    + '});'
+    + '" style="font-size:12px;padding:4px 10px;border:1px solid var(--primary);border-radius:6px;background:var(--primary);color:#fff;cursor:pointer;flex-shrink:0">✔ អនុវត្ត</button>'
+    + '<button onclick="'
+    + 'var cbs=document.querySelectorAll(\'.ba-chk\');'
+    + 'var allChecked=[...cbs].every(function(c){return c.checked;});'
+    + 'cbs.forEach(function(c){c.checked=!allChecked;c.dispatchEvent(new Event(\'change\'));});'
+    + '" style="font-size:12px;padding:4px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);cursor:pointer;margin-left:auto;flex-shrink:0">☑ ជ្រើសទាំងអស់</button>'
+    + '</div>'
+
+    // Employee list
+    + '<div style="max-height:320px;overflow-y:auto;padding-right:2px">'
+    + empRows
+    + '</div>'
+
+    // Actions
+    + '<div class="form-actions" style="margin-top:10px">'
     + '<button class="btn btn-outline" onclick="closeModal()">បោះបង់</button>'
     + '<button class="btn btn-danger" id="save-ba-btn" onclick="saveBulkAbsence()">💾 រក្សាទុក</button>'
     + '</div>';
+
   openModal();
 }
 
 async function saveBulkAbsence() {
   var btn = $('save-ba-btn');
-  var date = $('ba-date').value;
   var statusVal = $('ba-status').value;
   var note = ($('ba-note') && $('ba-note').value) || '';
-  var checked = Array.from(document.querySelectorAll('[id^=ba-emp-]:checked'));
+  var checked = Array.from(document.querySelectorAll('.ba-chk:checked'));
 
-  if (!date) { showToast('សូមជ្រើសថ្ងៃខែ!', 'error'); return; }
   if (!checked.length) { showToast('សូមជ្រើសបុគ្គលិកយ៉ាងហោចណាស់ ១ នាក់!', 'error'); return; }
+
+  // Validate each has a date
+  var missing = checked.filter(function(c) {
+    var dp = document.getElementById('ba-date-' + c.dataset.id);
+    return !dp || !dp.value;
+  });
+  if (missing.length) { showToast('សូមជ្រើសថ្ងៃខែសម្រាប់បុគ្គលិកដែលបានជ្រើស!', 'error'); return; }
 
   btn.disabled = true; btn.textContent = 'កំពុងរក្សា...';
 
-  var notePrefix = statusVal === 'leave' ? '🌴 ឈប់ (ច្បាប់)'
-    : statusVal === 'sick'    ? '🤒 ឈប់ព្យាបាល'
-    : statusVal === 'holiday' ? '🎉 ថ្ងៃឈប់'
-    : '❌ អវត្តមាន';
+  var notePrefix = statusVal === 'leave' ? '\uD83C\uDF34 ឈប់ (ច្បាប់)'
+    : statusVal === 'sick'    ? '\uD83E\uDD12 ឈប់ព្យាបាល'
+    : statusVal === 'holiday' ? '\uD83C\uDF89 ថ្ងៃឈប់'
+    : '\u274C អវត្តមាន';
   var fullNote = note ? (notePrefix + ': ' + note) : notePrefix;
 
   var success = 0, failed = 0;
+  // Group by date for display after
+  var lastDate = '';
   for (var i = 0; i < checked.length; i++) {
-    var empId = parseInt(checked[i].value);
+    var empId = parseInt(checked[i].dataset.id);
+    var dp = document.getElementById('ba-date-' + checked[i].dataset.id);
+    var empDate = dp ? dp.value : '';
+    lastDate = empDate;
     try {
       await api('POST', '/attendance', {
         employee_id: empId,
-        date: date,
+        date: empDate,
         check_in: null,
         check_out: null,
         status: 'absent',
@@ -2561,11 +2600,12 @@ async function saveBulkAbsence() {
     }
   }
 
-  btn.disabled = false; btn.textContent = '💾 រក្សាទុក';
+  btn.disabled = false; btn.textContent = '\uD83D\uDCBE រក្សាទុក';
   closeModal();
-  if (success > 0) showToast('✅ បានកត់អវត្តមាន ' + success + ' នាក់ (' + notePrefix + ')', 'success');
-  if (failed > 0) showToast('⚠️ មិនបានកត់ ' + failed + ' នាក់', 'error');
-  renderAttendance(date);
+  if (success > 0) showToast('\u2705 បានកត់អវត្តមាន ' + success + ' នាក់ (' + notePrefix + ')', 'success');
+  if (failed > 0) showToast('\u26A0\uFE0F មិនបានកត់ ' + failed + ' នាក់', 'error');
+  // Refresh to last date used, or today
+  renderAttendance(lastDate || new Date().toISOString().split('T')[0]);
 }
 
 
