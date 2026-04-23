@@ -1934,6 +1934,7 @@ async function renderMonthlyAttendance(month='') {
         if (a) {
           if (a.status==='present') present++;
           else if (a.status==='late') late++;
+          else if (a.status==='holiday') { /* ថ្ងៃឈប់សម្រាក — មិនគិតជា absent */ }
           else if (a.status==='absent') absent++;
         } else {
           absent++;
@@ -1973,6 +1974,13 @@ async function renderMonthlyAttendance(month='') {
       const empOff = parseOffDays(emp);
       const cells = allDays.map(({dd, wd}) => {
         const swapRec = (swapMap[emp.id]||{})[dd];
+        const a = (attMap[emp.id]||{})[dd];
+
+        // Check holiday first (overrides OFF day display)
+        if (a && a.status === 'holiday') {
+          return '<td style="text-align:center;font-size:10px;font-weight:700;color:#9333ea;background:rgba(147,51,234,.1)" title="ថ្ងៃឈប់សម្រាក">🎉</td>';
+        }
+
         // This day is employee's day off
         if (empOff.indexOf(wd) !== -1) {
           if (swapRec) {
@@ -1986,7 +1994,6 @@ async function renderMonthlyAttendance(month='') {
         if (compSwap) {
           return '<td style="text-align:center;font-size:9px;font-weight:700;color:var(--warning);background:rgba(255,190,11,.1)" title="ឈប់ជំនួស OFF">OFF+</td>';
         }
-        const a = attMap[emp.id]?.[dd] || (attMap[emp.id]||{})[dd];
         if (!a) return '<td style="text-align:center;font-size:10px;color:var(--danger)">—</td>';
         if (a.status==='present') return '<td style="text-align:center;font-size:11px;color:var(--success)">✔</td>';
         if (a.status==='late') return '<td style="text-align:center;font-size:11px;color:var(--warning)">⏰</td>';
