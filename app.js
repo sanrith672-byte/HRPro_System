@@ -27,8 +27,8 @@ function saveUsers(users) { localStorage.setItem(USERS_KEY, JSON.stringify(users
 // ===== DEMO DATA STORE =====
 const demoStore = {
   employees: [], departments: [], attendance: [], salaries: [],
-  overtime: [], allowances: [], loans: [], expenses: [], genExpenses: [], leave: [],
-  _nextId: { employees:1, departments:1, attendance:1, salary:1, overtime:1, allowances:1, loans:1, expenses:1, genExpenses:1, leave:1 },
+  overtime: [], allowances: [], loans: [], expenses: [], genExpenses: [], leave: [], dayswap: [],
+  _nextId: { employees:1, departments:1, attendance:1, salary:1, overtime:1, allowances:1, loans:1, expenses:1, genExpenses:1, leave:1, dayswap:1 },
 };
 
 // ===== STATE =====
@@ -94,11 +94,13 @@ function demoApi(method, path, body) {
     overtime: demoStore.overtime, allowances: demoStore.allowances,
     loans: demoStore.loans, expenses: demoStore.expenses,
     'general-expenses': demoStore.genExpenses, leave: demoStore.leave,
+    dayswap: demoStore.dayswap,
   };
   const idKeys = {
     employees:'employees', departments:'departments', attendance:'attendance',
     salary:'salary', overtime:'overtime', allowances:'allowances',
     loans:'loans', expenses:'expenses', 'general-expenses':'genExpenses', leave:'leave',
+    dayswap:'dayswap',
   };
 
   // Special routes
@@ -323,6 +325,7 @@ const PAGE_PERMS = {
   general_expense: 'expenses_view',
   id_card:         'id_card_print',
   leave:           'leave_view',
+  dayswap:         'leave_view',
   settings:        'settings_access',
   dashboard:       null, // always allowed
 };
@@ -354,6 +357,7 @@ function navigate(page) {
     overtime:'ថែមម៉ោង', allowance:'ប្រាក់ឧបត្ថម្ភ', loans:'ប្រាក់ខ្ចីបុគ្គលិក',
     expenses:'ស្នើរប្រាក់ចំណាយ', general_expense:'ការចំណាយទូទៅ',
     id_card:'កាតសម្គាល់ខ្លួនបុគ្គលិក', leave:'ច្បាប់ឈប់សម្រាក',
+    dayswap:'ស្នើប្តូរថ្ងៃឈប់សម្រាក',
     settings:'ការកំណត់ប្រព័ន្ធ',
   };
   $('page-title').textContent = titles[page] || page;
@@ -366,7 +370,7 @@ function navigate(page) {
     attendance:renderAttendance, salary:renderSalary, reports:renderReports,
     overtime:renderOvertime, allowance:renderAllowance, loans:renderLoans,
     expenses:renderExpenses, general_expense:renderGeneralExpense,
-    id_card:renderIdCard, leave:renderLeave, settings:renderSettings,
+    id_card:renderIdCard, leave:renderLeave, dayswap:renderDaySwap, settings:renderSettings,
   }[page] || renderDashboard)();
 }
 
@@ -5566,6 +5570,176 @@ function applyCompanyBranding() {
   if (uname && cfg.admin_name) uname.textContent = cfg.admin_name;
   if (urole && cfg.admin_role) urole.textContent = cfg.admin_role;
   if (uavatar && cfg.admin_name) uavatar.textContent = cfg.admin_name[0] || 'A';
+}
+
+// ============================================================
+// DAY SWAP — ប្តូរថ្ងៃឈប់សម្រាក
+// ============================================================
+async function renderDaySwap() {
+  showLoading();
+  try {
+    const [swapData, empData] = await Promise.all([
+      api('GET', '/dayswap'),
+      api('GET', '/employees?limit=500'),
+    ]);
+    const records = swapData.records || [];
+    const emps = empData.employees || [];
+    const pending  = records.filter(r => r.status === 'pending').length;
+    const approved = records.filter(r => r.status === 'approved').length;
+    const wdNames  = ['អាទិត្យ','ច័ន្ទ','អង្គារ','ពុធ','ព្រហស្បតិ៍','សុក្រ','សៅរ៍'];
+
+    contentArea().innerHTML = `
+      <div class="page-header">
+        <div><h2>🔄 ប្តូរថ្ងៃឈប់សម្រាក</h2><p>គ្រប់គ្រងការស្នើប្តូរថ្ងៃ OFF</p></div>
+        ${canEdit() ? `<button class="btn btn-primary" onclick="openDaySwapModal()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          ស្នើប្តូរថ្ងៃ
+        </button>` : ''}
+      </div>
+      <div class="stats-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:20px">
+        <div class="stat-card"><div class="stat-icon blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg></div>
+          <div><div class="stat-label">ស្នើរសរុប</div><div class="stat-value">${records.length}</div></div></div>
+        <div class="stat-card"><div class="stat-icon orange"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+          <div><div class="stat-label">រង់ចាំ</div><div class="stat-value" style="color:var(--warning)">${pending}</div></div></div>
+        <div class="stat-card"><div class="stat-icon green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg></div>
+          <div><div class="stat-label">អនុម័ត</div><div class="stat-value" style="color:var(--success)">${approved}</div></div></div>
+      </div>
+      <div class="card"><div class="table-container"><table>
+        <thead><tr>
+          <th>បុគ្គលិក</th>
+          <th>ថ្ងៃ OFF ដែលធ្វើការ</th>
+          <th>ធ្វើការជំនួស</th>
+          <th>កាលបរិច្ឆេទ</th>
+          <th>មូលហេតុ</th>
+          <th>ស្ថានភាព</th>
+          <th>សកម្មភាព</th>
+        </tr></thead>
+        <tbody>${records.length === 0
+          ? `<tr><td colspan="7"><div class="empty-state" style="padding:30px"><p>មិនទាន់មានការស្នើ</p></div></td></tr>`
+          : records.map(r => {
+              const workDay  = wdNames[r.work_day]  || r.work_day;
+              const offDay   = wdNames[r.off_day]   || r.off_day;
+              return `<tr>
+                <td><div class="employee-cell">
+                  <div class="emp-avatar" style="background:${getColor(r.employee_name)}">${(r.employee_name||'?')[0]}</div>
+                  <div class="emp-name">${r.employee_name||'—'}</div>
+                </div></td>
+                <td><span style="background:rgba(239,71,111,.12);color:var(--danger);padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600">OFF → ${workDay}</span></td>
+                <td><span style="background:rgba(6,214,160,.12);color:var(--success);padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600">✔ ${offDay}</span></td>
+                <td style="font-family:var(--mono);font-size:12px">${r.swap_date||'—'}</td>
+                <td style="color:var(--text3);font-size:12px">${r.reason||'—'}</td>
+                <td>${r.status==='approved'
+                  ? '<span class="badge badge-green">✅ អនុម័ត</span>'
+                  : r.status==='rejected'
+                  ? '<span class="badge badge-red">❌ បដិសេធ</span>'
+                  : '<span class="badge badge-yellow">⏳ រង់ចាំ</span>'}</td>
+                <td><div class="action-btns">
+                  ${r.status==='pending' && canEdit() ? `
+                    <button class="btn btn-success btn-sm" onclick="updateDaySwap(${r.id},'approved')">✅</button>
+                    <button class="btn btn-danger btn-sm" onclick="updateDaySwap(${r.id},'rejected')">❌</button>` : ''}
+                  ${canEdit() ? `<button class="btn btn-danger btn-sm" onclick="deleteRecord('dayswap',${r.id},renderDaySwap)">🗑️</button>` : ''}
+                </div></td>
+              </tr>`;
+            }).join('')}
+        </tbody>
+      </table></div></div>`;
+  } catch(e) { showError(e.message); }
+}
+
+async function openDaySwapModal(id = null) {
+  try {
+    const empData = await api('GET', '/employees?limit=500');
+    const emps = empData.employees || [];
+    const wdNames = ['អាទិត្យ','ច័ន្ទ','អង្គារ','ពុធ','ព្រហស្បតិ៍','សុក្រ','សៅរ៍'];
+    let rec = null;
+    if (id) { try { rec = await api('GET', '/dayswap/' + id); } catch(_) {} }
+
+    const empOptions = emps.map(e =>
+      `<option value="${e.id}" ${rec?.employee_id===e.id?'selected':''}>${e.name}</option>`
+    ).join('');
+
+    const wdOptions = (sel) => wdNames.map((n,i) =>
+      `<option value="${i}" ${sel===i?'selected':''}>${n}</option>`
+    ).join('');
+
+    $('modal-title').textContent = id ? 'កែការស្នើប្តូរថ្ងៃ' : '🔄 ស្នើប្តូរថ្ងៃឈប់សម្រាក';
+    $('modal-body').innerHTML = `
+      <div style="background:var(--bg3);border-radius:10px;padding:14px;margin-bottom:16px;font-size:12px;color:var(--text3)">
+        💡 <b>ឧទាហរណ៍:</b> បុគ្គលិក OFF ថ្ងៃអាទិត្យ → ស្នើធ្វើការថ្ងៃអាទិត្យ (OFF ធ្វើការ) ហើយសម្រាកថ្ងៃច័ន្ទ (ច័ន្ទ OFF ជំនួស)
+      </div>
+      <div class="form-grid">
+        <div class="form-group full-width">
+          <label class="form-label">បុគ្គលិក *</label>
+          <select class="form-control" id="ds-emp">${empOptions}</select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">ថ្ងៃ OFF ដែលត្រូវធ្វើការ *</label>
+          <select class="form-control" id="ds-work-day">
+            ${wdOptions(rec?.work_day ?? -1)}
+          </select>
+          <div style="font-size:11px;color:var(--text3);margin-top:4px">ថ្ងៃ OFF ដែលបុគ្គលិកចូលធ្វើការ</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">ថ្ងៃធ្វើការ ដែលត្រូវ OFF ជំនួស *</label>
+          <select class="form-control" id="ds-off-day">
+            ${wdOptions(rec?.off_day ?? -1)}
+          </select>
+          <div style="font-size:11px;color:var(--text3);margin-top:4px">ថ្ងៃធ្វើការ ដែលត្រូវ OFF ជំនួស</div>
+        </div>
+        <div class="form-group full-width">
+          <label class="form-label">កាលបរិច្ឆេទ (ថ្ងៃ OFF ដែលធ្វើការ) *</label>
+          <input class="form-control" type="date" id="ds-date" value="${rec?.swap_date||''}"/>
+        </div>
+        <div class="form-group full-width">
+          <label class="form-label">មូលហេតុ</label>
+          <input class="form-control" id="ds-reason" placeholder="មូលហេតុ..." value="${rec?.reason||''}"/>
+        </div>
+      </div>`;
+
+    $('modal-footer').innerHTML = `
+      <button class="btn btn-outline" onclick="closeModal()">បោះបង់</button>
+      <button class="btn btn-primary" onclick="saveDaySwap(${id||'null'})">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><polyline points="20 6 9 17 4 12"/></svg>
+        រក្សាទុក
+      </button>`;
+    openModal();
+  } catch(e) { showToast('បញ្ហា: ' + e.message, 'error'); }
+}
+
+async function saveDaySwap(id = null) {
+  const empId   = parseInt($('ds-emp')?.value);
+  const workDay = parseInt($('ds-work-day')?.value);
+  const offDay  = parseInt($('ds-off-day')?.value);
+  const date    = $('ds-date')?.value;
+  const reason  = $('ds-reason')?.value.trim();
+
+  if (!empId || isNaN(workDay) || isNaN(offDay) || !date) {
+    showToast('សូមបំពេញព័ត៌មានឱ្យបរិបូរណ៍!', 'error'); return;
+  }
+  if (workDay === offDay) {
+    showToast('ថ្ងៃ OFF និងថ្ងៃ OFF ជំនួស មិនអាចដូចគ្នា!', 'error'); return;
+  }
+
+  const body = { employee_id: empId, work_day: workDay, off_day: offDay, swap_date: date, reason, status: 'pending' };
+  try {
+    if (id) {
+      await api('PUT', '/dayswap/' + id, body);
+      showToast('កែប្រែបានជោគជ័យ!', 'success');
+    } else {
+      await api('POST', '/dayswap', body);
+      showToast('ស្នើប្តូរថ្ងៃបានជោគជ័យ!', 'success');
+    }
+    closeModal();
+    renderDaySwap();
+  } catch(e) { showToast('បញ្ហា: ' + e.message, 'error'); }
+}
+
+async function updateDaySwap(id, status) {
+  try {
+    await api('PUT', '/dayswap/' + id, { status });
+    showToast(status === 'approved' ? '✅ អនុម័តរួចរាល់!' : '❌ បដិសេធរួចរាល់!', 'success');
+    renderDaySwap();
+  } catch(e) { showToast('បញ្ហា: ' + e.message, 'error'); }
 }
 
 // ============================================================

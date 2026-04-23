@@ -171,6 +171,18 @@ async function handleRequest(request, env) {
       if (method === 'DELETE') return deleteRecord(id, env, 'leave_requests');
     }
 
+    // ===== DAY SWAP =====
+    if (path === '/dayswap') {
+      if (method === 'GET') return getAll(env, 'day_swaps', 'ds.*, e.name as employee_name', 'day_swaps ds JOIN employees e ON ds.employee_id=e.id', 'ds.created_at DESC');
+      if (method === 'POST') return insertRecord(request, env, 'day_swaps', ['employee_id','work_day','off_day','swap_date','reason','status']);
+    }
+    if (path.match(/^\/dayswap\/\d+$/)) {
+      const id = parseInt(path.split('/')[2]);
+      if (method === 'GET') return getSingle(id, env, 'day_swaps ds JOIN employees e ON ds.employee_id=e.id', 'ds.*, e.name as employee_name', 'ds');
+      if (method === 'PUT') return updateRecord(id, request, env, 'day_swaps');
+      if (method === 'DELETE') return deleteRecord(id, env, 'day_swaps');
+    }
+
 
     if (path === '/stats' && method === 'GET') return getStats(env);
 
@@ -361,7 +373,7 @@ async function deleteEmployee(id, env) {
   if (!existing) return error('Employee not found', 404);
 
   // Delete all related records first (cascade)
-  const tables = ['attendance','salary_records','overtime','allowances','loans','expense_requests','leave_requests'];
+  const tables = ['attendance','salary_records','overtime','allowances','loans','expense_requests','leave_requests','day_swaps'];
   for (const tbl of tables) {
     try {
       await env.DB.prepare('DELETE FROM ' + tbl + ' WHERE employee_id = ?').bind(id).run();
@@ -669,6 +681,13 @@ async function getAll(env, table, fields, from, order) {
   return json({ records: result.results });
 }
 
+async function getSingle(id, env, from, fields, alias) {
+  const tbl = alias || from.split(' ')[0];
+  const rec = await env.DB.prepare(`SELECT ${fields} FROM ${from} WHERE ${tbl}.id=?`).bind(id).first();
+  if (!rec) return error('Not found', 404);
+  return json(rec);
+}
+
 async function insertRecord(request, env, table, fields) {
   const body = await request.json();
   const cols = fields.join(', ');
@@ -835,6 +854,17 @@ async function initDatabase(env) {
       start_date TEXT NOT NULL,
       end_date TEXT NOT NULL,
       days INTEGER DEFAULT 1,
+      reason TEXT DEFAULT '',
+      status TEXT DEFAULT 'pending',
+      created_at TEXT, updated_at TEXT
+    )`,
+
+    `CREATE TABLE IF NOT EXISTS day_swaps (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      employee_id INTEGER NOT NULL REFERENCES employees(id),
+      work_day INTEGER NOT NULL,
+      off_day INTEGER NOT NULL,
+      swap_date TEXT NOT NULL,
       reason TEXT DEFAULT '',
       status TEXT DEFAULT 'pending',
       created_at TEXT, updated_at TEXT
