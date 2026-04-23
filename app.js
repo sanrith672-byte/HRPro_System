@@ -2013,9 +2013,6 @@ async function renderMonthlyAttendance(month='') {
       const av = photo
         ? '<img src="'+photo+'" style="width:24px;height:24px;border-radius:50%;object-fit:cover;flex-shrink:0"/>'
         : '<div style="width:24px;height:24px;border-radius:50%;background:'+getColor(emp.name)+';display:flex;align-items:center;justify-content:center;color:white;font-size:10px;font-weight:700;flex-shrink:0">'+emp.name[0]+'</div>';
-      const deductCell = overAbsent > 0
-        ? '<td style="text-align:center;font-weight:700;color:var(--danger);font-size:12px">-$'+deduction.toFixed(0)+'</td>'
-        : '<td style="text-align:center;color:var(--success);font-size:11px">—</td>';
       return '<tr>'
         +'<td style="padding:6px 8px;white-space:nowrap"><div style="display:flex;align-items:center;gap:6px">'+av+'<span style="font-size:12px;font-weight:600">'+emp.name+'</span></div></td>'
         +'<td style="text-align:center;font-weight:700;color:var(--success);font-size:12px">'+present+'</td>'
@@ -2023,9 +2020,8 @@ async function renderMonthlyAttendance(month='') {
         +'<td style="text-align:center;font-weight:700;color:var(--danger);font-size:12px">'+absent+'</td>'
         +'<td style="text-align:center;font-weight:700;color:var(--primary);font-size:12px">'+(swap>0?'<span style="background:rgba(99,102,241,.15);border-radius:4px;padding:1px 6px">'+swap+'</span>':'<span style="color:var(--text3)">0</span>')+'</td>'
         +'<td style="text-align:center;font-weight:700;color:'+(overAbsent>0?'var(--danger)':'var(--text3)')+';font-size:12px">'+overAbsent+'</td>'
-        +deductCell
+        +(overAbsent>0?'<td style="text-align:center;font-weight:700;color:var(--danger);font-size:11px">-$'+deduction.toFixed(0)+'<br><button class="btn btn-outline btn-sm" style="font-size:9px;padding:2px 6px;margin-top:2px" onclick="applyAbsenceDeduction('+emp.id+',\''+emp.name+'\','+absent+','+overAbsent+','+deduction+',\''+currentMonth+'\')" title="កាត់ប្រាក់">💸</button></td>':'<td style="text-align:center;color:var(--success);font-size:11px">—</td>')
         +cells
-        +'<td style="text-align:center"><button class="btn btn-outline btn-sm" style="font-size:10px;padding:3px 8px" onclick="applyAbsenceDeduction('+emp.id+',\''+emp.name+'\','+absent+','+overAbsent+','+deduction+',\''+currentMonth+'\')">💸 កាត់</button></td>'
         +'</tr>';
     }).join('');
 
@@ -2041,8 +2037,7 @@ async function renderMonthlyAttendance(month='') {
       +'<input class="filter-input" type="month" value="'+currentMonth+'" onchange="renderMonthlyAttendance(this.value)" />'
       +'<button class="btn btn-primary" onclick="applyAllAbsenceDeductions(\''+currentMonth+'\')">💸 កាត់ប្រាក់ទាំងអស់</button>'
       +'<button class="btn btn-outline" onclick="renderAttendance(\''+currentMonth+'-01\')" style="border-color:var(--success);color:var(--success)">📅 ថ្ងៃទៅថ្ងៃ</button>'
-      +'<button class="btn btn-outline" onclick="printMonthlyAttendance()" style="border-color:var(--primary);color:var(--primary)">🖨️ បោះពុម្ព PDF</button>'
-      +'<button class="btn btn-outline" onclick="exportMonthlyAttendanceExcel()" style="border-color:var(--info);color:var(--info)">📊 Export Excel</button>'
+      +'<button class="btn btn-outline" onclick="openMonthlyAttPrintModal()" style="border-color:var(--primary);color:var(--primary)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;vertical-align:middle;margin-right:4px"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>បោះពុម្ព / Export</button>'
       +'</div></div>'
       +'<div class="att-summary">'
       +'<div class="att-box"><div class="att-num" style="color:var(--success)">'+totals.p+'</div><div class="att-lbl">✅ វត្តមាន</div></div>'
@@ -2068,9 +2063,7 @@ async function renderMonthlyAttendance(month='') {
       +'<th style="min-width:40px;text-align:center;color:var(--danger)" rowspan="2">❌</th>'
       +'<th style="min-width:45px;text-align:center;color:var(--primary)" rowspan="2" title="តារធ្វើការជំនួស">🔄</th>'
       +'<th style="min-width:50px;text-align:center" rowspan="2">លើស</th>'
-      +'<th style="min-width:60px;text-align:center" rowspan="2">កាត់</th>'
       +dayThs
-      +'<th style="min-width:60px;text-align:center" rowspan="2">សកម្ម</th>'
       +'</tr>'
       +'<tr style="position:sticky;top:22px;z-index:2;background:var(--bg2)">'
       +wdThs
@@ -2081,6 +2074,30 @@ async function renderMonthlyAttendance(month='') {
   } catch(e) { showError(e.message); }
 }
 
+
+// ── Monthly Attendance Print/Export Modal ──
+function openMonthlyAttPrintModal() {
+  const d = window._monthlyAttData;
+  if (!d) { showToast('សូមចាំ... ទំព័រមិនទាន់ Load ទេ', 'error'); return; }
+  const { totals } = d;
+  $('modal-title').textContent = '🖨️ បោះពុម្ព / Export វត្តមានប្រចាំខែ';
+  $('modal-body').innerHTML =
+    '<div style="display:flex;flex-direction:column;gap:12px">'
+    +'<p style="color:var(--text2);font-size:13px">ជ្រើសរើសទម្រង់ Export:</p>'
+    +'<button class="btn btn-primary" style="width:100%;justify-content:flex-start;gap:12px;padding:14px 16px" onclick="closeModal();printMonthlyAttendance()">'
+    +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px;height:20px;flex-shrink:0"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>'
+    +'<div style="text-align:left"><div style="font-weight:700;font-size:14px">🖨️ បោះពុម្ព / Save PDF</div><div style="font-size:11px;opacity:.75">Print window — A4 Landscape · រួមមាន ហត្ថលេខា និង ការកាត់ប្រាក់</div></div>'
+    +'</button>'
+    +'<button class="btn btn-outline" style="width:100%;justify-content:flex-start;gap:12px;padding:14px 16px;border-color:var(--success);color:var(--success)" onclick="closeModal();exportMonthlyAttendanceExcel()">'
+    +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px;height:20px;flex-shrink:0"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>'
+    +'<div style="text-align:left"><div style="font-weight:700;font-size:14px">📊 Export Excel (.xlsx)</div><div style="font-size:11px;opacity:.75">Download file Excel — មាន 2 Sheet: Summary + Daily Detail</div></div>'
+    +'</button>'
+    +'<div style="background:var(--bg3);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--text3)">'
+    +'📋 សរុប: ✅ '+totals.p+' | ⏰ '+totals.l+' | ❌ '+totals.a+' | 💸 -$'+totals.d.toFixed(2)
+    +'</div>'
+    +'</div>';
+  openModal();
+}
 
 // ── Monthly Attendance Print PDF ──
 function printMonthlyAttendance() {
