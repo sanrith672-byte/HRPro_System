@@ -7483,6 +7483,101 @@ function statusBadge(status) {
 }
 
 // ============================================================
+// AUTO LOGOUT — 15 minutes idle detection
+// ============================================================
+const IDLE_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
+const IDLE_WARNING_MS = 14 * 60 * 1000; // Warning at 14 minutes (1 min before logout)
+let _idleTimer = null;
+let _idleWarnTimer = null;
+let _idleWarningShown = false;
+
+function resetIdleTimer() {
+  if (!isLoggedIn()) return;
+  clearTimeout(_idleTimer);
+  clearTimeout(_idleWarnTimer);
+  // If warning toast was shown, hide it
+  if (_idleWarningShown) {
+    const warn = document.getElementById('idle-warning-banner');
+    if (warn) warn.remove();
+    _idleWarningShown = false;
+  }
+  // Set warning at 14 min
+  _idleWarnTimer = setTimeout(() => {
+    if (!isLoggedIn()) return;
+    _idleWarningShown = true;
+    // Show warning banner
+    let banner = document.getElementById('idle-warning-banner');
+    if (!banner) {
+      banner = document.createElement('div');
+      banner.id = 'idle-warning-banner';
+      banner.style.cssText = [
+        'position:fixed','bottom:80px','left:50%','transform:translateX(-50%)',
+        'background:#f59e0b','color:#1a1a1a','font-weight:700',
+        'padding:12px 24px','border-radius:12px','z-index:99999',
+        'box-shadow:0 4px 20px rgba(0,0,0,0.3)','font-size:14px',
+        'display:flex','align-items:center','gap:10px','white-space:nowrap',
+      ].join(';');
+      banner.innerHTML = '⚠️ ប្រព័ន្ធនឹងចាក់ចេញស្វ័យប្រវត្តិក្នុង <span id="idle-countdown">60</span> វិនាទី — <button onclick="resetIdleTimer()" style="background:#1a1a1a;color:#f59e0b;border:none;padding:4px 12px;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px">ស្នើ​ থাকতে</button>';
+      document.body.appendChild(banner);
+      // Countdown
+      let secs = 60;
+      const cdEl = document.getElementById('idle-countdown');
+      const cdInterval = setInterval(() => {
+        secs--;
+        if (cdEl) cdEl.textContent = secs;
+        if (secs <= 0 || !document.getElementById('idle-warning-banner')) clearInterval(cdInterval);
+      }, 1000);
+    }
+  }, IDLE_WARNING_MS);
+
+  // Auto logout at 15 min
+  _idleTimer = setTimeout(() => {
+    if (!isLoggedIn()) return;
+    // Remove warning banner if visible
+    const warn = document.getElementById('idle-warning-banner');
+    if (warn) warn.remove();
+    _idleWarningShown = false;
+    // Force logout
+    localStorage.removeItem(AUTH_KEY);
+    document.getElementById('app-shell').style.display = 'none';
+    const ls = document.getElementById('login-screen');
+    if (ls) {
+      ls.style.display = 'flex';
+      const box = ls.querySelector('.login-box');
+      if (box) { box.style.transform = ''; box.style.opacity = ''; }
+      const uEl = document.getElementById('login-username');
+      const pEl = document.getElementById('login-password');
+      const btn = document.getElementById('login-btn');
+      const btnTxt = document.getElementById('login-btn-text');
+      if (uEl) uEl.value = '';
+      if (pEl) pEl.value = '';
+      if (btn) btn.disabled = false;
+      if (btnTxt) btnTxt.textContent = 'ចូល';
+      const errEl = document.getElementById('login-error');
+      if (errEl) errEl.style.display = 'none';
+    }
+    showToast('⏱️ ចាក់ចេញស្វ័យប្រវត្តិ — អស់ 15 នាទីដោយគ្មានសកម្មភាព', 'warning');
+    stopIdleTimer();
+  }, IDLE_TIMEOUT_MS);
+}
+
+function startIdleTimer() {
+  const events = ['mousemove','mousedown','keydown','touchstart','scroll','click','wheel'];
+  events.forEach(ev => document.addEventListener(ev, resetIdleTimer, { passive: true }));
+  resetIdleTimer();
+}
+
+function stopIdleTimer() {
+  clearTimeout(_idleTimer);
+  clearTimeout(_idleWarnTimer);
+  _idleTimer = null;
+  _idleWarnTimer = null;
+  _idleWarningShown = false;
+  const events = ['mousemove','mousedown','keydown','touchstart','scroll','click','wheel'];
+  events.forEach(ev => document.removeEventListener(ev, resetIdleTimer));
+}
+
+// ============================================================
 // AUTH — Login / Logout
 // ============================================================
 function doLogin() {
@@ -7536,11 +7631,13 @@ function animateLoginSuccess() {
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('app-shell').style.display = '';
     initApp();
+    startIdleTimer(); // Begin 15-min idle tracking
   }, 350);
 }
 
 function doLogout() {
   if (!confirm('តើអ្នកចង់ចាកចេញពីប្រព័ន្ធ?')) return;
+  stopIdleTimer(); // Stop idle tracking
   localStorage.removeItem(AUTH_KEY);
   document.getElementById('app-shell').style.display = 'none';
   const ls = document.getElementById('login-screen');
@@ -7628,6 +7725,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('app-shell').style.display = '';
     initApp();
+    startIdleTimer(); // Resume idle tracking for existing session
   }
 });
 
