@@ -2050,6 +2050,7 @@ async function renderMonthlyAttendance(month='') {
       +'<div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:14px;display:flex;gap:16px;flex-wrap:wrap;align-items:center">'
       +'<span style="font-size:12px;color:var(--text3)">⚙️ ច្បាប់:</span>'
       +'<span style="font-size:12px">ថ្ងៃអវត្តមានអនុញ្ញាត: <b style="color:var(--primary)">'+maxAbsent+' ថ្ងៃ/ខែ</b></span>'
+      +'<span style="font-size:12px">ម៉ោងចូល: <b style="color:var(--warning)">'+(rules.work_start_time||'08:00')+'</b> <span style="color:var(--text3)">(grace '+(rules.late_grace_minutes||15)+' នាទី)</span></span>'
       +'<span style="font-size:12px">រូបមន្ត: <b style="color:var(--danger)">ប្រាក់ខែ ÷ ថ្ងៃធ្វើការ × ថ្ងៃលើស</b></span>'
       +'<button class="btn btn-outline btn-sm" style="font-size:11px" onclick="openAbsenceRulesModal()">✏️ កែច្បាប់</button>'
       +'</div>'
@@ -2508,7 +2509,12 @@ async function processQRScan_continue(emp, raw, date) {
   const now   = new Date();
   const time  = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
   const type  = window._scanType || 'in';
-  const isLate = type === 'in' && (now.getHours() > 8 || (now.getHours() === 8 && now.getMinutes() > 15));
+  const _rules = getSalaryRules();
+  const _startParts = (_rules.work_start_time || '08:00').split(':').map(Number);
+  const _graceMin = _rules.late_grace_minutes !== undefined ? _rules.late_grace_minutes : 15;
+  const _limitMin = _startParts[0] * 60 + _startParts[1] + _graceMin;
+  const _nowMin = now.getHours() * 60 + now.getMinutes();
+  const isLate = type === 'in' && (_nowMin > _limitMin);
   const status = type === 'in' ? (isLate ? 'late' : 'present') : 'present';
 
   const payload = { employee_id: emp.id, date };
@@ -5432,6 +5438,8 @@ function getSalaryRules() {
     payroll_auto: false,
     currency: 'USD',
     currency_symbol: '$',
+    work_start_time: '08:00',
+    late_grace_minutes: 15,
   };
   try { return { ...def, ...JSON.parse(localStorage.getItem(SAL_KEY)) }; } catch { return def; }
 }
@@ -6147,6 +6155,31 @@ function renderSettings() {
               </div>
             </div>
 
+            <!-- Work Schedule -->
+            <div style="margin-bottom:24px">
+              <div style="font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:12px">🕐 កំណត់ម៉ោងធ្វើការ</div>
+              <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:var(--text3)">
+                💡 ម៉ោងចូលត្រូវបានប្រើដើម្បីកំណត់ថា បុគ្គលិកចូលយឺតឬអត់ នៅពេល Scan QR ឬ Check-in
+              </div>
+              <div class="salary-rules-grid">
+                <div class="salary-rule-card" style="border-color:var(--primary);background:rgba(99,102,241,.04)">
+                  <div class="rule-label">⏰ ម៉ោងចូលធ្វើការ</div>
+                  <div class="rule-input-wrap">
+                    <input type="time" id="sr-work-start" value="${rules.work_start_time || '08:00'}" style="font-family:var(--mono);font-weight:700;font-size:14px" oninput="updateLatePreview()" />
+                  </div>
+                  <div style="font-size:10px;color:var(--text3);margin-top:4px">ម៉ោងដែលត្រូវចូលធ្វើការ</div>
+                </div>
+                <div class="salary-rule-card" style="border-color:var(--warning);background:rgba(255,190,11,.04)">
+                  <div class="rule-label">⏳ ផ្តល់ grace period (នាទី)</div>
+                  <div class="rule-input-wrap">
+                    <input type="number" id="sr-late-grace" value="${rules.late_grace_minutes !== undefined ? rules.late_grace_minutes : 15}" min="0" max="60" oninput="updateLatePreview()" />
+                    <span class="rule-unit">នាទី</span>
+                  </div>
+                  <div style="font-size:10px;color:var(--text3);margin-top:4px">ចូលយឺតក្រោយ: <span id="late-preview" style="color:var(--warning);font-weight:700">${(()=>{const p=(rules.work_start_time||'08:00').split(':').map(Number);const g=rules.late_grace_minutes!==undefined?rules.late_grace_minutes:15;const t=p[0]*60+p[1]+g;return String(Math.floor(t/60)).padStart(2,'0')+':'+String(t%60).padStart(2,'0');})()} </span></div>
+                </div>
+              </div>
+            </div>
+
             <!-- OT & Allowances -->
             <div style="margin-bottom:24px">
               <div style="font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:12px">⏰ ថែមម៉ោង & ឧបត្ថម្ភ Default</div>
@@ -6701,9 +6734,23 @@ function saveSalarySettings() {
     transport_allowance:  parseFloat($('sr-transport')?.value)   || 0,
     payroll_auto:         $('sr-auto')?.checked || false,
     max_absent_days:      parseInt($('sr-max-absent')?.value)    !== undefined && $('sr-max-absent') ? parseInt($('sr-max-absent').value) : 2,
+    work_start_time:      $('sr-work-start')?.value || '08:00',
+    late_grace_minutes:   parseInt($('sr-late-grace')?.value) || 0,
   };
   saveSalaryRules(rules);
   showToast('រក្សាទុកការកំណត់បៀវត្សបានជោគជ័យ! ✅','success');
+  updateLatePreview();
+}
+
+function updateLatePreview() {
+  const startEl = document.getElementById('sr-work-start');
+  const graceEl = document.getElementById('sr-late-grace');
+  const prevEl  = document.getElementById('late-preview');
+  if (!startEl || !graceEl || !prevEl) return;
+  const parts = (startEl.value || '08:00').split(':').map(Number);
+  const grace = parseInt(graceEl.value) || 0;
+  const total = parts[0] * 60 + parts[1] + grace;
+  prevEl.textContent = String(Math.floor(total/60)).padStart(2,'0') + ':' + String(total%60).padStart(2,'0');
 }
 
 function toggleAutoPayrollUI(on) {
