@@ -1856,10 +1856,20 @@ async function renderMonthlyAttendance(month='') {
   const maxAbsent = rules.max_absent_days !== undefined ? rules.max_absent_days : 2;
 
   try {
-    const [empData, attData] = await Promise.all([
+    const [empData, attData, swapDataRaw] = await Promise.all([
       api('GET','/employees?limit=500'),
-      api('GET','/attendance?date='+currentMonth+'-01&limit=9999')
+      api('GET','/attendance?date='+currentMonth+'-01&limit=9999'),
+      api('GET','/dayswap').catch(()=>({records:[]}))
     ]);
+    // Build swap map: empId -> { dd -> swapRecord } for approved swaps this month
+    const swapMap = {};
+    (swapDataRaw.records||[]).forEach(s => {
+      if (s.status === 'approved' && s.swap_date && s.swap_date.startsWith(currentMonth)) {
+        if (!swapMap[s.employee_id]) swapMap[s.employee_id] = {};
+        const dd = s.swap_date.slice(-2);
+        swapMap[s.employee_id][dd] = s;
+      }
+    });
     // Load all attendance for the month by fetching each week? No — use limit trick with month filter
     // Fetch all attendance records for the month
     let allRecords = [];
@@ -1952,11 +1962,25 @@ async function renderMonthlyAttendance(month='') {
       const rec = attMap[emp.id] || {};
       const empOff = parseOffDays(emp);
       const cells = allDays.map(({dd, wd}) => {
+        const swapRec = (swapMap[emp.id]||{})[dd];
         // This day is employee's day off
         if (empOff.indexOf(wd) !== -1) {
+          if (swapRec) {
+            // Employee came to work on their OFF day (swap approved)
+            return '<td style="text-align:center;font-size:9px;font-weight:700;color:var(--primary);background:rgba(99,102,241,.1)" title="ប្តូរថ្ងៃ — ធ្វើការជំនួស">🔄</td>';
+          }
           return '<td style="text-align:center;font-size:9px;color:var(--danger);background:var(--bg2)">OFF</td>';
         }
-        const a = rec[dd];
+        // Check if this working day is the compensation OFF day for a swap
+        const compSwap = Object.values(swapMap[emp.id]||{}).find(s => {
+          // off_day is weekday number, check if this date's weekday matches
+          const dt = new Date(currentMonth + '-' + dd);
+          return s.off_day === dt.getDay();
+        });
+        if (compSwap) {
+          return '<td style="text-align:center;font-size:9px;font-weight:700;color:var(--warning);background:rgba(255,190,11,.1)" title="ឈប់ជំនួស OFF">OFF+</td>';
+        }
+        const a = attMap[emp.id]?.[dd] || (attMap[emp.id]||{})[dd];
         if (!a) return '<td style="text-align:center;font-size:10px;color:var(--danger)">—</td>';
         if (a.status==='present') return '<td style="text-align:center;font-size:11px;color:var(--success)">✔</td>';
         if (a.status==='late') return '<td style="text-align:center;font-size:11px;color:var(--warning)">⏰</td>';
@@ -5654,9 +5678,17 @@ async function openDaySwapModal(id = null) {
     let rec = null;
     if (id) { try { rec = await api('GET', '/dayswap/' + id); } catch(_) {} }
 
-    const empOptions = emps.map(e =>
-      `<option value="${e.id}" ${rec?.employee_id===e.id?'selected':''}>${e.name}</option>`
-    ).join('');
+    // Build emp map for quick lookup of off_days
+    const empMap = {};
+    emps.forEach(e => { empMap[e.id] = e; });
+
+    // Store emps data globally for onchange access
+    window._dsEmps = empMap;
+
+    const empOptions = emps.map(e => {
+      const offDays = parseOffDays(e);
+      return `<option value="${e.id}" data-offdays="${JSON.stringify(offDays)}" ${rec?.employee_id===e.id?'selected':''}>${e.name}</option>`;
+    }).join('');
 
     const wdOptions = (sel) => {
       const placeholder = `<option value="" disabled ${sel===-1?'selected':''}>-- ជ្រើសរើសថ្ងៃ --</option>`;
@@ -5664,6 +5696,12 @@ async function openDaySwapModal(id = null) {
         `<option value="${i}" ${sel===i?'selected':''}>${n}</option>`
       ).join('');
     };
+
+    // Determine initial auto-select for work_day (employee's off day)
+    const initEmp = rec ? emps.find(e=>e.id===rec.employee_id) : emps[0];
+    const initOffDays = initEmp ? parseOffDays(initEmp) : [];
+    const initWorkDay = rec?.work_day ?? (initOffDays.length ? initOffDays[0] : -1);
+    const initOffDay  = rec?.off_day  ?? -1;
 
     $('modal-title').textContent = id ? 'កែការស្នើប្តូរថ្ងៃ' : '🔄 ស្នើប្តូរថ្ងៃឈប់សម្រាក';
     $('modal-body').innerHTML = `
@@ -5673,19 +5711,19 @@ async function openDaySwapModal(id = null) {
       <div class="form-grid">
         <div class="form-group full-width">
           <label class="form-label">បុគ្គលិក *</label>
-          <select class="form-control" id="ds-emp">${empOptions}</select>
+          <select class="form-control" id="ds-emp" onchange="dsAutoFillOffDay(this)">${empOptions}</select>
         </div>
         <div class="form-group">
           <label class="form-label">ថ្ងៃ OFF ដែលត្រូវធ្វើការ *</label>
           <select class="form-control" id="ds-work-day">
-            ${wdOptions(rec?.work_day ?? -1)}
+            ${wdOptions(initWorkDay)}
           </select>
-          <div style="font-size:11px;color:var(--text3);margin-top:4px">ថ្ងៃ OFF ដែលបុគ្គលិកចូលធ្វើការ</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:4px">ថ្ងៃ OFF ដែលបុគ្គលិកចូលធ្វើការ (Auto ពី Day Off)</div>
         </div>
         <div class="form-group">
           <label class="form-label">ថ្ងៃធ្វើការ ដែលត្រូវ OFF ជំនួស *</label>
           <select class="form-control" id="ds-off-day">
-            ${wdOptions(rec?.off_day ?? -1)}
+            ${wdOptions(initOffDay)}
           </select>
           <div style="font-size:11px;color:var(--text3);margin-top:4px">ថ្ងៃធ្វើការ ដែលត្រូវ OFF ជំនួស</div>
         </div>
@@ -5737,6 +5775,19 @@ async function saveDaySwap(id = null) {
     closeModal();
     renderDaySwap();
   } catch(e) { showToast('បញ្ហា: ' + e.message, 'error'); }
+}
+
+// Auto-fill "ថ្ងៃ OFF ដែលត្រូវធ្វើការ" based on selected employee's off_days
+function dsAutoFillOffDay(sel) {
+  const opt = sel.options[sel.selectedIndex];
+  if (!opt) return;
+  try {
+    const offDays = JSON.parse(opt.getAttribute('data-offdays') || '[]');
+    const workDaySel = $('ds-work-day');
+    if (workDaySel && offDays.length) {
+      workDaySel.value = String(offDays[0]);
+    }
+  } catch(_) {}
 }
 
 async function updateDaySwap(id, status) {
