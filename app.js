@@ -6164,6 +6164,8 @@ async function runAutoPayrollNow() {
   if (res) res.innerHTML = '<span style="color:var(--text3)">⏳ កំពុងដំណើរការ...</span>';
   const rules = getSalaryRules();
   const month = thisMonth();
+  const maxAbsent = rules.max_absent_days !== undefined ? rules.max_absent_days : 2;
+  const deductPerDay = rules.absent_deduct_per_day !== undefined ? rules.absent_deduct_per_day : 0;
   try {
     const empData = await api('GET', '/employees?limit=500');
     const emps = (empData.employees || []).filter(e => e.status === 'active');
@@ -6171,19 +6173,79 @@ async function runAutoPayrollNow() {
       if (res) res.innerHTML = '<span style="color:var(--warning)">⚠️ មិនមានបុគ្គលិក Active</span>';
       return;
     }
-    let success = 0, skip = 0;
+
+    // Load attendance data for absence deduction calculation
+    const [y, m] = month.split('-').map(Number);
+    const daysInMonth = new Date(y, m, 0).getDate();
+    let allAttRecords = [];
+    try { const r1 = await api('GET', '/attendance?month=' + month + '&limit=9999'); allAttRecords = r1.records || []; } catch(_) {}
+    if (!allAttRecords.length) {
+      const promises = [];
+      for (let d = 1; d <= daysInMonth; d++) {
+        const dd = String(d).padStart(2, '0');
+        promises.push(api('GET', '/attendance?date=' + month + '-' + dd).catch(() => ({ records: [] })));
+      }
+      const results = await Promise.all(promises);
+      results.forEach(r => { allAttRecords = allAttRecords.concat(r.records || []); });
+    }
+
+    // Build attendance map: { employee_id: { 'DD': record } }
+    const attMap = {};
+    allAttRecords.forEach(a => {
+      if (!attMap[a.employee_id]) attMap[a.employee_id] = {};
+      attMap[a.employee_id][(a.date || '').slice(-2)] = a;
+    });
+
+    // Working days (exclude Sundays)
+    const workingDays = [];
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dt = new Date(y, m - 1, d);
+      if (dt.getDay() !== 0) workingDays.push(String(d).padStart(2, '0'));
+    }
+
+    let success = 0, updated = 0, skip = 0;
     for (const e of emps) {
       const base = e.salary || 0;
-      const net = base;
+
+      // Calculate absence deduction
+      let absent = 0;
+      const empAtt = attMap[e.id] || {};
+      workingDays.forEach(dd => {
+        const a = empAtt[dd];
+        if (!a || a.status === 'absent') absent++;
+      });
+      const overAbsent = Math.max(0, absent - maxAbsent);
+      const deduction = deductPerDay > 0 ? overAbsent * deductPerDay : 0;
+      const net = base - deduction;
+      const absenceNote = deduction > 0 ? 'Auto Payroll · អវត្តមាន ' + absent + ' ថ្ងៃ (-$' + deduction.toFixed(2) + ')' : 'Auto Payroll';
+
       try {
-        await api('POST', '/salary', { employee_id: e.id, month, base_salary: base, bonus: 0, deduction: 0, net_salary: net });
-        success++;
+        // Check if salary record already exists for this month
+        const existSal = await api('GET', '/salary?month=' + month).catch(() => ({ records: [] }));
+        const existing = (existSal.records || []).find(r => r.employee_id === e.id);
+        if (!existing) {
+          await api('POST', '/salary', { employee_id: e.id, month, base_salary: base, bonus: 0, deduction, net_salary: net, notes: absenceNote });
+          success++;
+        } else {
+          // Update existing record with absence deduction if not already applied
+          const newDeduct = deduction;
+          const newNet = (existing.base_salary || base) + (existing.bonus || 0) - newDeduct;
+          const prevNote = existing.notes || '';
+          const noteAlreadyApplied = prevNote.includes('Auto Payroll');
+          if (!noteAlreadyApplied) {
+            await api('PUT', '/salary/' + existing.id, { ...existing, deduction: newDeduct, net_salary: newNet, notes: (prevNote ? prevNote + ' | ' : '') + absenceNote });
+            updated++;
+          } else {
+            skip++;
+          }
+        }
       } catch(_) { skip++; }
     }
-    if (res) res.innerHTML = '<span style="color:var(--success)">✅ បង្កើត '+success+' កំណត់ត្រា'+(skip?' · រំលង '+skip+' (មានរួច)':'')+'</span>';
-    showToast('Auto Payroll '+month+' — '+success+' នាក់ ✅', 'success');
+    const msg = '✅ បង្កើត ' + success + ' · ' + (updated ? 'ធ្វើបច្ចុប្បន្នភាព ' + updated + ' · ' : '') + (skip ? 'រំលង ' + skip : '');
+    if (res) res.innerHTML = '<span style="color:var(--success)">' + msg + '</span>';
+    showToast('Auto Payroll ' + month + ' — ' + (success + updated) + ' នាក់ ✅' + (deductPerDay > 0 ? ' (បូករួមកាត់អវត្តមាន)' : ''), 'success');
   } catch(e) {
-    if (res) res.innerHTML = '<span style="color:var(--danger)">❌ Error: '+e.message+'</span>';
+    if (res) res.innerHTML = '<span style="color:var(--danger)">❌ Error: ' + e.message + '</span>';
   }
 }
 
