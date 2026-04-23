@@ -7352,6 +7352,8 @@ async function printPayroll() {
 }
 
 function printIdCards() {
+  // Route to portrait-specific print if current mode is portrait
+  if (currentCardMode === 'portrait') { printIdCardsPortrait(); return; }
   const cards = document.querySelectorAll('.id-flip-card');
   if (!cards.length) { showToast('មិនទាន់មានកាត!','error'); return; }
   const cfg   = getCompanyConfig();
@@ -7419,10 +7421,17 @@ function printIdCardsPortrait() {
     ? '<img src="'+cfg.logo_url+'" style="height:28px;object-fit:contain;vertical-align:middle;margin-right:8px" />'
     : '';
 
-  let cardsHTML = '';
+  // Portrait card real size: 204px wide × 323px tall (CR80 portrait ratio)
+  // A4 portrait usable width ~185mm → fit 3 columns of ~54mm card width
+  // We scale card to 54mm wide × ~85mm tall for 3-per-row layout
+  const CARD_W = 204; // px — real portrait width
+  const CARD_H = 323; // px — real portrait height
+
+  let pairsHTML = '';
   cards.forEach(card => {
     if (card.style.display === 'none') return;
     const name  = card.dataset.name || '';
+    const dept  = card.dataset.dept  || '';
     const front = card.querySelector('.id-flip-front');
     const back  = card.querySelector('.id-flip-back');
     if (!front && !back) return;
@@ -7430,38 +7439,73 @@ function printIdCardsPortrait() {
     const cloneBack  = back  ? back.cloneNode(true)  : null;
     [cloneFront, cloneBack].forEach(el => {
       if (!el) return;
-      el.style.cssText = 'position:relative;transform:none;backface-visibility:visible;width:323px;height:204px;display:block;border-radius:12px;overflow:hidden;';
+      // Force correct portrait dimensions on cloned faces
+      el.style.cssText = 'position:relative;transform:none;backface-visibility:visible;'
+        +'width:'+CARD_W+'px;height:'+CARD_H+'px;display:block;border-radius:10px;overflow:hidden;';
     });
-    cardsHTML +=
-      '<div class="card-cell">'
-      +'<div class="side-lbl">▶ '+name+'</div>'
-      +'<div class="card-box">'+(cloneFront?cloneFront.outerHTML:'')+'</div>'
-      +'<div class="side-lbl" style="margin-top:2mm">◀ ខាងក្រោយ</div>'
-      +'<div class="card-box">'+(cloneBack?cloneBack.outerHTML:'')+'</div>'
+    pairsHTML +=
+      '<div class="card-pair">'
+      +'<div class="emp-label">'+name+(dept?' · '+dept:'')+'</div>'
+      +'<div class="pair-row">'
+      +'<div class="card-side">'
+        +'<div class="side-label">▶ FRONT</div>'
+        +'<div class="card-box front-box">'+(cloneFront?cloneFront.outerHTML:'')+'</div>'
+      +'</div>'
+      +'<div class="card-side">'
+        +'<div class="side-label">◀ BACK</div>'
+        +'<div class="card-box back-box">'+(cloneBack?cloneBack.outerHTML:'')+'</div>'
+      +'</div>'
+      +'</div>'
       +'</div>';
   });
 
+  // Scale factor: render card at native 204×323 then CSS scale down to fit page
+  // 3 pairs per row: each pair = front+back side by side = 204*2 + gap
+  // Use CSS transform scale so internal card content renders correctly
+  const SCALE = 0.52; // scale 204px → ~106px, fits 3 pairs across A4
+
   printHTML('<!DOCTYPE html><html><head><meta charset="UTF-8">'
     +'<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Khmer:wght@400;600;700;800&display=swap" rel="stylesheet">'
-    +'<title>ID Cards Portrait — '+(cfg.company_name||'HR Pro')+'</title>'
-    +'<style>*{box-sizing:border-box;margin:0;padding:0}'
-    +'body{font-family:"Noto Sans Khmer",sans-serif;background:white;color:#1e293b;padding:6mm}'
-    +'.print-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:5mm;padding-bottom:3mm;border-bottom:2px solid #1d4ed8}'
+    +'<title>ID Cards (បញ្ឈ) — '+(cfg.company_name||'HR Pro')+'</title>'
+    +'<style>'
+    +'*{box-sizing:border-box;margin:0;padding:0}'
+    +'body{font-family:"Noto Sans Khmer",sans-serif;background:white;color:#1e293b;padding:5mm}'
+    +'.print-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:4mm;padding-bottom:3mm;border-bottom:2px solid #1d4ed8}'
     +'.header-left{display:flex;align-items:center;gap:8px}'
     +'.co-name{font-size:13pt;font-weight:800;color:#1d4ed8}'
-    +'.header-right{font-size:8pt;color:#64748b;text-align:right}'
-    +'.cards-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5mm}'
-    +'.card-cell{break-inside:avoid;page-break-inside:avoid;display:flex;flex-direction:column;align-items:center}'
-    +'.side-lbl{font-size:5.5pt;font-weight:700;color:#64748b;letter-spacing:.5px;margin-bottom:1mm;text-align:center;width:100%}'
-    +'.card-box{width:323px;height:204px;border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.15);display:block}'
-    +'.card-box>div{width:100%!important;height:100%!important;border-radius:12px!important;overflow:hidden!important}'
-    +'@media print{@page{size:A4 portrait;margin:6mm}body{padding:3mm}.card-box{box-shadow:0 0 0 0.3mm #94a3b8}}'
+    +'.header-right{font-size:8pt;color:#64748b;text-align:right;line-height:1.6}'
+    // Outer grid: 3 pairs per row
+    +'.cards-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:4mm;align-items:start}'
+    // Each pair: employee label + front+back side by side, scaled
+    +'.card-pair{break-inside:avoid;page-break-inside:avoid;display:flex;flex-direction:column;align-items:center}'
+    +'.emp-label{font-size:5.5pt;font-weight:700;color:#475569;letter-spacing:.5px;margin-bottom:1.5mm;text-align:center;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}'
+    // pair-row holds front+back horizontally, then we scale the whole row
+    +'.pair-row{'
+      +'display:flex;flex-direction:row;gap:3px;align-items:flex-start;'
+      +'transform:scale('+SCALE+');transform-origin:top center;'
+      // collapsed height = CARD_H * SCALE to remove whitespace
+      +'margin-bottom:calc('+CARD_H+'px * ('+SCALE+' - 1));'
+    +'}'
+    +'.card-side{display:flex;flex-direction:column;align-items:center}'
+    +'.side-label{font-size:7pt;font-weight:700;color:#94a3b8;letter-spacing:.5px;margin-bottom:2px;text-align:center}'
+    +'.card-box{width:'+CARD_W+'px;height:'+CARD_H+'px;border-radius:10px;overflow:hidden;'
+      +'box-shadow:0 2px 8px rgba(0,0,0,.18);display:block;flex-shrink:0}'
+    +'.card-box>div{width:'+CARD_W+'px!important;height:'+CARD_H+'px!important;border-radius:10px!important;overflow:hidden!important}'
+    +'@media print{'
+      +'@page{size:A4 portrait;margin:6mm}'
+      +'body{padding:3mm}'
+      +'.card-box{box-shadow:0 0 0 0.3mm #94a3b8!important}'
+    +'}'
     +'</style></head><body>'
     +'<div class="print-header">'
     +'<div class="header-left">'+logoHtml+'<div class="co-name">'+(cfg.company_name||'HR Pro')+'</div></div>'
-    +'<div class="header-right">🪪 ID Cards Portrait<br>'+(CARD_STYLE_META[style]?.label||style)+' · '+new Date().toLocaleDateString('km-KH')+'<br>3 per row · '+cards.length+' Cards</div>'
+    +'<div class="header-right">🪪 Employee ID Cards<br>'
+      +(CARD_STYLE_META[style]?.label||style)+' — បញ្ឈ<br>'
+      +new Date().toLocaleDateString('km-KH')+'<br>'
+      +cards.length+' Cards'
     +'</div>'
-    +'<div class="cards-grid">'+cardsHTML+'</div>'
+    +'</div>'
+    +'<div class="cards-grid">'+pairsHTML+'</div>'
     +'</body></html>');
 }
 
