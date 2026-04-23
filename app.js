@@ -988,6 +988,9 @@ async function openEmployeeModal(id=null) {
     + '<div class="form-group"><label class="form-label">អ៊ីម៉ែល</label><input class="form-control" id="f-email" type="email" placeholder="email@example.com" value="' + (emp?.email||'') + '" /></div>'
     + '<div class="form-group"><label class="form-label">បៀវត្ស (USD)</label><input class="form-control" id="f-salary" type="number" placeholder="1000" value="' + (emp?.salary||'') + '" /></div>'
     + '<div class="form-group"><label class="form-label">ថ្ងៃចូលធ្វើការ</label><input class="form-control" id="f-hire" type="date" value="' + (emp?.hire_date||'') + '" /></div>'
+    + '<div class="form-group full-width"><label class="form-label">📅 ថ្ងៃសម្រាកប្រចាំសប្តាហ៍ (Day Off)</label><div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px">'
+    + (function(){var days=[['អាទិត្យ',0],['ច័ន្ទ',1],['អង្គារ',2],['ពុធ',3],['ព្រហស្បតិ៍',4],['សុក្រ',5],['សៅរ៍',6]];var offArr=(emp&&emp.off_days)||[];return days.map(function(d){var chk=offArr.indexOf(d[1])!==-1?' checked':'';return '<label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;padding:5px 12px;border-radius:20px;border:1.5px solid var(--border)"><input type="checkbox" class="f-offday" value="'+d[1]+'"'+chk+' style="cursor:pointer"/> '+d[0]+'</label>';}).join('');}).call(this)
+    + '</div></div>'
     + '<div class="form-group full-width"><label class="form-label">ស្ថានភាព</label><select class="form-control" id="f-status" onchange="toggleTerminationDate(this.value)"><option value="active"' + (emp?.status==='active'?' selected':'') + '>✅ ធ្វើការ</option><option value="on_leave"' + (emp?.status==='on_leave'?' selected':'') + '>🌴 ច្បាប់</option><option value="inactive"' + (emp?.status==='inactive'?' selected':'') + '>⛔ ផ្អាក / លាឈប់</option></select></div>'
     + '<div class="form-group full-width" id="termination-date-row" style="display:'+(emp?.status==='inactive'?'block':'none')+'">'
     + '<label class="form-label">📅 ថ្ងៃលាឈប់ពីការងារ</label>'
@@ -1132,6 +1135,7 @@ async function saveEmployee() {
     bank:          $('f-bank')?.value !== '—' ? $('f-bank')?.value : '',
     bank_account:  $('f-bank-acc')?.value.trim(),
     bank_holder:   $('f-bank-name')?.value.trim(),
+    off_days:      Array.from(document.querySelectorAll('.f-offday:checked')).map(function(c){return parseInt(c.value);}),
   };
   if (!data.name || !data.position) {
     showToast('សូមបំពេញឈ្មោះ និងតំណែង!','error');
@@ -1866,19 +1870,28 @@ async function renderMonthlyAttendance(month='') {
       attMap[a.employee_id][day] = a;
     });
 
-    // Build day columns (only weekdays Mon-Sat = workdays, skip Sunday=0)
-    const days = [];
+    // Build ALL day columns for the month (used for table headers)
+    const allDays = [];
     for (let d=1; d<=daysInMonth; d++) {
       const dt = new Date(y, m-1, d);
-      const wd = dt.getDay(); // 0=Sun
-      if (wd !== 0) days.push({ d, dd: String(d).padStart(2,'0'), wd });
+      const wd = dt.getDay();
+      allDays.push({ d, dd: String(d).padStart(2,'0'), wd });
+    }
+    // Use allDays minus Sunday for header (Sunday=0 excluded by default if no emp off_days set)
+    const days = allDays.filter(({wd}) => wd !== 0);
+
+    // Helper: get working days for a specific employee (exclude their personal off_days)
+    function getEmpWorkDays(emp) {
+      var offDays = (emp.off_days && emp.off_days.length) ? emp.off_days : [0]; // default: skip Sunday
+      return allDays.filter(function({wd}) { return offDays.indexOf(wd) === -1; });
     }
 
     // Summary per employee
     const summaries = emps.map(emp => {
       const rec = attMap[emp.id] || {};
+      const empDays = getEmpWorkDays(emp);
       let present=0, late=0, absent=0;
-      days.forEach(({dd}) => {
+      empDays.forEach(({dd}) => {
         const a = rec[dd];
         if (a) {
           if (a.status==='present') present++;
@@ -1889,22 +1902,28 @@ async function renderMonthlyAttendance(month='') {
         }
       });
       const overAbsent = Math.max(0, absent - maxAbsent);
-      const workingDaysCount = days.length;
+      const workingDaysCount = empDays.length;
       const dailyRate = workingDaysCount > 0 ? (emp.salary || 0) / workingDaysCount : 0;
       const deduction = parseFloat((overAbsent * dailyRate).toFixed(2));
       return { emp, present, late, absent, overAbsent, deduction, dailyRate, workingDaysCount };
     });
 
-    // Table header: day numbers
-    const dayThs = days.map(({d,wd}) => {
+    // Table header: all days of month
+    const dayThs = allDays.map(({d,wd}) => {
       const isToday = (new Date().toISOString().slice(0,7)===currentMonth && new Date().getDate()===d);
-      const bg = isToday ? 'background:var(--primary);color:white;' : '';
-      return '<th style="min-width:28px;padding:4px 2px;font-size:10px;text-align:center;'+bg+'">'+d+'</th>';
+      const isSun = (wd === 0);
+      const bg = isToday ? 'background:var(--primary);color:white;' : isSun ? 'background:var(--bg2);color:var(--text3);' : '';
+      return '<th style="min-width:28px;padding:4px 2px;font-size:10px;text-align:center;'+bg+'">' + d + '</th>';
     }).join('');
 
     const dayRows = summaries.map(({emp, present, late, absent, overAbsent, deduction}) => {
       const rec = attMap[emp.id] || {};
-      const cells = days.map(({dd}) => {
+      const empOff = (emp.off_days && emp.off_days.length) ? emp.off_days : [0];
+      const cells = allDays.map(({dd, wd}) => {
+        // This day is employee's day off
+        if (empOff.indexOf(wd) !== -1) {
+          return '<td style="text-align:center;font-size:9px;color:var(--text3);background:var(--bg2)">OFF</td>';
+        }
         const a = rec[dd];
         if (!a) return '<td style="text-align:center;font-size:10px;color:var(--danger)">—</td>';
         if (a.status==='present') return '<td style="text-align:center;font-size:11px;color:var(--success)">✔</td>';
@@ -2058,13 +2077,16 @@ async function applyAllAbsenceDeductions(month) {
     }
     const attMap = {};
     allRecords.forEach(a=>{ if(!attMap[a.employee_id])attMap[a.employee_id]={}; attMap[a.employee_id][(a.date||'').slice(-2)]=a; });
-    // Working days (exclude Sunday)
-    const days = [];
-    for(let d=1;d<=daysInMonth;d++){ const dt=new Date(y,m-1,d); if(dt.getDay()!==0) days.push(String(d).padStart(2,'0')); }
-    const workingDaysCount = days.length;
+    // Build all days of month
+    const allMonthDaysArr = [];
+    for(let d=1;d<=daysInMonth;d++){ const dt=new Date(y,m-1,d); allMonthDaysArr.push({dd:String(d).padStart(2,'0'),wd:dt.getDay()}); }
     const toDeduct = emps.map(emp=>{
+      // Per-employee off days (default: Sunday=0)
+      const empOff = (emp.off_days && emp.off_days.length) ? emp.off_days : [0];
+      const empDays = allMonthDaysArr.filter(x=>empOff.indexOf(x.wd)===-1);
+      const workingDaysCount = empDays.length;
       const rec=attMap[emp.id]||{}; let absent=0;
-      days.forEach(dd=>{ const a=rec[dd]; if(!a||a.status==='absent') absent++; });
+      empDays.forEach(x=>{ const a=rec[x.dd]; if(!a||a.status==='absent') absent++; });
       const over=Math.max(0,absent-maxAbsent);
       const dailyRate = workingDaysCount > 0 ? (emp.salary||0) / workingDaysCount : 0;
       const deduction = parseFloat((over * dailyRate).toFixed(2));
@@ -6324,18 +6346,22 @@ async function runAutoPayrollNow() {
       if (!attMap[a.employee_id]) attMap[a.employee_id] = {};
       attMap[a.employee_id][(a.date || '').slice(-2)] = a;
     });
-    const workingDays = [];
+    // Build all days of month
+    const allMonthDays = [];
     for (let d = 1; d <= daysInMonth; d++) {
       const dt = new Date(y, m - 1, d);
-      if (dt.getDay() !== 0) workingDays.push(String(d).padStart(2, '0'));
+      allMonthDays.push({ dd: String(d).padStart(2, '0'), wd: dt.getDay() });
     }
-    const workingDaysCount = workingDays.length;
     let success = 0, updated = 0, skip = 0;
     for (const e of emps) {
       const base = e.salary || 0;
+      // Per-employee off days (default: skip Sunday=0)
+      const empOffDays = (e.off_days && e.off_days.length) ? e.off_days : [0];
+      const empWorkDays = allMonthDays.filter(function(x) { return empOffDays.indexOf(x.wd) === -1; });
+      const workingDaysCount = empWorkDays.length;
       let absent = 0;
       const empAtt = attMap[e.id] || {};
-      workingDays.forEach(dd => { const a = empAtt[dd]; if (!a || a.status === 'absent') absent++; });
+      empWorkDays.forEach(function(x) { const a = empAtt[x.dd]; if (!a || a.status === 'absent') absent++; });
       const overAbsent = Math.max(0, absent - maxAbsent);
       const dailyRate = workingDaysCount > 0 ? base / workingDaysCount : 0;
       const deduction = parseFloat((overAbsent * dailyRate).toFixed(2));
