@@ -5697,14 +5697,14 @@ async function openDaySwapModal(id = null) {
           <label class="form-label">មូលហេតុ</label>
           <input class="form-control" id="ds-reason" placeholder="មូលហេតុ..." value="${rec?.reason||''}"/>
         </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-outline" onclick="closeModal()">បោះបង់</button>
+        <button class="btn btn-primary" onclick="saveDaySwap(${id||'null'})">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><polyline points="20 6 9 17 4 12"/></svg>
+          រក្សាទុក
+        </button>
       </div>`;
-
-    $('modal-footer').innerHTML = `
-      <button class="btn btn-outline" onclick="closeModal()">បោះបង់</button>
-      <button class="btn btn-primary" onclick="saveDaySwap(${id||'null'})">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><polyline points="20 6 9 17 4 12"/></svg>
-        រក្សាទុក
-      </button>`;
     openModal();
   } catch(e) { showToast('បញ្ហា: ' + e.message, 'error'); }
 }
