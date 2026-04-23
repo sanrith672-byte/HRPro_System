@@ -1950,7 +1950,7 @@ async function renderMonthlyAttendance(month='') {
       const cells = allDays.map(({dd, wd}) => {
         // This day is employee's day off
         if (empOff.indexOf(wd) !== -1) {
-          return '<td style="text-align:center;font-size:9px;color:var(--text3);background:var(--bg2)">OFF</td>';
+          return '<td style="text-align:center;font-size:9px;color:var(--danger);background:var(--bg2)">OFF</td>';
         }
         const a = rec[dd];
         if (!a) return '<td style="text-align:center;font-size:10px;color:var(--danger)">—</td>';
