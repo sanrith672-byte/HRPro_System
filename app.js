@@ -2031,6 +2031,9 @@ async function renderMonthlyAttendance(month='') {
 
     const totals = summaries.reduce((t,s)=>({ p:t.p+s.present, l:t.l+s.late, a:t.a+s.absent, sw:t.sw+s.swap, d:t.d+s.deduction }),{p:0,l:0,a:0,sw:0,d:0});
 
+    // Store data globally for print/export buttons
+    window._monthlyAttData = { summaries, allDays, currentMonth, emps, totals, maxAbsent, rules, _attMap: attMap };
+
     contentArea().innerHTML =
       '<div class="page-header">'
       +'<div><h2>📊 តារាងវត្តមានប្រចាំខែ</h2></div>'
@@ -2038,6 +2041,8 @@ async function renderMonthlyAttendance(month='') {
       +'<input class="filter-input" type="month" value="'+currentMonth+'" onchange="renderMonthlyAttendance(this.value)" />'
       +'<button class="btn btn-primary" onclick="applyAllAbsenceDeductions(\''+currentMonth+'\')">💸 កាត់ប្រាក់ទាំងអស់</button>'
       +'<button class="btn btn-outline" onclick="renderAttendance(\''+currentMonth+'-01\')" style="border-color:var(--success);color:var(--success)">📅 ថ្ងៃទៅថ្ងៃ</button>'
+      +'<button class="btn btn-outline" onclick="printMonthlyAttendance()" style="border-color:var(--primary);color:var(--primary)">🖨️ បោះពុម្ព PDF</button>'
+      +'<button class="btn btn-outline" onclick="exportMonthlyAttendanceExcel()" style="border-color:var(--info);color:var(--info)">📊 Export Excel</button>'
       +'</div></div>'
       +'<div class="att-summary">'
       +'<div class="att-box"><div class="att-num" style="color:var(--success)">'+totals.p+'</div><div class="att-lbl">✅ វត្តមាន</div></div>'
@@ -2075,6 +2080,178 @@ async function renderMonthlyAttendance(month='') {
       +'</table></div></div>';
   } catch(e) { showError(e.message); }
 }
+
+
+// ── Monthly Attendance Print PDF ──
+function printMonthlyAttendance() {
+  const d = window._monthlyAttData;
+  if (!d) { showToast('សូមចាំ... ទំព័រមិនទាន់ Load ទេ', 'error'); return; }
+  const { summaries, allDays, currentMonth, totals, maxAbsent, rules } = d;
+  const cfg = getCompanyConfig();
+  const monthLabel = currentMonth;
+  const wdNames = ['អា','ច','អ','ព','ព្រ','សុ','ស'];
+
+  const thDays = allDays.map(({d, wd}) => {
+    const isWeekend = wd === 0 || wd === 6;
+    const bg = isWeekend ? 'background:#f3f4f6;color:#9ca3af;' : '';
+    return `<th style="min-width:22px;padding:2px 1px;font-size:9px;text-align:center;${bg}">${d}</th>`;
+  }).join('');
+  const thWds = allDays.map(({wd}) => {
+    const isWeekend = wd === 0 || wd === 6;
+    return `<th style="min-width:22px;padding:1px;font-size:8px;text-align:center;font-weight:400;color:${isWeekend?'#ef4444':'#6b7280'}">${wdNames[wd]}</th>`;
+  }).join('');
+
+  const bodyRows = summaries.map(({emp, present, late, absent, swap, overAbsent, deduction}, idx) => {
+    const cells = allDays.map(({dd, wd}) => {
+      const a = (window._monthlyAttData.emps && window._monthlyAttData._attMap) ? (window._monthlyAttData._attMap[emp.id]||{})[dd] : null;
+      const isWeekend = wd === 0 || wd === 6;
+      const bg = isWeekend ? 'background:#f9fafb;' : '';
+      if (!a) {
+        if (isWeekend) return `<td style="text-align:center;font-size:9px;color:#d1d5db;${bg}">—</td>`;
+        return `<td style="text-align:center;font-size:9px;color:#ef4444;${bg}">—</td>`;
+      }
+      if (a.status==='present') return `<td style="text-align:center;font-size:10px;color:#16a34a;${bg}">✔</td>`;
+      if (a.status==='late')    return `<td style="text-align:center;font-size:10px;color:#f59e0b;${bg}">⏰</td>`;
+      if (a.status==='holiday') return `<td style="text-align:center;font-size:9px;color:#9333ea;${bg}">🎉</td>`;
+      return `<td style="text-align:center;font-size:10px;color:#ef4444;${bg}">✗</td>`;
+    }).join('');
+    const rowBg = idx % 2 === 0 ? '' : 'background:#f9fafb;';
+    return `<tr style="${rowBg}">
+      <td style="padding:4px 6px;font-size:11px;font-weight:600;white-space:nowrap">${idx+1}. ${emp.name}</td>
+      <td style="text-align:center;font-weight:700;color:#16a34a;font-size:11px">${present}</td>
+      <td style="text-align:center;font-weight:700;color:#f59e0b;font-size:11px">${late}</td>
+      <td style="text-align:center;font-weight:700;color:#ef4444;font-size:11px">${absent}</td>
+      <td style="text-align:center;font-weight:700;color:#6366f1;font-size:11px">${swap||0}</td>
+      <td style="text-align:center;font-weight:700;color:${overAbsent>0?'#ef4444':'#6b7280'};font-size:11px">${overAbsent}</td>
+      <td style="text-align:center;font-weight:700;color:${overAbsent>0?'#ef4444':'#16a34a'};font-size:11px">${overAbsent>0?'-$'+deduction.toFixed(0):'—'}</td>
+      ${cells}
+    </tr>`;
+  }).join('');
+
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <title>Monthly Attendance ${monthLabel}</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Hanuman',Arial,sans-serif;font-size:11px;color:#111;padding:8px;background:#fff}
+    @media print{@page{size:A4 landscape;margin:6mm}body{padding:0}}
+    .header{text-align:center;margin-bottom:10px}
+    .company{font-size:16px;font-weight:700;color:#1e3a5f}
+    .title{font-size:13px;font-weight:700;color:#374151;margin-top:2px}
+    .subtitle{font-size:10px;color:#6b7280;margin-top:2px}
+    table{width:100%;border-collapse:collapse;font-size:10px}
+    th{background:#1e3a5f;color:white;padding:4px 2px;border:1px solid #d1d5db}
+    td{border:1px solid #e5e7eb;padding:3px 2px}
+    .summary-row{background:#f0f4ff!important;font-weight:700}
+    .summary-box{display:inline-block;margin:4px 8px;padding:4px 12px;border-radius:6px;font-size:11px;font-weight:700}
+    .sig{margin-top:30px;display:flex;justify-content:space-between;padding:0 40px}
+    .sig-col{text-align:center;min-width:150px}
+    .sig-line{border-top:1px solid #374151;margin-top:40px;padding-top:4px;font-size:10px}
+    .no-print{display:none}
+    @media screen{.no-print{display:block;text-align:center;margin-bottom:10px}}
+    .btn-print{background:#1e3a5f;color:white;border:none;padding:8px 24px;border-radius:6px;cursor:pointer;font-size:13px;margin:4px}
+  </style>
+  </head><body>
+  <div class="no-print">
+    <button class="btn-print" onclick="window.print()">🖨️ Print / Save PDF</button>
+    <button class="btn-print" style="background:#6b7280" onclick="window.close()">✕ បិទ</button>
+  </div>
+  <div class="header">
+    <div class="company">${cfg.company_name||'HR Pro System'}</div>
+    <div class="title">📊 តារាងវត្តមានប្រចាំខែ — ${monthLabel}</div>
+    <div class="subtitle">បោះពុម្ពថ្ងៃទី: ${new Date().toLocaleDateString('km-KH')} | ថ្ងៃអវត្តមានអនុញ្ញាត: ${maxAbsent} ថ្ងៃ/ខែ</div>
+  </div>
+  <div style="margin-bottom:8px;display:flex;gap:6px;flex-wrap:wrap">
+    <span class="summary-box" style="background:#dcfce7;color:#16a34a">✅ វត្តមាន: ${totals.p}</span>
+    <span class="summary-box" style="background:#fef9c3;color:#92400e">⏰ យឺត: ${totals.l}</span>
+    <span class="summary-box" style="background:#fee2e2;color:#ef4444">❌ អវត្តមាន: ${totals.a}</span>
+    <span class="summary-box" style="background:#ede9fe;color:#6366f1">🔄 ជំនួស: ${totals.sw}</span>
+    <span class="summary-box" style="background:#fee2e2;color:#ef4444">💸 សរុបកាត់: $${totals.d.toFixed(0)}</span>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th style="min-width:130px;text-align:left;padding:4px 6px" rowspan="2">បុគ្គលិក</th>
+        <th style="min-width:30px;color:#86efac" rowspan="2" title="វត្តមាន">✅</th>
+        <th style="min-width:30px;color:#fde68a" rowspan="2" title="យឺត">⏰</th>
+        <th style="min-width:30px;color:#fca5a5" rowspan="2" title="អវត្តមាន">❌</th>
+        <th style="min-width:30px;color:#c4b5fd" rowspan="2" title="ជំនួស">🔄</th>
+        <th style="min-width:35px" rowspan="2">លើស</th>
+        <th style="min-width:50px" rowspan="2">កាត់</th>
+        ${thDays}
+      </tr>
+      <tr>${thWds}</tr>
+    </thead>
+    <tbody>${bodyRows}</tbody>
+    <tfoot>
+      <tr class="summary-row">
+        <td style="padding:4px 6px;font-size:11px">សរុប</td>
+        <td style="text-align:center;color:#16a34a">${totals.p}</td>
+        <td style="text-align:center;color:#f59e0b">${totals.l}</td>
+        <td style="text-align:center;color:#ef4444">${totals.a}</td>
+        <td style="text-align:center;color:#6366f1">${totals.sw}</td>
+        <td></td>
+        <td style="text-align:center;color:#ef4444">$${totals.d.toFixed(0)}</td>
+        ${allDays.map(()=>'<td></td>').join('')}
+      </tr>
+    </tfoot>
+  </table>
+  <div class="sig">
+    <div class="sig-col"><div class="sig-line">ហត្ថលេខាអ្នករៀបចំ</div></div>
+    <div class="sig-col"><div class="sig-line">ហត្ថលេខា HR</div></div>
+    <div class="sig-col"><div class="sig-line">ហត្ថលេខាអ្នកគ្រប់គ្រង</div></div>
+  </div>
+  </body></html>`;
+  printHTML(html);
+}
+
+// ── Monthly Attendance Export Excel ──
+async function exportMonthlyAttendanceExcel() {
+  const d = window._monthlyAttData;
+  if (!d) { showToast('សូមចាំ... ទំព័រមិនទាន់ Load ទេ', 'error'); return; }
+  const { summaries, allDays, currentMonth, totals } = d;
+  const cfg = getCompanyConfig();
+  showToast('កំពុង Export Excel...', 'info');
+
+  try {
+    // Sheet 1: Summary
+    const summaryHeaders = ['#', 'ឈ្មោះ', 'នាយកដ្ឋាន', '✅ វត្តមាន', '⏰ យឺត', '❌ អវត្តមាន', '🔄 ជំនួស', 'លើស', 'កាត់ (USD)'];
+    const summaryRows = summaries.map(({emp, present, late, absent, swap, overAbsent, deduction}, i) => [
+      i+1, emp.name, emp.department||'', present, late, absent, swap||0, overAbsent, overAbsent>0?-deduction:0
+    ]);
+    summaryRows.push(['', 'សរុប', '', totals.p, totals.l, totals.a, totals.sw, '', -totals.d]);
+
+    // Sheet 2: Daily detail grid
+    const dayHeaders = ['#', 'ឈ្មោះ', '✅', '⏰', '❌', '🔄', 'លើស', 'កាត់'];
+    allDays.forEach(({d, wd}) => {
+      const wdShort = ['អា','ច','អ','ព','ព្រ','សុ','ស'][wd];
+      dayHeaders.push(`${d}(${wdShort})`);
+    });
+
+    const wdNames = ['អា','ច','អ','ព','ព្រ','សុ','ស'];
+    const dayRows = summaries.map(({emp, present, late, absent, swap, overAbsent, deduction}, i) => {
+      const row = [i+1, emp.name, present, late, absent, swap||0, overAbsent, overAbsent>0?-deduction:0];
+      allDays.forEach(({dd, wd}) => {
+        const attMap = window._monthlyAttData._attMap || {};
+        const a = (attMap[emp.id]||{})[dd];
+        const isWeekend = wd===0||wd===6;
+        if (!a) { row.push(isWeekend ? 'OFF' : '—'); return; }
+        if (a.status==='present') row.push('✔');
+        else if (a.status==='late') row.push('⏰');
+        else if (a.status==='holiday') row.push('🎉');
+        else row.push('✗');
+      });
+      return row;
+    });
+
+    const blob = buildXLSX([
+      { name: 'Summary_'+currentMonth, headers: summaryHeaders, rows: summaryRows },
+      { name: 'Daily_'+currentMonth,   headers: dayHeaders,     rows: dayRows }
+    ]);
+    downloadBlob(blob, `${cfg.company_name||'HR'}_Monthly_Attendance_${currentMonth}.xlsx`);
+    showToast('Download Excel ✅', 'success');
+  } catch(e) { showToast('Error: '+e.message, 'error'); }
+}
+
 
 // Open rules modal for absence deduction settings
 function openAbsenceRulesModal() {
