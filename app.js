@@ -45,6 +45,20 @@ const getColor = (name) => COLORS[(name?.charCodeAt(0) || 0) % COLORS.length];
 
 // ===== DOM HELPERS =====
 const $ = (id) => document.getElementById(id);
+
+// ===== PARSE off_days from DB (stored as JSON string "[0,6]" or already array) =====
+function parseOffDays(emp) {
+  if (!emp) return [0]; // default Sunday
+  var od = emp.off_days;
+  if (Array.isArray(od)) return od.length ? od : [0];
+  if (typeof od === 'string' && od.trim().startsWith('[')) {
+    try {
+      var parsed = JSON.parse(od);
+      return Array.isArray(parsed) && parsed.length ? parsed : [0];
+    } catch(_) { return [0]; }
+  }
+  return [0]; // fallback Sunday
+}
 const contentArea = () => $('content-area');
 
 // ===== API HELPER (Real + Demo fallback) =====
@@ -989,7 +1003,7 @@ async function openEmployeeModal(id=null) {
     + '<div class="form-group"><label class="form-label">បៀវត្ស (USD)</label><input class="form-control" id="f-salary" type="number" placeholder="1000" value="' + (emp?.salary||'') + '" /></div>'
     + '<div class="form-group"><label class="form-label">ថ្ងៃចូលធ្វើការ</label><input class="form-control" id="f-hire" type="date" value="' + (emp?.hire_date||'') + '" /></div>'
     + '<div class="form-group full-width"><label class="form-label">📅 ថ្ងៃសម្រាកប្រចាំសប្តាហ៍ (Day Off)</label><div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px">'
-    + (function(){var days=[['អាទិត្យ',0],['ច័ន្ទ',1],['អង្គារ',2],['ពុធ',3],['ព្រហស្បតិ៍',4],['សុក្រ',5],['សៅរ៍',6]];var offArr=(emp&&emp.off_days)||[];return days.map(function(d){var chk=offArr.indexOf(d[1])!==-1?' checked':'';return '<label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;padding:5px 12px;border-radius:20px;border:1.5px solid var(--border)"><input type="checkbox" class="f-offday" value="'+d[1]+'"'+chk+' style="cursor:pointer"/> '+d[0]+'</label>';}).join('');}).call(this)
+    + (function(){var days=[['អាទិត្យ',0],['ច័ន្ទ',1],['អង្គារ',2],['ពុធ',3],['ព្រហស្បតិ៍',4],['សុក្រ',5],['សៅរ៍',6]];var offArr=parseOffDays(emp);return days.map(function(d){var chk=offArr.indexOf(d[1])!==-1?' checked':'';return '<label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;padding:5px 12px;border-radius:20px;border:1.5px solid var(--border)"><input type="checkbox" class="f-offday" value="'+d[1]+'"'+chk+' style="cursor:pointer"/> '+d[0]+'</label>';}).join('');}).call(this)
     + '</div></div>'
     + '<div class="form-group full-width"><label class="form-label">ស្ថានភាព</label><select class="form-control" id="f-status" onchange="toggleTerminationDate(this.value)"><option value="active"' + (emp?.status==='active'?' selected':'') + '>✅ ធ្វើការ</option><option value="on_leave"' + (emp?.status==='on_leave'?' selected':'') + '>🌴 ច្បាប់</option><option value="inactive"' + (emp?.status==='inactive'?' selected':'') + '>⛔ ផ្អាក / លាឈប់</option></select></div>'
     + '<div class="form-group full-width" id="termination-date-row" style="display:'+(emp?.status==='inactive'?'block':'none')+'">'
@@ -1882,7 +1896,7 @@ async function renderMonthlyAttendance(month='') {
 
     // Helper: get working days for a specific employee (exclude their personal off_days)
     function getEmpWorkDays(emp) {
-      var offDays = (emp.off_days && emp.off_days.length) ? emp.off_days : [0]; // default: skip Sunday
+      var offDays = parseOffDays(emp); // default: skip Sunday
       return allDays.filter(function({wd}) { return offDays.indexOf(wd) === -1; });
     }
 
@@ -1918,7 +1932,7 @@ async function renderMonthlyAttendance(month='') {
 
     const dayRows = summaries.map(({emp, present, late, absent, overAbsent, deduction}) => {
       const rec = attMap[emp.id] || {};
-      const empOff = (emp.off_days && emp.off_days.length) ? emp.off_days : [0];
+      const empOff = parseOffDays(emp);
       const cells = allDays.map(({dd, wd}) => {
         // This day is employee's day off
         if (empOff.indexOf(wd) !== -1) {
@@ -2082,7 +2096,7 @@ async function applyAllAbsenceDeductions(month) {
     for(let d=1;d<=daysInMonth;d++){ const dt=new Date(y,m-1,d); allMonthDaysArr.push({dd:String(d).padStart(2,'0'),wd:dt.getDay()}); }
     const toDeduct = emps.map(emp=>{
       // Per-employee off days (default: Sunday=0)
-      const empOff = (emp.off_days && emp.off_days.length) ? emp.off_days : [0];
+      const empOff = parseOffDays(emp);
       const empDays = allMonthDaysArr.filter(x=>empOff.indexOf(x.wd)===-1);
       const workingDaysCount = empDays.length;
       const rec=attMap[emp.id]||{}; let absent=0;
@@ -6356,7 +6370,7 @@ async function runAutoPayrollNow() {
     for (const e of emps) {
       const base = e.salary || 0;
       // Per-employee off days (default: skip Sunday=0)
-      const empOffDays = (e.off_days && e.off_days.length) ? e.off_days : [0];
+      const empOffDays = parseOffDays(e);
       const empWorkDays = allMonthDays.filter(function(x) { return empOffDays.indexOf(x.wd) === -1; });
       const workingDaysCount = empWorkDays.length;
       let absent = 0;
