@@ -1922,11 +1922,15 @@ async function renderMonthlyAttendance(month='') {
       return { emp, present, late, absent, overAbsent, deduction, dailyRate, workingDaysCount };
     });
 
+    // Build union of all employee off_days for header highlight
+    const allOffWds = new Set();
+    emps.forEach(function(e) { parseOffDays(e).forEach(function(w){ allOffWds.add(w); }); });
+
     // Table header: all days of month
     const dayThs = allDays.map(({d,wd}) => {
       const isToday = (new Date().toISOString().slice(0,7)===currentMonth && new Date().getDate()===d);
-      const isSun = (wd === 0);
-      const bg = isToday ? 'background:var(--primary);color:white;' : isSun ? 'background:var(--bg2);color:var(--text3);' : '';
+      const isOff = allOffWds.has(wd);
+      const bg = isToday ? 'background:var(--primary);color:white;' : isOff ? 'background:var(--bg2);color:var(--text3);' : '';
       return '<th style="min-width:28px;padding:4px 2px;font-size:10px;text-align:center;'+bg+'">' + d + '</th>';
     }).join('');
 
