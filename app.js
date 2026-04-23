@@ -1933,16 +1933,14 @@ async function renderMonthlyAttendance(month='') {
     const dayThs = allDays.map(({d,wd}) => {
       const isToday = (new Date().toISOString().slice(0,7)===currentMonth && new Date().getDate()===d);
       const isWeekend = (wd === 0 || wd === 6);
-      const isOff = allOffWds.has(wd);
-      const bg = isToday ? 'background:var(--primary);color:white;' : (isWeekend || isOff) ? 'background:var(--bg2);color:var(--text3);' : '';
+      const bg = isToday ? 'background:var(--primary);color:white;' : isWeekend ? 'background:var(--bg2);color:var(--text3);' : '';
       return '<th style="min-width:28px;padding:4px 2px;font-size:10px;text-align:center;'+bg+'">' + d + '</th>';
     }).join('');
 
     // Table header row 2: weekday names
     const wdThs = allDays.map(({wd}) => {
-      const isWeekend = (wd === 0 || wd === 6); // អាទិត្យ និង សៅរ៍
-      const isOff = allOffWds.has(wd);
-      const color = (isWeekend || isOff) ? 'color:var(--danger);' : 'color:var(--text3);';
+      const isWeekend = (wd === 0 || wd === 6);
+      const color = isWeekend ? 'color:var(--danger);' : 'color:var(--text3);';
       return '<th style="min-width:28px;padding:1px 2px;font-size:9px;text-align:center;font-weight:400;'+color+'">' + wdNames[wd] + '</th>';
     }).join('');
 
