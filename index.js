@@ -180,14 +180,19 @@ async function handleRequest(request, env) {
         work_day INTEGER NOT NULL,
         off_day INTEGER NOT NULL,
         swap_date TEXT NOT NULL,
+        off_date TEXT,
         reason TEXT DEFAULT '',
         status TEXT DEFAULT 'pending',
         created_at TEXT, updated_at TEXT
       )`).run();
+      // Migrate: add off_date column if missing (for existing DBs)
+      try {
+        await env.DB.prepare(`ALTER TABLE day_swaps ADD COLUMN off_date TEXT`).run();
+      } catch(_) { /* column already exists */ }
     }
     if (path === '/dayswap') {
       if (method === 'GET') return getAll(env, 'day_swaps', 'ds.*, e.name as employee_name', 'day_swaps ds JOIN employees e ON ds.employee_id=e.id', 'ds.created_at DESC');
-      if (method === 'POST') return insertRecord(request, env, 'day_swaps', ['employee_id','work_day','off_day','swap_date','reason','status']);
+      if (method === 'POST') return insertRecord(request, env, 'day_swaps', ['employee_id','work_day','off_day','swap_date','off_date','reason','status']);
     }
     if (path.match(/^\/dayswap\/\d+$/)) {
       const id = parseInt(path.split('/')[2]);
