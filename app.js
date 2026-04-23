@@ -5661,8 +5661,14 @@ async function renderDaySwap() {
                   <div class="emp-avatar" style="background:${getColor(r.employee_name)}">${(r.employee_name||'?')[0]}</div>
                   <div class="emp-name">${r.employee_name||'—'}</div>
                 </div></td>
-                <td><span style="background:rgba(239,71,111,.12);color:var(--danger);padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600">OFF → ${workDay}</span></td>
-                <td><span style="background:rgba(6,214,160,.12);color:var(--success);padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600">✔ ${offDay}</span></td>
+                <td>
+                  <span style="background:rgba(239,71,111,.12);color:var(--danger);padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600">OFF → ${workDay}</span>
+                  ${r.swap_date ? `<div style="font-family:var(--mono);font-size:11px;color:var(--text3);margin-top:3px;padding-left:2px">📅 ${r.swap_date}</div>` : ''}
+                </td>
+                <td>
+                  <span style="background:rgba(6,214,160,.12);color:var(--success);padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600">✔ ${offDay}</span>
+                  ${r.off_date ? `<div style="font-family:var(--mono);font-size:11px;color:var(--text3);margin-top:3px;padding-left:2px">📅 ${r.off_date}</div>` : ''}
+                </td>
                 <td style="font-family:var(--mono);font-size:12px">${r.swap_date||'—'}</td>
                 <td style="color:var(--text3);font-size:12px">${r.reason||'—'}</td>
                 <td>${r.status==='approved'
