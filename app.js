@@ -1831,7 +1831,6 @@ async function renderMonthlyAttendance(month='') {
   const daysInMonth = new Date(y, m, 0).getDate();
   const rules = getSalaryRules();
   const maxAbsent = rules.max_absent_days !== undefined ? rules.max_absent_days : 2;
-  const deductPerDay = rules.absent_deduct_per_day !== undefined ? rules.absent_deduct_per_day : 0;
 
   try {
     const [empData, attData] = await Promise.all([
@@ -1889,8 +1888,10 @@ async function renderMonthlyAttendance(month='') {
         }
       });
       const overAbsent = Math.max(0, absent - maxAbsent);
-      const deduction = overAbsent * deductPerDay;
-      return { emp, present, late, absent, overAbsent, deduction };
+      const workingDaysCount = days.length;
+      const dailyRate = workingDaysCount > 0 ? (emp.salary || 0) / workingDaysCount : 0;
+      const deduction = parseFloat((overAbsent * dailyRate).toFixed(2));
+      return { emp, present, late, absent, overAbsent, deduction, dailyRate, workingDaysCount };
     });
 
     // Table header: day numbers
@@ -1948,7 +1949,7 @@ async function renderMonthlyAttendance(month='') {
       +'<div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:14px;display:flex;gap:16px;flex-wrap:wrap;align-items:center">'
       +'<span style="font-size:12px;color:var(--text3)">⚙️ ច្បាប់:</span>'
       +'<span style="font-size:12px">ថ្ងៃអវត្តមានអនុញ្ញាត: <b style="color:var(--primary)">'+maxAbsent+' ថ្ងៃ/ខែ</b></span>'
-      +'<span style="font-size:12px">កាត់ក្នុងមួយថ្ងៃ: <b style="color:var(--danger)">$'+deductPerDay+'</b></span>'
+      +'<span style="font-size:12px">រូបមន្ត: <b style="color:var(--danger)">ប្រាក់ខែ ÷ ថ្ងៃធ្វើការ × ថ្ងៃលើស</b></span>'
       +'<button class="btn btn-outline btn-sm" style="font-size:11px" onclick="openAbsenceRulesModal()">✏️ កែច្បាប់</button>'
       +'</div>'
       +'<div class="card"><div style="overflow-x:auto"><table style="min-width:600px">'
@@ -1971,35 +1972,30 @@ async function renderMonthlyAttendance(month='') {
 function openAbsenceRulesModal() {
   const rules = getSalaryRules();
   const maxAbsent = rules.max_absent_days !== undefined ? rules.max_absent_days : 2;
-  const deductPerDay = rules.absent_deduct_per_day !== undefined ? rules.absent_deduct_per_day : 0;
   $('modal-title').textContent = '⚙️ ច្បាប់កាត់ប្រាក់អវត្តមាន';
   $('modal-body').innerHTML =
     '<div style="margin-bottom:14px;padding:12px;background:var(--bg3);border-radius:10px;font-size:13px;color:var(--text3)">'
-    +'💡 ប្រាក់នឹងត្រូវកាត់ ពេលបុគ្គលិកអវត្តមានលើសថ្ងៃអនុញ្ញាត'
+    +'💡 ប្រាក់នឹងត្រូវកាត់ ពេលបុគ្គលិកអវត្តមានលើសថ្ងៃអនុញ្ញាត<br/>'
+    +'<b>រូបមន្ត:</b> ប្រាក់ខែ ÷ ថ្ងៃធ្វើការក្នុងខែ × ថ្ងៃអវត្តមានលើស'
     +'</div>'
     +'<div class="form-grid">'
     +'<div class="form-group"><label class="form-label">ថ្ងៃអវត្តមានអនុញ្ញាតក្នុង ១ ខែ</label>'
     +'<input class="form-control" id="rule-max-absent" type="number" min="0" value="'+maxAbsent+'" /></div>'
-    +'<div class="form-group"><label class="form-label">កាត់ប្រាក់ក្នុង ១ ថ្ងៃ (USD)</label>'
-    +'<input class="form-control" id="rule-deduct-day" type="number" min="0" step="0.5" value="'+deductPerDay+'" /></div>'
     +'</div>'
     +'<div id="rule-preview" style="padding:12px;background:var(--bg3);border-radius:8px;margin-bottom:14px;font-size:13px;text-align:center">'
-    +'ឧទាហរណ៍: អវត្តមាន 5 ថ្ងៃ → លើស <b>'+(5-maxAbsent > 0 ? 5-maxAbsent : 0)+'</b> ថ្ងៃ → កាត់ <b style="color:var(--danger)">$'+(Math.max(0,5-maxAbsent)*deductPerDay).toFixed(2)+'</b>'
+    +'ឧទាហរណ៍: ប្រាក់ខែ $1000 · ថ្ងៃធ្វើការ 26 · អវត្តមាន 5 ថ្ងៃ → លើស <b>'+(Math.max(0,5-maxAbsent))+'</b> ថ្ងៃ → កាត់ <b style="color:var(--danger)">$'+((Math.max(0,5-maxAbsent)*(1000/26)).toFixed(2))+'</b>'
     +'</div>'
     +'<div class="form-actions">'
     +'<button class="btn btn-outline" onclick="closeModal()">បោះបង់</button>'
     +'<button class="btn btn-primary" onclick="saveAbsenceRules()">💾 រក្សាទុក</button>'
     +'</div>';
   // Live preview
-  ['rule-max-absent','rule-deduct-day'].forEach(id=>{
-    const el = document.getElementById(id);
-    if(el) el.addEventListener('input',()=>{
-      const mx=parseInt(document.getElementById('rule-max-absent')?.value)||0;
-      const dp=parseFloat(document.getElementById('rule-deduct-day')?.value)||0;
-      const ov=Math.max(0,5-mx);
-      const prev=document.getElementById('rule-preview');
-      if(prev) prev.innerHTML='ឧទាហរណ៍: អវត្តមាន 5 ថ្ងៃ → លើស <b>'+ov+'</b> ថ្ងៃ → កាត់ <b style="color:var(--danger)">$'+(ov*dp).toFixed(2)+'</b>';
-    });
+  const el = document.getElementById('rule-max-absent');
+  if(el) el.addEventListener('input',()=>{
+    const mx = parseInt(document.getElementById('rule-max-absent')?.value)||0;
+    const ov = Math.max(0, 5-mx);
+    const prev = document.getElementById('rule-preview');
+    if(prev) prev.innerHTML='ឧទាហរណ៍: ប្រាក់ខែ $1000 · ថ្ងៃធ្វើការ 26 · អវត្តមាន 5 ថ្ងៃ → លើស <b>'+ov+'</b> ថ្ងៃ → កាត់ <b style="color:var(--danger)">$'+((ov*(1000/26)).toFixed(2))+'</b>';
   });
   openModal();
 }
@@ -2007,7 +2003,6 @@ function openAbsenceRulesModal() {
 function saveAbsenceRules() {
   const rules = getSalaryRules();
   rules.max_absent_days = parseInt(document.getElementById('rule-max-absent')?.value)||0;
-  rules.absent_deduct_per_day = parseFloat(document.getElementById('rule-deduct-day')?.value)||0;
   saveSalaryRules(rules);
   showToast('រក្សាទុកច្បាប់បានជោគជ័យ!','success');
   closeModal();
@@ -2046,8 +2041,6 @@ async function applyAbsenceDeduction(empId, empName, absentDays, overAbsent, ded
 async function applyAllAbsenceDeductions(month) {
   const rules = getSalaryRules();
   const maxAbsent = rules.max_absent_days !== undefined ? rules.max_absent_days : 2;
-  const deductPerDay = rules.absent_deduct_per_day !== undefined ? rules.absent_deduct_per_day : 0;
-  if (deductPerDay <= 0) { showToast('សូមកំណត់ប្រាក់កាត់ក្នុងមួយថ្ងៃជាមុន!','warning'); openAbsenceRulesModal(); return; }
   const [y,m] = month.split('-').map(Number);
   const daysInMonth = new Date(y,m,0).getDate();
   showLoading();
@@ -2064,22 +2057,26 @@ async function applyAllAbsenceDeductions(month) {
     }
     const attMap = {};
     allRecords.forEach(a=>{ if(!attMap[a.employee_id])attMap[a.employee_id]={}; attMap[a.employee_id][(a.date||'').slice(-2)]=a; });
+    // Working days (exclude Sunday)
     const days = [];
     for(let d=1;d<=daysInMonth;d++){ const dt=new Date(y,m-1,d); if(dt.getDay()!==0) days.push(String(d).padStart(2,'0')); }
+    const workingDaysCount = days.length;
     const toDeduct = emps.map(emp=>{
       const rec=attMap[emp.id]||{}; let absent=0;
       days.forEach(dd=>{ const a=rec[dd]; if(!a||a.status==='absent') absent++; });
       const over=Math.max(0,absent-maxAbsent);
-      return { emp, absent, over, deduction: over*deductPerDay };
+      const dailyRate = workingDaysCount > 0 ? (emp.salary||0) / workingDaysCount : 0;
+      const deduction = parseFloat((over * dailyRate).toFixed(2));
+      return { emp, absent, over, deduction };
     }).filter(x=>x.over>0);
     if (!toDeduct.length) { showToast('គ្មានបុគ្គលិកណាលើសថ្ងៃ!','success'); renderMonthlyAttendance(month); return; }
-    if (!confirm('កាត់ប្រាក់ '+toDeduct.length+' នាក់? ('+toDeduct.map(x=>x.emp.name+' -$'+x.deduction.toFixed(0)).join(', ')+')')) { renderMonthlyAttendance(month); return; }
+    if (!confirm('កាត់ប្រាក់ '+toDeduct.length+' នាក់?\n'+toDeduct.map(x=>x.emp.name+' -$'+x.deduction.toFixed(2)+' (លើស '+x.over+' ថ្ងៃ)').join('\n'))) { renderMonthlyAttendance(month); return; }
     const salData = await api('GET','/salary?month='+month);
     let applied=0;
     for(const {emp,absent,over,deduction} of toDeduct) {
       try {
         let rec=(salData.records||[]).find(r=>r.employee_id===emp.id);
-        if(!rec){ await api('POST','/salary',{employee_id:emp.id,month,base_salary:emp.salary||0,bonus:0,deduction,net_salary:(emp.salary||0)-deduction}); }
+        if(!rec){ await api('POST','/salary',{employee_id:emp.id,month,base_salary:emp.salary||0,bonus:0,deduction,net_salary:(emp.salary||0)-deduction,notes:'អវត្តមាន '+absent+' ថ្ងៃ, លើស '+over+' ថ្ងៃ (-$'+deduction.toFixed(2)+')'}); }
         else { const nd=(rec.deduction||0)+deduction; const nn=(rec.base_salary||0)+(rec.bonus||0)-nd; await api('PUT','/salary/'+rec.id,{...rec,deduction:nd,net_salary:nn,notes:(rec.notes?rec.notes+' | ':'')+'អវត្តមាន '+absent+' ថ្ងៃ (-$'+deduction.toFixed(2)+')'}); }
         applied++;
       } catch(_){}
@@ -5585,10 +5582,10 @@ function renderSettings() {
                   </div>
                 </div>
                 <div class="salary-rule-card" style="border-color:var(--danger);background:rgba(239,71,111,.04)">
-                  <div class="rule-label">កាត់ប្រាក់ក្នុង ១ ថ្ងៃ</div>
-                  <div class="rule-input-wrap">
-                    <input type="number" id="sr-deduct-day" value="${rules.absent_deduct_per_day !== undefined ? rules.absent_deduct_per_day : 0}" min="0" step="0.5" />
-                    <span class="rule-unit">USD/ថ្ងៃ</span>
+                  <div class="rule-label">រូបមន្តកាត់ប្រាក់អវត្តមាន</div>
+                  <div style="font-size:11px;color:var(--text3);padding:6px 0;line-height:1.6">
+                    ប្រាក់ខែ ÷ ថ្ងៃធ្វើការ × ថ្ងៃលើស<br/>
+                    <span style="color:var(--danger);font-weight:600">ស្វ័យប្រវត្តិតាមបុគ្គលិកម្នាក់ៗ</span>
                   </div>
                 </div>
               </div>
@@ -6148,7 +6145,6 @@ function saveSalarySettings() {
     transport_allowance:  parseFloat($('sr-transport')?.value)   || 0,
     payroll_auto:         $('sr-auto')?.checked || false,
     max_absent_days:      parseInt($('sr-max-absent')?.value)    !== undefined && $('sr-max-absent') ? parseInt($('sr-max-absent').value) : 2,
-    absent_deduct_per_day: parseFloat($('sr-deduct-day')?.value) || 0,
   };
   saveSalaryRules(rules);
   showToast('រក្សាទុកការកំណត់បៀវត្សបានជោគជ័យ! ✅','success');
@@ -6165,7 +6161,6 @@ async function runAutoPayrollNow() {
   const rules = getSalaryRules();
   const month = thisMonth();
   const maxAbsent = rules.max_absent_days !== undefined ? rules.max_absent_days : 2;
-  const deductPerDay = rules.absent_deduct_per_day !== undefined ? rules.absent_deduct_per_day : 0;
   try {
     const empData = await api('GET', '/employees?limit=500');
     const emps = (empData.employees || []).filter(e => e.status === 'active');
@@ -6173,8 +6168,6 @@ async function runAutoPayrollNow() {
       if (res) res.innerHTML = '<span style="color:var(--warning)">⚠️ មិនមានបុគ្គលិក Active</span>';
       return;
     }
-
-    // Load attendance data for absence deduction calculation
     const [y, m] = month.split('-').map(Number);
     const daysInMonth = new Date(y, m, 0).getDate();
     let allAttRecords = [];
@@ -6188,67 +6181,53 @@ async function runAutoPayrollNow() {
       const results = await Promise.all(promises);
       results.forEach(r => { allAttRecords = allAttRecords.concat(r.records || []); });
     }
-
-    // Build attendance map: { employee_id: { 'DD': record } }
     const attMap = {};
     allAttRecords.forEach(a => {
       if (!attMap[a.employee_id]) attMap[a.employee_id] = {};
       attMap[a.employee_id][(a.date || '').slice(-2)] = a;
     });
-
-    // Working days (exclude Sundays)
     const workingDays = [];
     for (let d = 1; d <= daysInMonth; d++) {
       const dt = new Date(y, m - 1, d);
       if (dt.getDay() !== 0) workingDays.push(String(d).padStart(2, '0'));
     }
-
+    const workingDaysCount = workingDays.length;
     let success = 0, updated = 0, skip = 0;
     for (const e of emps) {
       const base = e.salary || 0;
-
-      // Calculate absence deduction
       let absent = 0;
       const empAtt = attMap[e.id] || {};
-      workingDays.forEach(dd => {
-        const a = empAtt[dd];
-        if (!a || a.status === 'absent') absent++;
-      });
+      workingDays.forEach(dd => { const a = empAtt[dd]; if (!a || a.status === 'absent') absent++; });
       const overAbsent = Math.max(0, absent - maxAbsent);
-      const deduction = deductPerDay > 0 ? overAbsent * deductPerDay : 0;
+      const dailyRate = workingDaysCount > 0 ? base / workingDaysCount : 0;
+      const deduction = parseFloat((overAbsent * dailyRate).toFixed(2));
       const net = base - deduction;
-      const absenceNote = deduction > 0 ? 'Auto Payroll · អវត្តមាន ' + absent + ' ថ្ងៃ (-$' + deduction.toFixed(2) + ')' : 'Auto Payroll';
-
+      const absenceNote = deduction > 0
+        ? 'Auto Payroll · អវត្តមាន ' + absent + ' ថ្ងៃ, លើស ' + overAbsent + ' ថ្ងៃ (-$' + deduction.toFixed(2) + ')'
+        : 'Auto Payroll';
       try {
-        // Check if salary record already exists for this month
         const existSal = await api('GET', '/salary?month=' + month).catch(() => ({ records: [] }));
         const existing = (existSal.records || []).find(r => r.employee_id === e.id);
         if (!existing) {
           await api('POST', '/salary', { employee_id: e.id, month, base_salary: base, bonus: 0, deduction, net_salary: net, notes: absenceNote });
           success++;
         } else {
-          // Update existing record with absence deduction if not already applied
-          const newDeduct = deduction;
-          const newNet = (existing.base_salary || base) + (existing.bonus || 0) - newDeduct;
           const prevNote = existing.notes || '';
-          const noteAlreadyApplied = prevNote.includes('Auto Payroll');
-          if (!noteAlreadyApplied) {
-            await api('PUT', '/salary/' + existing.id, { ...existing, deduction: newDeduct, net_salary: newNet, notes: (prevNote ? prevNote + ' | ' : '') + absenceNote });
+          if (!prevNote.includes('Auto Payroll')) {
+            const newNet = (existing.base_salary || base) + (existing.bonus || 0) - deduction;
+            await api('PUT', '/salary/' + existing.id, { ...existing, deduction, net_salary: newNet, notes: (prevNote ? prevNote + ' | ' : '') + absenceNote });
             updated++;
-          } else {
-            skip++;
-          }
+          } else { skip++; }
         }
       } catch(_) { skip++; }
     }
-    const msg = '✅ បង្កើត ' + success + ' · ' + (updated ? 'ធ្វើបច្ចុប្បន្នភាព ' + updated + ' · ' : '') + (skip ? 'រំលង ' + skip : '');
+    const msg = '✅ បង្កើត ' + success + (updated ? ' · ធ្វើបច្ចុប្បន្នភាព ' + updated : '') + (skip ? ' · រំលង ' + skip : '');
     if (res) res.innerHTML = '<span style="color:var(--success)">' + msg + '</span>';
-    showToast('Auto Payroll ' + month + ' — ' + (success + updated) + ' នាក់ ✅' + (deductPerDay > 0 ? ' (បូករួមកាត់អវត្តមាន)' : ''), 'success');
+    showToast('Auto Payroll ' + month + ' — ' + (success + updated) + ' នាក់ ✅ (កាត់តាមប្រាក់ខែ)', 'success');
   } catch(e) {
     if (res) res.innerHTML = '<span style="color:var(--danger)">❌ Error: ' + e.message + '</span>';
   }
 }
-
 async function checkAutoPayrollStatus() {
   const res = document.getElementById('auto-payroll-result');
   if (res) res.innerHTML = '<span style="color:var(--text3)">⏳ កំពុងពិនិត្យ...</span>';
