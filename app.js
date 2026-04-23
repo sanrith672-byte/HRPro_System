@@ -1928,8 +1928,11 @@ async function renderMonthlyAttendance(month='') {
     const summaries = emps.map(emp => {
       const rec = attMap[emp.id] || {};
       const empDays = getEmpWorkDays(emp);
-      let present=0, late=0, absent=0;
+      let present=0, late=0, absent=0, swap=0;
       empDays.forEach(({dd}) => {
+        // Skip if this working day is a compensation OFF day (OFF+)
+        const compSwap = (offDateMap[emp.id]||{})[dd];
+        if (compSwap) return; // treated as OFF+, not absent
         const a = rec[dd];
         if (a) {
           if (a.status==='present') present++;
@@ -1940,11 +1943,18 @@ async function renderMonthlyAttendance(month='') {
           absent++;
         }
       });
+      // Count swap days: OFF days where employee came to work (swap approved this month)
+      const empSwapDays = swapMap[emp.id] || {};
+      Object.keys(empSwapDays).forEach(dd => {
+        // Only count if there's an actual attendance record or just the swap approval
+        swap++;
+        present++; // swap day counts as present
+      });
       const overAbsent = Math.max(0, absent - maxAbsent);
       const workingDaysCount = empDays.length;
       const dailyRate = workingDaysCount > 0 ? (emp.salary || 0) / workingDaysCount : 0;
       const deduction = parseFloat((overAbsent * dailyRate).toFixed(2));
-      return { emp, present, late, absent, overAbsent, deduction, dailyRate, workingDaysCount };
+      return { emp, present, late, absent, swap, overAbsent, deduction, dailyRate, workingDaysCount };
     });
 
     // Build union of all employee off_days for header highlight
@@ -1969,7 +1979,7 @@ async function renderMonthlyAttendance(month='') {
       return '<th style="min-width:28px;padding:1px 2px;font-size:9px;text-align:center;font-weight:400;'+color+'">' + wdNames[wd] + '</th>';
     }).join('');
 
-    const dayRows = summaries.map(({emp, present, late, absent, overAbsent, deduction}) => {
+    const dayRows = summaries.map(({emp, present, late, absent, swap, overAbsent, deduction}) => {
       const rec = attMap[emp.id] || {};
       const empOff = parseOffDays(emp);
       const cells = allDays.map(({dd, wd}) => {
@@ -2011,6 +2021,7 @@ async function renderMonthlyAttendance(month='') {
         +'<td style="text-align:center;font-weight:700;color:var(--success);font-size:12px">'+present+'</td>'
         +'<td style="text-align:center;font-weight:700;color:var(--warning);font-size:12px">'+late+'</td>'
         +'<td style="text-align:center;font-weight:700;color:var(--danger);font-size:12px">'+absent+'</td>'
+        +'<td style="text-align:center;font-weight:700;color:var(--primary);font-size:12px">'+(swap>0?'<span style="background:rgba(99,102,241,.15);border-radius:4px;padding:1px 6px">'+swap+'</span>':'<span style="color:var(--text3)">0</span>')+'</td>'
         +'<td style="text-align:center;font-weight:700;color:'+(overAbsent>0?'var(--danger)':'var(--text3)')+';font-size:12px">'+overAbsent+'</td>'
         +deductCell
         +cells
@@ -2018,7 +2029,7 @@ async function renderMonthlyAttendance(month='') {
         +'</tr>';
     }).join('');
 
-    const totals = summaries.reduce((t,s)=>({ p:t.p+s.present, l:t.l+s.late, a:t.a+s.absent, d:t.d+s.deduction }),{p:0,l:0,a:0,d:0});
+    const totals = summaries.reduce((t,s)=>({ p:t.p+s.present, l:t.l+s.late, a:t.a+s.absent, sw:t.sw+s.swap, d:t.d+s.deduction }),{p:0,l:0,a:0,sw:0,d:0});
 
     contentArea().innerHTML =
       '<div class="page-header">'
@@ -2032,6 +2043,7 @@ async function renderMonthlyAttendance(month='') {
       +'<div class="att-box"><div class="att-num" style="color:var(--success)">'+totals.p+'</div><div class="att-lbl">✅ វត្តមាន</div></div>'
       +'<div class="att-box"><div class="att-num" style="color:var(--warning)">'+totals.l+'</div><div class="att-lbl">⏰ យឺត</div></div>'
       +'<div class="att-box"><div class="att-num" style="color:var(--danger)">'+totals.a+'</div><div class="att-lbl">❌ អវត្តមាន</div></div>'
+      +'<div class="att-box"><div class="att-num" style="color:var(--primary)">'+totals.sw+'</div><div class="att-lbl">🔄 ជំនួស</div></div>'
       +'<div class="att-box"><div class="att-num" style="color:var(--danger)">'+emps.filter((_,i)=>summaries[i].overAbsent>0).length+'</div><div class="att-lbl">⚠️ លើសថ្ងៃ</div></div>'
       +'<div class="att-box"><div class="att-num" style="color:var(--danger)">$'+totals.d.toFixed(0)+'</div><div class="att-lbl">💸 សរុបកាត់</div></div>'
       +'</div>'
@@ -2048,6 +2060,7 @@ async function renderMonthlyAttendance(month='') {
       +'<th style="min-width:40px;text-align:center;color:var(--success)" rowspan="2">✅</th>'
       +'<th style="min-width:40px;text-align:center;color:var(--warning)" rowspan="2">⏰</th>'
       +'<th style="min-width:40px;text-align:center;color:var(--danger)" rowspan="2">❌</th>'
+      +'<th style="min-width:45px;text-align:center;color:var(--primary)" rowspan="2" title="តារធ្វើការជំនួស">🔄</th>'
       +'<th style="min-width:50px;text-align:center" rowspan="2">លើស</th>'
       +'<th style="min-width:60px;text-align:center" rowspan="2">កាត់</th>'
       +dayThs
