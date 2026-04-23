@@ -1795,6 +1795,7 @@ async function renderAttendance(date='') {
       +' 📷 ស្កេន QR</button>'
       +'<button class="btn btn-primary" onclick="openAttModal(\''+today+'\')">'
       +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> កត់វត្តមាន</button>'
+      +'<button class="btn btn-outline" onclick="openBulkAbsenceModal(\''+today+'\')\" style="border-color:var(--danger);color:var(--danger)">📋 អវត្តមាន/ឈប់</button>'
       +'<button class="btn btn-outline" onclick="renderMonthlyAttendance(\''+today.slice(0,7)+'\')" style="border-color:var(--info);color:var(--info)">'
       +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>'
       +' 📊 តារាងប្រចាំខែ</button>'
@@ -2469,6 +2470,103 @@ async function processQRScan_continue(emp, raw, date) {
   } catch(e) { showToast('Error: ' + e.message, 'error'); }
 }
 
+
+
+// ===== BULK ABSENCE MODAL =====
+// ===== BULK ABSENCE / LEAVE MODAL =====
+function openBulkAbsenceModal(dateVal) {
+  var d = dateVal || new Date().toISOString().split('T')[0];
+  var emps = state.employees || [];
+  if (!emps.length) { showToast('មិនទាន់មានបុគ្គលិក!', 'error'); return; }
+
+  var empCheckboxes = emps.map(function(e) {
+    var photo = getEmpPhoto(e.id);
+    var av = photo
+      ? '<img src="' + photo + '" style="width:28px;height:28px;border-radius:50%;object-fit:cover;margin-right:8px"/>'
+      : '<div style="width:28px;height:28px;border-radius:50%;background:' + getColor(e.name) + ';display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:700;margin-right:8px">' + (e.name||'?')[0] + '</div>';
+    return '<label style="display:flex;align-items:center;padding:8px 10px;border-radius:8px;cursor:pointer;border:1.5px solid var(--border);margin-bottom:6px;gap:4px" onclick="var inp=this.querySelector(\'input\');inp.checked=!inp.checked;this.style.borderColor=inp.checked?\'var(--primary)\':\'var(--border)\';this.style.background=inp.checked?\'var(--bg2)\':\'\';return false;">'
+      + '<input type="checkbox" value="' + e.id + '" id="ba-emp-' + e.id + '" style="width:16px;height:16px;cursor:pointer" onclick="event.stopPropagation();this.closest(\'label\').style.borderColor=this.checked?\'var(--primary)\':\'var(--border)\';this.closest(\'label\').style.background=this.checked?\'var(--bg2)\':\'\';"/>'
+      + av
+      + '<span style="font-size:13px;font-weight:600">' + e.name + '</span>'
+      + '<span style="font-size:11px;color:var(--text3);margin-left:4px">' + (e.position||'') + '</span>'
+      + '</label>';
+  }).join('');
+
+  $('modal-title').textContent = '\uD83D\uDCCB កត់អវត្តមាន / ឈប់';
+  $('modal-body').innerHTML =
+    '<div class="form-grid">'
+    + '<div class="form-group"><label class="form-label">ថ្ងៃខែ *</label>'
+    + '<input class="form-control" id="ba-date" type="date" value="' + d + '" /></div>'
+    + '<div class="form-group"><label class="form-label">ប្រភេទ *</label>'
+    + '<select class="form-control" id="ba-status">'
+    + '<option value="absent">❌ អវត្តមាន (ខ្វះច្បាប់)</option>'
+    + '<option value="leave">🌴 ឈប់សម្រាក (មានច្បាប់)</option>'
+    + '<option value="sick">🤒 ឈប់ព្យាបាល</option>'
+    + '<option value="holiday">🎉 ថ្ងៃឈប់សម្រាក</option>'
+    + '</select></div></div>'
+    + '<div class="form-group" style="margin-bottom:8px">'
+    + '<label class="form-label" style="display:flex;justify-content:space-between;align-items:center">'
+    + '<span>ជ្រើសបុគ្គលិក *</span>'
+    + '<span style="font-size:11px;color:var(--primary);cursor:pointer;font-weight:500" onclick="'
+    + 'var cbs=document.querySelectorAll(\'[id^=ba-emp-]\');'
+    + 'var allChecked=[...cbs].every(function(c){return c.checked;});'
+    + 'cbs.forEach(function(c){c.checked=!allChecked;var lbl=c.closest(\'label\');lbl.style.borderColor=c.checked?\'var(--primary)\':\'var(--border)\';lbl.style.background=c.checked?\'var(--bg2)\':\'\';});'
+    + '">☑ ជ្រើសទាំងអស់</span>'
+    + '</label>'
+    + '<div id="ba-emp-list" style="max-height:280px;overflow-y:auto;padding:2px;border:1px solid var(--border);border-radius:8px;padding:6px">'
+    + empCheckboxes
+    + '</div></div>'
+    + '<div class="form-group"><label class="form-label">កំណត់ចំណាំ</label>'
+    + '<input class="form-control" id="ba-note" type="text" placeholder="ហេតុផលឈប់ (ជាជម្រើស)" /></div>'
+    + '<div class="form-actions">'
+    + '<button class="btn btn-outline" onclick="closeModal()">បោះបង់</button>'
+    + '<button class="btn btn-danger" id="save-ba-btn" onclick="saveBulkAbsence()">💾 រក្សាទុក</button>'
+    + '</div>';
+  openModal();
+}
+
+async function saveBulkAbsence() {
+  var btn = $('save-ba-btn');
+  var date = $('ba-date').value;
+  var statusVal = $('ba-status').value;
+  var note = ($('ba-note') && $('ba-note').value) || '';
+  var checked = Array.from(document.querySelectorAll('[id^=ba-emp-]:checked'));
+
+  if (!date) { showToast('សូមជ្រើសថ្ងៃខែ!', 'error'); return; }
+  if (!checked.length) { showToast('សូមជ្រើសបុគ្គលិកយ៉ាងហោចណាស់ ១ នាក់!', 'error'); return; }
+
+  btn.disabled = true; btn.textContent = 'កំពុងរក្សា...';
+
+  var notePrefix = statusVal === 'leave' ? '🌴 ឈប់ (ច្បាប់)'
+    : statusVal === 'sick'    ? '🤒 ឈប់ព្យាបាល'
+    : statusVal === 'holiday' ? '🎉 ថ្ងៃឈប់'
+    : '❌ អវត្តមាន';
+  var fullNote = note ? (notePrefix + ': ' + note) : notePrefix;
+
+  var success = 0, failed = 0;
+  for (var i = 0; i < checked.length; i++) {
+    var empId = parseInt(checked[i].value);
+    try {
+      await api('POST', '/attendance', {
+        employee_id: empId,
+        date: date,
+        check_in: null,
+        check_out: null,
+        status: 'absent',
+        notes: fullNote,
+      });
+      success++;
+    } catch(e) {
+      failed++;
+    }
+  }
+
+  btn.disabled = false; btn.textContent = '💾 រក្សាទុក';
+  closeModal();
+  if (success > 0) showToast('✅ បានកត់អវត្តមាន ' + success + ' នាក់ (' + notePrefix + ')', 'success');
+  if (failed > 0) showToast('⚠️ មិនបានកត់ ' + failed + ' នាក់', 'error');
+  renderAttendance(date);
+}
 
 
 function openAttModal(dateVal) {
