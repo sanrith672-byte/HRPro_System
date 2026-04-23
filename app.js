@@ -1926,12 +1926,22 @@ async function renderMonthlyAttendance(month='') {
     const allOffWds = new Set();
     emps.forEach(function(e) { parseOffDays(e).forEach(function(w){ allOffWds.add(w); }); });
 
-    // Table header: all days of month
+    // Weekday short names in Khmer (0=Sun...6=Sat)
+    const wdNames = ['អា','ច','អ','ព','ព្រ','សុ','ស'];
+
+    // Table header row 1: day numbers
     const dayThs = allDays.map(({d,wd}) => {
       const isToday = (new Date().toISOString().slice(0,7)===currentMonth && new Date().getDate()===d);
       const isOff = allOffWds.has(wd);
       const bg = isToday ? 'background:var(--primary);color:white;' : isOff ? 'background:var(--bg2);color:var(--text3);' : '';
       return '<th style="min-width:28px;padding:4px 2px;font-size:10px;text-align:center;'+bg+'">' + d + '</th>';
+    }).join('');
+
+    // Table header row 2: weekday names
+    const wdThs = allDays.map(({wd}) => {
+      const isOff = allOffWds.has(wd);
+      const color = isOff ? 'color:var(--danger);' : 'color:var(--text3);';
+      return '<th style="min-width:28px;padding:1px 2px;font-size:9px;text-align:center;font-weight:400;'+color+'">' + wdNames[wd] + '</th>';
     }).join('');
 
     const dayRows = summaries.map(({emp, present, late, absent, overAbsent, deduction}) => {
@@ -1991,16 +2001,21 @@ async function renderMonthlyAttendance(month='') {
       +'<button class="btn btn-outline btn-sm" style="font-size:11px" onclick="openAbsenceRulesModal()">✏️ កែច្បាប់</button>'
       +'</div>'
       +'<div class="card"><div style="overflow-x:auto"><table style="min-width:600px">'
-      +'<thead><tr style="position:sticky;top:0;z-index:2;background:var(--bg2)">'
-      +'<th style="min-width:140px;text-align:left">បុគ្គលិក</th>'
-      +'<th style="min-width:40px;text-align:center;color:var(--success)">✅</th>'
-      +'<th style="min-width:40px;text-align:center;color:var(--warning)">⏰</th>'
-      +'<th style="min-width:40px;text-align:center;color:var(--danger)">❌</th>'
-      +'<th style="min-width:50px;text-align:center">លើស</th>'
-      +'<th style="min-width:60px;text-align:center">កាត់</th>'
+      +'<thead>'
+      +'<tr style="position:sticky;top:0;z-index:2;background:var(--bg2)">'
+      +'<th style="min-width:140px;text-align:left" rowspan="2">បុគ្គលិក</th>'
+      +'<th style="min-width:40px;text-align:center;color:var(--success)" rowspan="2">✅</th>'
+      +'<th style="min-width:40px;text-align:center;color:var(--warning)" rowspan="2">⏰</th>'
+      +'<th style="min-width:40px;text-align:center;color:var(--danger)" rowspan="2">❌</th>'
+      +'<th style="min-width:50px;text-align:center" rowspan="2">លើស</th>'
+      +'<th style="min-width:60px;text-align:center" rowspan="2">កាត់</th>'
       +dayThs
-      +'<th style="min-width:60px;text-align:center">សកម្ម</th>'
-      +'</tr></thead>'
+      +'<th style="min-width:60px;text-align:center" rowspan="2">សកម្ម</th>'
+      +'</tr>'
+      +'<tr style="position:sticky;top:22px;z-index:2;background:var(--bg2)">'
+      +wdThs
+      +'</tr>'
+      +'</thead>'
       +'<tbody>'+dayRows+'</tbody>'
       +'</table></div></div>';
   } catch(e) { showError(e.message); }
