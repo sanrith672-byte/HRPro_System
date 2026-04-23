@@ -221,6 +221,7 @@ async function getEmployees(request, env) {
     `ALTER TABLE employees ADD COLUMN qr_data TEXT DEFAULT ''`,
     `ALTER TABLE employees ADD COLUMN termination_date TEXT DEFAULT ''`,
     `ALTER TABLE employees ADD COLUMN work_history TEXT DEFAULT ''`,
+    `ALTER TABLE employees ADD COLUMN off_days TEXT DEFAULT '[]'`,
   ];
   await Promise.allSettled(colMigrations.map(sql => env.DB.prepare(sql).run()));
 
@@ -235,6 +236,7 @@ async function getEmployees(request, env) {
     COALESCE(e.qr_data,'') as qr_data,
     COALESCE(e.termination_date,'') as termination_date,
     COALESCE(e.work_history,'') as work_history,
+    COALESCE(e.off_days,'[]') as off_days,
     d.name as department_name, d.icon as dept_icon
   `;
 
@@ -274,6 +276,7 @@ async function getEmployee(id, env) {
   await Promise.allSettled([
     env.DB.prepare(`ALTER TABLE employees ADD COLUMN termination_date TEXT DEFAULT ''`).run(),
     env.DB.prepare(`ALTER TABLE employees ADD COLUMN work_history TEXT DEFAULT ''`).run(),
+    env.DB.prepare(`ALTER TABLE employees ADD COLUMN off_days TEXT DEFAULT '[]'`).run(),
   ]);
 
   const emp = await env.DB.prepare(`
@@ -287,6 +290,7 @@ async function getEmployee(id, env) {
            COALESCE(e.qr_data,'') as qr_data,
            COALESCE(e.termination_date,'') as termination_date,
            COALESCE(e.work_history,'') as work_history,
+           COALESCE(e.off_days,'[]') as off_days,
            d.name as department_name
     FROM employees e
     LEFT JOIN departments d ON e.department_id = d.id
