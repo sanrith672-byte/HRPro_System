@@ -629,7 +629,7 @@ select.form-control option { background: var(--bg3); }
 .dept-count span { color: var(--primary); font-weight: 600; font-family: var(--mono); }
 
 /* ===== ATTENDANCE ===== */
-.att-summary { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-bottom: 20px; }
+.att-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(100px,1fr)); gap: 12px; margin-bottom: 20px; }
 .att-box {
   background: var(--surface);
   border: 1px solid var(--border);

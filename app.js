@@ -1795,6 +1795,9 @@ async function renderAttendance(date='') {
       +' 📷 ស្កេន QR</button>'
       +'<button class="btn btn-primary" onclick="openAttModal(\''+today+'\')">'
       +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> កត់វត្តមាន</button>'
+      +'<button class="btn btn-outline" onclick="renderMonthlyAttendance(\''+today.slice(0,7)+'\')" style="border-color:var(--info);color:var(--info)">'
+      +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>'
+      +' 📊 តារាងប្រចាំខែ</button>'
       +'</div></div>'
       +'<div class="att-summary">'
       +'<div class="att-box"><div class="att-num" style="color:var(--success)">'+attData.stats.present+'</div><div class="att-lbl">✅ មានវត្តមាន</div></div>'
@@ -1818,6 +1821,272 @@ async function deleteAttendance(id, date) {
     showToast('លុបបានជោគជ័យ!', 'success');
     renderAttendance(date);
   } catch(e) { showToast('បញ្ហា: ' + e.message, 'error'); }
+}
+
+// ===== MONTHLY ATTENDANCE TABLE =====
+async function renderMonthlyAttendance(month='') {
+  showLoading();
+  const currentMonth = month || new Date().toISOString().slice(0,7);
+  const [y, m] = currentMonth.split('-').map(Number);
+  const daysInMonth = new Date(y, m, 0).getDate();
+  const rules = getSalaryRules();
+  const maxAbsent = rules.max_absent_days !== undefined ? rules.max_absent_days : 2;
+  const deductPerDay = rules.absent_deduct_per_day !== undefined ? rules.absent_deduct_per_day : 0;
+
+  try {
+    const [empData, attData] = await Promise.all([
+      api('GET','/employees?limit=500'),
+      api('GET','/attendance?date='+currentMonth+'-01&limit=9999')
+    ]);
+    // Load all attendance for the month by fetching each week? No — use limit trick with month filter
+    // Fetch all attendance records for the month
+    let allRecords = [];
+    try {
+      // Try fetching with month param
+      const r1 = await api('GET','/attendance?month='+currentMonth+'&limit=9999');
+      allRecords = r1.records || [];
+    } catch(_) {}
+    if (!allRecords.length) {
+      // fallback: fetch by date range
+      const promises = [];
+      for (let d=1; d<=daysInMonth; d++) {
+        const dd = String(d).padStart(2,'0');
+        promises.push(api('GET','/attendance?date='+currentMonth+'-'+dd).catch(()=>({records:[]})));
+      }
+      const results = await Promise.all(promises);
+      results.forEach(r => { allRecords = allRecords.concat(r.records||[]); });
+    }
+
+    const emps = empData.employees || [];
+    // Build map: empId -> { dayStr -> record }
+    const attMap = {};
+    allRecords.forEach(a => {
+      if (!attMap[a.employee_id]) attMap[a.employee_id] = {};
+      const day = (a.date||'').slice(-2);
+      attMap[a.employee_id][day] = a;
+    });
+
+    // Build day columns (only weekdays Mon-Sat = workdays, skip Sunday=0)
+    const days = [];
+    for (let d=1; d<=daysInMonth; d++) {
+      const dt = new Date(y, m-1, d);
+      const wd = dt.getDay(); // 0=Sun
+      if (wd !== 0) days.push({ d, dd: String(d).padStart(2,'0'), wd });
+    }
+
+    // Summary per employee
+    const summaries = emps.map(emp => {
+      const rec = attMap[emp.id] || {};
+      let present=0, late=0, absent=0;
+      days.forEach(({dd}) => {
+        const a = rec[dd];
+        if (a) {
+          if (a.status==='present') present++;
+          else if (a.status==='late') late++;
+          else if (a.status==='absent') absent++;
+        } else {
+          absent++;
+        }
+      });
+      const overAbsent = Math.max(0, absent - maxAbsent);
+      const deduction = overAbsent * deductPerDay;
+      return { emp, present, late, absent, overAbsent, deduction };
+    });
+
+    // Table header: day numbers
+    const dayThs = days.map(({d,wd}) => {
+      const isToday = (new Date().toISOString().slice(0,7)===currentMonth && new Date().getDate()===d);
+      const bg = isToday ? 'background:var(--primary);color:white;' : '';
+      return '<th style="min-width:28px;padding:4px 2px;font-size:10px;text-align:center;'+bg+'">'+d+'</th>';
+    }).join('');
+
+    const dayRows = summaries.map(({emp, present, late, absent, overAbsent, deduction}) => {
+      const rec = attMap[emp.id] || {};
+      const cells = days.map(({dd}) => {
+        const a = rec[dd];
+        if (!a) return '<td style="text-align:center;font-size:10px;color:var(--danger)">—</td>';
+        if (a.status==='present') return '<td style="text-align:center;font-size:11px;color:var(--success)">✔</td>';
+        if (a.status==='late') return '<td style="text-align:center;font-size:11px;color:var(--warning)">⏰</td>';
+        return '<td style="text-align:center;font-size:11px;color:var(--danger)">✗</td>';
+      }).join('');
+      const photo = getEmpPhoto(emp.id);
+      const av = photo
+        ? '<img src="'+photo+'" style="width:24px;height:24px;border-radius:50%;object-fit:cover;flex-shrink:0"/>'
+        : '<div style="width:24px;height:24px;border-radius:50%;background:'+getColor(emp.name)+';display:flex;align-items:center;justify-content:center;color:white;font-size:10px;font-weight:700;flex-shrink:0">'+emp.name[0]+'</div>';
+      const deductCell = overAbsent > 0
+        ? '<td style="text-align:center;font-weight:700;color:var(--danger);font-size:12px">-$'+deduction.toFixed(0)+'</td>'
+        : '<td style="text-align:center;color:var(--success);font-size:11px">—</td>';
+      return '<tr>'
+        +'<td style="padding:6px 8px;white-space:nowrap"><div style="display:flex;align-items:center;gap:6px">'+av+'<span style="font-size:12px;font-weight:600">'+emp.name+'</span></div></td>'
+        +'<td style="text-align:center;font-weight:700;color:var(--success);font-size:12px">'+present+'</td>'
+        +'<td style="text-align:center;font-weight:700;color:var(--warning);font-size:12px">'+late+'</td>'
+        +'<td style="text-align:center;font-weight:700;color:var(--danger);font-size:12px">'+absent+'</td>'
+        +'<td style="text-align:center;font-weight:700;color:'+(overAbsent>0?'var(--danger)':'var(--text3)')+';font-size:12px">'+overAbsent+'</td>'
+        +deductCell
+        +cells
+        +'<td style="text-align:center"><button class="btn btn-outline btn-sm" style="font-size:10px;padding:3px 8px" onclick="applyAbsenceDeduction('+emp.id+',\''+emp.name+'\','+absent+','+overAbsent+','+deduction+',\''+currentMonth+'\')">💸 កាត់</button></td>'
+        +'</tr>';
+    }).join('');
+
+    const totals = summaries.reduce((t,s)=>({ p:t.p+s.present, l:t.l+s.late, a:t.a+s.absent, d:t.d+s.deduction }),{p:0,l:0,a:0,d:0});
+
+    contentArea().innerHTML =
+      '<div class="page-header">'
+      +'<div><h2>📊 តារាងវត្តមានប្រចាំខែ</h2></div>'
+      +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
+      +'<input class="filter-input" type="month" value="'+currentMonth+'" onchange="renderMonthlyAttendance(this.value)" />'
+      +'<button class="btn btn-primary" onclick="applyAllAbsenceDeductions(\''+currentMonth+'\')">💸 កាត់ប្រាក់ទាំងអស់</button>'
+      +'<button class="btn btn-outline" onclick="renderAttendance(\''+currentMonth+'-01\')" style="border-color:var(--success);color:var(--success)">📅 ថ្ងៃទៅថ្ងៃ</button>'
+      +'</div></div>'
+      +'<div class="att-summary">'
+      +'<div class="att-box"><div class="att-num" style="color:var(--success)">'+totals.p+'</div><div class="att-lbl">✅ វត្តមាន</div></div>'
+      +'<div class="att-box"><div class="att-num" style="color:var(--warning)">'+totals.l+'</div><div class="att-lbl">⏰ យឺត</div></div>'
+      +'<div class="att-box"><div class="att-num" style="color:var(--danger)">'+totals.a+'</div><div class="att-lbl">❌ អវត្តមាន</div></div>'
+      +'<div class="att-box"><div class="att-num" style="color:var(--danger)">'+emps.filter((_,i)=>summaries[i].overAbsent>0).length+'</div><div class="att-lbl">⚠️ លើសថ្ងៃ</div></div>'
+      +'<div class="att-box"><div class="att-num" style="color:var(--danger)">$'+totals.d.toFixed(0)+'</div><div class="att-lbl">💸 សរុបកាត់</div></div>'
+      +'</div>'
+      +'<div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:14px;display:flex;gap:16px;flex-wrap:wrap;align-items:center">'
+      +'<span style="font-size:12px;color:var(--text3)">⚙️ ច្បាប់:</span>'
+      +'<span style="font-size:12px">ថ្ងៃអវត្តមានអនុញ្ញាត: <b style="color:var(--primary)">'+maxAbsent+' ថ្ងៃ/ខែ</b></span>'
+      +'<span style="font-size:12px">កាត់ក្នុងមួយថ្ងៃ: <b style="color:var(--danger)">$'+deductPerDay+'</b></span>'
+      +'<button class="btn btn-outline btn-sm" style="font-size:11px" onclick="openAbsenceRulesModal()">✏️ កែច្បាប់</button>'
+      +'</div>'
+      +'<div class="card"><div style="overflow-x:auto"><table style="min-width:600px">'
+      +'<thead><tr style="position:sticky;top:0;z-index:2;background:var(--bg2)">'
+      +'<th style="min-width:140px;text-align:left">បុគ្គលិក</th>'
+      +'<th style="min-width:40px;text-align:center;color:var(--success)">✅</th>'
+      +'<th style="min-width:40px;text-align:center;color:var(--warning)">⏰</th>'
+      +'<th style="min-width:40px;text-align:center;color:var(--danger)">❌</th>'
+      +'<th style="min-width:50px;text-align:center">លើស</th>'
+      +'<th style="min-width:60px;text-align:center">កាត់</th>'
+      +dayThs
+      +'<th style="min-width:60px;text-align:center">សកម្ម</th>'
+      +'</tr></thead>'
+      +'<tbody>'+dayRows+'</tbody>'
+      +'</table></div></div>';
+  } catch(e) { showError(e.message); }
+}
+
+// Open rules modal for absence deduction settings
+function openAbsenceRulesModal() {
+  const rules = getSalaryRules();
+  const maxAbsent = rules.max_absent_days !== undefined ? rules.max_absent_days : 2;
+  const deductPerDay = rules.absent_deduct_per_day !== undefined ? rules.absent_deduct_per_day : 0;
+  $('modal-title').textContent = '⚙️ ច្បាប់កាត់ប្រាក់អវត្តមាន';
+  $('modal-body').innerHTML =
+    '<div style="margin-bottom:14px;padding:12px;background:var(--bg3);border-radius:10px;font-size:13px;color:var(--text3)">'
+    +'💡 ប្រាក់នឹងត្រូវកាត់ ពេលបុគ្គលិកអវត្តមានលើសថ្ងៃអនុញ្ញាត'
+    +'</div>'
+    +'<div class="form-grid">'
+    +'<div class="form-group"><label class="form-label">ថ្ងៃអវត្តមានអនុញ្ញាតក្នុង ១ ខែ</label>'
+    +'<input class="form-control" id="rule-max-absent" type="number" min="0" value="'+maxAbsent+'" /></div>'
+    +'<div class="form-group"><label class="form-label">កាត់ប្រាក់ក្នុង ១ ថ្ងៃ (USD)</label>'
+    +'<input class="form-control" id="rule-deduct-day" type="number" min="0" step="0.5" value="'+deductPerDay+'" /></div>'
+    +'</div>'
+    +'<div id="rule-preview" style="padding:12px;background:var(--bg3);border-radius:8px;margin-bottom:14px;font-size:13px;text-align:center">'
+    +'ឧទាហរណ៍: អវត្តមាន 5 ថ្ងៃ → លើស <b>'+(5-maxAbsent > 0 ? 5-maxAbsent : 0)+'</b> ថ្ងៃ → កាត់ <b style="color:var(--danger)">$'+(Math.max(0,5-maxAbsent)*deductPerDay).toFixed(2)+'</b>'
+    +'</div>'
+    +'<div class="form-actions">'
+    +'<button class="btn btn-outline" onclick="closeModal()">បោះបង់</button>'
+    +'<button class="btn btn-primary" onclick="saveAbsenceRules()">💾 រក្សាទុក</button>'
+    +'</div>';
+  // Live preview
+  ['rule-max-absent','rule-deduct-day'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.addEventListener('input',()=>{
+      const mx=parseInt(document.getElementById('rule-max-absent')?.value)||0;
+      const dp=parseFloat(document.getElementById('rule-deduct-day')?.value)||0;
+      const ov=Math.max(0,5-mx);
+      const prev=document.getElementById('rule-preview');
+      if(prev) prev.innerHTML='ឧទាហរណ៍: អវត្តមាន 5 ថ្ងៃ → លើស <b>'+ov+'</b> ថ្ងៃ → កាត់ <b style="color:var(--danger)">$'+(ov*dp).toFixed(2)+'</b>';
+    });
+  });
+  openModal();
+}
+
+function saveAbsenceRules() {
+  const rules = getSalaryRules();
+  rules.max_absent_days = parseInt(document.getElementById('rule-max-absent')?.value)||0;
+  rules.absent_deduct_per_day = parseFloat(document.getElementById('rule-deduct-day')?.value)||0;
+  saveSalaryRules(rules);
+  showToast('រក្សាទុកច្បាប់បានជោគជ័យ!','success');
+  closeModal();
+  // Refresh monthly view
+  const inp = document.querySelector('input[type="month"]');
+  if(inp) renderMonthlyAttendance(inp.value);
+}
+
+// Apply deduction to one employee's salary
+async function applyAbsenceDeduction(empId, empName, absentDays, overAbsent, deduction, month) {
+  if (overAbsent <= 0) { showToast(empName+': គ្មានលើសថ្ងៃ — មិនចាំបាច់កាត់','info'); return; }
+  if (!confirm('កាត់ $'+deduction.toFixed(2)+' ចំពោះ '+empName+' (អវត្តមាន '+absentDays+' ថ្ងៃ, លើស '+overAbsent+' ថ្ងៃ)?')) return;
+  try {
+    // Get or create salary record for this month
+    const salData = await api('GET','/salary?month='+month);
+    let rec = (salData.records||[]).find(r=>r.employee_id===empId);
+    if (!rec) {
+      // Find employee salary
+      const emp = (state.employees||[]).find(e=>e.id===empId);
+      const base = emp ? (emp.salary||0) : 0;
+      await api('POST','/salary',{ employee_id:empId, month, base_salary:base, bonus:0, deduction:deduction, net_salary:base-deduction });
+      showToast('បន្ថែម + កាត់ $'+deduction.toFixed(2)+' ចំពោះ '+empName+'!','success');
+    } else {
+      const newDeduct = (rec.deduction||0) + deduction;
+      const newNet = (rec.base_salary||0) + (rec.bonus||0) - newDeduct;
+      await api('PUT','/salary/'+rec.id,{ ...rec, deduction:newDeduct, net_salary:newNet, notes:(rec.notes?rec.notes+' | ':'')+'អវត្តមាន '+absentDays+' ថ្ងៃ (-$'+deduction.toFixed(2)+')' });
+      showToast('កាត់ $'+deduction.toFixed(2)+' ចំពោះ '+empName+' បានជោគជ័យ!','success');
+    }
+    // Refresh
+    const inp = document.querySelector('input[type="month"]');
+    renderMonthlyAttendance(inp ? inp.value : month);
+  } catch(e) { showToast('Error: '+e.message,'error'); }
+}
+
+// Apply deductions to ALL employees that exceeded absent days
+async function applyAllAbsenceDeductions(month) {
+  const rules = getSalaryRules();
+  const maxAbsent = rules.max_absent_days !== undefined ? rules.max_absent_days : 2;
+  const deductPerDay = rules.absent_deduct_per_day !== undefined ? rules.absent_deduct_per_day : 0;
+  if (deductPerDay <= 0) { showToast('សូមកំណត់ប្រាក់កាត់ក្នុងមួយថ្ងៃជាមុន!','warning'); openAbsenceRulesModal(); return; }
+  const [y,m] = month.split('-').map(Number);
+  const daysInMonth = new Date(y,m,0).getDate();
+  showLoading();
+  try {
+    const [empData] = await Promise.all([api('GET','/employees?limit=500')]);
+    const emps = empData.employees || [];
+    let allRecords = [];
+    try { const r1 = await api('GET','/attendance?month='+month+'&limit=9999'); allRecords = r1.records||[]; } catch(_){}
+    if (!allRecords.length) {
+      const promises = [];
+      for(let d=1;d<=daysInMonth;d++){ const dd=String(d).padStart(2,'0'); promises.push(api('GET','/attendance?date='+month+'-'+dd).catch(()=>({records:[]}))); }
+      const results = await Promise.all(promises);
+      results.forEach(r=>{allRecords=allRecords.concat(r.records||[]);});
+    }
+    const attMap = {};
+    allRecords.forEach(a=>{ if(!attMap[a.employee_id])attMap[a.employee_id]={}; attMap[a.employee_id][(a.date||'').slice(-2)]=a; });
+    const days = [];
+    for(let d=1;d<=daysInMonth;d++){ const dt=new Date(y,m-1,d); if(dt.getDay()!==0) days.push(String(d).padStart(2,'0')); }
+    const toDeduct = emps.map(emp=>{
+      const rec=attMap[emp.id]||{}; let absent=0;
+      days.forEach(dd=>{ const a=rec[dd]; if(!a||a.status==='absent') absent++; });
+      const over=Math.max(0,absent-maxAbsent);
+      return { emp, absent, over, deduction: over*deductPerDay };
+    }).filter(x=>x.over>0);
+    if (!toDeduct.length) { showToast('គ្មានបុគ្គលិកណាលើសថ្ងៃ!','success'); renderMonthlyAttendance(month); return; }
+    if (!confirm('កាត់ប្រាក់ '+toDeduct.length+' នាក់? ('+toDeduct.map(x=>x.emp.name+' -$'+x.deduction.toFixed(0)).join(', ')+')')) { renderMonthlyAttendance(month); return; }
+    const salData = await api('GET','/salary?month='+month);
+    let applied=0;
+    for(const {emp,absent,over,deduction} of toDeduct) {
+      try {
+        let rec=(salData.records||[]).find(r=>r.employee_id===emp.id);
+        if(!rec){ await api('POST','/salary',{employee_id:emp.id,month,base_salary:emp.salary||0,bonus:0,deduction,net_salary:(emp.salary||0)-deduction}); }
+        else { const nd=(rec.deduction||0)+deduction; const nn=(rec.base_salary||0)+(rec.bonus||0)-nd; await api('PUT','/salary/'+rec.id,{...rec,deduction:nd,net_salary:nn,notes:(rec.notes?rec.notes+' | ':'')+'អវត្តមាន '+absent+' ថ្ងៃ (-$'+deduction.toFixed(2)+')'}); }
+        applied++;
+      } catch(_){}
+    }
+    showToast('កាត់ប្រាក់ '+applied+' នាក់ បានជោគជ័យ!','success');
+    renderMonthlyAttendance(month);
+  } catch(e) { showError(e.message); }
 }
 
 // Quick checkout button
@@ -5301,6 +5570,30 @@ function renderSettings() {
               </div>
             </div>
 
+            <!-- Absence Deduction Rules -->
+            <div style="margin-bottom:24px">
+              <div style="font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:12px">❌ ច្បាប់កាត់ប្រាក់អវត្តមាន</div>
+              <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:var(--text3)">
+                💡 ប្រើក្នុងផ្ទាំង "តារាងប្រចាំខែ" ដើម្បីកាត់ប្រាក់ដោយស្វ័យប្រវត្តិ ពេលអវត្តមានលើសថ្ងៃ
+              </div>
+              <div class="salary-rules-grid">
+                <div class="salary-rule-card" style="border-color:var(--danger);background:rgba(239,71,111,.04)">
+                  <div class="rule-label">ថ្ងៃអវត្តមានអនុញ្ញាត/ខែ</div>
+                  <div class="rule-input-wrap">
+                    <input type="number" id="sr-max-absent" value="${rules.max_absent_days !== undefined ? rules.max_absent_days : 2}" min="0" max="31" />
+                    <span class="rule-unit">ថ្ងៃ</span>
+                  </div>
+                </div>
+                <div class="salary-rule-card" style="border-color:var(--danger);background:rgba(239,71,111,.04)">
+                  <div class="rule-label">កាត់ប្រាក់ក្នុង ១ ថ្ងៃ</div>
+                  <div class="rule-input-wrap">
+                    <input type="number" id="sr-deduct-day" value="${rules.absent_deduct_per_day !== undefined ? rules.absent_deduct_per_day : 0}" min="0" step="0.5" />
+                    <span class="rule-unit">USD/ថ្ងៃ</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <!-- OT & Allowances -->
             <div style="margin-bottom:24px">
               <div style="font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:12px">⏰ ថែមម៉ោង & ឧបត្ថម្ភ Default</div>
@@ -5854,6 +6147,8 @@ function saveSalarySettings() {
     meal_allowance:       parseFloat($('sr-meal')?.value)        || 0,
     transport_allowance:  parseFloat($('sr-transport')?.value)   || 0,
     payroll_auto:         $('sr-auto')?.checked || false,
+    max_absent_days:      parseInt($('sr-max-absent')?.value)    !== undefined && $('sr-max-absent') ? parseInt($('sr-max-absent').value) : 2,
+    absent_deduct_per_day: parseFloat($('sr-deduct-day')?.value) || 0,
   };
   saveSalaryRules(rules);
   showToast('រក្សាទុកការកំណត់បៀវត្សបានជោគជ័យ! ✅','success');
