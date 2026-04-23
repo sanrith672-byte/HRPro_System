@@ -172,6 +172,19 @@ async function handleRequest(request, env) {
     }
 
     // ===== DAY SWAP =====
+    if (path === '/dayswap' || path.match(/^\/dayswap\/\d+$/)) {
+      // Auto-create table if not exists
+      await env.DB.prepare(`CREATE TABLE IF NOT EXISTS day_swaps (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        employee_id INTEGER NOT NULL,
+        work_day INTEGER NOT NULL,
+        off_day INTEGER NOT NULL,
+        swap_date TEXT NOT NULL,
+        reason TEXT DEFAULT '',
+        status TEXT DEFAULT 'pending',
+        created_at TEXT, updated_at TEXT
+      )`).run();
+    }
     if (path === '/dayswap') {
       if (method === 'GET') return getAll(env, 'day_swaps', 'ds.*, e.name as employee_name', 'day_swaps ds JOIN employees e ON ds.employee_id=e.id', 'ds.created_at DESC');
       if (method === 'POST') return insertRecord(request, env, 'day_swaps', ['employee_id','work_day','off_day','swap_date','reason','status']);
