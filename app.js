@@ -5682,6 +5682,7 @@ async function renderDaySwap() {
                   ${r.status==='pending' && canEdit() ? `
                     <button class="btn btn-success btn-sm" onclick="updateDaySwap(${r.id},'approved')">✅</button>
                     <button class="btn btn-danger btn-sm" onclick="updateDaySwap(${r.id},'rejected')">❌</button>` : ''}
+                  ${canEdit() ? `<button class="btn btn-outline btn-sm" onclick="openDaySwapModal(${r.id})" style="border-color:var(--info);color:var(--info)">✏️</button>` : ''}
                   ${canEdit() ? `<button class="btn btn-danger btn-sm" onclick="deleteRecord('dayswap',${r.id},renderDaySwap)">🗑️</button>` : ''}
                 </div></td>
               </tr>`;
