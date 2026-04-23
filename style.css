@@ -732,13 +732,6 @@ select.form-control option { background: var(--bg3); }
   padding-bottom: 20px;
 }
 
-/* Portrait mode override — fixed width columns so cards don't stretch */
-.id-card-grid.portrait-mode {
-  grid-template-columns: repeat(auto-fill, 204px);
-  gap: 32px 24px;
-  justify-content: start;
-}
-
 .id-card {
   width: 100%;
 }
@@ -788,11 +781,8 @@ select.form-control option { background: var(--bg3); }
 
 @media print {
   .id-flip-card { height: 204px !important; perspective: none !important; }
-  .id-portrait-card { height: 323px !important; width: 204px !important; }
   .id-flip-inner { transform: none !important; position: static; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   .id-flip-front, .id-flip-back { position: static; transform: none !important; height: 204px !important; }
-  .id-portrait-card .id-flip-front,
-  .id-portrait-card .id-flip-back { height: 323px !important; width: 204px !important; }
   .id-flip-card::after { display: none; }
   .id-card-grid { grid-template-columns: 1fr !important; gap: 24px !important; }
 }
