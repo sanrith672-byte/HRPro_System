@@ -4414,10 +4414,16 @@ async function renderLoans() {
     contentArea().innerHTML = `
       <div class="page-header">
         <div><h2>ប្រាក់ខ្ចីបុគ្គលិក</h2><p>គ្រប់គ្រងការខ្ចីប្រាក់</p></div>
-        <button class="btn btn-primary" onclick="openLoanModal()">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          ផ្តល់ប្រាក់ខ្ចី
-        </button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-outline" onclick="deductAllLoanInstallments()" style="border-color:var(--warning);color:var(--warning)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            💸 កាត់ប្រាក់ខែនេះ (ទាំងអស់)
+          </button>
+          <button class="btn btn-primary" onclick="openLoanModal()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            ផ្តល់ប្រាក់ខ្ចី
+          </button>
+        </div>
       </div>
       <div class="stats-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:20px">
         <div class="stat-card"><div class="stat-icon orange"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
@@ -4453,6 +4459,7 @@ async function renderLoans() {
               +'<td>'+(status==='paid'?'<span class="badge badge-green">✅ សងរួច</span>':'<span class="badge badge-yellow">⏳ កំពុងសង</span>')+'</td>'
               +'<td><div class="action-btns">'
               +(left>0?'<button class="btn btn-success btn-sm" onclick="openRepayModal('+r.id+',\''+r.employee_name+'\','+left+','+( r.installment_amount||0)+')">💰 សង</button>':'')
+              +(left>0&&r.installment_amount?'<button class="btn btn-sm" style="background:var(--warning);color:#fff;font-size:10px;margin-left:2px" onclick="deductLoanInstallment('+r.id+','+r.employee_id+',\''+r.employee_name+'\','+r.installment_amount+','+left.toFixed(2)+')">💸 កាត់</button>':'')
               +'<button class="btn btn-danger btn-sm" onclick="deleteRecord(\'loans\','+r.id+',renderLoans)">🗑️</button>'
               +'</div></td>'
               +'</tr>';
@@ -4554,6 +4561,89 @@ async function saveRepay(id, left) {
     await api('PUT',`/loans/${id}/repay`,{ amount });
     showToast('បញ្ចូលការសងបានជោគជ័យ!','success'); closeModal(); renderLoans();
   } catch(e) { showToast('បញ្ហា: '+e.message,'error'); }
+}
+
+// ============================================================
+// LOAN INSTALLMENT DEDUCTION FROM SALARY
+// ============================================================
+
+// Deduct ONE loan's installment from salary and record repayment
+async function deductLoanInstallment(loanId, empId, empName, installAmt, left) {
+  const month = today().substring(0,7); // current YYYY-MM
+  const amount = Math.min(installAmt, left);
+  if (!confirm('💸 កាត់ $' + amount.toFixed(2) + '/ខែ ចំពោះ ' + empName + '\nពី Salary ខែ ' + month + '?')) return;
+  try {
+    // 1. Record loan repayment
+    await api('PUT', '/loans/' + loanId + '/repay', { amount });
+
+    // 2. Get or create salary record for this month
+    const salData = await api('GET', '/salary?month=' + month);
+    const emp = (state.employees||[]).find(e => e.id === empId);
+    const base = emp ? (emp.salary||0) : 0;
+    const rec = (salData.records||[]).find(r => r.employee_id === empId);
+    if (!rec) {
+      await api('POST', '/salary', {
+        employee_id: empId, month,
+        base_salary: base, bonus: 0,
+        deduction: amount, net_salary: base - amount,
+        notes: 'កាត់ប្រាក់ខ្ចី $' + amount.toFixed(2) + '/ខែ'
+      });
+    } else {
+      const newDeduct = (rec.deduction||0) + amount;
+      const newNet = (rec.base_salary||0) + (rec.bonus||0) - newDeduct;
+      await api('PUT', '/salary/' + rec.id, {
+        ...rec, deduction: newDeduct, net_salary: newNet,
+        notes: (rec.notes ? rec.notes + ' | ' : '') + 'កាត់ប្រាក់ខ្ចី $' + amount.toFixed(2)
+      });
+    }
+    showToast('💸 កាត់ $' + amount.toFixed(2) + ' ចំពោះ ' + empName + ' បានជោគជ័យ!', 'success');
+    renderLoans();
+  } catch(e) { showToast('Error: ' + e.message, 'error'); }
+}
+
+// Deduct ALL active loans' installments from salary for this month
+async function deductAllLoanInstallments() {
+  const month = today().substring(0,7);
+  const data = await api('GET', '/loans');
+  const active = (data.records||[]).filter(r => {
+    const left = (r.amount||0) - (r.paid_amount||0);
+    return left > 0 && r.installment_amount > 0;
+  });
+  if (active.length === 0) { showToast('មិនមានប្រាក់ខ្ចីដែលនៅសល់!', 'info'); return; }
+  const total = active.reduce((s,r) => s + Math.min(r.installment_amount, (r.amount||0)-(r.paid_amount||0)), 0);
+  if (!confirm('💸 កាត់ប្រាក់ខ្ចីខែ ' + month + '\nបុគ្គលិកចំនួន ' + active.length + ' នាក់\nសរុប $' + total.toFixed(2) + '\n\nចង់ដំណើរការ?')) return;
+  let ok = 0, fail = 0;
+  for (const r of active) {
+    try {
+      const left = (r.amount||0) - (r.paid_amount||0);
+      const amount = Math.min(r.installment_amount, left);
+      // Record repayment
+      await api('PUT', '/loans/' + r.id + '/repay', { amount });
+      // Apply to salary
+      const salData = await api('GET', '/salary?month=' + month);
+      const emp = (state.employees||[]).find(e => e.id === r.employee_id);
+      const base = emp ? (emp.salary||0) : 0;
+      const rec = (salData.records||[]).find(s => s.employee_id === r.employee_id);
+      if (!rec) {
+        await api('POST', '/salary', {
+          employee_id: r.employee_id, month,
+          base_salary: base, bonus: 0,
+          deduction: amount, net_salary: base - amount,
+          notes: 'កាត់ប្រាក់ខ្ចី $' + amount.toFixed(2)
+        });
+      } else {
+        const newDeduct = (rec.deduction||0) + amount;
+        const newNet = (rec.base_salary||0) + (rec.bonus||0) - newDeduct;
+        await api('PUT', '/salary/' + rec.id, {
+          ...rec, deduction: newDeduct, net_salary: newNet,
+          notes: (rec.notes ? rec.notes + ' | ' : '') + 'កាត់ប្រាក់ខ្ចី $' + amount.toFixed(2)
+        });
+      }
+      ok++;
+    } catch(e) { fail++; }
+  }
+  showToast('💸 កាត់ជោគជ័យ ' + ok + ' នាក់' + (fail>0?' | បរាជ័យ '+fail+' នាក់':''), ok>0?'success':'error');
+  renderLoans();
 }
 
 // ============================================================
