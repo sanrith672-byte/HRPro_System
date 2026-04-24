@@ -252,7 +252,6 @@ async function getEmployees(request, env) {
     `ALTER TABLE employees ADD COLUMN termination_date TEXT DEFAULT ''`,
     `ALTER TABLE employees ADD COLUMN work_history TEXT DEFAULT ''`,
     `ALTER TABLE employees ADD COLUMN off_days TEXT DEFAULT '[]'`,
-    `ALTER TABLE employees ADD COLUMN work_location TEXT DEFAULT ''`,
   ];
   await Promise.allSettled(colMigrations.map(sql => env.DB.prepare(sql).run()));
 
@@ -268,7 +267,6 @@ async function getEmployees(request, env) {
     COALESCE(e.termination_date,'') as termination_date,
     COALESCE(e.work_history,'') as work_history,
     COALESCE(e.off_days,'[]') as off_days,
-    COALESCE(e.work_location,'') as work_location,
     d.name as department_name, d.icon as dept_icon
   `;
 
@@ -309,7 +307,6 @@ async function getEmployee(id, env) {
     env.DB.prepare(`ALTER TABLE employees ADD COLUMN termination_date TEXT DEFAULT ''`).run(),
     env.DB.prepare(`ALTER TABLE employees ADD COLUMN work_history TEXT DEFAULT ''`).run(),
     env.DB.prepare(`ALTER TABLE employees ADD COLUMN off_days TEXT DEFAULT '[]'`).run(),
-    env.DB.prepare(`ALTER TABLE employees ADD COLUMN work_location TEXT DEFAULT ''`).run(),
   ]);
 
   const emp = await env.DB.prepare(`
@@ -324,7 +321,6 @@ async function getEmployee(id, env) {
            COALESCE(e.termination_date,'') as termination_date,
            COALESCE(e.work_history,'') as work_history,
            COALESCE(e.off_days,'[]') as off_days,
-           COALESCE(e.work_location,'') as work_location,
            d.name as department_name
     FROM employees e
     LEFT JOIN departments d ON e.department_id = d.id
@@ -337,15 +333,15 @@ async function getEmployee(id, env) {
 
 async function createEmployee(request, env) {
   const body = await request.json();
-  const { name, position, department_id, phone, email, salary, hire_date, status, gender, custom_id, bank, bank_account, bank_holder, termination_date, work_history, work_location } = body;
+  const { name, position, department_id, phone, email, salary, hire_date, status, gender, custom_id, bank, bank_account, bank_holder, termination_date, work_history } = body;
 
   if (!name || !position || !department_id) {
     return error('name, position, department_id are required');
   }
 
   const result = await env.DB.prepare(`
-    INSERT INTO employees (name, position, department_id, phone, email, salary, hire_date, status, gender, custom_id, bank, bank_account, bank_holder, termination_date, work_history, off_days, work_location, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+    INSERT INTO employees (name, position, department_id, phone, email, salary, hire_date, status, gender, custom_id, bank, bank_account, bank_holder, termination_date, work_history, off_days, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
   `).bind(
     name, position, department_id,
     phone||'', email||'', salary||0,
@@ -353,8 +349,7 @@ async function createEmployee(request, env) {
     status||'active', gender||'male',
     custom_id||'', bank||'', bank_account||'', bank_holder||'',
     termination_date||'', work_history||'',
-    JSON.stringify(body.off_days||[]),
-    work_location||''
+    JSON.stringify(body.off_days||[])
   ).run();
 
   const newEmp = await env.DB.prepare('SELECT * FROM employees WHERE id = ?').bind(result.meta.last_row_id).first();
@@ -363,7 +358,7 @@ async function createEmployee(request, env) {
 
 async function updateEmployee(id, request, env) {
   const body = await request.json();
-  const { name, position, department_id, phone, email, salary, hire_date, status, gender, custom_id, bank, bank_account, bank_holder, termination_date, work_history, work_location } = body;
+  const { name, position, department_id, phone, email, salary, hire_date, status, gender, custom_id, bank, bank_account, bank_holder, termination_date, work_history } = body;
 
   const existing = await env.DB.prepare('SELECT id FROM employees WHERE id = ?').bind(id).first();
   if (!existing) return error('Employee not found', 404);
@@ -376,7 +371,6 @@ async function updateEmployee(id, request, env) {
       custom_id=COALESCE(?,custom_id),
       bank=COALESCE(?,bank), bank_account=COALESCE(?,bank_account), bank_holder=COALESCE(?,bank_holder),
       off_days=?,
-      work_location=?,
       updated_at=datetime('now')
     WHERE id=?
   `).bind(
@@ -385,7 +379,6 @@ async function updateEmployee(id, request, env) {
     termination_date||'', work_history||'',
     custom_id||null, bank||null, bank_account||null, bank_holder||null,
     JSON.stringify(body.off_days||[]),
-    work_location||'',
     id
   ).run();
 
