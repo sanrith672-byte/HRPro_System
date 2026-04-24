@@ -2,8 +2,8 @@
   "name": "HR Pro — ប្រព័ន្ធគ្រប់គ្រងបុគ្គលិក",
   "short_name": "HR Pro",
   "description": "ប្រព័ន្ធគ្រប់គ្រងបុគ្គលិក — Cloudflare Worker + D1",
-  "start_url": "/",
-  "id": "/",
+  "start_url": "/index.html",
+  "id": "/index.html",
   "display": "standalone",
   "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
   "orientation": "any",
@@ -41,28 +41,28 @@
       "name": "Dashboard",
       "short_name": "Dashboard",
       "description": "ផ្ទាំង Dashboard",
-      "url": "/#dashboard",
+      "url": "/index.html#dashboard",
       "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }]
     },
     {
       "name": "គ្រប់គ្រងបុគ្គលិក",
       "short_name": "បុគ្គលិក",
       "description": "មើលបញ្ជីបុគ្គលិក",
-      "url": "/#employees",
+      "url": "/index.html#employees",
       "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }]
     },
     {
       "name": "វត្តមានប្រចាំថ្ងៃ",
       "short_name": "វត្តមាន",
       "description": "កត់វត្តមានថ្ងៃនេះ",
-      "url": "/#attendance",
+      "url": "/index.html#attendance",
       "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }]
     },
     {
       "name": "ថែមម៉ោង OT",
       "short_name": "OT",
       "description": "គ្រប់គ្រង OT",
-      "url": "/#overtime",
+      "url": "/index.html#overtime",
       "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }]
     }
   ]
