@@ -2916,8 +2916,8 @@ function openAttModal(dateVal) {
     '<div class="form-grid">'
     +'<div class="form-group"><label class="form-label">បុគ្គលិក *</label><select class="form-control" id="a-emp">'+state.employees.map(e=>'<option value="'+e.id+'">'+e.name+'</option>').join('')+'</select></div>'
     +'<div class="form-group"><label class="form-label">ថ្ងៃខែ</label><input class="form-control" id="a-date" type="date" value="'+d+'" /></div>'
-    +'<div class="form-group"><label class="form-label">ម៉ោងចូល</label><input class="form-control" id="a-in" type="time" value="08:00" /></div>'
-    +'<div class="form-group"><label class="form-label">ម៉ោងចេញ</label><input class="form-control" id="a-out" type="time" value="17:00" /></div>'
+    +'<div class="form-group"><label class="form-label">ម៉ោងចូល</label><input class="form-control" id="a-in" type="time" value="'+((getSalaryRules&&getSalaryRules().work_start_time)||'08:00')+'" /></div>'
+    +'<div class="form-group"><label class="form-label">ម៉ោងចេញ</label><input class="form-control" id="a-out" type="time" value="'+((getSalaryRules&&getSalaryRules().work_end_time)||'17:00')+'" /></div>'
     +'<div class="form-group"><label class="form-label">ស្ថានភាព</label><select class="form-control" id="a-status"><option value="present">✅ វត្តមាន</option><option value="late">⏰ យឺត</option><option value="absent">❌ អវត្តមាន</option></select></div>'
     +'</div>'
     +'<div class="form-actions">'
@@ -5624,6 +5624,7 @@ function getSalaryRules() {
     currency: 'USD',
     currency_symbol: '$',
     work_start_time: '08:00',
+    work_end_time: '17:00',
     late_grace_minutes: 15,
   };
   try { return { ...def, ...JSON.parse(localStorage.getItem(SAL_KEY)) }; } catch { return def; }
@@ -6354,6 +6355,13 @@ function renderSettings() {
                   </div>
                   <div style="font-size:10px;color:var(--text3);margin-top:4px">ម៉ោងដែលត្រូវចូលធ្វើការ</div>
                 </div>
+                <div class="salary-rule-card" style="border-color:var(--success);background:rgba(16,185,129,.04)">
+                  <div class="rule-label">🏁 ម៉ោងចេញធ្វើការ</div>
+                  <div class="rule-input-wrap">
+                    <input type="time" id="sr-work-end" value="${rules.work_end_time || '17:00'}" style="font-family:var(--mono);font-weight:700;font-size:14px" />
+                  </div>
+                  <div style="font-size:10px;color:var(--text3);margin-top:4px">ម៉ោងដែលត្រូវចេញធ្វើការ</div>
+                </div>
                 <div class="salary-rule-card" style="border-color:var(--warning);background:rgba(255,190,11,.04)">
                   <div class="rule-label">⏳ ផ្តល់ grace period (នាទី)</div>
                   <div class="rule-input-wrap">
@@ -6920,6 +6928,7 @@ function saveSalarySettings() {
     payroll_auto:         $('sr-auto')?.checked || false,
     max_absent_days:      parseInt($('sr-max-absent')?.value)    !== undefined && $('sr-max-absent') ? parseInt($('sr-max-absent').value) : 2,
     work_start_time:      $('sr-work-start')?.value || '08:00',
+    work_end_time:        $('sr-work-end')?.value   || '17:00',
     late_grace_minutes:   parseInt($('sr-late-grace')?.value) || 0,
   };
   saveSalaryRules(rules);
