@@ -2053,7 +2053,7 @@ async function renderMonthlyAttendance(month='') {
       +'<span style="font-size:12px">រូបមន្ត: <b style="color:var(--danger)">ប្រាក់ខែ ÷ ថ្ងៃធ្វើការ × ថ្ងៃលើស</b></span>'
       +'<button class="btn btn-outline btn-sm" style="font-size:11px" onclick="openAbsenceRulesModal()">✏️ កែច្បាប់</button>'
       +'</div>'
-      +'<div class="card" style="padding:0"><div style="overflow-x:auto;-webkit-overflow-scrolling:touch"><table style="min-width:max-content;border-collapse:collapse;table-layout:fixed">'
+      +'<div class="card" style="padding:0"><div style="overflow-x:auto;-webkit-overflow-scrolling:touch;position:relative"><table style="min-width:max-content;border-collapse:collapse;table-layout:fixed">'
       +'<colgroup>'
       +'<col style="width:160px"/>'
       +'<col style="width:30px"/>'
