@@ -7436,6 +7436,39 @@ function renderSettings() {
             <div id="delete-status" style="margin-top:10px;font-size:12px"></div>
           </div>
         </div>
+      <!-- PWA Install Section -->
+        <div class="settings-section">
+          <div class="settings-section-header">
+            <div class="sec-icon" style="background:rgba(255,107,53,.15);font-size:18px">📲</div>
+            <div>
+              <div class="settings-section-title">Install App នៅលើ Desktop</div>
+              <div class="settings-section-desc">បន្ថែម HR Pro ជា App Shortcut លើ Windows / Android / iOS</div>
+            </div>
+          </div>
+          <div class="settings-section-body">
+            <div style="padding:14px;background:rgba(255,107,53,.07);border:1px solid rgba(255,107,53,.25);border-radius:10px;margin-bottom:14px">
+              <div style="font-size:12px;font-weight:700;color:var(--primary);margin-bottom:8px">📌 របៀប Install នៅលើ Windows (Chrome / Edge):</div>
+              <div style="font-size:12px;color:var(--text2);line-height:1.8">
+                <b>Chrome:</b> រូបភាព ⊕ នៅ Address Bar → «Install HR Pro»<br/>
+                <b>Edge:</b> ⋯ Menu → Apps → Install this site as an app<br/>
+                <b>ឬ</b> ចុចប៊ូតុង Install ខាងក្រោម 👇
+              </div>
+            </div>
+            <button id="pwa-install-btn" class="btn btn-primary" style="width:100%;display:none" onclick="window.installPWA && window.installPWA()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              📲 Install HR Pro App
+            </button>
+            <div id="pwa-status" style="margin-top:10px;font-size:12px;color:var(--text3)"></div>
+            <div style="margin-top:12px;padding:10px 12px;background:var(--bg3);border-radius:8px">
+              <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:6px">📱 Android / iOS:</div>
+              <div style="font-size:11px;color:var(--text3);line-height:1.7">
+                <b>Android Chrome:</b> ⋮ Menu → «Add to Home screen»<br/>
+                <b>iPhone Safari:</b> □↑ Share → «Add to Home Screen»
+              </div>
+            </div>
+          </div>
+        </div>
+
       </div><!-- /panel-data_mgmt -->
 
     </div><!-- /settings-content -->
