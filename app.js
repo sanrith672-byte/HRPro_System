@@ -1969,14 +1969,14 @@ async function renderMonthlyAttendance(month='') {
       const isToday = (new Date().toISOString().slice(0,7)===currentMonth && new Date().getDate()===d);
       const isWeekend = (wd === 0 || wd === 6);
       const bg = isToday ? 'background:var(--primary);color:white;' : isWeekend ? 'background:var(--bg2);color:var(--text3);' : '';
-      return '<th style="min-width:20px;width:20px;padding:2px 1px;font-size:9px;text-align:center;'+bg+'">' + d + '</th>';
+      return '<th style="min-width:18px;width:18px;padding:1px 0;font-size:9px;text-align:center;'+bg+'">' + d + '</th>';
     }).join('');
 
     // Table header row 2: weekday names
     const wdThs = allDays.map(({wd}) => {
       const isWeekend = (wd === 0 || wd === 6);
       const color = isWeekend ? 'color:var(--danger);' : 'color:var(--text3);';
-      return '<th style="min-width:20px;width:20px;padding:1px 0;font-size:8px;text-align:center;font-weight:400;'+color+'">' + wdNames[wd] + '</th>';
+      return '<th style="min-width:18px;width:18px;padding:0;font-size:8px;text-align:center;font-weight:400;'+color+'">' + wdNames[wd] + '</th>';
     }).join('');
 
     const dayRows = summaries.map(({emp, present, late, absent, swap, overAbsent, deduction}) => {
@@ -2005,9 +2005,9 @@ async function renderMonthlyAttendance(month='') {
           return '<td style="text-align:center;font-size:7px;padding:1px 0;font-weight:700;color:var(--warning);background:rgba(255,190,11,.1)" title="OFF+">OFF+</td>';
         }
         if (!a) return '<td style="text-align:center;font-size:9px;padding:1px 0;color:var(--danger)">—</td>';
-        if (a.status==='present') return '<td style="text-align:center;font-size:10px;padding:1px 0;color:var(--success)">✔</td>';
+        if (a.status==='present') return '<td style="text-align:center;font-size:10px;padding:0;color:var(--success)">✔</td>';
         if (a.status==='late') return '<td style="text-align:center;font-size:9px;padding:1px 0;color:var(--warning)">⏰</td>';
-        return '<td style="text-align:center;font-size:10px;padding:1px 0;color:var(--danger)">✗</td>';
+        return '<td style="text-align:center;font-size:10px;padding:0;color:var(--danger)">✗</td>';
       }).join('');
       const photo = getEmpPhoto(emp.id);
       const av = photo
@@ -2018,12 +2018,12 @@ async function renderMonthlyAttendance(month='') {
         : '<td style="text-align:center;color:var(--success);font-size:11px">—</td>';
       return '<tr>'
         +'<td style="padding:4px 6px;white-space:nowrap;position:sticky;left:0;z-index:1;background:var(--bg1);box-shadow:2px 0 5px rgba(0,0,0,.12)"><div style="display:flex;align-items:center;gap:6px">'+av+'<span style="font-size:11px;font-weight:600">'+emp.name+'</span></div></td>'
-        +'<td style="text-align:center;font-weight:700;color:var(--success);font-size:11px;position:sticky;left:120px;z-index:1;background:var(--bg1)">'+present+'</td>'
-        +'<td style="text-align:center;font-weight:700;color:var(--warning);font-size:11px;position:sticky;left:148px;z-index:1;background:var(--bg1)">'+late+'</td>'
-        +'<td style="text-align:center;font-weight:700;color:var(--danger);font-size:11px;position:sticky;left:176px;z-index:1;background:var(--bg1)">'+absent+'</td>'
-        +'<td style="text-align:center;font-weight:700;color:var(--primary);font-size:11px;position:sticky;left:204px;z-index:1;background:var(--bg1)">'+(swap>0?'<span style="background:rgba(99,102,241,.15);border-radius:4px;padding:1px 6px">'+swap+'</span>':'<span style="color:var(--text3)">0</span>')+'</td>'
-        +'<td style="text-align:center;font-weight:700;color:'+(overAbsent>0?'var(--danger)':'var(--text3)')+';font-size:11px;position:sticky;left:232px;z-index:1;background:var(--bg1)">'+overAbsent+'</td>'
-        +(overAbsent>0?'<td style="text-align:center;font-weight:700;color:var(--danger);font-size:12px;position:sticky;left:266px;z-index:1;background:var(--bg1);box-shadow:3px 0 6px rgba(0,0,0,.12)">-$'+deduction.toFixed(0)+'</td>':'<td style="text-align:center;color:var(--success);font-size:11px;position:sticky;left:266px;z-index:1;background:var(--bg1);box-shadow:3px 0 6px rgba(0,0,0,.12)">—</td>')
+        +'<td style="text-align:center;font-weight:700;color:var(--success);font-size:11px;width:22px;position:sticky;left:120px;z-index:1;background:var(--bg1);padding:2px 0;text-align:center">'+present+'</td>'
+        +'<td style="text-align:center;font-weight:700;color:var(--warning);font-size:11px;width:22px;position:sticky;left:142px;z-index:1;background:var(--bg1);padding:2px 0;text-align:center">'+late+'</td>'
+        +'<td style="text-align:center;font-weight:700;color:var(--danger);font-size:11px;width:22px;position:sticky;left:164px;z-index:1;background:var(--bg1);padding:2px 0;text-align:center">'+absent+'</td>'
+        +'<td style="text-align:center;font-weight:700;color:var(--primary);font-size:11px;width:22px;position:sticky;left:186px;z-index:1;background:var(--bg1);padding:2px 0;text-align:center">'+(swap>0?'<span style="background:rgba(99,102,241,.15);border-radius:4px;padding:1px 6px">'+swap+'</span>':'<span style="color:var(--text3)">0</span>')+'</td>'
+        +'<td style="text-align:center;font-weight:700;color:'+(overAbsent>0?'var(--danger)':'var(--text3)')+';font-size:11px;position:sticky;left:208px;z-index:1;background:var(--bg1);width:26px;padding:2px 0;text-align:center">'+overAbsent+'</td>'
+        +(overAbsent>0?'<td style="text-align:center;font-weight:700;color:var(--danger);font-size:12px;position:sticky;left:234px;z-index:1;background:var(--bg1);box-shadow:3px 0 6px rgba(0,0,0,.12);width:40px;padding:2px 1px;text-align:center">-$'+deduction.toFixed(0)+'</td>':'<td style="text-align:center;color:var(--success);font-size:11px;position:sticky;left:234px;z-index:1;background:var(--bg1);box-shadow:3px 0 6px rgba(0,0,0,.12);width:40px;padding:2px 1px;text-align:center">—</td>')
         +cells
         +'<td style="text-align:center"><button class="btn btn-outline btn-sm" style="font-size:10px;padding:3px 8px" onclick="applyAbsenceDeduction('+emp.id+',\''+emp.name+'\','+absent+','+overAbsent+','+deduction+',\''+currentMonth+'\')">💸 កាត់</button></td>'
         +'</tr>';
@@ -2063,12 +2063,12 @@ async function renderMonthlyAttendance(month='') {
       +'<thead>'
       +'<tr style="position:sticky;top:0;z-index:4;background:var(--bg2)">'
       +'<th style="min-width:120px;text-align:left;position:sticky;left:0;z-index:5;background:var(--bg2);box-shadow:2px 0 5px rgba(0,0,0,.2)" rowspan="2">បុគ្គលិក</th>'
-      +'<th style="min-width:28px;text-align:center;color:var(--success);position:sticky;left:120px;z-index:5;background:var(--bg2)" rowspan="2" title="វត្តមាន">✅</th>'
-      +'<th style="min-width:28px;text-align:center;color:var(--warning);position:sticky;left:148px;z-index:5;background:var(--bg2)" rowspan="2" title="យឺត">⏰</th>'
-      +'<th style="min-width:28px;text-align:center;color:var(--danger);position:sticky;left:176px;z-index:5;background:var(--bg2)" rowspan="2" title="អវត្តមាន">❌</th>'
-      +'<th style="min-width:28px;text-align:center;color:var(--primary);position:sticky;left:204px;z-index:5;background:var(--bg2)" rowspan="2" title="ប្ដូរថ្ងៃ">🔄</th>'
-      +'<th style="min-width:34px;text-align:center;font-size:10px;position:sticky;left:232px;z-index:5;background:var(--bg2)" rowspan="2" title="លើសថ្ងៃ">លើស</th>'
-      +'<th style="min-width:52px;text-align:center;font-size:10px;position:sticky;left:266px;z-index:5;background:var(--bg2);box-shadow:3px 0 6px rgba(0,0,0,.2)" rowspan="2" title="កាត់ប្រាក់">កាត់</th>'
+      +'<th style="width:22px;min-width:22px;max-width:22px;text-align:center;color:var(--success);position:sticky;left:120px;z-index:5;background:var(--bg2);padding:2px 0" rowspan="2" title="វត្តមាន">✅</th>'
+      +'<th style="width:22px;min-width:22px;max-width:22px;text-align:center;color:var(--warning);position:sticky;left:142px;z-index:5;background:var(--bg2);padding:2px 0" rowspan="2" title="យឺត">⏰</th>'
+      +'<th style="width:22px;min-width:22px;max-width:22px;text-align:center;color:var(--danger);position:sticky;left:164px;z-index:5;background:var(--bg2);padding:2px 0" rowspan="2" title="អវត្តមាន">❌</th>'
+      +'<th style="width:22px;min-width:22px;max-width:22px;text-align:center;color:var(--primary);position:sticky;left:186px;z-index:5;background:var(--bg2);padding:2px 0" rowspan="2" title="ប្ដូរថ្ងៃ">🔄</th>'
+      +'<th style="width:26px;min-width:26px;max-width:26px;text-align:center;font-size:9px;position:sticky;left:208px;z-index:5;background:var(--bg2);padding:2px 0" rowspan="2" title="លើសថ្ងៃ">លើស</th>'
+      +'<th style="width:40px;min-width:40px;max-width:40px;text-align:center;font-size:9px;position:sticky;left:234px;z-index:5;background:var(--bg2);box-shadow:3px 0 6px rgba(0,0,0,.2);padding:2px 1px" rowspan="2" title="កាត់ប្រាក់">កាត់</th>'
       +dayThs
       +'<th style="min-width:58px;text-align:center" rowspan="2">សកម្ម</th>'
       +'</tr>'
