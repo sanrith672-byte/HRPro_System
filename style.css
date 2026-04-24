@@ -566,6 +566,11 @@ select.form-control option { background: var(--bg3); }
 .modal-close:hover { background: var(--danger); color: white; border-color: var(--danger); }
 
 .modal-body { padding: 20px; }
+.modal--wide { max-width: 880px; width: 94%; }
+.form-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+.form-grid-3 .full-width { grid-column: 1 / -1; }
+.emp-section { margin-bottom: 18px; }
+.emp-section-title { font-size: 11px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
 
 /* ===== TOAST ===== */
 .toast-container {
@@ -1093,6 +1098,8 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 
   /* ── Modal ── */
   .modal { width: 96%; max-height: 88vh; }
+  .modal--wide { max-width: 96%; }
+  .form-grid-3 { grid-template-columns: 1fr 1fr; }
 
   /* ── Content padding ── */
   .content-area { padding: 12px; }
@@ -1150,6 +1157,8 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 
   /* Modal */
   .modal { width: 100%; border-radius: 16px 16px 0 0; position: fixed; bottom: 0; top: auto; max-height: 90vh; }
+  .modal--wide { width: 100%; max-width: 100%; }
+  .form-grid-3 { grid-template-columns: 1fr; }
   .modal-overlay { align-items: flex-end; }
   .modal-header { padding: 14px 16px; }
   .modal-body { padding: 14px 16px; }
