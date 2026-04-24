@@ -25,6 +25,9 @@ https://hr-pro.pages.dev/
 # admin / admin123
 # hr / hr1234
 # finance / fin1234
+  
+  user: adminsupport
+  Password: admin
 
 #"update"
 
@@ -70,23 +73,43 @@ Invoke-WebRequest -Uri "https://employee-management-api.sansukun3.workers.dev/em
 
 
 
-git add app.js index.html style.css
-git commit -m "feat: portrait/landscape card mode toggle v68"
-git push origin main
-wrangler pages deploy .
 
-
-
-Account adminsupport:
-
-Username: adminsupport
-Password: admin
-Role: អ្នកគ្រប់គ្រង ✅
-
-
+cd C:\Users\TUF-17\Desktop\HRPro_System
 
 git add app.js index.html index.js style.css
-git commit -m "restore: back to v68 single company"
+git commit -m "update v80"
 git push origin main
 wrangler deploy
-wrangler pages deploy .
+wrangler pages deploy . --project-name hrpro-sansukun --commit-dirty=true
+
+
+wrangler deploy
+git add app.js index.js index.html
+git commit -m "update"
+git push origin main
+wrangler pages deploy . --project-name hrpro-sansukun --commit-dirty=true
+
+
+
+git add app.js
+git commit -m "add work start time & late grace period setting"
+git push origin main
+wrangler deploy
+
+
+git add app.js index.js index.html
+git commit -m "update"
+git push origin main
+wrangler pages deploy . --project-name hrpro-sansukun --commit-dirty=true
+
+
+
+1. Copy app.js ថ្មីទៅ folder: C:\Users\TUF-17\Desktop\HRPro_System\
+
+2. បើក Terminal រួច Run:
+   git add app.js
+   git commit -m "fix syntax errors in OT buttons"
+   git push origin main
+   wrangler pages deploy . --project-name hrpro-sansukun --commit-dirty=true
+
+3. រង់ចាំ 1-2 នាទី រួច Refresh Browser

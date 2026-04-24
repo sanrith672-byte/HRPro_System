@@ -1,5 +1,5 @@
 // HR Pro — Service Worker v3 (PWA Desktop Support)
-const CACHE_NAME = 'hr-pro-v3';
+const CACHE_NAME = 'hr-pro-v4';
 
 const STATIC_ASSETS = [
   './',
