@@ -8769,4 +8769,4 @@ async function connectWorkerFromSetup() {
   } catch(e) {
     if(res) res.innerHTML='<span style="color:var(--danger)">❌ ភ្ជាប់មិនបាន — ពិនិត្យ URL</span>';
   }
-}
+} 
