@@ -2133,8 +2133,7 @@ function printMonthlyAttendance() {
       <td style="text-align:center;font-weight:700;color:#f59e0b;font-size:11px">${late}</td>
       <td style="text-align:center;font-weight:700;color:#ef4444;font-size:11px">${absent}</td>
       <td style="text-align:center;font-weight:700;color:#6366f1;font-size:11px">${swap||0}</td>
-      <td style="text-align:center;font-weight:700;color:${overAbsent>0?'#ef4444':'#6b7280'};font-size:12px;background:${overAbsent>0?'#fee2e2':''}">${overAbsent}</td>
-      <td style="text-align:center;font-weight:800;color:${overAbsent>0?'#dc2626':'#16a34a'};font-size:12px;background:${overAbsent>0?'#fee2e2':''};white-space:nowrap">${overAbsent>0?'-$'+deduction.toFixed(2):'—'}</td>
+
       ${cells}
     </tr>`;
   }).join('');
@@ -2186,8 +2185,7 @@ function printMonthlyAttendance() {
         <th style="min-width:30px;color:#fde68a" rowspan="2" title="យឺត">⏰</th>
         <th style="min-width:30px;color:#fca5a5" rowspan="2" title="អវត្តមាន">❌</th>
         <th style="min-width:30px;color:#c4b5fd" rowspan="2" title="ជំនួស">🔄</th>
-        <th style="min-width:38px;background:#1e40af" rowspan="2">លើស</th>
-        <th style="min-width:58px;background:#991b1b" rowspan="2">កាត់💸</th>
+        
         ${thDays}
       </tr>
       <tr>${thWds}</tr>
@@ -2200,8 +2198,7 @@ function printMonthlyAttendance() {
         <td style="text-align:center;color:#f59e0b">${totals.l}</td>
         <td style="text-align:center;color:#ef4444">${totals.a}</td>
         <td style="text-align:center;color:#6366f1">${totals.sw}</td>
-        <td style="text-align:center;font-weight:700;color:#ef4444"></td>
-        <td style="text-align:center;font-weight:800;color:#dc2626;background:#fee2e2">-$$${totals.d.toFixed(2)}</td>
+        
         ${allDays.map(()=>'<td></td>').join('')}
       </tr>
     </tfoot>
