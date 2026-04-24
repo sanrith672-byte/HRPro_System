@@ -3696,8 +3696,10 @@ async function renderOvertime() {
       +'<input class="filter-input" type="month" value="'+currentMonth+'" onchange="window._otMonth=this.value;renderOvertime()" />'
       +'<button class="btn btn-outline" onclick="renderOTListView(\''+currentMonth+'\')">'
       +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg> បញ្ជី</button>'
-      +'<button class="btn btn-outline" onclick="printTableData(\'overtime\')">'
+      +'<button class="btn btn-outline" onclick="printOTReport(\''+currentMonth+'\')">'
       +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> PDF</button>'
+      +'<button class="btn btn-outline" onclick="exportOTExcel(\''+currentMonth+'\')" style="border-color:var(--success);color:var(--success)">'
+      +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg> Excel</button>'
       +'<button class="btn btn-primary" onclick="openOvertimeModal()">'
       +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> បន្ថែម</button>'
       +'</div></div>'
@@ -3730,6 +3732,294 @@ async function renderOvertime() {
       +'</table></div></div>';
   } catch(e) { showError(e.message); }
 }
+
+// ── OT PDF Print (Calendar/Matrix view) ──────────────────────────
+async function printOTReport(month) {
+  showToast('កំពុង Generate PDF...','info');
+  try {
+    const cfg = getCompanyConfig();
+    const [empData, otData] = await Promise.all([
+      api('GET','/employees?limit=500'),
+      api('GET','/overtime')
+    ]);
+    const emps = empData.employees || [];
+    const records = (otData.records||[]).filter(r=>(r.date||'').startsWith(month));
+
+    const otMap = {};
+    records.forEach(r => {
+      if (!otMap[r.employee_id]) otMap[r.employee_id] = {};
+      const dd = (r.date||'').slice(-2).replace(/^0/,'');
+      if (!otMap[r.employee_id][dd]) otMap[r.employee_id][dd] = [];
+      otMap[r.employee_id][dd].push(r);
+    });
+
+    const [y, m] = month.split('-').map(Number);
+    const daysInMonth = new Date(y, m, 0).getDate();
+    const allDays = [];
+    for (let d = 1; d <= daysInMonth; d++) {
+      const wd = new Date(y, m-1, d).getDay();
+      allDays.push({ d, wd });
+    }
+    const wdNames = ['អា','ច','អ','ព','ព្រ','សុ','ស'];
+
+    const totalHrs = records.reduce((s,r)=>s+(r.hours||0),0);
+    const totalPay = records.reduce((s,r)=>s+(r.pay||0),0);
+    const monthName = new Date(y, m-1, 1).toLocaleDateString('km-KH',{year:'numeric',month:'long'});
+
+    const empRowsHtml = emps.map(emp => {
+      const empOT = otMap[emp.id] || {};
+      const empTotal = Object.values(empOT).flat().reduce((s,r)=>s+(r.hours||0),0);
+      const empPay   = Object.values(empOT).flat().reduce((s,r)=>s+(r.pay||0),0);
+      if (empTotal === 0) return '';
+      const cells = allDays.map(({d, wd}) => {
+        const dayRecs = empOT[String(d)] || [];
+        const isWeekend = (wd===0||wd===6);
+        const bg = isWeekend ? 'background:#f5f5f5;' : '';
+        if (!dayRecs.length) return '<td style="text-align:center;font-size:9px;color:#bbb;'+bg+'">—</td>';
+        const hrs = dayRecs.reduce((s,r)=>s+(r.hours||0),0);
+        const allApproved = dayRecs.every(r=>r.status==='approved');
+        const anyRejected = dayRecs.some(r=>r.status==='rejected');
+        const color = anyRejected ? '#e53e3e' : allApproved ? '#38a169' : '#d97706';
+        return '<td style="text-align:center;'+bg+'"><span style="font-size:10px;font-weight:700;color:'+color+'">'+hrs+'h</span></td>';
+      }).join('');
+      return '<tr>'
+        +'<td style="padding:4px 6px;white-space:nowrap;font-weight:600;font-size:11px">'+emp.name+'</td>'
+        +'<td style="text-align:center;font-weight:700;color:#2b6cb0;font-size:12px">'+empTotal+'h</td>'
+        +'<td style="text-align:center;font-weight:700;color:#276749;font-size:11px">$'+empPay.toFixed(2)+'</td>'
+        +cells
+        +'</tr>';
+    }).filter(Boolean).join('');
+
+    const dayThsHtml = allDays.map(({d,wd})=>{
+      const isWknd = (wd===0||wd===6);
+      return '<th style="padding:2px 1px;font-size:10px;font-weight:700;text-align:center;min-width:22px;'+(isWknd?'background:#dbeafe;color:#1e40af;':'')+'">'+d+'</th>';
+    }).join('');
+    const wdThsHtml = allDays.map(({wd})=>{
+      const isWknd=(wd===0||wd===6);
+      return '<th style="padding:1px 0;font-size:8px;text-align:center;font-weight:400;'+(isWknd?'color:#e53e3e;':'color:#888;')+'">'+wdNames[wd]+'</th>';
+    }).join('');
+
+    const logoHtml = cfg.logo_url
+      ? '<img src="'+cfg.logo_url+'" style="width:52px;height:52px;object-fit:contain;border-radius:10px;border:2px solid #e2e8f0">'
+      : '<div style="width:52px;height:52px;background:linear-gradient(135deg,#1a3a8f,#2563eb);border-radius:10px;display:flex;align-items:center;justify-content:center;color:white;font-weight:800;font-size:18px">HR</div>';
+
+    const html = '<!DOCTYPE html><html><head><meta charset="UTF-8">'
+      +'<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Khmer:wght@300;400;600;700;800&display=swap" rel="stylesheet">'
+      +'<title>OT Report '+month+'</title>'
+      +'<style>'
+      +'*{box-sizing:border-box;margin:0;padding:0;font-family:"Noto Sans Khmer",sans-serif}'
+      +'body{padding:14px;color:#1a202c;background:white;font-size:11px}'
+      +'.hdr{display:flex;align-items:center;gap:14px;margin-bottom:14px;padding-bottom:12px;border-bottom:3px solid #1a3a8f}'
+      +'.hdr-info{flex:1}'
+      +'.co-name{font-size:18px;font-weight:800;color:#1a3a8f;letter-spacing:.5px}'
+      +'.rpt-title{font-size:13px;font-weight:700;color:#2d3748;margin-top:2px}'
+      +'.rpt-sub{font-size:10px;color:#718096;margin-top:1px}'
+      +'.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}'
+      +'.stat-box{background:linear-gradient(135deg,#ebf4ff,#dbeafe);border:1px solid #bee3f8;border-radius:10px;padding:10px 14px;text-align:center}'
+      +'.stat-num{font-size:18px;font-weight:800;color:#1a3a8f}'
+      +'.stat-lbl{font-size:9px;color:#4a5568;margin-top:2px;font-weight:600}'
+      +'table{width:100%;border-collapse:collapse;font-size:10px}'
+      +'th{background:#1a3a8f;color:white;padding:5px 4px;text-align:left;font-weight:700}'
+      +'thead tr:first-child th{border-bottom:1px solid rgba(255,255,255,.2)}'
+      +'td{padding:4px 5px;border-bottom:1px solid #e2e8f0;vertical-align:middle}'
+      +'tr:nth-child(even) td{background:#f7fafc}'
+      +'tr:last-child td{font-weight:700;background:#ebf4ff!important;border-top:2px solid #1a3a8f}'
+      +'.legend{display:flex;gap:14px;margin-top:10px;font-size:9px;color:#4a5568}'
+      +'.leg-item{display:flex;align-items:center;gap:4px}'
+      +'.dot{width:10px;height:10px;border-radius:50%;display:inline-block}'
+      +'.footer{margin-top:16px;display:grid;grid-template-columns:repeat(3,1fr);gap:20px}'
+      +'.sign{border-top:1px dashed #a0aec0;padding-top:6px;text-align:center;font-size:9px;color:#718096}'
+      +'@media print{@page{size:A4 landscape;margin:8mm}body{padding:0}}'
+      +'</style></head><body>'
+      +'<div class="hdr">'+logoHtml
+      +'<div class="hdr-info">'
+      +'<div class="co-name">'+(cfg.company_name||'HR Pro')+'</div>'
+      +'<div class="rpt-title">📊 របាយការណ៍ថែមម៉ោង — OT Report</div>'
+      +'<div class="rpt-sub">ខែ: '+monthName+' &nbsp;|&nbsp; បោះពុម្ព: '+new Date().toLocaleDateString('km-KH',{year:'numeric',month:'long',day:'numeric'})+'</div>'
+      +'</div></div>'
+      +'<div class="stats">'
+      +'<div class="stat-box"><div class="stat-num">'+totalHrs.toFixed(1)+'h</div><div class="stat-lbl">⏰ ម៉ោង OT សរុប</div></div>'
+      +'<div class="stat-box"><div class="stat-num">$'+totalPay.toFixed(2)+'</div><div class="stat-lbl">💵 ប្រាក់ OT សរុប</div></div>'
+      +'<div class="stat-box"><div class="stat-num">'+records.length+'</div><div class="stat-lbl">📋 ចំនួនករណី</div></div>'
+      +'</div>'
+      +'<table><colgroup><col style="width:130px"/><col style="width:38px"/><col style="width:52px"/>'
+      +allDays.map(()=>'<col style="min-width:22px"/>').join('')+'</colgroup>'
+      +'<thead>'
+      +'<tr><th rowspan="2" style="text-align:left;padding:5px 8px">បុគ្គលិក</th>'
+      +'<th rowspan="2" style="text-align:center;font-size:10px">ម៉ោង</th>'
+      +'<th rowspan="2" style="text-align:center;font-size:10px">ប្រាក់</th>'
+      +dayThsHtml+'</tr>'
+      +'<tr>'+wdThsHtml+'</tr>'
+      +'</thead>'
+      +'<tbody>'+empRowsHtml
+      +'<tr><td style="padding:5px 8px;font-weight:700">សរុប (Total)</td>'
+      +'<td style="text-align:center;font-weight:800;color:#1a3a8f">'+totalHrs.toFixed(1)+'h</td>'
+      +'<td style="text-align:center;font-weight:800;color:#276749">$'+totalPay.toFixed(2)+'</td>'
+      +allDays.map(()=>'<td></td>').join('')+'</tr>'
+      +'</tbody></table>'
+      +'<div class="legend">'
+      +'<div class="leg-item"><span class="dot" style="background:#38a169"></span> អនុម័ត (Approved)</div>'
+      +'<div class="leg-item"><span class="dot" style="background:#d97706"></span> រង់ចាំ (Pending)</div>'
+      +'<div class="leg-item"><span class="dot" style="background:#e53e3e"></span> បដិសេធ (Rejected)</div>'
+      +'</div>'
+      +'<div class="footer">'
+      +'<div class="sign"><div style="height:30px"></div>ហត្ថលេខាអ្នកគ្រប់គ្រង HR</div>'
+      +'<div class="sign"><div style="height:30px"></div>ហត្ថលេខាអ្នកអនុម័ត</div>'
+      +'<div class="sign"><div style="height:30px"></div>ហត្ថលេខានាយក</div>'
+      +'</div>'
+      +'</body></html>';
+    printHTML(html);
+  } catch(e) { showToast('Error: '+e.message,'error'); }
+}
+
+// ── OT PDF Print (List view) ─────────────────────────────────────
+async function printOTListReport(month) {
+  showToast('កំពុង Generate PDF...','info');
+  try {
+    const cfg = getCompanyConfig();
+    const data = await api('GET','/overtime');
+    const records = (data.records||[]).filter(r=>(r.date||'').startsWith(month));
+    const totalHrs = records.reduce((s,r)=>s+(r.hours||0),0);
+    const totalPay = records.reduce((s,r)=>s+(r.pay||0),0);
+    const monthName = new Date(...month.split('-').map((v,i)=>i===1?+v-1:+v)).toLocaleDateString('km-KH',{year:'numeric',month:'long'});
+
+    const statusBadge = s => s==='approved'
+      ? '<span style="background:#c6f6d5;color:#276749;border-radius:4px;padding:1px 6px;font-size:9px;font-weight:700">✅ អនុម័ត</span>'
+      : s==='rejected'
+      ? '<span style="background:#fed7d7;color:#c53030;border-radius:4px;padding:1px 6px;font-size:9px;font-weight:700">❌ បដិសេធ</span>'
+      : '<span style="background:#fefcbf;color:#744210;border-radius:4px;padding:1px 6px;font-size:9px;font-weight:700">⏳ រង់ចាំ</span>';
+
+    const rowsHtml = records.map((r,i)=>'<tr>'
+      +'<td style="text-align:center;color:#718096">'+(i+1)+'</td>'
+      +'<td style="font-weight:600">'+r.employee_name+'</td>'
+      +'<td style="font-family:monospace">'+r.date+'</td>'
+      +'<td style="text-align:center;font-weight:700;color:#2b6cb0">'+r.hours+'h</td>'
+      +'<td style="text-align:center;font-family:monospace">$'+r.rate+'/h</td>'
+      +'<td style="text-align:center;font-weight:700;color:#276749">$'+Number(r.pay).toFixed(2)+'</td>'
+      +'<td style="color:#4a5568;font-size:10px">'+(r.reason||'—')+'</td>'
+      +'<td>'+statusBadge(r.status)+'</td>'
+      +'</tr>').join('');
+
+    const logoHtml = cfg.logo_url
+      ? '<img src="'+cfg.logo_url+'" style="width:52px;height:52px;object-fit:contain;border-radius:10px;border:2px solid #e2e8f0">'
+      : '<div style="width:52px;height:52px;background:linear-gradient(135deg,#1a3a8f,#2563eb);border-radius:10px;display:flex;align-items:center;justify-content:center;color:white;font-weight:800;font-size:18px">HR</div>';
+
+    const html = '<!DOCTYPE html><html><head><meta charset="UTF-8">'
+      +'<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Khmer:wght@300;400;600;700;800&display=swap" rel="stylesheet">'
+      +'<title>OT List '+month+'</title>'
+      +'<style>'
+      +'*{box-sizing:border-box;margin:0;padding:0;font-family:"Noto Sans Khmer",sans-serif}'
+      +'body{padding:14px;color:#1a202c;background:white;font-size:11px}'
+      +'.hdr{display:flex;align-items:center;gap:14px;margin-bottom:14px;padding-bottom:12px;border-bottom:3px solid #1a3a8f}'
+      +'.co-name{font-size:18px;font-weight:800;color:#1a3a8f}'
+      +'.rpt-title{font-size:13px;font-weight:700;color:#2d3748;margin-top:2px}'
+      +'.rpt-sub{font-size:10px;color:#718096;margin-top:1px}'
+      +'.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}'
+      +'.stat-box{background:linear-gradient(135deg,#ebf4ff,#dbeafe);border:1px solid #bee3f8;border-radius:10px;padding:10px 14px;text-align:center}'
+      +'.stat-num{font-size:18px;font-weight:800;color:#1a3a8f}'
+      +'.stat-lbl{font-size:9px;color:#4a5568;margin-top:2px;font-weight:600}'
+      +'table{width:100%;border-collapse:collapse;font-size:11px}'
+      +'th{background:#1a3a8f;color:white;padding:7px 8px;text-align:left;font-weight:700}'
+      +'td{padding:5px 8px;border-bottom:1px solid #e2e8f0;vertical-align:middle}'
+      +'tr:nth-child(even) td{background:#f7fafc}'
+      +'.tot-row td{font-weight:800;background:#ebf4ff!important;border-top:2px solid #1a3a8f}'
+      +'.footer{margin-top:16px;display:grid;grid-template-columns:repeat(3,1fr);gap:20px}'
+      +'.sign{border-top:1px dashed #a0aec0;padding-top:6px;text-align:center;font-size:9px;color:#718096}'
+      +'@media print{@page{size:A4;margin:8mm}body{padding:0}}'
+      +'</style></head><body>'
+      +'<div class="hdr">'+logoHtml
+      +'<div>'
+      +'<div class="co-name">'+(cfg.company_name||'HR Pro')+'</div>'
+      +'<div class="rpt-title">📋 បញ្ជីថែមម៉ោង — OT List Report</div>'
+      +'<div class="rpt-sub">ខែ: '+monthName+' &nbsp;|&nbsp; បោះពុម្ព: '+new Date().toLocaleDateString('km-KH',{year:'numeric',month:'long',day:'numeric'})+'</div>'
+      +'</div></div>'
+      +'<div class="stats">'
+      +'<div class="stat-box"><div class="stat-num">'+totalHrs.toFixed(1)+'h</div><div class="stat-lbl">⏰ ម៉ោង OT សរុប</div></div>'
+      +'<div class="stat-box"><div class="stat-num">$'+totalPay.toFixed(2)+'</div><div class="stat-lbl">💵 ប្រាក់ OT សរុប</div></div>'
+      +'<div class="stat-box"><div class="stat-num">'+records.length+'</div><div class="stat-lbl">📋 ចំនួនករណី</div></div>'
+      +'</div>'
+      +'<table><thead><tr>'
+      +'<th style="width:30px;text-align:center">#</th>'
+      +'<th>ឈ្មោះបុគ្គលិក</th>'
+      +'<th>កាលបរិច្ឆេទ</th>'
+      +'<th style="text-align:center">ម៉ោង</th>'
+      +'<th style="text-align:center">អត្រា</th>'
+      +'<th style="text-align:center">ប្រាក់ OT</th>'
+      +'<th>មូលហេតុ</th>'
+      +'<th>ស្ថានភាព</th>'
+      +'</tr></thead>'
+      +'<tbody>'+rowsHtml+'</tbody>'
+      +'<tfoot><tr class="tot-row">'
+      +'<td colspan="3" style="text-align:right;padding:6px 8px">សរុប (Total):</td>'
+      +'<td style="text-align:center;color:#1a3a8f">'+totalHrs.toFixed(1)+'h</td>'
+      +'<td></td>'
+      +'<td style="text-align:center;color:#276749">$'+totalPay.toFixed(2)+'</td>'
+      +'<td colspan="2"></td>'
+      +'</tr></tfoot>'
+      +'</table>'
+      +'<div class="footer">'
+      +'<div class="sign"><div style="height:30px"></div>ហត្ថលេខាអ្នកគ្រប់គ្រង HR</div>'
+      +'<div class="sign"><div style="height:30px"></div>ហត្ថលេខាអ្នកអនុម័ត</div>'
+      +'<div class="sign"><div style="height:30px"></div>ហត្ថលេខានាយក</div>'
+      +'</div>'
+      +'</body></html>';
+    printHTML(html);
+  } catch(e) { showToast('Error: '+e.message,'error'); }
+}
+
+// ── OT Excel Export ──────────────────────────────────────────────
+async function exportOTExcel(month) {
+  showToast('កំពុង Export Excel...','info');
+  try {
+    const cfg = getCompanyConfig();
+    const [empData, otData] = await Promise.all([
+      api('GET','/employees?limit=500'),
+      api('GET','/overtime')
+    ]);
+    const emps = empData.employees||[];
+    const records = (otData.records||[]).filter(r=>(r.date||'').startsWith(month));
+
+    // Sheet 1: Summary per employee
+    const otByEmp = {};
+    records.forEach(r => {
+      if (!otByEmp[r.employee_id]) otByEmp[r.employee_id] = { name: r.employee_name, hours:0, pay:0, count:0 };
+      otByEmp[r.employee_id].hours += (r.hours||0);
+      otByEmp[r.employee_id].pay   += (r.pay||0);
+      otByEmp[r.employee_id].count += 1;
+    });
+
+    const summaryHeaders = ['#','ឈ្មោះបុគ្គលិក','ចំនួនលើក','ម៉ោងសរុប','ប្រាក់ OT សរុប ($)'];
+    const summaryRows = Object.values(otByEmp).map((e,i)=>[i+1, e.name, e.count, e.hours, +e.pay.toFixed(2)]);
+    const totH = records.reduce((s,r)=>s+(r.hours||0),0);
+    const totP = records.reduce((s,r)=>s+(r.pay||0),0);
+    summaryRows.push(['','','','','']);
+    summaryRows.push(['','សរុប (Total)','', +totH.toFixed(1), +totP.toFixed(2)]);
+
+    // Sheet 2: Detail records
+    const detailHeaders = ['#','ឈ្មោះបុគ្គលិក','កាលបរិច្ឆេទ','ម៉ោង','អត្រា ($/h)','ប្រាក់ OT ($)','មូលហេតុ','ស្ថានភាព'];
+    const detailRows = records.map((r,i)=>[
+      i+1,
+      r.employee_name||'',
+      r.date||'',
+      r.hours||0,
+      r.rate||0,
+      +(r.pay||0).toFixed ? +(+r.pay).toFixed(2) : r.pay||0,
+      r.reason||'',
+      r.status==='approved'?'អនុម័ត':r.status==='rejected'?'បដិសេធ':'រង់ចាំ'
+    ]);
+    detailRows.push(['','','','','','','','']);
+    detailRows.push(['','','សរុប',+totH.toFixed(1),'','$'+totP.toFixed(2),'','']);
+
+    const companyName = cfg.company_name||'HR Pro';
+    const blob = buildXLSX([
+      { name: 'OT Summary '+month, headers: summaryHeaders, rows: summaryRows },
+      { name: 'OT Detail '+month,  headers: detailHeaders,  rows: detailRows  },
+    ]);
+    downloadBlob(blob, companyName+'_OT_Report_'+month+'.xlsx');
+    showToast('Download OT Excel បានជោគជ័យ! ✅','success');
+  } catch(e) { showToast('Error: '+e.message,'error'); }
+}
+
 
 // Show detail list of OT records for one employee in a month
 async function renderOTDetailList(empId, empName, month) {
@@ -3788,6 +4078,8 @@ async function renderOTListView(month) {
       +'<div><h2>ថែមម៉ោង — បញ្ជី</h2><p>'+records.length+' កំណត់ត្រា</p></div>'
       +'<div style="display:flex;gap:8px;flex-wrap:wrap">'
       +'<button class="btn btn-outline" onclick="window._otMonth=\''+month+'\';renderOvertime()">📊 តារាងខែ</button>'
+      +'<button class="btn btn-outline" onclick="printOTListReport(\''+month+'\')" ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;margin-right:3px"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>PDF</button>'
+      +'<button class="btn btn-outline" onclick="exportOTExcel(\''+month+'\')" style="border-color:var(--success);color:var(--success)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;margin-right:3px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>Excel</button>'
       +'<button class="btn btn-primary" onclick="openOvertimeModal()">+ បន្ថែម</button>'
       +'</div></div>'
       +'<div class="card"><div class="table-container"><table>'
