@@ -3680,7 +3680,7 @@ async function renderOvertime() {
         +'<td style="text-align:center;font-weight:700;color:var(--success);font-size:12px;position:sticky;left:196px;z-index:1;background:var(--bg1);box-shadow:3px 0 6px rgba(0,0,0,.1);padding:3px 4px;white-space:nowrap">$'+empPay.toFixed(0)+'</td>'
         +cells
         +'<td style="text-align:center;padding:3px 6px">'
-        +'<button class="btn btn-outline btn-sm" style="font-size:10px;padding:2px 7px" onclick="renderOTDetailList('+emp.id+',''+emp.name+'',''+currentMonth+'')">📋</button>'
+        +'<button class="btn btn-outline btn-sm" style="font-size:10px;padding:2px 7px" onclick="renderOTDetailList('+emp.id+',\''+emp.name+'\',\''+currentMonth+'\')">📋</button>'
         +'</td>'
         +'</tr>';
     }).filter(Boolean).join('');
@@ -3694,9 +3694,9 @@ async function renderOvertime() {
       +'<div><h2>⏰ ថែមម៉ោង</h2><p>OT '+currentMonth+' — '+monthRecords.length+' កំណត់ត្រា</p></div>'
       +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
       +'<input class="filter-input" type="month" value="'+currentMonth+'" onchange="window._otMonth=this.value;renderOvertime()" />'
-      +'<button class="btn btn-outline" onclick="renderOTListView(''+currentMonth+'')">'
+      +'<button class="btn btn-outline" onclick="renderOTListView(\''+currentMonth+'\')">'
       +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg> បញ្ជី</button>'
-      +'<button class="btn btn-outline" onclick="printTableData('overtime')">'
+      +'<button class="btn btn-outline" onclick="printTableData(\'overtime\')">'
       +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> PDF</button>'
       +'<button class="btn btn-primary" onclick="openOvertimeModal()">'
       +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> បន្ថែម</button>'
@@ -3746,7 +3746,7 @@ async function renderOTDetailList(empId, empName, month) {
         +'<td style="text-align:right;font-weight:700;color:var(--success)">$'+r.pay+'</td>'
         +'<td style="text-align:center">'+(r.status==='approved'?'<span class="badge badge-green">✅</span>':r.status==='rejected'?'<span class="badge badge-red">❌</span>':'<span class="badge badge-yellow">⏳</span>')+'</td>'
         +'<td style="text-align:center"><button class="btn btn-outline btn-sm" onclick="openEditOvertimeModal('+r.id+')">✏️</button>'
-        +'<button class="btn btn-danger btn-sm" onclick="deleteRecord('overtime','+r.id+',renderOvertime)">🗑️</button></td>'
+        +'<button class="btn btn-danger btn-sm" onclick="deleteRecord(\'overtime\','+r.id+',renderOvertime)">🗑️</button></td>'
         +'</tr>').join('')+'</tbody>'
       +'</table>';
   $('modal-body').innerHTML = '<div style="max-height:70vh;overflow-y:auto">'+rows+'</div>'
@@ -3780,14 +3780,14 @@ async function renderOTListView(month) {
             +'<td><div class="action-btns">'
             +(r.status==='pending'?'<button class="btn btn-success btn-sm" onclick="approveOvertime('+r.id+')">✅</button><button class="btn btn-danger btn-sm" onclick="rejectOvertime('+r.id+')">❌</button>':'')
             +'<button class="btn btn-outline btn-sm" onclick="openEditOvertimeModal('+r.id+')">✏️</button>'
-            +'<button class="btn btn-danger btn-sm" onclick="deleteRecord('overtime','+r.id+',renderOvertime)">🗑️</button>'
+            +'<button class="btn btn-danger btn-sm" onclick="deleteRecord(\'overtime\','+r.id+',renderOvertime)">🗑️</button>'
             +'</div></td></tr>';
         }).join('');
     contentArea().innerHTML =
       '<div class="page-header">'
       +'<div><h2>ថែមម៉ោង — បញ្ជី</h2><p>'+records.length+' កំណត់ត្រា</p></div>'
       +'<div style="display:flex;gap:8px;flex-wrap:wrap">'
-      +'<button class="btn btn-outline" onclick="window._otMonth=''+month+'';renderOvertime()">📊 តារាងខែ</button>'
+      +'<button class="btn btn-outline" onclick="window._otMonth=\''+month+'\';renderOvertime()">📊 តារាងខែ</button>'
       +'<button class="btn btn-primary" onclick="openOvertimeModal()">+ បន្ថែម</button>'
       +'</div></div>'
       +'<div class="card"><div class="table-container"><table>'
