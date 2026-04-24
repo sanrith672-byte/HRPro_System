@@ -567,10 +567,14 @@ select.form-control option { background: var(--bg3); }
 
 .modal-body { padding: 20px; }
 .modal--wide { max-width: 880px; width: 94%; }
-.form-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+.form-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
 .form-grid-3 .full-width { grid-column: 1 / -1; }
-.emp-section { margin-bottom: 18px; }
-.emp-section-title { font-size: 11px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+.emp-section { margin-bottom: 12px; }
+.emp-section-title { font-size: 11px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; padding-bottom: 5px; border-bottom: 1px solid var(--border); }
+.modal--wide .modal-body { padding: 14px 18px; }
+.modal--wide .form-group { gap: 4px; }
+.modal--wide .form-control { padding: 7px 10px; font-size: 12px; }
+.modal--wide .form-label { font-size: 11px; }
 
 /* ===== TOAST ===== */
 .toast-container {

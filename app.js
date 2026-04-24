@@ -976,7 +976,7 @@ async function openEmployeeModal(id=null) {
   $('modal-title').textContent = id ? 'កែប្រែព័ត៌មានបុគ្គលិក' : 'បន្ថែមបុគ្គលិកថ្មី';
   $('modal-body').innerHTML =
     // ── Photo upload top section ──
-    '<div style="display:flex;align-items:center;gap:16px;padding:16px;background:var(--bg3);border-radius:10px;border:1px solid var(--border);margin-bottom:16px">'
+    '<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--bg3);border-radius:10px;border:1px solid var(--border);margin-bottom:10px">'
     + '<div id="emp-photo-preview" style="width:80px;height:80px;border-radius:50%;background:var(--bg4);border:3px solid var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;cursor:pointer" onclick="$(\'emp-photo-input\').click()">'
     + (existingPhoto
         ? '<img src="' + existingPhoto + '" style="width:100%;height:100%;object-fit:cover" />'
@@ -1025,7 +1025,7 @@ async function openEmployeeModal(id=null) {
       })() : '')
     + '</div>'
     // QR Bank section
-    + '<div style="margin-top:16px;padding:14px;background:var(--bg3);border-radius:10px;border:1px solid var(--border)">'
+    + '<div style="margin-top:10px;padding:10px 14px;background:var(--bg3);border-radius:10px;border:1px solid var(--border)">'
     + '<div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:12px;display:flex;align-items:center;gap:6px">🏦 QR ធនាគារ (សម្រាប់ ID Card)</div>'
     + '<div class="form-grid-3">'
     + '<div class="form-group"><label class="form-label">ធនាគារ</label>'
