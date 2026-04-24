@@ -753,6 +753,174 @@ function canEdit() {
 
 // ===== EMPLOYEES =====
 let _empSortBy = 'id';
+
+// ── Advanced Employee Search Modal ──
+function openEmpAdvSearch() {
+  // Get dept list from last loaded data
+  const deptOpts = (window._lastDeptData||[]).map(d=>'<option value="'+d.name+'">'+d.name+'</option>').join('');
+  const html = `
+    <div id="emp-adv-search-overlay" onclick="if(event.target===this)closeEmpAdvSearch()" style="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px">
+      <div style="background:var(--bg2);border-radius:14px;padding:24px;width:100%;max-width:480px;box-shadow:0 8px 40px rgba(0,0,0,.4)">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
+          <h3 style="margin:0;font-size:16px">🔍 ស្វែងរកបុគ្គលិក</h3>
+          <button onclick="closeEmpAdvSearch()" style="background:none;border:none;color:var(--text2);font-size:20px;cursor:pointer;padding:0 4px">✕</button>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div>
+            <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">ឈ្មោះ / ID</label>
+            <input id="adv-name" class="filter-input" style="width:100%;box-sizing:border-box" placeholder="ស្វែងរកតាមឈ្មោះ ឬ ID..."/>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div>
+              <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">តំណែង</label>
+              <input id="adv-position" class="filter-input" style="width:100%;box-sizing:border-box" placeholder="តំណែង..."/>
+            </div>
+            <div>
+              <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">នាយកដ្ឋាន</label>
+              <select id="adv-dept" class="filter-input" style="width:100%;box-sizing:border-box">
+                <option value="">ទាំងអស់</option>
+                ${deptOpts}
+              </select>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div>
+              <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">ស្ថានភាព</label>
+              <select id="adv-status" class="filter-input" style="width:100%;box-sizing:border-box">
+                <option value="">ទាំងអស់</option>
+                <option value="active">✅ ធ្វើការ</option>
+                <option value="on_leave">🌴 ច្បាប់</option>
+                <option value="inactive">⛔ ផ្អាក/លាឈប់</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">ទីតាំង</label>
+              <input id="adv-location" class="filter-input" style="width:100%;box-sizing:border-box" placeholder="ទីតាំង..."/>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div>
+              <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">ប្រាក់ខែ ចាប់ពី ($)</label>
+              <input id="adv-sal-min" class="filter-input" type="number" style="width:100%;box-sizing:border-box" placeholder="0"/>
+            </div>
+            <div>
+              <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">ប្រាក់ខែ រហូត ($)</label>
+              <input id="adv-sal-max" class="filter-input" type="number" style="width:100%;box-sizing:border-box" placeholder="9999"/>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div>
+              <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">ថ្ងៃចូល ចាប់ពី</label>
+              <input id="adv-hire-from" class="filter-input" type="date" style="width:100%;box-sizing:border-box"/>
+            </div>
+            <div>
+              <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">ថ្ងៃចូល រហូត</label>
+              <input id="adv-hire-to" class="filter-input" type="date" style="width:100%;box-sizing:border-box"/>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:20px">
+          <button class="btn btn-outline" onclick="resetEmpAdvSearch()" style="flex:1">🔄 Reset</button>
+          <button class="btn btn-primary" onclick="applyEmpAdvSearch()" style="flex:2">🔍 ស្វែងរក</button>
+        </div>
+      </div>
+    </div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+  setTimeout(()=>document.getElementById('adv-name')&&document.getElementById('adv-name').focus(),100);
+}
+
+function closeEmpAdvSearch() {
+  const el = document.getElementById('emp-adv-search-overlay');
+  if (el) el.remove();
+}
+
+function resetEmpAdvSearch() {
+  ['adv-name','adv-position','adv-dept','adv-status','adv-location','adv-sal-min','adv-sal-max','adv-hire-from','adv-hire-to']
+    .forEach(id => { const el = document.getElementById(id); if(el) el.value=''; });
+}
+
+async function applyEmpAdvSearch() {
+  const name     = (document.getElementById('adv-name')?.value||'').trim();
+  const position = (document.getElementById('adv-position')?.value||'').trim();
+  const dept     = document.getElementById('adv-dept')?.value||'';
+  const status   = document.getElementById('adv-status')?.value||'';
+  const location = (document.getElementById('adv-location')?.value||'').trim();
+  const salMin   = parseFloat(document.getElementById('adv-sal-min')?.value)||0;
+  const salMax   = parseFloat(document.getElementById('adv-sal-max')?.value)||999999;
+  const hireFrom = document.getElementById('adv-hire-from')?.value||'';
+  const hireTo   = document.getElementById('adv-hire-to')?.value||'';
+
+  closeEmpAdvSearch();
+  showLoading();
+  try {
+    let url = '/employees?limit=9999';
+    if (status) url += '&status='+encodeURIComponent(status);
+    if (dept)   url += '&department='+encodeURIComponent(dept);
+    const r = await api('GET', url);
+    let emps = r.employees || [];
+
+    // Client-side filters
+    if (name)     emps = emps.filter(e => (e.name||'').toLowerCase().includes(name.toLowerCase()) || (e.employee_code||'').toLowerCase().includes(name.toLowerCase()));
+    if (position) emps = emps.filter(e => (e.position||'').toLowerCase().includes(position.toLowerCase()));
+    if (location) emps = emps.filter(e => (e.location||'').toLowerCase().includes(location.toLowerCase()));
+    if (salMin)   emps = emps.filter(e => parseFloat(e.salary||0) >= salMin);
+    if (salMax < 999999) emps = emps.filter(e => parseFloat(e.salary||0) <= salMax);
+    if (hireFrom) emps = emps.filter(e => (e.hire_date||'') >= hireFrom);
+    if (hireTo)   emps = emps.filter(e => (e.hire_date||'') <= hireTo);
+
+    // Reuse employee render with filtered data
+    window._empAdvSearchResult = emps;
+    renderEmployeesWithData(emps, `លទ្ធផលស្វែងរក: ${emps.length} នាក់`);
+  } catch(e) { showError(e.message); }
+}
+
+
+// ── Render employees from pre-filtered array (used by advanced search) ──
+function renderEmployeesWithData(emps, subtitle) {
+  const tableRows = emps.length === 0
+    ? '<tr><td colspan="10"><div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><h3>រកមិនឃើញ</h3><p>លក្ខខណ្ឌផ្សេង ឬ Reset ស្វែងរក</p></div></td></tr>'
+    : emps.map(e => {
+        const photo = getEmpPhoto(e.id);
+        const avInner = photo ? '<img src="'+photo+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>' : e.name[0];
+        const avStyle = photo ? 'overflow:hidden;padding:0' : '';
+        const displayId = e.custom_id ? '#'+e.custom_id : '#EMP'+String(e.id).padStart(3,'0');
+        const statusMap = { active:'<span class="badge badge-success">✅ ធ្វើការ</span>', on_leave:'<span class="badge badge-warning">🌴 ច្បាប់</span>', inactive:'<span class="badge badge-danger">⛔ ផ្អាក</span>' };
+        const statusBadge = statusMap[e.status] || '<span class="badge">'+e.status+'</span>';
+        const bankInfo = (e.bank && e.bank !== '—')
+          ? '<div style="font-size:11px;font-weight:600;color:var(--text2)">'+e.bank+'</div>'+(e.bank_account?'<div style="font-size:10px;color:var(--text3)">'+e.bank_account+'</div>':'')
+          : '<span style="color:var(--text3);font-size:11px">—</span>';
+        const salaryFmt = e.salary ? '<span style="font-weight:700;color:var(--success);font-size:13px">$'+parseFloat(e.salary).toFixed(0)+'</span>' : '—';
+        return '<tr>'
+          +'<td><div style="display:flex;align-items:center;gap:8px"><div class="emp-avatar" style="'+avStyle+'">'+avInner+'</div><div><div style="font-weight:600;font-size:13px">'+e.name+'</div><div style="font-size:11px;color:var(--text3)">'+displayId+'</div></div></div></td>'
+          +'<td><div style="font-size:12px">'+( e.position||'—')+'</div></td>'
+          +'<td><div style="font-size:12px">'+( e.department||'—')+'</div></td>'
+          +'<td>'+(e.location?'<span style="font-size:12px">📍 '+e.location+'</span>':'<span style="color:var(--text3)">—</span>')+'</td>'
+          +'<td><div style="font-size:12px">'+(e.phone||'—')+'</div><div style="font-size:11px;color:var(--text3)">'+(e.email||'')+'</div></td>'
+          +'<td>'+bankInfo+'</td>'
+          +'<td>'+salaryFmt+'</td>'
+          +'<td style="text-align:center"><span style="color:var(--text3);font-size:12px">—</span></td>'
+          +'<td>'+statusBadge+'</td>'
+          +'<td style="text-align:center"><div style="display:flex;gap:4px;justify-content:center">'
+          +(canEdit()?'<button class="btn btn-outline btn-sm" onclick="openEmployeeModal('+e.id+')">✏️</button><button class="btn btn-outline btn-sm" style="color:var(--danger)" onclick="deleteEmployee('+e.id+')">🗑️</button>':'')
+          +'</div></td>'
+          +'</tr>';
+      }).join('');
+
+  contentArea().innerHTML =
+    '<div class="page-header">'
+    +'<div><h2>🔍 '+subtitle+'</h2><p>លទ្ធផលស្វែងរកលម្អិត</p></div>'
+    +'<div style="display:flex;gap:8px">'
+    +'<button class="btn btn-outline" style="border-color:var(--info);color:var(--info)" onclick="openEmpAdvSearch()">🔍 ស្វែងរកម្តងទៀត</button>'
+    +'<button class="btn btn-outline" onclick="renderEmployees()">← ត្រឡប់</button>'
+    +(canEdit()?'<button class="btn btn-primary" onclick="openEmployeeModal()">+ បន្ថែម</button>':'')
+    +'</div></div>'
+    +'<div class="card"><div class="table-container"><table>'
+    +'<thead><tr><th>បុគ្គលិក</th><th>តំណែង</th><th>នាយកដ្ឋាន</th><th>📍 ទីតាំង</th><th>ទំនាក់ទំនង</th><th>ធនាគារ</th><th>បៀវត្ស</th><th>ថ្ងៃលាឈប់</th><th>ស្ថានភាព</th><th>សកម្មភាព</th></tr></thead>'
+    +'<tbody>'+tableRows+'</tbody>'
+    +'</table></div></div>';
+  hideLoading();
+}
+
 function renderEmployeesSort(sortBy) {
   _empSortBy = sortBy;
   renderEmployees();
@@ -768,6 +936,7 @@ async function renderEmployees(filter='', dept='', status='') {
     const [empData, deptData] = await Promise.all([api('GET', `/employees?${params}`), api('GET', '/departments')]);
     state.employees = empData.employees;
     state.departments = deptData;
+    window._lastDeptData = deptData;
     $('emp-count').textContent = empData.total;
 
     // Apply client-side sort
@@ -797,7 +966,7 @@ async function renderEmployees(filter='', dept='', status='') {
       +'<div><h2>គ្រប់គ្រងបុគ្គលិក</h2><p>សរុប '+empData.total+' នាក់</p></div>'
       +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
       +(canEdit()?'<button class="btn btn-primary" onclick="openEmployeeModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> + បន្ថែម</button>':'')
-      +'<button class="btn btn-outline" onclick="openEmployeeReportModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> 🖨️ បោះពុម្ព / Export</button>'
+      +'<button class="btn btn-outline" style="border-color:var(--info);color:var(--info)" onclick="openEmpAdvSearch()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> 🔍 ស្វែងរក</button>'      +'<button class="btn btn-outline" onclick="openEmployeeReportModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> 🖨️ បោះពុម្ព / Export</button>'
       +'</div></div>'
       +'<div class="filter-bar">'
       +'<input class="filter-input" style="flex:1;min-width:180px" placeholder="ស្វែងរក..." value="'+filter+'" oninput="renderEmployees(this.value,\''+dept+'\',\''+status+'\')" />'
@@ -3756,10 +3925,10 @@ async function renderOvertime() {
         : '<div style="width:22px;height:22px;border-radius:50%;background:'+getColor(emp.name)+';display:flex;align-items:center;justify-content:center;color:white;font-size:10px;font-weight:700;flex-shrink:0">'+emp.name[0]+'</div>';
 
       return '<tr>'
-        +'<td style="padding:5px 8px;white-space:nowrap;position:sticky;left:0;z-index:1;background:var(--bg2);box-shadow:2px 0 5px rgba(0,0,0,.12)">'
+        +'<td style="padding:5px 8px;white-space:nowrap;position:sticky;left:0;z-index:1;background:var(--bg1);box-shadow:2px 0 5px rgba(0,0,0,.12)">'
         +'<div style="display:flex;align-items:center;gap:6px">'+av+'<span style="font-size:12px;font-weight:600">'+emp.name+'</span></div></td>'
-        +'<td style="text-align:center;font-weight:700;color:var(--primary);font-size:13px;position:sticky;left:160px;z-index:1;background:var(--bg2);padding:3px 4px;white-space:nowrap">'+empTotal+'h</td>'
-        +'<td style="text-align:center;font-weight:700;color:var(--success);font-size:12px;position:sticky;left:196px;z-index:1;background:var(--bg2);box-shadow:3px 0 6px rgba(0,0,0,.1);padding:3px 4px;white-space:nowrap">$'+empPay.toFixed(0)+'</td>'
+        +'<td style="text-align:center;font-weight:700;color:var(--primary);font-size:13px;position:sticky;left:160px;z-index:1;background:var(--bg1);padding:3px 4px;white-space:nowrap">'+empTotal+'h</td>'
+        +'<td style="text-align:center;font-weight:700;color:var(--success);font-size:12px;position:sticky;left:196px;z-index:1;background:var(--bg1);box-shadow:3px 0 6px rgba(0,0,0,.1);padding:3px 4px;white-space:nowrap">$'+empPay.toFixed(0)+'</td>'
         +cells
         +'<td style="text-align:center;padding:3px 6px">'
         +'<button class="btn btn-outline btn-sm" style="font-size:10px;padding:2px 7px" onclick="renderOTDetailList('+emp.id+',\''+emp.name+'\',\''+currentMonth+'\')">📋</button>'
