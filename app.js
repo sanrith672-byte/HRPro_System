@@ -921,6 +921,67 @@ function renderEmployeesWithData(emps, subtitle) {
   hideLoading();
 }
 
+
+// ── Quick client-side employee filter (no API call, no re-render flicker) ──
+function _empQuickFilter(val, dept, status) {
+  // Update the filter bar input value without losing focus
+  const input = document.querySelector('.filter-bar .filter-input');
+  
+  const q = (val||'').toLowerCase().trim();
+  let emps = state.employees || [];
+  
+  if (dept)   emps = emps.filter(e => (e.department||'') === dept);
+  if (status) emps = emps.filter(e => (e.status||'') === status);
+  if (q)      emps = emps.filter(e =>
+    (e.name||'').toLowerCase().includes(q) ||
+    (e.position||'').toLowerCase().includes(q) ||
+    (e.employee_code||'').toLowerCase().includes(q) ||
+    String(e.id).includes(q)
+  );
+
+  const tbody = document.querySelector('.table-container tbody');
+  if (!tbody) { renderEmployees(val, dept, status); return; }
+
+  // Update count
+  const countEl = document.querySelector('.page-header p');
+  if (countEl) countEl.textContent = 'សរុប ' + emps.length + ' នាក់';
+
+  if (emps.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="10"><div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><h3>រកមិនឃើញ</h3><p>ស្វែងរកផ្សេង ឬបន្ថែមបុគ្គលិក</p></div></td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = emps.map(e => {
+    const photo = getEmpPhoto(e.id);
+    const avInner = photo ? '<img src="'+photo+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>' : e.name[0];
+    const avStyle = photo ? 'overflow:hidden;padding:0' : '';
+    const displayId = e.custom_id ? '#'+e.custom_id : '#EMP'+String(e.id).padStart(3,'0');
+    const statusMap = { active:'<span class="badge badge-success">✅ ធ្វើការ</span>', on_leave:'<span class="badge badge-warning">🌴 ច្បាប់</span>', inactive:'<span class="badge badge-danger">⛔ ផ្អាក</span>' };
+    const statusBadge = statusMap[e.status] || '<span class="badge">'+e.status+'</span>';
+    const bankInfo = (e.bank && e.bank !== '—')
+      ? '<div style="font-size:11px;font-weight:600;color:var(--text2)">'+e.bank+'</div>'+(e.bank_account?'<div style="font-size:10px;color:var(--text3)">'+e.bank_account+'</div>':'')
+      : '<span style="color:var(--text3);font-size:11px">—</span>';
+    const salaryFmt = e.salary ? '<span style="font-weight:700;color:var(--success);font-size:13px">$'+parseFloat(e.salary).toFixed(0)+'</span>' : '—';
+    const termCell = e.termination_date
+      ? '<td style="text-align:center"><div style="font-family:var(--mono);font-size:11px;font-weight:700;color:var(--danger)">'+e.termination_date+'</div></td>'
+      : '<td style="text-align:center;color:var(--text3);font-size:12px">—</td>';
+    return '<tr>'
+      +'<td><div style="display:flex;align-items:center;gap:8px"><div class="emp-avatar" style="'+avStyle+'">'+avInner+'</div><div><div style="font-weight:600;font-size:13px">'+e.name+'</div><div style="font-size:11px;color:var(--text3)">'+displayId+'</div></div></div></td>'
+      +'<td><div style="font-size:12px">'+(e.position||'—')+'</div></td>'
+      +'<td><div style="font-size:12px">'+(e.department||'—')+'</div></td>'
+      +'<td>'+(e.location?'<span style="font-size:12px">📍 '+e.location+'</span>':'<span style="color:var(--text3)">—</span>')+'</td>'
+      +'<td><div style="font-size:12px">'+(e.phone||'—')+'</div><div style="font-size:11px;color:var(--text3)">'+(e.email||'')+'</div></td>'
+      +'<td>'+bankInfo+'</td>'
+      +'<td>'+salaryFmt+'</td>'
+      +termCell
+      +'<td>'+statusBadge+'</td>'
+      +'<td style="text-align:center"><div style="display:flex;gap:4px;justify-content:center">'
+      +(canEdit()?'<button class="btn btn-outline btn-sm" onclick="openEmployeeModal('+e.id+')">✏️</button><button class="btn btn-outline btn-sm" style="color:var(--danger)" onclick="deleteEmployee('+e.id+')">🗑️</button>':'')
+      +'</div></td>'
+      +'</tr>';
+  }).join('');
+}
+
 function renderEmployeesSort(sortBy) {
   _empSortBy = sortBy;
   renderEmployees();
@@ -969,7 +1030,7 @@ async function renderEmployees(filter='', dept='', status='') {
       +'<button class="btn btn-outline" style="border-color:var(--info);color:var(--info)" onclick="openEmpAdvSearch()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> 🔍 ស្វែងរក</button>'      +'<button class="btn btn-outline" onclick="openEmployeeReportModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> 🖨️ បោះពុម្ព / Export</button>'
       +'</div></div>'
       +'<div class="filter-bar">'
-      +'<input class="filter-input" style="flex:1;min-width:180px" placeholder="ស្វែងរក..." value="'+filter+'" oninput="renderEmployees(this.value,\''+dept+'\',\''+status+'\')" />'
+      +'<input class="filter-input" style="flex:1;min-width:180px" placeholder="ស្វែងរក..." value="'+filter+'" oninput="_empQuickFilter(this.value,\''+dept+'\',\''+status+'\')"  />'
       +'<select class="filter-input" onchange="renderEmployees(\''+filter+'\',this.value,\''+status+'\')"><option value="">នាយកដ្ឋានទាំងអស់</option>'
       +deptData.map(d=>'<option value="'+d.name+'"'+(dept===d.name?' selected':'')+'>'+d.name+'</option>').join('')
       +'</select>'
