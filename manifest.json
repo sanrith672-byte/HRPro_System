@@ -2,8 +2,8 @@
   "name": "HR Pro — ប្រព័ន្ធគ្រប់គ្រងបុគ្គលិក",
   "short_name": "HR Pro",
   "description": "ប្រព័ន្ធគ្រប់គ្រងបុគ្គលិក — Cloudflare Worker + D1",
-  "start_url": "./index.html",
-  "id": "./index.html",
+  "start_url": "/index.html",
+  "id": "/index.html",
   "display": "standalone",
   "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
   "orientation": "any",
@@ -11,7 +11,7 @@
   "theme_color": "#FF6B35",
   "lang": "km",
   "dir": "ltr",
-  "scope": "./",
+  "scope": "/",
   "categories": ["business", "productivity"],
   "launch_handler": {
     "client_mode": "focus-existing"

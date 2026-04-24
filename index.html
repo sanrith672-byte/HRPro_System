@@ -281,7 +281,6 @@
       navigator.serviceWorker.register('./sw.js')
         .then(reg => {
           console.log('[SW] Registered:', reg.scope);
-          // Check for updates every 60s
           setInterval(() => reg.update(), 60000);
         })
         .catch(err => console.warn('[SW] Failed:', err));
@@ -290,10 +289,10 @@
 
   // ── PWA Install Prompt ──
   let _deferredPrompt = null;
+
   window.addEventListener('beforeinstallprompt', e => {
     e.preventDefault();
     _deferredPrompt = e;
-    // Show install button if it exists
     const btn = document.getElementById('pwa-install-btn');
     if (btn) btn.style.display = 'flex';
   });
@@ -306,12 +305,24 @@
   });
 
   window.installPWA = async function() {
-    if (!_deferredPrompt) return;
-    _deferredPrompt.prompt();
-    const { outcome } = await _deferredPrompt.userChoice;
-    console.log('[PWA] User choice:', outcome);
-    _deferredPrompt = null;
+    if (_deferredPrompt) {
+      _deferredPrompt.prompt();
+      const { outcome } = await _deferredPrompt.userChoice;
+      console.log('[PWA] User choice:', outcome);
+      _deferredPrompt = null;
+    } else {
+      // Fallback សម្រាប់ Android/iOS ដែល event មិន fire
+      alert('📱 Android Chrome: ចុច ⋮ Menu → "Add to Home screen"\n🍎 iPhone Safari: ចុច Share □↑ → "Add to Home Screen"');
+    }
   };
+
+  // ── Force show install button ── (Chrome Android លែង fire event ដោយស្វ័យប្រវត្តិ)
+  window.addEventListener('load', () => {
+    setTimeout(() => {
+      const btn = document.getElementById('pwa-install-btn');
+      if (btn) btn.style.display = 'flex';
+    }, 1500);
+  });
 </script>
 
 <script src="app.js?v=84"></script>
