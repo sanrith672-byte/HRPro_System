@@ -2198,50 +2198,120 @@ function printMonthlyAttendance() {
 async function exportMonthlyAttendanceExcel() {
   const d = window._monthlyAttData;
   if (!d) { showToast('សូមចាំ... ទំព័រមិនទាន់ Load ទេ', 'error'); return; }
-  const { summaries, allDays, currentMonth, totals } = d;
+  const { summaries, allDays, currentMonth, totals, maxAbsent, rules } = d;
   const cfg = getCompanyConfig();
+  const wdNames = ['អា','ច','អ','ព','ព្រ','សុ','ស'];
   showToast('កំពុង Export Excel...', 'info');
 
+  // Re-fetch swapData to rebuild offDateMap (same as renderMonthlyAttendance)
+  let offDateMap = {};
+  let swapMap = {};
   try {
-    // Sheet 1: Summary
-    const summaryHeaders = ['#', 'ឈ្មោះ', 'នាយកដ្ឋាន', '✅ វត្តមាន', '⏰ យឺត', '❌ អវត្តមាន', '🔄 ជំនួស', 'លើស', 'កាត់ (USD)'];
-    const summaryRows = summaries.map(({emp, present, late, absent, swap, overAbsent, deduction}, i) => [
-      i+1, emp.name, emp.department||'', present, late, absent, swap||0, overAbsent, overAbsent>0?-deduction:0
-    ]);
-    summaryRows.push(['', 'សរុប', '', totals.p, totals.l, totals.a, totals.sw, '', -totals.d]);
-
-    // Sheet 2: Daily detail grid
-    const dayHeaders = ['#', 'ឈ្មោះ', '✅', '⏰', '❌', '🔄', 'លើស', 'កាត់'];
-    allDays.forEach(({d, wd}) => {
-      const wdShort = ['អា','ច','អ','ព','ព្រ','សុ','ស'][wd];
-      dayHeaders.push(`${d}(${wdShort})`);
+    const swapDataRaw = await api('GET','/dayswap').catch(()=>({records:[]}));
+    (swapDataRaw.records||[]).forEach(s => {
+      if (s.status !== 'approved') return;
+      if (s.swap_date && s.swap_date.startsWith(currentMonth)) {
+        if (!swapMap[s.employee_id]) swapMap[s.employee_id] = {};
+        const dd = s.swap_date.slice(-2);
+        swapMap[s.employee_id][dd] = s;
+      }
+      if (s.off_date && s.off_date.startsWith(currentMonth)) {
+        if (!offDateMap[s.employee_id]) offDateMap[s.employee_id] = {};
+        const dd = s.off_date.slice(-2);
+        offDateMap[s.employee_id][dd] = s;
+      }
     });
+  } catch(_) {}
 
-    const wdNames = ['អា','ច','អ','ព','ព្រ','សុ','ស'];
-    const dayRows = summaries.map(({emp, present, late, absent, swap, overAbsent, deduction}, i) => {
-      const row = [i+1, emp.name, present, late, absent, swap||0, overAbsent, overAbsent>0?-deduction:0];
-      allDays.forEach(({dd, wd}) => {
-        const attMap = window._monthlyAttData._attMap || {};
-        const a = (attMap[emp.id]||{})[dd];
-        const isWeekend = wd===0||wd===6;
-        if (!a) { row.push(isWeekend ? 'OFF' : '—'); return; }
-        if (a.status==='present') row.push('✔');
-        else if (a.status==='late') row.push('⏰');
-        else if (a.status==='holiday') row.push('🎉');
-        else row.push('✗');
+  try {
+    // ── Sheet 1: Matrix (ដូច PDF) ────────────────────────────────
+    // Headers: ឈ្មោះ | ✅ | ⏰ | ❌ | 🔄 | លើស | កាត់ | 1 | 2 | ... | 31
+    const dayNums   = allDays.map(({d}) => d);
+    const dayLabels = allDays.map(({d, wd}) => d + '(' + wdNames[wd] + ')');
+
+    const matrixHeaders = ['#', 'ឈ្មោះបុគ្គលិក', 'នាយកដ្ឋាន', '✅ វត្តមាន', '⏰ យឺត', '❌ អវត្តមាន', '🔄 ជំនួស', 'លើសថ្ងៃ', 'កាត់ ($)', ...dayLabels];
+
+    // Sub-header row: weekday names aligned to day columns
+    const subHeaderRow = ['', '', '', '', '', '', '', '', '', ...allDays.map(({wd}) => wdNames[wd])];
+
+    const matrixRows = [subHeaderRow];
+
+    summaries.forEach(({emp, present, late, absent, swap, overAbsent, deduction}, i) => {
+      const attMap = d._attMap || {};
+      const empOffDays = typeof parseOffDays === 'function' ? parseOffDays(emp) : [0]; // default: Sunday off
+
+      const dayCells = allDays.map(({dd, wd}) => {
+        const swapRec   = (swapMap[emp.id]||{})[dd];
+        const compSwap  = (offDateMap[emp.id]||{})[dd];
+        const a         = (attMap[emp.id]||{})[dd];
+        const isEmpOff  = empOffDays.indexOf(wd) !== -1;
+
+        // Holiday
+        if (a && a.status === 'holiday') return '🎉';
+        // Employee OFF day
+        if (isEmpOff) {
+          if (swapRec) return '🔄';   // came to work on off day
+          return 'OFF';
+        }
+        // Compensation OFF day (off_date)
+        if (compSwap) return 'OFF+';
+        // No record = absent
+        if (!a) return '—';
+        if (a.status === 'present') return '✔';
+        if (a.status === 'late')    return '⏰';
+        if (a.status === 'absent')  return '✗';
+        return '✗';
       });
-      return row;
+
+      matrixRows.push([
+        i + 1,
+        emp.name,
+        emp.department || '',
+        present,
+        late,
+        absent,
+        swap || 0,
+        overAbsent,
+        overAbsent > 0 ? -deduction : 0,
+        ...dayCells
+      ]);
     });
+
+    // Total row
+    matrixRows.push(['', '', '']);
+    matrixRows.push([
+      '', 'សរុប (Total)', '',
+      totals.p, totals.l, totals.a, totals.sw, '',
+      totals.d > 0 ? -totals.d : 0,
+      ...allDays.map(() => '')
+    ]);
+
+    // ── Sheet 2: Detail Summary ───────────────────────────────────
+    const summaryHeaders = ['#', 'ឈ្មោះបុគ្គលិក', 'នាយកដ្ឋាន', '✅ វត្តមាន', '⏰ យឺត', '❌ អវត្តមាន', '🔄 ជំនួស', 'ថ្ងៃធ្វើការ', 'ថ្ងៃលើស', 'អត្រាថ្ងៃ ($)', 'កាត់ ($)'];
+    const summaryRows = summaries.map(({emp, present, late, absent, swap, overAbsent, deduction, dailyRate, workingDaysCount}, i) => [
+      i + 1,
+      emp.name,
+      emp.department || '',
+      present,
+      late,
+      absent,
+      swap || 0,
+      workingDaysCount || '',
+      overAbsent,
+      dailyRate ? +dailyRate.toFixed(2) : 0,
+      overAbsent > 0 ? -deduction : 0
+    ]);
+    summaryRows.push(['', '', '']);
+    summaryRows.push(['', 'សរុប (Total)', '', totals.p, totals.l, totals.a, totals.sw, '', '', '', totals.d > 0 ? -totals.d : 0]);
 
     const blob = buildXLSX([
-      { name: 'Summary_'+currentMonth, headers: summaryHeaders, rows: summaryRows },
-      { name: 'Daily_'+currentMonth,   headers: dayHeaders,     rows: dayRows }
+      { name: 'វត្តមាន Matrix ' + currentMonth, headers: matrixHeaders, rows: matrixRows },
+      { name: 'Summary ' + currentMonth,        headers: summaryHeaders, rows: summaryRows },
     ]);
-    downloadBlob(blob, `${cfg.company_name||'HR'}_Monthly_Attendance_${currentMonth}.xlsx`);
+    downloadBlob(blob, (cfg.company_name||'HR') + '_Monthly_Attendance_' + currentMonth + '.xlsx');
     showToast('Download Excel ✅', 'success');
-  } catch(e) { showToast('Error: '+e.message, 'error'); }
+  } catch(e) { showToast('Error: ' + e.message, 'error'); }
 }
-
 
 // Open rules modal for absence deduction settings
 function openAbsenceRulesModal() {
