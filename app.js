@@ -3709,7 +3709,7 @@ async function openOvertimeModal() {
         <select class="form-control" id="ot-emp">${state.employees.map(e=>`<option value="${e.id}">${e.name}</option>`).join('')}</select></div>
       <div class="form-group"><label class="form-label">កាលបរិច្ឆេទ *</label><input class="form-control" id="ot-date" type="date" value="${today()}" /></div>
       <div class="form-group"><label class="form-label">ចំនួនម៉ោង *</label><input class="form-control" id="ot-hours" type="number" placeholder="2" min="0.5" step="0.5" /></div>
-      <div class="form-group"><label class="form-label">អត្រា/ម៉ោង (USD) *</label><input class="form-control" id="ot-rate" type="number" placeholder="5" /></div>
+      <div class="form-group"><label class="form-label">អត្រា/ម៉ោង (USD) *</label><input class="form-control" id="ot-rate" type="number" placeholder="5" value="${getSalaryRules().default_ot_hourly_rate||''}" /></div>
       <div class="form-group full-width"><label class="form-label">មូលហេតុ</label><input class="form-control" id="ot-reason" placeholder="មូលហេតុថែមម៉ោង..." /></div>
     </div>
     <div class="form-actions">
@@ -5623,6 +5623,7 @@ function getSalaryRules() {
     payroll_auto: false,
     currency: 'USD',
     currency_symbol: '$',
+    default_ot_hourly_rate: 5,
     work_start_time: '08:00',
     work_end_time: '17:00',
     late_grace_minutes: 15,
@@ -6384,6 +6385,14 @@ function renderSettings() {
                     <span class="rule-unit">x ប្រាក់ខែ/ម៉ោង</span>
                   </div>
                 </div>
+                <div class="salary-rule-card" style="border-color:var(--success);background:rgba(16,185,129,.04)">
+                  <div class="rule-label">💵 អត្រា OT/ម៉ោង Default</div>
+                  <div class="rule-input-wrap">
+                    <input type="number" id="sr-ot-hourly" value="${rules.default_ot_hourly_rate || 5}" min="0" step="0.5" />
+                    <span class="rule-unit">USD/ម៉ោង</span>
+                  </div>
+                  <div style="font-size:10px;color:var(--text3);margin-top:4px">តម្លៃ​លំ​នាំ​ដើម​ក្នុង​ form ថែម​ម៉ោង</div>
+                </div>
                 <div class="salary-rule-card">
                   <div class="rule-label">ឧបត្ថម្ភចំណីអាហារ Default</div>
                   <div class="rule-input-wrap">
@@ -6923,6 +6932,7 @@ function saveSalarySettings() {
     nssf_employee:        parseFloat($('sr-nssf-emp')?.value)    || 0,
     nssf_employer:        parseFloat($('sr-nssf-er')?.value)     || 0,
     ot_rate_multiplier:   parseFloat($('sr-ot-rate')?.value)     || 1.5,
+    default_ot_hourly_rate: parseFloat($('sr-ot-hourly')?.value) || 5,
     meal_allowance:       parseFloat($('sr-meal')?.value)        || 0,
     transport_allowance:  parseFloat($('sr-transport')?.value)   || 0,
     payroll_auto:         $('sr-auto')?.checked || false,
