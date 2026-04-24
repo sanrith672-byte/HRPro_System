@@ -3595,18 +3595,180 @@ async function ensureEmployees() {
 // ============================================================
 async function renderOvertime() {
   showLoading();
+  let currentMonth = (window._otMonth || new Date().toISOString().slice(0,7));
+  try {
+    const [empData, otData] = await Promise.all([
+      api('GET','/employees?limit=500'),
+      api('GET','/overtime')
+    ]);
+    const emps = empData.employees || [];
+    const records = otData.records || [];
+
+    // Filter to current month
+    const monthRecords = records.filter(r => (r.date||'').startsWith(currentMonth));
+
+    // Build map: empId -> { dd -> [records] }
+    const otMap = {};
+    monthRecords.forEach(r => {
+      const empId = r.employee_id;
+      const dd = (r.date||'').slice(-2).replace(/^0/,''); // '01' -> '1'
+      if (!otMap[empId]) otMap[empId] = {};
+      if (!otMap[empId][dd]) otMap[empId][dd] = [];
+      otMap[empId][dd].push(r);
+    });
+
+    // Days in month
+    const [y, m] = currentMonth.split('-').map(Number);
+    const daysInMonth = new Date(y, m, 0).getDate();
+    const allDays = [];
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dt = new Date(y, m-1, d);
+      allDays.push({ d, dd: String(d).padStart(2,'0'), wd: dt.getDay() });
+    }
+    const wdNames = ['អា','ច','អ','ព','ព្រ','សុ','ស'];
+
+    // Totals
+    const totalHrs = monthRecords.reduce((s,r)=>s+(r.hours||0),0);
+    const totalPay = monthRecords.reduce((s,r)=>s+(r.pay||0),0);
+
+    // Build header rows
+    const dayThs = allDays.map(({d, wd}) => {
+      const isToday = (new Date().toISOString().slice(0,7)===currentMonth && new Date().getDate()===d);
+      const isWeekend = (wd===0||wd===6);
+      const bg = isToday ? 'background:var(--primary);color:white;' : isWeekend ? 'background:var(--bg2);color:var(--text3);' : '';
+      return '<th style="padding:2px 1px;font-size:11px;font-weight:600;text-align:center;min-width:26px;'+bg+'">' + d + '</th>';
+    }).join('');
+
+    const wdThs = allDays.map(({wd}) => {
+      const isWeekend = (wd===0||wd===6);
+      return '<th style="padding:1px 0;font-size:9px;text-align:center;font-weight:400;'+(isWeekend?'color:var(--danger);':'color:var(--text3);')+'">'+wdNames[wd]+'</th>';
+    }).join('');
+
+    // Per-employee rows — only show employees with OT this month, or all
+    const empRows = emps.map(emp => {
+      const empOT = otMap[emp.id] || {};
+      const empTotal = Object.values(empOT).flat().reduce((s,r)=>s+(r.hours||0),0);
+      const empPay   = Object.values(empOT).flat().reduce((s,r)=>s+(r.pay||0),0);
+      if (empTotal === 0) return ''; // hide employees with no OT this month
+
+      const cells = allDays.map(({d, wd}) => {
+        const dayRecs = empOT[String(d)] || [];
+        const isWeekend = (wd===0||wd===6);
+        const bgWknd = isWeekend ? 'background:var(--bg2);' : '';
+        if (!dayRecs.length) {
+          return '<td style="text-align:center;font-size:10px;color:var(--text3);padding:2px 0;'+bgWknd+'">—</td>';
+        }
+        const hrs = dayRecs.reduce((s,r)=>s+(r.hours||0),0);
+        const allApproved = dayRecs.every(r=>r.status==='approved');
+        const anyRejected = dayRecs.some(r=>r.status==='rejected');
+        const color = anyRejected ? 'var(--danger)' : allApproved ? 'var(--success)' : 'var(--warning)';
+        const title = dayRecs.map(r=>(r.reason||'')+(r.hours?'('+r.hours+'h)':'')).join(' | ');
+        return '<td style="text-align:center;padding:2px 1px;'+bgWknd+'" title="'+title+'">'
+          +'<span style="font-size:11px;font-weight:700;color:'+color+'">'+hrs+'h</span>'
+          +'</td>';
+      }).join('');
+
+      const photo = getEmpPhoto(emp.id);
+      const av = photo
+        ? '<img src="'+photo+'" style="width:22px;height:22px;border-radius:50%;object-fit:cover;flex-shrink:0"/>'
+        : '<div style="width:22px;height:22px;border-radius:50%;background:'+getColor(emp.name)+';display:flex;align-items:center;justify-content:center;color:white;font-size:10px;font-weight:700;flex-shrink:0">'+emp.name[0]+'</div>';
+
+      return '<tr>'
+        +'<td style="padding:5px 8px;white-space:nowrap;position:sticky;left:0;z-index:1;background:var(--bg1);box-shadow:2px 0 5px rgba(0,0,0,.12)">'
+        +'<div style="display:flex;align-items:center;gap:6px">'+av+'<span style="font-size:12px;font-weight:600">'+emp.name+'</span></div></td>'
+        +'<td style="text-align:center;font-weight:700;color:var(--primary);font-size:13px;position:sticky;left:160px;z-index:1;background:var(--bg1);padding:3px 4px;white-space:nowrap">'+empTotal+'h</td>'
+        +'<td style="text-align:center;font-weight:700;color:var(--success);font-size:12px;position:sticky;left:196px;z-index:1;background:var(--bg1);box-shadow:3px 0 6px rgba(0,0,0,.1);padding:3px 4px;white-space:nowrap">$'+empPay.toFixed(0)+'</td>'
+        +cells
+        +'<td style="text-align:center;padding:3px 6px">'
+        +'<button class="btn btn-outline btn-sm" style="font-size:10px;padding:2px 7px" onclick="renderOTDetailList('+emp.id+',''+emp.name+'',''+currentMonth+'')">📋</button>'
+        +'</td>'
+        +'</tr>';
+    }).filter(Boolean).join('');
+
+    const emptyMsg = empRows.length === 0
+      ? '<tr><td colspan="'+(5+allDays.length)+'"><div class="empty-state" style="padding:30px"><p>មិនទាន់មានថែមម៉ោងខែ '+currentMonth+'</p></div></td></tr>'
+      : '';
+
+    contentArea().innerHTML =
+      '<div class="page-header">'
+      +'<div><h2>⏰ ថែមម៉ោង</h2><p>OT '+currentMonth+' — '+monthRecords.length+' កំណត់ត្រា</p></div>'
+      +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
+      +'<input class="filter-input" type="month" value="'+currentMonth+'" onchange="window._otMonth=this.value;renderOvertime()" />'
+      +'<button class="btn btn-outline" onclick="renderOTListView(''+currentMonth+'')">'
+      +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg> បញ្ជី</button>'
+      +'<button class="btn btn-outline" onclick="printTableData('overtime')">'
+      +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> PDF</button>'
+      +'<button class="btn btn-primary" onclick="openOvertimeModal()">'
+      +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> បន្ថែម</button>'
+      +'</div></div>'
+      +'<div class="att-summary" style="grid-template-columns:repeat(3,1fr);margin-bottom:16px">'
+      +'<div class="att-box"><div class="att-num" style="color:var(--primary)">'+totalHrs.toFixed(1)+'h</div><div class="att-lbl">⏰ ម៉ោងសរុប</div></div>'
+      +'<div class="att-box"><div class="att-num" style="color:var(--success)">$'+totalPay.toFixed(0)+'</div><div class="att-lbl">💵 ប្រាក់ OT សរុប</div></div>'
+      +'<div class="att-box"><div class="att-num" style="color:var(--info)">'+monthRecords.length+'</div><div class="att-lbl">📋 ចំនួនករណី</div></div>'
+      +'</div>'
+      +'<div class="card" style="padding:0">'
+      +'<div style="overflow-x:auto;-webkit-overflow-scrolling:touch">'
+      +'<table style="width:100%;border-collapse:collapse;table-layout:fixed">'
+      +'<colgroup>'
+      +'<col style="width:160px"/>'
+      +'<col style="width:36px"/>'
+      +'<col style="width:48px"/>'
+      +allDays.map(()=>'<col style="min-width:26px"/>').join('')
+      +'<col style="width:40px"/>'
+      +'</colgroup>'
+      +'<thead>'
+      +'<tr style="position:sticky;top:0;z-index:4;background:var(--bg2);height:28px">'
+      +'<th style="text-align:left;position:sticky;left:0;z-index:5;background:var(--bg2);box-shadow:2px 0 5px rgba(0,0,0,.2);padding:6px 8px" rowspan="2">បុគ្គលិក</th>'
+      +'<th style="text-align:center;color:var(--primary);position:sticky;left:160px;z-index:5;background:var(--bg2);padding:3px 0;font-size:11px" rowspan="2" title="ម៉ោងសរុប">⏱️h</th>'
+      +'<th style="text-align:center;color:var(--success);position:sticky;left:196px;z-index:5;background:var(--bg2);box-shadow:3px 0 5px rgba(0,0,0,.15);padding:3px 0;font-size:11px" rowspan="2" title="ប្រាក់">💵</th>'
+      +dayThs
+      +'<th style="text-align:center;background:var(--bg2);padding:3px 0;font-size:10px" rowspan="2">...</th>'
+      +'</tr>'
+      +'<tr style="position:sticky;top:28px;z-index:4;background:var(--bg2)">'+wdThs+'</tr>'
+      +'</thead>'
+      +'<tbody>'+(empRows||emptyMsg)+'</tbody>'
+      +'</table></div></div>';
+  } catch(e) { showError(e.message); }
+}
+
+// Show detail list of OT records for one employee in a month
+async function renderOTDetailList(empId, empName, month) {
+  const data = await api('GET','/overtime');
+  const recs = (data.records||[]).filter(r=>r.employee_id===empId && (r.date||'').startsWith(month));
+  $('modal-title').textContent = '📋 OT — '+empName+' ('+month+')';
+  const rows = recs.length===0
+    ? '<p style="color:var(--text3);text-align:center;padding:20px">គ្មានទិន្នន័យ</p>'
+    : '<table style="width:100%;border-collapse:collapse;font-size:12px">'
+      +'<thead><tr style="background:var(--bg3)"><th style="padding:6px;text-align:left">ថ្ងៃខែ</th><th style="text-align:center">ម៉ោង</th><th style="text-align:right">ប្រាក់</th><th style="text-align:center">ស្ថានភាព</th><th></th></tr></thead>'
+      +'<tbody>'+recs.map(r=>'<tr style="border-bottom:1px solid var(--border)">'
+        +'<td style="padding:5px 6px;font-family:var(--mono);font-size:11px">'+r.date+'<br><span style="color:var(--text3);font-size:10px">'+(r.reason||'')+'</span></td>'
+        +'<td style="text-align:center;font-weight:700;color:var(--primary)">'+r.hours+'h</td>'
+        +'<td style="text-align:right;font-weight:700;color:var(--success)">$'+r.pay+'</td>'
+        +'<td style="text-align:center">'+(r.status==='approved'?'<span class="badge badge-green">✅</span>':r.status==='rejected'?'<span class="badge badge-red">❌</span>':'<span class="badge badge-yellow">⏳</span>')+'</td>'
+        +'<td style="text-align:center"><button class="btn btn-outline btn-sm" onclick="openEditOvertimeModal('+r.id+')">✏️</button>'
+        +'<button class="btn btn-danger btn-sm" onclick="deleteRecord('overtime','+r.id+',renderOvertime)">🗑️</button></td>'
+        +'</tr>').join('')+'</tbody>'
+      +'</table>';
+  $('modal-body').innerHTML = '<div style="max-height:70vh;overflow-y:auto">'+rows+'</div>'
+    +'<div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">បិទ</button></div>';
+  openModal();
+}
+
+// List view (original table style)
+async function renderOTListView(month) {
+  showLoading();
   try {
     const data = await api('GET','/overtime');
-    const records = data.records || [];
+    const records = (data.records||[]).filter(r=>(r.date||'').startsWith(month));
     const totalHrs = records.reduce((s,r)=>s+(r.hours||0),0);
     const totalPay = records.reduce((s,r)=>s+(r.pay||0),0);
     const rows = records.length===0
-      ? '<tr><td colspan="9"><div class="empty-state" style="padding:30px"><p>មិនទាន់មានកំណត់ត្រាថែមម៉ោង</p></div></td></tr>'
+      ? '<tr><td colspan="8"><div class="empty-state" style="padding:30px"><p>គ្មានទិន្នន័យ</p></div></td></tr>'
       : records.map(r=>{
           const photo = getEmpPhoto(r.employee_id);
           const av = photo
             ? '<div class="emp-avatar" style="background:'+getColor(r.employee_name)+';overflow:hidden;padding:0"><img src="'+photo+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/></div>'
-            : '<div class="emp-avatar" style="background:'+getColor(r.employee_name)+'">'+(r.employee_name||'?')[0]+'</div>';
+            : '<div class="emp-avatar" style="background:'+getColor(r.employee_name)+';">'+(r.employee_name||'?')[0]+'</div>';
           return '<tr>'
             +'<td><div class="employee-cell">'+av+'<div class="emp-name">'+r.employee_name+'</div></div></td>'
             +'<td style="font-family:var(--mono);font-size:12px">'+r.date+'</td>'
@@ -3618,34 +3780,23 @@ async function renderOvertime() {
             +'<td><div class="action-btns">'
             +(r.status==='pending'?'<button class="btn btn-success btn-sm" onclick="approveOvertime('+r.id+')">✅</button><button class="btn btn-danger btn-sm" onclick="rejectOvertime('+r.id+')">❌</button>':'')
             +'<button class="btn btn-outline btn-sm" onclick="openEditOvertimeModal('+r.id+')">✏️</button>'
-            +'<button class="btn btn-danger btn-sm" onclick="deleteRecord(\'overtime\','+r.id+',renderOvertime)">🗑️</button>'
-            +'</div></td>'
-            +'</tr>';
+            +'<button class="btn btn-danger btn-sm" onclick="deleteRecord('overtime','+r.id+',renderOvertime)">🗑️</button>'
+            +'</div></td></tr>';
         }).join('');
-
     contentArea().innerHTML =
       '<div class="page-header">'
-      +'<div><h2>ថែមម៉ោង</h2><p>OT — '+records.length+' កំណត់ត្រា</p></div>'
+      +'<div><h2>ថែមម៉ោង — បញ្ជី</h2><p>'+records.length+' កំណត់ត្រា</p></div>'
       +'<div style="display:flex;gap:8px;flex-wrap:wrap">'
-      +'<button class="btn btn-outline" onclick="printTableData(\'overtime\')">'
-      +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> PDF</button>'
-      +'<button class="btn btn-primary" onclick="openOvertimeModal()">'
-      +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> បន្ថែម</button>'
+      +'<button class="btn btn-outline" onclick="window._otMonth=''+month+'';renderOvertime()">📊 តារាងខែ</button>'
+      +'<button class="btn btn-primary" onclick="openOvertimeModal()">+ បន្ថែម</button>'
       +'</div></div>'
-      +'<div class="stats-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:20px">'
-      +'<div class="stat-card"><div class="stat-icon orange"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>'
-      +'<div><div class="stat-label">ម៉ោងសរុប</div><div class="stat-value">'+totalHrs+'h</div></div></div>'
-      +'<div class="stat-card"><div class="stat-icon green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>'
-      +'<div><div class="stat-label">ប្រាក់ OT សរុប</div><div class="stat-value" style="color:var(--success)">$'+totalPay.toFixed(0)+'</div></div></div>'
-      +'<div class="stat-card"><div class="stat-icon blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div>'
-      +'<div><div class="stat-label">ចំនួនករណី</div><div class="stat-value" style="color:var(--info)">'+records.length+'</div></div></div>'
-      +'</div>'
-      +'<div class="card"><div class="table-container" id="ot-table-wrap"><table>'
+      +'<div class="card"><div class="table-container"><table>'
       +'<thead><tr><th>បុគ្គលិក</th><th>កាលបរិច្ឆេទ</th><th>ម៉ោង</th><th>អត្រា</th><th>ប្រាក់</th><th>មូលហេតុ</th><th>ស្ថានភាព</th><th>សកម្មភាព</th></tr></thead>'
       +'<tbody>'+rows+'</tbody>'
       +'</table></div></div>';
   } catch(e) { showError(e.message); }
 }
+
 
 async function openEditOvertimeModal(id) {
   try {
