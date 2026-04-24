@@ -1969,14 +1969,14 @@ async function renderMonthlyAttendance(month='') {
       const isToday = (new Date().toISOString().slice(0,7)===currentMonth && new Date().getDate()===d);
       const isWeekend = (wd === 0 || wd === 6);
       const bg = isToday ? 'background:var(--primary);color:white;' : isWeekend ? 'background:var(--bg2);color:var(--text3);' : '';
-      return '<th style="min-width:24px;width:24px;padding:2px 1px;font-size:10px;text-align:center;'+bg+'">' + d + '</th>';
+      return '<th style="padding:2px 1px;font-size:11px;font-weight:600;text-align:center;'+bg+'">' + d + '</th>';
     }).join('');
 
     // Table header row 2: weekday names
     const wdThs = allDays.map(({wd}) => {
       const isWeekend = (wd === 0 || wd === 6);
       const color = isWeekend ? 'color:var(--danger);' : 'color:var(--text3);';
-      return '<th style="min-width:24px;width:24px;padding:1px 0;font-size:9px;text-align:center;font-weight:400;'+color+'">' + wdNames[wd] + '</th>';
+      return '<th style="padding:1px 0;font-size:9px;text-align:center;font-weight:400;'+color+'">' + wdNames[wd] + '</th>';
     }).join('');
 
     const dayRows = summaries.map(({emp, present, late, absent, swap, overAbsent, deduction}) => {
@@ -2005,9 +2005,9 @@ async function renderMonthlyAttendance(month='') {
           return '<td style="text-align:center;font-size:8px;padding:2px 0;font-weight:700;color:var(--warning);background:rgba(255,190,11,.1)" title="OFF+">OFF+</td>';
         }
         if (!a) return '<td style="text-align:center;font-size:11px;padding:2px 0;color:var(--danger)">—</td>';
-        if (a.status==='present') return '<td style="text-align:center;font-size:12px;padding:2px 0;color:var(--success)">✔</td>';
+        if (a.status==='present') return '<td style="text-align:center;font-size:12px;padding:2px 0;color:var(--success);text-align:center">✔</td>';
         if (a.status==='late') return '<td style="text-align:center;font-size:11px;padding:2px 0;color:var(--warning)">⏰</td>';
-        return '<td style="text-align:center;font-size:12px;padding:2px 0;color:var(--danger)">✗</td>';
+        return '<td style="text-align:center;font-size:12px;padding:2px 0;color:var(--danger);text-align:center">✗</td>';
       }).join('');
       const photo = getEmpPhoto(emp.id);
       const av = photo
@@ -2060,6 +2060,17 @@ async function renderMonthlyAttendance(month='') {
       +'<button class="btn btn-outline btn-sm" style="font-size:11px" onclick="openAbsenceRulesModal()">✏️ កែច្បាប់</button>'
       +'</div>'
       +'<div class="card" style="padding:0"><div style="overflow-x:auto;-webkit-overflow-scrolling:touch"><table style="width:100%;border-collapse:collapse;table-layout:fixed">'
+      +'<colgroup>'
+      +'<col style="width:160px"/>'
+      +'<col style="width:30px"/>'
+      +'<col style="width:30px"/>'
+      +'<col style="width:30px"/>'
+      +'<col style="width:30px"/>'
+      +'<col style="width:36px"/>'
+      +'<col style="width:52px"/>'
+      +allDays.map(()=>'<col/>').join('')
+      +'<col style="width:70px"/>'
+      +'</colgroup>'
       +'<thead>'
       +'<tr style="position:sticky;top:0;z-index:4;background:var(--bg2);height:28px">'
       +'<th style="width:160px;text-align:left;position:sticky;left:0;z-index:5;background:var(--bg2);box-shadow:2px 0 5px rgba(0,0,0,.2);padding:6px 8px" rowspan="2">បុគ្គលិក</th>'
