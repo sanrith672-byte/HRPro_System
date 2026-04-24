@@ -1,17 +1,17 @@
-// HR Pro — Service Worker v3 (PWA Desktop Support)
-const CACHE_NAME = 'hr-pro-v4';
+// HR Pro — Service Worker v5 (PWA Fix)
+const CACHE_NAME = 'hr-pro-v5';
 
 const STATIC_ASSETS = [
-  './',
-  './index.html',
-  './style.css',
-  './app.js',
-  './manifest.json',
-  './icons/icon-192x192.png',
-  './icons/icon-512x512.png',
-  './icons/icon-maskable-512x512.png',
-  './icons/favicon-32x32.png',
-  './icons/apple-touch-icon.png',
+  '/',
+  '/index.html',
+  '/style.css',
+  '/app.js',
+  '/manifest.json',
+  '/icons/icon-192x192.png',
+  '/icons/icon-512x512.png',
+  '/icons/icon-maskable-512x512.png',
+  '/icons/favicon-32x32.png',
+  '/icons/apple-touch-icon.png',
 ];
 
 self.addEventListener('install', event => {
@@ -52,7 +52,7 @@ self.addEventListener('fetch', event => {
         }).catch(() => {
           // Offline fallback: serve index.html for navigation
           if (event.request.mode === 'navigate') {
-            return caches.match('./index.html');
+            return caches.match('/index.html');
           }
         });
       })

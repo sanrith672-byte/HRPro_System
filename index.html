@@ -281,6 +281,7 @@
       navigator.serviceWorker.register('./sw.js')
         .then(reg => {
           console.log('[SW] Registered:', reg.scope);
+          // Check for updates every 60s
           setInterval(() => reg.update(), 60000);
         })
         .catch(err => console.warn('[SW] Failed:', err));
@@ -290,39 +291,43 @@
   // ── PWA Install Prompt ──
   let _deferredPrompt = null;
 
+  // Helper: show/hide install button — retries if app.js hasn't rendered it yet
+  function _showInstallBtn(visible) {
+    const btn = document.getElementById('pwa-install-btn');
+    if (btn) {
+      btn.style.display = visible ? 'flex' : 'none';
+    } else if (visible) {
+      // app.js hasn't rendered the button yet — wait and retry
+      const observer = new MutationObserver(() => {
+        const b = document.getElementById('pwa-install-btn');
+        if (b) { b.style.display = 'flex'; observer.disconnect(); }
+      });
+      observer.observe(document.body, { childList: true, subtree: true });
+    }
+  }
+
   window.addEventListener('beforeinstallprompt', e => {
     e.preventDefault();
     _deferredPrompt = e;
-    const btn = document.getElementById('pwa-install-btn');
-    if (btn) btn.style.display = 'flex';
+    _showInstallBtn(true);
   });
 
   window.addEventListener('appinstalled', () => {
     _deferredPrompt = null;
-    const btn = document.getElementById('pwa-install-btn');
-    if (btn) btn.style.display = 'none';
+    _showInstallBtn(false);
     console.log('[PWA] Installed successfully!');
   });
 
   window.installPWA = async function() {
-    if (_deferredPrompt) {
-      _deferredPrompt.prompt();
-      const { outcome } = await _deferredPrompt.userChoice;
-      console.log('[PWA] User choice:', outcome);
-      _deferredPrompt = null;
-    } else {
-      // Fallback សម្រាប់ Android/iOS ដែល event មិន fire
-      alert('📱 Android Chrome: ចុច ⋮ Menu → "Add to Home screen"\n🍎 iPhone Safari: ចុច Share □↑ → "Add to Home Screen"');
+    if (!_deferredPrompt) {
+      console.warn('[PWA] No install prompt available. Already installed or browser does not support it.');
+      return;
     }
+    _deferredPrompt.prompt();
+    const { outcome } = await _deferredPrompt.userChoice;
+    console.log('[PWA] User choice:', outcome);
+    _deferredPrompt = null;
   };
-
-  // ── Force show install button ── (Chrome Android លែង fire event ដោយស្វ័យប្រវត្តិ)
-  window.addEventListener('load', () => {
-    setTimeout(() => {
-      const btn = document.getElementById('pwa-install-btn');
-      if (btn) btn.style.display = 'flex';
-    }, 1500);
-  });
 </script>
 
 <script src="app.js?v=84"></script>
