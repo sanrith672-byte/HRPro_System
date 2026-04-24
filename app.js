@@ -3708,23 +3708,74 @@ async function openOvertimeModal() {
       <div class="form-group full-width"><label class="form-label">បុគ្គលិក *</label>
         <select class="form-control" id="ot-emp">${state.employees.map(e=>`<option value="${e.id}">${e.name}</option>`).join('')}</select></div>
       <div class="form-group"><label class="form-label">កាលបរិច្ឆេទ *</label><input class="form-control" id="ot-date" type="date" value="${today()}" /></div>
-      <div class="form-group"><label class="form-label">ចំនួនម៉ោង *</label><input class="form-control" id="ot-hours" type="number" placeholder="2" min="0.5" step="0.5" /></div>
-      <div class="form-group"><label class="form-label">អត្រា/ម៉ោង (USD) *</label><input class="form-control" id="ot-rate" type="number" placeholder="5" value="${getSalaryRules().default_ot_hourly_rate||''}" /></div>
+      <div class="form-group"><label class="form-label">វេន OT</label>
+        <select class="form-control" id="ot-shift" onchange="applyOTShiftPreset()">
+          <option value="day">☀️ ថ្ងៃ (Day)</option>
+          <option value="evening">🌆 ល្ងាច (Evening)</option>
+          <option value="night">🌙 យប់ (Night)</option>
+          <option value="custom">✏️ កំណត់ខ្លួនឯង</option>
+        </select>
+      </div>
+      <div class="form-group"></div>
+      <div class="form-group"><label class="form-label">ម៉ោងចាប់ផ្តើម</label><input class="form-control" id="ot-start" type="time" value="17:00" oninput="calcOTHoursFromTime()" /></div>
+      <div class="form-group"><label class="form-label">ម៉ោងបញ្ចប់</label><input class="form-control" id="ot-end" type="time" value="19:00" oninput="calcOTHoursFromTime()" /></div>
+      <div class="form-group"><label class="form-label">ចំនួនម៉ោង *</label><input class="form-control" id="ot-hours" type="number" placeholder="2" min="0.5" step="0.5" value="2" oninput="updateOTPayPreview()" /></div>
+      <div class="form-group"><label class="form-label">អត្រា/ម៉ោង (USD) *</label><input class="form-control" id="ot-rate" type="number" placeholder="5" value="${getSalaryRules().default_ot_hourly_rate||''}" oninput="updateOTPayPreview()" /></div>
       <div class="form-group full-width"><label class="form-label">មូលហេតុ</label><input class="form-control" id="ot-reason" placeholder="មូលហេតុថែមម៉ោង..." /></div>
     </div>
+    <div id="ot-pay-preview" style="margin:10px 0;padding:10px;background:var(--bg3);border-radius:8px;text-align:center;font-weight:700;color:var(--success);font-family:var(--mono)">ប្រាក់ OT: $0.00</div>
     <div class="form-actions">
       <button class="btn btn-outline" onclick="closeModal()">បោះបង់</button>
       <button class="btn btn-primary" onclick="saveOvertime()">រក្សាទុក</button>
     </div>`;
+  updateOTPayPreview();
   openModal();
+}
+
+function applyOTShiftPreset() {
+  const shift = $('ot-shift')?.value;
+  const startEl = $('ot-start'), endEl = $('ot-end');
+  if (!startEl || !endEl) return;
+  if (shift === 'day')     { startEl.value = '08:00'; endEl.value = '12:00'; }
+  else if (shift === 'evening') { startEl.value = '17:00'; endEl.value = '20:00'; }
+  else if (shift === 'night')   { startEl.value = '20:00'; endEl.value = '23:00'; }
+  // custom: leave as-is
+  calcOTHoursFromTime();
+}
+
+function calcOTHoursFromTime() {
+  const s = $('ot-start')?.value, e = $('ot-end')?.value;
+  if (!s || !e) return;
+  const [sh,sm] = s.split(':').map(Number), [eh,em] = e.split(':').map(Number);
+  let diff = (eh*60+em) - (sh*60+sm);
+  if (diff <= 0) diff += 24*60; // overnight
+  const hrs = Math.round((diff/60)*2)/2; // round to 0.5
+  const hoursEl = $('ot-hours');
+  if (hoursEl) { hoursEl.value = hrs > 0 ? hrs : ''; }
+  updateOTPayPreview();
+}
+
+function updateOTPayPreview() {
+  const h = parseFloat($('ot-hours')?.value)||0;
+  const r = parseFloat($('ot-rate')?.value)||0;
+  const p = $('ot-pay-preview');
+  if (p) p.textContent = 'ប្រាក់ OT: $' + (h*r).toFixed(2);
 }
 
 async function saveOvertime() {
   const hours = parseFloat($('ot-hours').value)||0;
   const rate = parseFloat($('ot-rate').value)||0;
   if (!hours||!rate) { showToast('សូមបំពេញម៉ោង និងអត្រា!','error'); return; }
+  const shiftMap = { day:'☀️ ថ្ងៃ', evening:'🌆 ល្ងាច', night:'🌙 យប់', custom:'✏️ Custom' };
+  const shiftVal = $('ot-shift')?.value || 'custom';
+  const shiftLabel = shiftMap[shiftVal] || '';
+  const startT = $('ot-start')?.value || '';
+  const endT = $('ot-end')?.value || '';
+  const timeRange = startT && endT ? ` (${startT}–${endT})` : '';
+  const baseReason = $('ot-reason').value;
+  const fullReason = [shiftLabel + timeRange, baseReason].filter(Boolean).join(' | ');
   try {
-    await api('POST','/overtime',{ employee_id:parseInt($('ot-emp').value), date:$('ot-date').value, hours, rate, pay:hours*rate, reason:$('ot-reason').value, status:'pending' });
+    await api('POST','/overtime',{ employee_id:parseInt($('ot-emp').value), date:$('ot-date').value, hours, rate, pay:hours*rate, reason:fullReason, status:'pending' });
     showToast('កត់ត្រាថែមម៉ោងបានជោគជ័យ!','success'); closeModal(); renderOvertime();
   } catch(e) { showToast('បញ្ហា: '+e.message,'error'); }
 }
