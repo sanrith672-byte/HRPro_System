@@ -3979,23 +3979,64 @@ async function exportOTExcel(month) {
     const emps = empData.employees||[];
     const records = (otData.records||[]).filter(r=>(r.date||'').startsWith(month));
 
-    // Sheet 1: Summary per employee
-    const otByEmp = {};
+    // Build OT map: empId -> { day -> [records] }  (same logic as PDF)
+    const otMap = {};
     records.forEach(r => {
-      if (!otByEmp[r.employee_id]) otByEmp[r.employee_id] = { name: r.employee_name, hours:0, pay:0, count:0 };
-      otByEmp[r.employee_id].hours += (r.hours||0);
-      otByEmp[r.employee_id].pay   += (r.pay||0);
-      otByEmp[r.employee_id].count += 1;
+      if (!otMap[r.employee_id]) otMap[r.employee_id] = {};
+      const dd = (r.date||'').slice(-2).replace(/^0/,'');
+      if (!otMap[r.employee_id][dd]) otMap[r.employee_id][dd] = [];
+      otMap[r.employee_id][dd].push(r);
     });
 
-    const summaryHeaders = ['#','ឈ្មោះបុគ្គលិក','ចំនួនលើក','ម៉ោងសរុប','ប្រាក់ OT សរុប ($)'];
-    const summaryRows = Object.values(otByEmp).map((e,i)=>[i+1, e.name, e.count, e.hours, +e.pay.toFixed(2)]);
+    // Days in month  (same logic as PDF)
+    const [y, m] = month.split('-').map(Number);
+    const daysInMonth = new Date(y, m, 0).getDate();
+    const allDays = [];
+    const wdNames = ['អា','ច','អ','ព','ព្រ','សុ','ស'];
+    for (let d = 1; d <= daysInMonth; d++) {
+      const wd = new Date(y, m-1, d).getDay();
+      allDays.push({ d, wd });
+    }
+
     const totH = records.reduce((s,r)=>s+(r.hours||0),0);
     const totP = records.reduce((s,r)=>s+(r.pay||0),0);
-    summaryRows.push(['','','','','']);
-    summaryRows.push(['','សរុប (Total)','', +totH.toFixed(1), +totP.toFixed(2)]);
+    const companyName = cfg.company_name||'HR Pro';
 
-    // Sheet 2: Detail records
+    // ── Sheet 1: Matrix (Calendar) — same layout as PDF ──────────
+    // Header row 1: ឈ្មោះ | ម៉ោង | ប្រាក់ | 1 | 2 | 3 ... 31
+    // Header row 2: (blank) | (blank) | (blank) | អា | ច | ...
+    const matrixDayHeaders = allDays.map(({d}) => d);          // numbers
+    const matrixWdHeaders  = allDays.map(({wd}) => wdNames[wd]); // day names
+
+    // Row 1 = day numbers  (used as column headers in buildXLSX)
+    const matrixHeaders = ['ឈ្មោះបុគ្គលិក','ម៉ោងសរុប','ប្រាក់ OT ($)', ...matrixDayHeaders];
+
+    // Build one row per employee (only those with OT, same as PDF)
+    const matrixRows = [];
+    // Day-of-week sub-header row
+    matrixRows.push(['', '', '', ...matrixWdHeaders]);
+
+    emps.forEach(emp => {
+      const empOT = otMap[emp.id] || {};
+      const empTotal = Object.values(empOT).flat().reduce((s,r)=>s+(r.hours||0),0);
+      const empPay   = Object.values(empOT).flat().reduce((s,r)=>s+(r.pay||0),0);
+      if (empTotal === 0) return; // hide emp with no OT (same as PDF)
+
+      const dayCells = allDays.map(({d}) => {
+        const dayRecs = empOT[String(d)] || [];
+        if (!dayRecs.length) return '';
+        const hrs = dayRecs.reduce((s,r)=>s+(r.hours||0),0);
+        return hrs+'h';
+      });
+
+      matrixRows.push([emp.name, +empTotal.toFixed(1), +empPay.toFixed(2), ...dayCells]);
+    });
+
+    // Total row
+    matrixRows.push(['']);
+    matrixRows.push(['សរុប (Total)', +totH.toFixed(1), +totP.toFixed(2), ...allDays.map(()=>'')]);
+
+    // ── Sheet 2: Detail list — same columns as PDF list view ─────
     const detailHeaders = ['#','ឈ្មោះបុគ្គលិក','កាលបរិច្ឆេទ','ម៉ោង','អត្រា ($/h)','ប្រាក់ OT ($)','មូលហេតុ','ស្ថានភាព'];
     const detailRows = records.map((r,i)=>[
       i+1,
@@ -4003,16 +4044,15 @@ async function exportOTExcel(month) {
       r.date||'',
       r.hours||0,
       r.rate||0,
-      +(r.pay||0).toFixed ? +(+r.pay).toFixed(2) : r.pay||0,
+      +(+r.pay||0).toFixed(2),
       r.reason||'',
       r.status==='approved'?'អនុម័ត':r.status==='rejected'?'បដិសេធ':'រង់ចាំ'
     ]);
     detailRows.push(['','','','','','','','']);
-    detailRows.push(['','','សរុប',+totH.toFixed(1),'','$'+totP.toFixed(2),'','']);
+    detailRows.push(['','សរុប (Total)','',+totH.toFixed(1),'',+totP.toFixed(2),'','']);
 
-    const companyName = cfg.company_name||'HR Pro';
     const blob = buildXLSX([
-      { name: 'OT Summary '+month, headers: summaryHeaders, rows: summaryRows },
+      { name: 'OT Matrix '+month,  headers: matrixHeaders,  rows: matrixRows  },
       { name: 'OT Detail '+month,  headers: detailHeaders,  rows: detailRows  },
     ]);
     downloadBlob(blob, companyName+'_OT_Report_'+month+'.xlsx');
