@@ -156,7 +156,17 @@ function demoApi(method, path, body) {
   // LOAN REPAY
   if (resource === 'loans' && sub === 'repay' && method === 'PUT') {
     const loan = store.find(r=>r.id===id);
-    if (loan) { loan.paid_amount=(loan.paid_amount||0)+(body.amount||0); if(loan.paid_amount>=loan.amount)loan.status='paid'; }
+    if (loan) {
+      loan.paid_amount = (loan.paid_amount||0) + (body.amount||0);
+      if (loan.paid_amount >= loan.amount) loan.status = 'paid';
+      if (!loan.payments) loan.payments = [];
+      loan.payments.push({
+        date: body.date || new Date().toISOString().split('T')[0],
+        amount: body.amount || 0,
+        note: body.note || '',
+        remaining: Math.max(0, loan.amount - loan.paid_amount)
+      });
+    }
     return { message: 'Repayment recorded' };
   }
 
@@ -4414,16 +4424,10 @@ async function renderLoans() {
     contentArea().innerHTML = `
       <div class="page-header">
         <div><h2>ប្រាក់ខ្ចីបុគ្គលិក</h2><p>គ្រប់គ្រងការខ្ចីប្រាក់</p></div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button class="btn btn-outline" onclick="deductAllLoanInstallments()" style="border-color:var(--warning);color:var(--warning)">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-            💸 កាត់ប្រាក់ខែនេះ (ទាំងអស់)
-          </button>
-          <button class="btn btn-primary" onclick="openLoanModal()">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            ផ្តល់ប្រាក់ខ្ចី
-          </button>
-        </div>
+        <button class="btn btn-primary" onclick="openLoanModal()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          ផ្តល់ប្រាក់ខ្ចី
+        </button>
       </div>
       <div class="stats-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:20px">
         <div class="stat-card"><div class="stat-icon orange"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
@@ -4458,8 +4462,7 @@ async function renderLoans() {
               +'<td style="font-family:var(--mono);font-size:11px">'+(r.due_date||'—')+'</td>'
               +'<td>'+(status==='paid'?'<span class="badge badge-green">✅ សងរួច</span>':'<span class="badge badge-yellow">⏳ កំពុងសង</span>')+'</td>'
               +'<td><div class="action-btns">'
-              +(left>0?'<button class="btn btn-success btn-sm" onclick="openRepayModal('+r.id+',\''+r.employee_name+'\','+left+','+( r.installment_amount||0)+')">💰 សង</button>':'')
-              +(left>0&&r.installment_amount?'<button class="btn btn-sm" style="background:var(--warning);color:#fff;font-size:10px;margin-left:2px" onclick="deductLoanInstallment('+r.id+','+r.employee_id+',\''+r.employee_name+'\','+r.installment_amount+','+left.toFixed(2)+')">💸 កាត់</button>':'')
+              +(left>0?'<button class="btn btn-success btn-sm" onclick="openRepayModal('+r.id+',\''+r.employee_name+'\','+left+','+(r.installment_amount||0)+')">💰 សង/កាត់</button>':'')
               +'<button class="btn btn-danger btn-sm" onclick="deleteRecord(\'loans\','+r.id+',renderLoans)">🗑️</button>'
               +'</div></td>'
               +'</tr>';
@@ -4529,121 +4532,101 @@ async function saveLoan() {
   } catch(e) { showToast('បញ្ហា: '+e.message,'error'); }
 }
 
-function openRepayModal(id, name, left, installAmt) {
-  $('modal-title').textContent = 'ការសងប្រាក់ — ' + name;
+async function openRepayModal(id, name, left, installAmt) {
+  $('modal-title').textContent = 'ការសង/កាត់ប្រាក់ — ' + name;
   const suggested = installAmt > 0 ? Math.min(installAmt, left) : left;
+  const todayVal = new Date().toISOString().split('T')[0];
+  let pmts = [];
+  try {
+    const allLoans = await api('GET', '/loans');
+    const loanRec = (allLoans.records||[]).find(r=>r.id===id);
+    pmts = loanRec?.payments || [];
+  } catch(e){}
+
+  let histHTML = '';
+  if (pmts && pmts.length > 0) {
+    const rows = pmts.map((p,i) =>
+      '<tr>'
+      +'<td style="padding:4px 8px;font-size:11px;color:var(--text3)">'+(i+1)+'</td>'
+      +'<td style="padding:4px 8px;font-size:11px;font-family:var(--mono)">'+p.date+'</td>'
+      +'<td style="padding:4px 8px;font-weight:700;color:var(--success);font-family:var(--mono)">-$'+parseFloat(p.amount||0).toFixed(2)+'</td>'
+      +'<td style="padding:4px 8px;font-weight:700;color:var(--danger);font-family:var(--mono)">$'+parseFloat(p.remaining||0).toFixed(2)+'</td>'
+      +'<td style="padding:4px 8px;font-size:10px;color:var(--text3)">'+(p.note||'—')+'</td>'
+      +'</tr>'
+    ).join('');
+    histHTML = '<div style="margin-bottom:14px">'
+      +'<div style="font-size:12px;color:var(--text3);margin-bottom:6px;font-weight:600">📋 ប្រវត្តិការសង/កាត់</div>'
+      +'<div style="max-height:140px;overflow-y:auto;border:1px solid var(--border);border-radius:8px">'
+      +'<table style="width:100%;font-size:11px;border-collapse:collapse">'
+      +'<thead><tr style="background:var(--bg2)">'
+      +'<th style="padding:5px 8px;text-align:left">#</th>'
+      +'<th style="padding:5px 8px;text-align:left">កាលបរិច្ឆេទ</th>'
+      +'<th style="padding:5px 8px;text-align:left">បានកាត់</th>'
+      +'<th style="padding:5px 8px;text-align:left">នៅសល់</th>'
+      +'<th style="padding:5px 8px;text-align:left">ចំណាំ</th>'
+      +'</tr></thead>'
+      +'<tbody>'+rows+'</tbody>'
+      +'</table></div></div>';
+  }
+
   $('modal-body').innerHTML =
-    '<div style="margin-bottom:16px;padding:12px;background:var(--bg3);border-radius:8px">'
-    +'<div style="font-size:12px;color:var(--text3);margin-bottom:4px">ប្រាក់នៅសល់</div>'
-    +'<div style="font-size:22px;font-weight:800;color:var(--danger);font-family:var(--mono)">$'+left.toFixed(2)+'</div>'
-    +(installAmt>0?'<div style="font-size:11px;color:var(--text3);margin-top:4px">💡 ដំណាក់កាល: $'+installAmt+'/ខែ</div>':'')
+    '<div style="margin-bottom:14px;padding:12px;background:var(--bg3);border-radius:10px;display:flex;gap:20px;flex-wrap:wrap;align-items:center">'
+    +'<div><div style="font-size:11px;color:var(--text3)">នៅសល់ត្រូវសង</div>'
+    +'<div style="font-size:22px;font-weight:800;font-family:var(--mono);color:var(--danger)">$'+left.toFixed(2)+'</div></div>'
+    +(installAmt>0?'<div><div style="font-size:11px;color:var(--text3)">ត្រូវតាម fix/ខែ</div><div style="font-size:14px;font-weight:700;color:var(--primary)">$'+installAmt+'/ខែ</div></div>':'')
     +'</div>'
+    + histHTML
+    +'<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px">'
+    +'<div style="font-size:13px;font-weight:700;color:var(--primary);margin-bottom:12px">✏️ កាត់/សង តាមសាច់ប្រាក់ (ដោយដៃ)</div>'
     +'<div class="form-grid">'
-    +'<div class="form-group full-width"><label class="form-label">ចំនួនដែលសង (USD) *</label>'
-    +'<input class="form-control" id="rp-amount" type="number" value="'+suggested.toFixed(2)+'" max="'+left.toFixed(2)+'" step="0.01" /></div>'
-    +'<div class="form-group full-width">'
-    +'<div style="display:flex;gap:8px;flex-wrap:wrap">'
-    +(installAmt>0?'<button class="btn btn-outline btn-sm" onclick="$(\'rp-amount\').value=\''+Math.min(installAmt,left).toFixed(2)+'\'">💡 ដំណាក់ $'+installAmt+'</button>':'')
-    +'<button class="btn btn-outline btn-sm" onclick="$(\'rp-amount\').value=\''+left.toFixed(2)+'\'">🔚 សងទាំងអស់ $'+left.toFixed(2)+'</button>'
-    +'</div></div>'
+    +'<div class="form-group"><label class="form-label">ចំនួនកាត់ (USD) *</label>'
+    +'<input class="form-control" id="rp-amount" type="number" value="'+suggested.toFixed(2)+'" max="'+left.toFixed(2)+'" step="0.01" placeholder="0.00" oninput="calcRepayRemain('+left+')" /></div>'
+    +'<div class="form-group"><label class="form-label">កាលបរិច្ឆេទ</label>'
+    +'<input class="form-control" id="rp-date" type="date" value="'+todayVal+'" /></div>'
+    +'<div class="form-group full-width"><label class="form-label">ចំណាំ (ស្រេចចិត្ត)</label>'
+    +'<input class="form-control" id="rp-note" placeholder="ខែ១ / លុយខៀវ / ហ.ស..." /></div>'
+    +'</div>'
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">'
+    +(installAmt>0?'<button class="btn btn-outline btn-sm" onclick="document.getElementById(\'rp-amount\').value=\''+Math.min(installAmt,left).toFixed(2)+'\';calcRepayRemain('+left+')">💡 ដំណាក់ $'+installAmt+'</button>':'')
+    +'<button class="btn btn-outline btn-sm" onclick="document.getElementById(\'rp-amount\').value=\''+left.toFixed(2)+'\';calcRepayRemain('+left+')">🔚 សងទាំងអស់ $'+left.toFixed(2)+'</button>'
+    +'</div>'
+    +'<div id="rp-preview" style="margin-top:10px;padding:10px;background:var(--bg3);border-radius:8px;font-size:12px;display:none">'
+    +'<span style="color:var(--text3)">នៅសល់ក្រោយកាត់: </span>'
+    +'<span id="rp-remain-val" style="font-weight:800;font-family:var(--mono);color:var(--warning)"></span>'
+    +'</div>'
     +'</div>'
     +'<div class="form-actions">'
     +'<button class="btn btn-outline" onclick="closeModal()">បោះបង់</button>'
-    +'<button class="btn btn-success" onclick="saveRepay('+id+','+left+')">💰 បញ្ចូលការសង</button>'
+    +'<button class="btn btn-success" onclick="saveRepay('+id+','+left+')">💸 បញ្ចូលការកាត់</button>'
     +'</div>';
   openModal();
+  setTimeout(() => calcRepayRemain(left), 50);
+}
+
+function calcRepayRemain(left) {
+  const amt = parseFloat(document.getElementById('rp-amount')?.value)||0;
+  const preview = document.getElementById('rp-preview');
+  const val = document.getElementById('rp-remain-val');
+  if (!preview || !val) return;
+  if (amt <= 0) { preview.style.display='none'; return; }
+  const remain = Math.max(0, left - amt);
+  val.textContent = '$' + remain.toFixed(2);
+  val.style.color = remain <= 0 ? 'var(--success)' : 'var(--warning)';
+  if (remain <= 0) val.textContent += ' ✅ សងរួច!';
+  preview.style.display = 'block';
 }
 
 async function saveRepay(id, left) {
-  const amount = parseFloat($('rp-amount').value)||0;
-  if (!amount||amount>left+0.01) { showToast('ចំនួនមិនត្រឹមត្រូវ!','error'); return; }
+  const amount = parseFloat($('rp-amount')?.value)||0;
+  if (!amount || amount > left + 0.01) { showToast('ចំនួនមិនត្រឹមត្រូវ!','error'); return; }
+  const date = $('rp-date')?.value || new Date().toISOString().split('T')[0];
+  const note = $('rp-note')?.value || '';
   try {
-    await api('PUT',`/loans/${id}/repay`,{ amount });
-    showToast('បញ្ចូលការសងបានជោគជ័យ!','success'); closeModal(); renderLoans();
+    await api('PUT', `/loans/${id}/repay`, { amount, date, note });
+    const remain = Math.max(0, left - amount);
+    showToast('💸 បានកាត់ $'+amount.toFixed(2)+' — នៅសល់: $'+remain.toFixed(2)+'!','success');
+    closeModal(); renderLoans();
   } catch(e) { showToast('បញ្ហា: '+e.message,'error'); }
-}
-
-// ============================================================
-// LOAN INSTALLMENT DEDUCTION FROM SALARY
-// ============================================================
-
-// Deduct ONE loan's installment from salary and record repayment
-async function deductLoanInstallment(loanId, empId, empName, installAmt, left) {
-  const month = today().substring(0,7); // current YYYY-MM
-  const amount = Math.min(installAmt, left);
-  if (!confirm('💸 កាត់ $' + amount.toFixed(2) + '/ខែ ចំពោះ ' + empName + '\nពី Salary ខែ ' + month + '?')) return;
-  try {
-    // 1. Record loan repayment
-    await api('PUT', '/loans/' + loanId + '/repay', { amount });
-
-    // 2. Get or create salary record for this month
-    const salData = await api('GET', '/salary?month=' + month);
-    const emp = (state.employees||[]).find(e => e.id === empId);
-    const base = emp ? (emp.salary||0) : 0;
-    const rec = (salData.records||[]).find(r => r.employee_id === empId);
-    if (!rec) {
-      await api('POST', '/salary', {
-        employee_id: empId, month,
-        base_salary: base, bonus: 0,
-        deduction: amount, net_salary: base - amount,
-        notes: 'កាត់ប្រាក់ខ្ចី $' + amount.toFixed(2) + '/ខែ'
-      });
-    } else {
-      const newDeduct = (rec.deduction||0) + amount;
-      const newNet = (rec.base_salary||0) + (rec.bonus||0) - newDeduct;
-      await api('PUT', '/salary/' + rec.id, {
-        ...rec, deduction: newDeduct, net_salary: newNet,
-        notes: (rec.notes ? rec.notes + ' | ' : '') + 'កាត់ប្រាក់ខ្ចី $' + amount.toFixed(2)
-      });
-    }
-    showToast('💸 កាត់ $' + amount.toFixed(2) + ' ចំពោះ ' + empName + ' បានជោគជ័យ!', 'success');
-    renderLoans();
-  } catch(e) { showToast('Error: ' + e.message, 'error'); }
-}
-
-// Deduct ALL active loans' installments from salary for this month
-async function deductAllLoanInstallments() {
-  const month = today().substring(0,7);
-  const data = await api('GET', '/loans');
-  const active = (data.records||[]).filter(r => {
-    const left = (r.amount||0) - (r.paid_amount||0);
-    return left > 0 && r.installment_amount > 0;
-  });
-  if (active.length === 0) { showToast('មិនមានប្រាក់ខ្ចីដែលនៅសល់!', 'info'); return; }
-  const total = active.reduce((s,r) => s + Math.min(r.installment_amount, (r.amount||0)-(r.paid_amount||0)), 0);
-  if (!confirm('💸 កាត់ប្រាក់ខ្ចីខែ ' + month + '\nបុគ្គលិកចំនួន ' + active.length + ' នាក់\nសរុប $' + total.toFixed(2) + '\n\nចង់ដំណើរការ?')) return;
-  let ok = 0, fail = 0;
-  for (const r of active) {
-    try {
-      const left = (r.amount||0) - (r.paid_amount||0);
-      const amount = Math.min(r.installment_amount, left);
-      // Record repayment
-      await api('PUT', '/loans/' + r.id + '/repay', { amount });
-      // Apply to salary
-      const salData = await api('GET', '/salary?month=' + month);
-      const emp = (state.employees||[]).find(e => e.id === r.employee_id);
-      const base = emp ? (emp.salary||0) : 0;
-      const rec = (salData.records||[]).find(s => s.employee_id === r.employee_id);
-      if (!rec) {
-        await api('POST', '/salary', {
-          employee_id: r.employee_id, month,
-          base_salary: base, bonus: 0,
-          deduction: amount, net_salary: base - amount,
-          notes: 'កាត់ប្រាក់ខ្ចី $' + amount.toFixed(2)
-        });
-      } else {
-        const newDeduct = (rec.deduction||0) + amount;
-        const newNet = (rec.base_salary||0) + (rec.bonus||0) - newDeduct;
-        await api('PUT', '/salary/' + rec.id, {
-          ...rec, deduction: newDeduct, net_salary: newNet,
-          notes: (rec.notes ? rec.notes + ' | ' : '') + 'កាត់ប្រាក់ខ្ចី $' + amount.toFixed(2)
-        });
-      }
-      ok++;
-    } catch(e) { fail++; }
-  }
-  showToast('💸 កាត់ជោគជ័យ ' + ok + ' នាក់' + (fail>0?' | បរាជ័យ '+fail+' នាក់':''), ok>0?'success':'error');
-  renderLoans();
 }
 
 // ============================================================
