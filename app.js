@@ -8549,25 +8549,10 @@ function printIdCardsPortrait() {
     ? '<img src="'+cfg.logo_url+'" style="height:22px;object-fit:contain;vertical-align:middle;margin-right:6px" />'
     : '';
 
-  // CR80 Portrait physical size: 54mm × 85.6mm
-  // We render cards at native px (204×323) then use CSS to size the card-box to exact mm
-  // so the browser prints at correct physical size regardless of screen dpi.
-  // A4 portrait usable: 210-12=198mm wide, 297-12=285mm tall (6mm margin each side)
-  // Each employee row: front(54mm) + gap(5mm) + back(54mm) = 113mm  → fits in 198mm ✓
-  // Each row height: 85.6mm card + 3mm label + 2mm gap = ~91mm
-  // Rows per page: floor(285 / 91) = 3 employees per page
-
-  const CARD_W_MM = 54;    // mm — CR80 portrait width
-  const CARD_H_MM = 85.6;  // mm — CR80 portrait height
-  const CARD_W_PX = 204;   // px — native render width (for inner content)
-  const CARD_H_PX = 323;   // px — native render height
-
-  // Scale factor to go from px → mm in the card-box
-  // card-box is sized in mm; inner content rendered at px then scaled to fit
-  const scaleX = CARD_W_MM / CARD_W_PX; // 54/204 ≈ 0.2647
-  const scaleY = CARD_H_MM / CARD_H_PX; // 85.6/323 ≈ 0.2650
-  // Use uniform scale (they're equal for CR80)
-  const SCALE  = Math.min(scaleX, scaleY).toFixed(5);
+  // CR80 Portrait: 204px × 323px = 54mm × 85.6mm at 96dpi (1px=0.2646mm)
+  // Use window.open (not iframe) to prevent browser auto-shrink
+  const PW = 204;
+  const PH = 323;
 
   let pairsHTML = '';
   cards.forEach(card => {
@@ -8577,87 +8562,67 @@ function printIdCardsPortrait() {
     const frontEl = card.querySelector('.id-flip-front');
     const backEl  = card.querySelector('.id-flip-back');
     if (!frontEl || !backEl) return;
-
     const front = frontEl.cloneNode(true);
     const back  = backEl.cloneNode(true);
-
-    // Reset 3D flip and set native px size; we scale via the card-box wrapper
     [front, back].forEach(el => {
       el.style.cssText =
-        'position:absolute;top:0;left:0;'
-        +'transform:scale('+SCALE+');transform-origin:top left;'
-        +'backface-visibility:visible!important;-webkit-backface-visibility:visible!important;'
-        +'width:'+CARD_W_PX+'px;height:'+CARD_H_PX+'px;'
-        +'display:block;border-radius:12px;overflow:hidden;';
+        'position:relative;transform:none;'
+        +'backface-visibility:visible;-webkit-backface-visibility:visible;'
+        +'width:'+PW+'px;height:'+PH+'px;'
+        +'display:block;border-radius:12px;overflow:hidden;flex-shrink:0;';
     });
-
     pairsHTML +=
       '<div class="card-pair">'
         +'<div class="emp-label">'+name+(dept?' · '+dept:'')+'</div>'
         +'<div class="card-row">'
-          +'<div class="card-col">'
-            +'<div class="side-label">▶ FRONT</div>'
-            +'<div class="card-box">'+front.outerHTML+'</div>'
-          +'</div>'
-          +'<div class="card-col">'
-            +'<div class="side-label">◀ BACK</div>'
-            +'<div class="card-box">'+back.outerHTML+'</div>'
-          +'</div>'
-        +'</div>'
-      +'</div>';
+          +'<div class="card-col"><div class="side-label">&#9658; FRONT</div>'
+            +'<div class="card-box">'+front.outerHTML+'</div></div>'
+          +'<div class="card-col"><div class="side-label">&#9664; BACK</div>'
+            +'<div class="card-box">'+back.outerHTML+'</div></div>'
+        +'</div></div>';
   });
 
-  printHTML('<!DOCTYPE html><html><head><meta charset="UTF-8">'
+  const html = '<!DOCTYPE html><html><head><meta charset="UTF-8">'
     +'<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Khmer:wght@400;600;700;800&display=swap" rel="stylesheet">'
-    +'<title>ID Cards (បញ្ឈ) — '+(cfg.company_name||'HR Pro')+'</title>'
+    +'<title>ID Cards (&#x1794;&#x1789;&#x17B9;)</title>'
     +'<style>'
     +'*{box-sizing:border-box;margin:0;padding:0}'
-    // ── Reset flip card 3D transforms ──
+    +'@page{size:210mm 297mm portrait;margin:8mm}'
+    +'html,body{width:194mm;font-family:"Noto Sans Khmer",sans-serif;background:white;color:#1e293b;'
+      +'-webkit-print-color-adjust:exact;print-color-adjust:exact;}'
     +'.id-flip-card,.id-portrait-card{perspective:none!important;}'
     +'.id-flip-inner{transform:none!important;transform-style:flat!important;position:static!important;display:block!important;}'
-    +'.id-flip-front,.id-flip-back{transform:none!important;backface-visibility:visible!important;-webkit-backface-visibility:visible!important;}'
-    // ── Page & body ──
-    +'@page{size:A4 portrait;margin:6mm}'
-    +'body{font-family:"Noto Sans Khmer",sans-serif;background:white;color:#1e293b;'
-      +'padding:0;width:198mm;}'
-    // ── Header ──
-    +'.print-header{display:flex;align-items:center;justify-content:space-between;'
-      +'margin-bottom:4mm;padding-bottom:3mm;border-bottom:2px solid #1d4ed8;width:100%}'
-    +'.header-left{display:flex;align-items:center;gap:6px}'
-    +'.co-name{font-size:11pt;font-weight:800;color:#1d4ed8}'
-    +'.header-right{font-size:7.5pt;color:#64748b;text-align:right;line-height:1.5}'
-    // ── Cards layout ──
-    +'.cards-grid{display:flex;flex-direction:column;gap:4mm;width:100%}'
+    +'.id-flip-front,.id-flip-back{position:static!important;transform:none!important;backface-visibility:visible!important;-webkit-backface-visibility:visible!important;display:block!important;}'
+    +'.print-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:5mm;padding-bottom:3mm;border-bottom:2px solid #1d4ed8}'
+    +'.co-name{font-size:13pt;font-weight:800;color:#1d4ed8}'
+    +'.header-right{font-size:8pt;color:#64748b;text-align:right;line-height:1.6}'
+    +'.cards-grid{display:flex;flex-direction:column;gap:6mm}'
     +'.card-pair{break-inside:avoid;page-break-inside:avoid}'
-    +'.emp-label{font-size:6pt;font-weight:700;color:#64748b;letter-spacing:.5px;margin-bottom:1.5mm}'
+    +'.emp-label{font-size:7pt;font-weight:700;color:#475569;letter-spacing:.5px;margin-bottom:1.5mm}'
     +'.card-row{display:flex;gap:5mm;align-items:flex-start}'
     +'.card-col{display:flex;flex-direction:column;align-items:center}'
-    +'.side-label{font-size:5pt;font-weight:700;color:#94a3b8;letter-spacing:.5px;margin-bottom:1mm;text-align:center}'
-    // ── Card box sized in mm = exact CR80 physical size ──
-    +'.card-box{'
-      +'width:'+CARD_W_MM+'mm;'
-      +'height:'+CARD_H_MM+'mm;'
-      +'border-radius:2.5mm;'
-      +'overflow:hidden;'
-      +'position:relative;'
-      +'box-shadow:0 0 0 0.3mm #94a3b8;'
-      +'flex-shrink:0;'
-      +'display:block;'
-    +'}'
+    +'.side-label{font-size:6pt;font-weight:700;color:#94a3b8;margin-bottom:1.5mm;text-align:center}'
+    +'.card-box{width:'+PW+'px;height:'+PH+'px;border-radius:12px;overflow:hidden;'
+      +'box-shadow:0 0 0 1px #cbd5e1;display:block;flex-shrink:0;}'
+    +'.card-box>div{width:'+PW+'px!important;height:'+PH+'px!important;border-radius:12px!important;overflow:hidden!important;}'
     +'</style></head><body>'
     +'<div class="print-header">'
-      +'<div class="header-left">'+logoHtml
-        +'<span class="co-name">'+(cfg.company_name||'HR Pro')+'</span>'
-      +'</div>'
-      +'<div class="header-right">'
-        +'🪪 Employee ID Cards — បញ្ឈ (Portrait)<br>'
+      +'<div style="display:flex;align-items:center;gap:6px">'+logoHtml
+        +'<span class="co-name">'+(cfg.company_name||'HR Pro')+'</span></div>'
+      +'<div class="header-right">&#128203; Employee ID Cards &#8212; &#x1794;&#x1789;&#x17B9; (Portrait)<br>'
         +(CARD_STYLE_META[style]?.label||style)
-        +' · '+new Date().toLocaleDateString('km-KH')
-        +' · '+cards.length+' Cards'
+        +' &middot; '+new Date().toLocaleDateString('km-KH')
+        +' &middot; '+cards.length+' Cards'
       +'</div>'
     +'</div>'
     +'<div class="cards-grid">'+pairsHTML+'</div>'
-    +'</body></html>');
+    +'<script>window.onload=function(){window.focus();window.print();}<\/script>'
+    +'</body></html>';
+
+  const w = window.open('','_blank','width=900,height=700');
+  if (!w) { showToast('សូម allow popup ក្នុង browser!','warning'); return; }
+  w.document.write(html);
+  w.document.close();
 }
 
 // ===== MODAL / TOAST / BADGE =====
