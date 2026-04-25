@@ -7131,7 +7131,7 @@ function renderSettings() {
               </div>
               <div class="form-group full-width">
                 <label class="form-label">🪪 អត្ថបទការ​ត​បាត់ (ID Card Footer)</label>
-                <input class="form-control" id="cfg-lost-card" placeholder="ករណីបាត់ — If found, please return" value="${cfg.lost_card_text != null ? cfg.lost_card_text : 'ករណីបាត់ — If found, please return'}" />
+                <input class="form-control" id="cfg-lost-card" placeholder="ករណីបាត់ — If found, please return" value="${cfg.lost_card_text||'ករណីបាត់ — If found, please return'}" />
                 <div style="font-size:11px;color:var(--text3);margin-top:4px">នឹងបង្ហាញនៅខាងក្រោម ID Card រាល់ style</div>
               </div>
             </div>
@@ -7841,34 +7841,19 @@ function removeLogo() {
   renderSettings();
 }
 
-async function saveCompanySettings() {
+function saveCompanySettings() {
   const cfg = getCompanyConfig();
-  cfg.company_name    = $('cfg-company-name')?.value?.trim() || cfg.company_name;
-  cfg.admin_name      = $('cfg-admin-name')?.value?.trim()   || cfg.admin_name;
-  cfg.admin_role      = $('cfg-admin-role')?.value?.trim()   || cfg.admin_role;
-  cfg.company_email   = $('cfg-email')?.value?.trim()        || '';
-  cfg.company_phone   = $('cfg-phone')?.value?.trim()        || '';
-  cfg.company_address = $('cfg-address')?.value?.trim()      || '';
-  cfg.slogan          = $('cfg-slogan')?.value?.trim()        || '';
-  const _lct = $('cfg-lost-card');
-  cfg.lost_card_text  = _lct ? _lct.value.trim() : (cfg.lost_card_text ?? 'ករណីបាត់ — If found, please return');
-  // Save to localStorage immediately so value persists across reload
-  _cfgCache = cfg;
-  localStorage.setItem(CFG_KEY, JSON.stringify(cfg));
-  applyCompanyBranding();
-  // Save to server and report result
-  if (!isDemoMode()) {
-    try {
-      await api('POST', '/config', cfg);
-      showToast('រក្សាទុកព័ត៌មានក្រុមហ៊ុនបានជោគជ័យ! ✅', 'success');
-    } catch(e) {
-      showToast('រក្សាទុករួច (localStorage) ⚠️ — មិនអាច sync ទៅ server', 'warning');
-    }
-  } else {
-    showToast('រក្សាទុកព័ត៌មានក្រុមហ៊ុនបានជោគជ័យ! ✅', 'success');
-  }
+  cfg.company_name = $('cfg-company-name')?.value?.trim() || cfg.company_name;
+  cfg.admin_name   = $('cfg-admin-name')?.value?.trim() || cfg.admin_name;
+  cfg.admin_role   = $('cfg-admin-role')?.value?.trim() || cfg.admin_role;
+  cfg.company_email   = $('cfg-email')?.value?.trim() || '';
+  cfg.company_phone   = $('cfg-phone')?.value?.trim() || '';
+  cfg.company_address = $('cfg-address')?.value?.trim() || '';
+  cfg.slogan       = $('cfg-slogan')?.value?.trim() || '';
+  cfg.lost_card_text = $('cfg-lost-card')?.value?.trim() || 'ករណីបាត់ — If found, please return';
+  saveCompanyConfig(cfg);
+  showToast('រក្សាទុកព័ត៌មានក្រុមហ៊ុនបានជោគជ័យ! ✅','success');
 }
-
 
 function saveSalarySettings() {
   const cur = $('sr-currency')?.value || 'USD';
