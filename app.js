@@ -8546,13 +8546,23 @@ function printIdCardsPortrait() {
   const style = currentCardStyle;
 
   const logoHtml = cfg.logo_url
-    ? '<img src="'+cfg.logo_url+'" style="height:22px;object-fit:contain;vertical-align:middle;margin-right:6px" />'
+    ? '<img src="'+cfg.logo_url+'" style="height:20px;object-fit:contain;vertical-align:middle;margin-right:5px" />'
     : '';
 
-  // CR80 Portrait: 204px × 323px = 54mm × 85.6mm at 96dpi (1px=0.2646mm)
-  // Use window.open (not iframe) to prevent browser auto-shrink
-  const PW = 204;
-  const PH = 323;
+  // CR80 Portrait physical: 54mm × 85.6mm
+  // Strategy: size card-box in mm (browser respects mm at print),
+  // render inner content at native px then CSS-scale to fill mm box.
+  // 54mm / 25.4 * 96dpi = 204px → scale factor = 1.0 (no scale needed if dpi=96)
+  // But browser screen dpi varies, so we use mm for outer box and transform for inner.
+  const CW = 54;      // card width mm
+  const CH = 85.6;    // card height mm
+  const PW = 204;     // inner render px
+  const PH = 323;     // inner render px
+
+  // CSS transform scale: mm → px conversion at 96dpi: 1mm = 3.7795px
+  // box mm → px: 54mm * 3.7795 = 204px, 85.6mm * 3.7795 = 323px → scale = 1.0 exactly
+  // So inner px content fills mm box perfectly at 96dpi print.
+  // For safety we use transform scale inside the mm box.
 
   let pairsHTML = '';
   cards.forEach(card => {
@@ -8562,15 +8572,18 @@ function printIdCardsPortrait() {
     const frontEl = card.querySelector('.id-flip-front');
     const backEl  = card.querySelector('.id-flip-back');
     if (!frontEl || !backEl) return;
+
     const front = frontEl.cloneNode(true);
     const back  = backEl.cloneNode(true);
     [front, back].forEach(el => {
       el.style.cssText =
-        'position:relative;transform:none;'
+        'position:absolute;top:0;left:0;'
+        +'transform-origin:top left;'
         +'backface-visibility:visible;-webkit-backface-visibility:visible;'
         +'width:'+PW+'px;height:'+PH+'px;'
-        +'display:block;border-radius:12px;overflow:hidden;flex-shrink:0;';
+        +'display:block;border-radius:0;overflow:hidden;';
     });
+
     pairsHTML +=
       '<div class="card-pair">'
         +'<div class="emp-label">'+name+(dept?' · '+dept:'')+'</div>'
@@ -8582,34 +8595,69 @@ function printIdCardsPortrait() {
         +'</div></div>';
   });
 
-  const html = '<!DOCTYPE html><html><head><meta charset="UTF-8">'
+  const html = '<!DOCTYPE html><html><head>'
+    +'<meta charset="UTF-8">'
     +'<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Khmer:wght@400;600;700;800&display=swap" rel="stylesheet">'
-    +'<title>ID Cards (&#x1794;&#x1789;&#x17B9;)</title>'
+    +'<title>ID Cards Portrait</title>'
     +'<style>'
     +'*{box-sizing:border-box;margin:0;padding:0}'
-    +'@page{size:210mm 297mm portrait;margin:8mm}'
-    +'html,body{width:194mm;font-family:"Noto Sans Khmer",sans-serif;background:white;color:#1e293b;'
-      +'-webkit-print-color-adjust:exact;print-color-adjust:exact;}'
+    +'@page{size:A4 portrait;margin:8mm}'
+    // body width = A4 - margins = 210-16=194mm
+    // DO NOT set body width in px — use mm so browser does not auto-scale
+    +'body{'
+      +'font-family:"Noto Sans Khmer",sans-serif;'
+      +'background:white;color:#1e293b;'
+      +'width:194mm;'
+      +'-webkit-print-color-adjust:exact;print-color-adjust:exact;'
+    +'}'
+    // Flip card reset
     +'.id-flip-card,.id-portrait-card{perspective:none!important;}'
-    +'.id-flip-inner{transform:none!important;transform-style:flat!important;position:static!important;display:block!important;}'
-    +'.id-flip-front,.id-flip-back{position:static!important;transform:none!important;backface-visibility:visible!important;-webkit-backface-visibility:visible!important;display:block!important;}'
-    +'.print-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:5mm;padding-bottom:3mm;border-bottom:2px solid #1d4ed8}'
-    +'.co-name{font-size:13pt;font-weight:800;color:#1d4ed8}'
-    +'.header-right{font-size:8pt;color:#64748b;text-align:right;line-height:1.6}'
-    +'.cards-grid{display:flex;flex-direction:column;gap:6mm}'
+    +'.id-flip-inner{transform:none!important;transform-style:flat!important;'
+      +'position:static!important;display:block!important;width:auto!important;height:auto!important;}'
+    +'.id-flip-front,.id-flip-back{'
+      +'transform:none!important;backface-visibility:visible!important;'
+      +'-webkit-backface-visibility:visible!important;}'
+    // Header
+    +'.print-header{display:flex;align-items:center;justify-content:space-between;'
+      +'margin-bottom:5mm;padding-bottom:3mm;border-bottom:2px solid #1d4ed8;width:100%;}'
+    +'.co-name{font-size:11pt;font-weight:800;color:#1d4ed8}'
+    +'.hdr-r{font-size:7pt;color:#64748b;text-align:right;line-height:1.6}'
+    // Card layout — widths in mm to prevent px-based overflow
+    +'.cards-grid{display:flex;flex-direction:column;gap:5mm}'
     +'.card-pair{break-inside:avoid;page-break-inside:avoid}'
-    +'.emp-label{font-size:7pt;font-weight:700;color:#475569;letter-spacing:.5px;margin-bottom:1.5mm}'
+    +'.emp-label{font-size:6pt;font-weight:700;color:#475569;letter-spacing:.4px;margin-bottom:1.5mm}'
     +'.card-row{display:flex;gap:5mm;align-items:flex-start}'
     +'.card-col{display:flex;flex-direction:column;align-items:center}'
-    +'.side-label{font-size:6pt;font-weight:700;color:#94a3b8;margin-bottom:1.5mm;text-align:center}'
-    +'.card-box{width:'+PW+'px;height:'+PH+'px;border-radius:12px;overflow:hidden;'
-      +'box-shadow:0 0 0 1px #cbd5e1;display:block;flex-shrink:0;}'
-    +'.card-box>div{width:'+PW+'px!important;height:'+PH+'px!important;border-radius:12px!important;overflow:hidden!important;}'
+    +'.side-label{font-size:5.5pt;font-weight:700;color:#94a3b8;margin-bottom:1mm;text-align:center}'
+    // card-box sized in mm = exact CR80 portrait physical size
+    // inner px content fills this exactly at 96dpi
+    +'.card-box{'
+      +'width:'+CW+'mm;'        // 54mm = CR80 width
+      +'height:'+CH+'mm;'       // 85.6mm = CR80 height
+      +'overflow:hidden;'
+      +'position:relative;'
+      +'border-radius:2mm;'
+      +'box-shadow:0 0 0 0.3mm #94a3b8;'
+      +'flex-shrink:0;'
+    +'}'
+    // Inner content: positioned absolute, scale to fit mm box exactly
+    // At 96dpi: 54mm = 204.09px, 85.6mm = 323.35px → scale ≈ 1.0
+    // Use scale(1) to force correct render
+    +'.card-box>div{'
+      +'position:absolute!important;'
+      +'top:0!important;left:0!important;'
+      +'width:'+PW+'px!important;'
+      +'height:'+PH+'px!important;'
+      +'transform:scale(calc('+CW+'mm / '+PW+'px))!important;'
+      +'transform-origin:top left!important;'
+      +'border-radius:0!important;'
+      +'overflow:hidden!important;'
+    +'}'
     +'</style></head><body>'
     +'<div class="print-header">'
-      +'<div style="display:flex;align-items:center;gap:6px">'+logoHtml
+      +'<div style="display:flex;align-items:center;gap:5px">'+logoHtml
         +'<span class="co-name">'+(cfg.company_name||'HR Pro')+'</span></div>'
-      +'<div class="header-right">&#128203; Employee ID Cards &#8212; &#x1794;&#x1789;&#x17B9; (Portrait)<br>'
+      +'<div class="hdr-r">&#128203; Employee ID Cards &#8212; &#x1794;&#x1789;&#x17B9;<br>'
         +(CARD_STYLE_META[style]?.label||style)
         +' &middot; '+new Date().toLocaleDateString('km-KH')
         +' &middot; '+cards.length+' Cards'
@@ -8619,8 +8667,8 @@ function printIdCardsPortrait() {
     +'<script>window.onload=function(){window.focus();window.print();}<\/script>'
     +'</body></html>';
 
-  const w = window.open('','_blank','width=900,height=700');
-  if (!w) { showToast('សូម allow popup ក្នុង browser!','warning'); return; }
+  const w = window.open('','_blank','width=900,height=750');
+  if (!w) { showToast('សូម allow popup!','warning'); return; }
   w.document.write(html);
   w.document.close();
 }
