@@ -1005,8 +1005,10 @@ async function renderEmployees(filter='', dept='', status='') {
 
     // Apply client-side sort
     function empNum(e) {
-      const c = (e.custom_id||'').replace(/\D/g,'');
-      return c ? parseInt(c) : e.id;
+      const raw = (e.custom_id||'').trim();
+      if (!raw) return e.id;
+      const digits = raw.replace(/[^0-9]/g,'');
+      return digits ? parseInt(digits,10) : e.id;
     }
     const sortFn = {
       'id':            (a,b) => empNum(a) - empNum(b),
@@ -1048,14 +1050,14 @@ async function renderEmployees(filter='', dept='', status='') {
       +'<option value="inactive"'+(status==='inactive'?' selected':'')+'>⛔ ផ្អាក/លាឈប់</option>'
       +'</select>'
       +'<select class="filter-input" onchange="renderEmployeesSort(this.value)" id="emp-sort-sel">'
-      +'<option value="id">Sort: EMP ID ↑ (001→999)</option>'
-      +'<option value="id_desc">Sort: EMP ID ↓ (999→001)</option>'
-      +'<option value="name">Sort: ឈ្មោះ A→Z</option>'
-      +'<option value="name_desc">Sort: ឈ្មោះ Z→A</option>'
-      +'<option value="hire_date">Sort: ថ្ងៃចូល ចាស់→ថ្មី</option>'
-      +'<option value="hire_date_desc">Sort: ថ្ងៃចូល ថ្មី→ចាស់</option>'
-      +'<option value="salary">Sort: ប្រាក់ខែ ទាប→ខ្ពស់</option>'
-      +'<option value="salary_desc">Sort: ប្រាក់ខែ ខ្ពស់→ទាប</option>'
+      +'<option value="id"'+(_empSortBy==='id'?' selected':'')+'>Sort: EMP ID ↑ (001→999)</option>'
+      +'<option value="id_desc"'+(_empSortBy==='id_desc'?' selected':'')+'>Sort: EMP ID ↓ (999→001)</option>'
+      +'<option value="name"'+(_empSortBy==='name'?' selected':'')+'>Sort: ឈ្មោះ A→Z</option>'
+      +'<option value="name_desc"'+(_empSortBy==='name_desc'?' selected':'')+'>Sort: ឈ្មោះ Z→A</option>'
+      +'<option value="hire_date"'+(_empSortBy==='hire_date'?' selected':'')+'>Sort: ថ្ងៃចូល ចាស់→ថ្មី</option>'
+      +'<option value="hire_date_desc"'+(_empSortBy==='hire_date_desc'?' selected':'')+'>Sort: ថ្ងៃចូល ថ្មី→ចាស់</option>'
+      +'<option value="salary"'+(_empSortBy==='salary'?' selected':'')+'>Sort: ប្រាក់ខែ ទាប→ខ្ពស់</option>'
+      +'<option value="salary_desc"'+(_empSortBy==='salary_desc'?' selected':'')+'>Sort: ប្រាក់ខែ ខ្ពស់→ទាប</option>'
       +'</select>'
       +'</div>'
       +'<div class="card"><div class="table-container"><table>'
