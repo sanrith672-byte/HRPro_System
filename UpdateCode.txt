@@ -113,3 +113,17 @@ wrangler pages deploy . --project-name hrpro-sansukun --commit-dirty=true
    wrangler pages deploy . --project-name hrpro-sansukun --commit-dirty=true
 
 3. រង់ចាំ 1-2 នាទី រួច Refresh Browser
+
+
+
+
+git add index.js
+git commit -m "update index.js"
+git push origin main
+wrangler pages deploy . --project-name hrpro-sansukun --commit-dirty=true
+
+
+git add app.js
+git commit -m "fix: lost card text double display + config cache refresh bug"
+git push origin main
+wrangler pages deploy . --project-name hrpro-sansukun --commit-dirty=true
