@@ -5481,7 +5481,7 @@ function idCardHTML(e, style, cfg) {
       + qrLabel(qrBlock,'#1d4ed8')
       +'<div style="flex:1;min-width:0">'+rows(infoData,'#94a3b8','#1e293b','#f0f4ff')+'</div></div>'
       +'<div style="background:#f8faff;border-top:1px solid #e2eaff;padding:4px 14px;display:flex;justify-content:space-between">'
-      +'<div style="font-size:8px;color:#94a3b8;font-style:italic">ករណីបាត់ — If found, please return</div>'
+      +'<div style="font-size:8px;color:#94a3b8;font-style:italic">'+( cfg.lost_card_text||'ករណីបាត់ — If found, please return')+'</div>'
       +'<div style="font-size:8px;color:#94a3b8;font-family:monospace">'+hireDate+'</div></div></div>';
     return wrap(front, back);
   }
@@ -5540,7 +5540,7 @@ function idCardHTML(e, style, cfg) {
       + qrLabel(qrBlock,g2)
       +'<div style="flex:1;min-width:0">'+rows(infoData,'#94a3b8','#1e293b','#f0fdf4')+'</div></div>'
       +'<div style="background:#f0fdf4;border-top:1px solid #d1fae5;padding:4px 14px;display:flex;justify-content:space-between">'
-      +'<div style="font-size:8px;color:#94a3b8;font-style:italic">If found, please return</div>'
+      +'<div style="font-size:8px;color:#94a3b8;font-style:italic">'+( cfg.lost_card_text||'ករណីបាត់ — If found, please return')+'</div>'
       +'<div style="font-size:8px;color:#94a3b8;font-family:monospace">'+hireDate+'</div></div></div>';
     return wrap(front, back);
   }
@@ -5573,7 +5573,7 @@ function idCardHTML(e, style, cfg) {
       + qrLabel(qrBlock,p2)
       +'<div style="flex:1;min-width:0">'+rows(infoData,'#94a3b8','#1e293b','#fdf2f8')+'</div></div>'
       +'<div style="background:#fdf2f8;border-top:1px solid #fce7f3;padding:4px 14px;display:flex;justify-content:space-between">'
-      +'<div style="font-size:8px;color:#94a3b8;font-style:italic">If found, please return</div>'
+      +'<div style="font-size:8px;color:#94a3b8;font-style:italic">'+( cfg.lost_card_text||'ករណីបាត់ — If found, please return')+'</div>'
       +'<div style="font-size:8px;color:#94a3b8;font-family:monospace">'+hireDate+'</div></div></div>';
     return wrap(front, back);
   }
@@ -5606,7 +5606,7 @@ function idCardHTML(e, style, cfg) {
       + qrLabel('<div style="background:#111827;padding:3px;border-radius:4px">'+makeQRSvg(empIdRaw,qrInner,'#f9fafb','#111827')+'</div>','#374151')
       +'<div style="flex:1;min-width:0">'+rows(infoData,'#9ca3af','#111827','#e5e7eb')+'</div></div>'
       +'<div style="background:#f3f4f6;border-top:1px solid #e5e7eb;padding:4px 14px;display:flex;justify-content:space-between">'
-      +'<div style="font-size:8px;color:#9ca3af;font-style:italic">If found, please return</div>'
+      +'<div style="font-size:8px;color:#9ca3af;font-style:italic">'+( cfg.lost_card_text||'ករណីបាត់ — If found, please return')+'</div>'
       +'<div style="font-size:8px;color:#9ca3af;font-family:monospace">'+hireDate+'</div></div></div>';
     return wrap(front, back);
   }
@@ -5639,7 +5639,7 @@ function idCardHTML(e, style, cfg) {
       + qrLabel(qrBlock,o2)
       +'<div style="flex:1;min-width:0">'+rows(infoData,'#94a3b8','#1e293b','#e0f2fe')+'</div></div>'
       +'<div style="background:#e0f2fe;border-top:1px solid #bae6fd;padding:4px 14px;display:flex;justify-content:space-between">'
-      +'<div style="font-size:8px;color:#94a3b8;font-style:italic">If found, please return</div>'
+      +'<div style="font-size:8px;color:#94a3b8;font-style:italic">'+( cfg.lost_card_text||'ករណីបាត់ — If found, please return')+'</div>'
       +'<div style="font-size:8px;color:#94a3b8;font-family:monospace">'+hireDate+'</div></div></div>';
     return wrap(front, back);
   }
@@ -5672,7 +5672,7 @@ function idCardHTML(e, style, cfg) {
       + qrLabel(qrBlock,s2)
       +'<div style="flex:1;min-width:0">'+rows(infoData,'#94a3b8','#1e293b','#faf5ff')+'</div></div>'
       +'<div style="background:#faf5ff;border-top:1px solid #e9d5ff;padding:4px 14px;display:flex;justify-content:space-between">'
-      +'<div style="font-size:8px;color:#94a3b8;font-style:italic">If found, please return</div>'
+      +'<div style="font-size:8px;color:#94a3b8;font-style:italic">'+( cfg.lost_card_text||'ករណីបាត់ — If found, please return')+'</div>'
       +'<div style="font-size:8px;color:#94a3b8;font-family:monospace">'+hireDate+'</div></div></div>';
     return wrap(front, back);
   }
@@ -5704,7 +5704,7 @@ function idCardHTML(e, style, cfg) {
       + qrLabel('<div style="background:#1f2937;padding:3px;border-radius:4px">'+makeQRSvg(empIdRaw,qrInner,'white','#1f2937')+'</div>',ac)
     +'<div style="flex:1;min-width:0">'+rows(infoData,'#9ca3af','#111827','#e5e7eb')+'</div></div>'
     +'<div style="background:#f3f4f6;border-top:1px solid #e5e7eb;padding:4px 14px;display:flex;justify-content:space-between">'
-    +'<div style="font-size:8px;color:#9ca3af;font-style:italic">If found, please return</div>'
+    +'<div style="font-size:8px;color:#9ca3af;font-style:italic">'+( cfg.lost_card_text||'ករណីបាត់ — If found, please return')+'</div>'
     +'<div style="font-size:8px;color:#9ca3af;font-family:monospace">'+hireDate+'</div></div></div>';
   return wrap(front, back);
 
@@ -5720,7 +5720,7 @@ function idCardHTML(e, style, cfg) {
       +'<div style="font-family:monospace;font-size:9px;font-weight:800;color:'+idColor+';letter-spacing:.5px">'+empId+'</div></div>'
       +'<div style="flex:1;min-width:0">'+rows(infoData,'#94a3b8','#1e293b',rowBorder)+'</div></div>'
       +'<div style="background:'+footerBg+';border-top:1px solid '+footerBorder+';padding:4px 14px;display:flex;justify-content:space-between">'
-      +'<div style="font-size:8px;color:#94a3b8;font-style:italic">If found, please return</div>'
+      +'<div style="font-size:8px;color:#94a3b8;font-style:italic">'+( cfg.lost_card_text||'ករណីបាត់ — If found, please return')+'</div>'
       +'<div style="font-size:8px;color:#94a3b8;font-family:monospace">'+hireDate+'</div></div></div>';
   }
 }
@@ -5810,7 +5810,7 @@ idCardHTML = function(e, style, cfg) {
       +qrLabel(qrAuto(qrDarkC,qrLightC),idColor)
       +'<div style="flex:1;min-width:0">'+rows(infoData,'#94a3b8','#1e293b',rowBorderC)+'</div></div>'
       +'<div style="background:'+footBg+';border-top:1px solid '+footBorderC+';padding:4px 14px;display:flex;justify-content:space-between">'
-      +'<div style="font-size:8px;color:#94a3b8;font-style:italic">If found, please return</div>'
+      +'<div style="font-size:8px;color:#94a3b8;font-style:italic">'+( cfg.lost_card_text||'ករណីបាត់ — If found, please return')+'</div>'
       +'<div style="font-size:8px;color:#94a3b8;font-family:monospace">'+hireDate+'</div></div></div>';
   }
 
@@ -5962,7 +5962,7 @@ idCardHTML = function(e, style, cfg) {
       +'<div style="font-family:monospace;font-size:9.5px;font-weight:800;color:'+ac+';letter-spacing:.5px">'+empId+'</div></div>'
       +'<div style="flex:1;min-width:0">'+rows(infoData,'#9ca3af','#111','#e5e5e5')+'</div></div>'
       +'<div style="background:#f0f0f0;border-top:1px solid #e5e5e5;padding:4px 14px;display:flex;justify-content:space-between">'
-      +'<div style="font-size:8px;color:#9ca3af;font-style:italic">If found, please return</div>'
+      +'<div style="font-size:8px;color:#9ca3af;font-style:italic">'+( cfg.lost_card_text||'ករណីបាត់ — If found, please return')+'</div>'
       +'<div style="font-size:8px;color:#9ca3af;font-family:monospace">'+hireDate+'</div></div></div>';
     return wrap(front, back);
   }
@@ -6032,7 +6032,7 @@ idCardHTML = function(e, style, cfg) {
       +qrLabel(qrAuto(sk1,'#fff1f2'),sk2)
       +'<div style="flex:1;min-width:0">'+rows(infoData,sk3,sk1,'#fce7f3')+'</div></div>'
       +'<div style="background:#fff1f2;border-top:1px solid #fecdd3;padding:4px 14px;display:flex;justify-content:space-between">'
-      +'<div style="font-size:8px;color:#fda4af;font-style:italic">If found, please return</div>'
+      +'<div style="font-size:8px;color:#fda4af;font-style:italic">'+( cfg.lost_card_text||'ករណីបាត់ — If found, please return')+'</div>'
       +'<div style="font-size:8px;color:#fda4af;font-family:monospace">'+hireDate+'</div></div></div>';
     return wrap(front, back);
   }
@@ -6167,7 +6167,7 @@ function idCardPortraitHTML(e, style, cfg) {
         +'<span style="color:#1e293b;font-weight:700;font-size:9px">'+v+'</span></div>'
       ).join('')
       +'</div>'
-      +'<div style="background:#f8faff;border-top:1px solid #e2eaff;padding:5px 14px;text-align:center;font-size:8px;color:#94a3b8">ករណីបាត់ — If found, please return</div>'
+      +'<div style="background:#f8faff;border-top:1px solid #e2eaff;padding:5px 14px;text-align:center;font-size:8px;color:#94a3b8">'+( cfg.lost_card_text||'ករណីបាត់ — '+( cfg.lost_card_text||'ករណីបាត់ — If found, please return')+'')+'</div>'
       +'</div>';
     return wrapP(front, back);
   }
@@ -7125,6 +7125,11 @@ function renderSettings() {
                 <label class="form-label">ចក្ខុវិស័យ / Slogan</label>
                 <input class="form-control" id="cfg-slogan" placeholder="ចក្ខុវិស័យ..." value="${cfg.slogan||''}" />
               </div>
+              <div class="form-group full-width">
+                <label class="form-label">🪪 ข้อความការ​ត​បាត់ (ID Card)</label>
+                <input class="form-control" id="cfg-lost-card" placeholder="'+( cfg.lost_card_text||'ករណីបាត់ — '+( cfg.lost_card_text||'ករណីបាត់ — If found, please return')+'')+'" value="${cfg.lost_card_text||''+( cfg.lost_card_text||'ករណីបាត់ — '+( cfg.lost_card_text||'ករណីបាត់ — If found, please return')+'')+''}" />
+                <div style="font-size:11px;color:var(--text3);margin-top:4px">នឹងបង្ហាញនៅខាងក្រោម ID Card រាល់ style</div>
+              </div>
             </div>
 
             <div class="form-actions" style="padding-top:16px;margin-top:4px">
@@ -7841,6 +7846,7 @@ function saveCompanySettings() {
   cfg.company_phone   = $('cfg-phone')?.value?.trim() || '';
   cfg.company_address = $('cfg-address')?.value?.trim() || '';
   cfg.slogan       = $('cfg-slogan')?.value?.trim() || '';
+  cfg.lost_card_text = $('cfg-lost-card')?.value?.trim() || ''+( cfg.lost_card_text||'ករណីបាត់ — '+( cfg.lost_card_text||'ករណីបាត់ — If found, please return')+'')+'';
   saveCompanyConfig(cfg);
   showToast('រក្សាទុកព័ត៌មានក្រុមហ៊ុនបានជោគជ័យ! ✅','success');
 }
