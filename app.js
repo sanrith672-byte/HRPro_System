@@ -6544,15 +6544,16 @@ async function loadCompanyConfig() {
   try {
     const data = await api('GET', '/config');
     if (data && !data.error) {
-      // Restore logo from localStorage (not stored in API)
-      let localLogo = '';
-      try {
-        const local = JSON.parse(localStorage.getItem(CFG_KEY)) || {};
-        localLogo = local.logo_url || '';
-      } catch(_) {}
       _cfgCache = data;
-      if (localLogo) _cfgCache.logo_url = localLogo;
-      // Persist merged config back to localStorage
+      // Try to get logo from API first (synced across devices)
+      if (!_cfgCache.logo_url) {
+        // Fallback to localStorage logo if API has none
+        try {
+          const local = JSON.parse(localStorage.getItem(CFG_KEY)) || {};
+          if (local.logo_url) _cfgCache.logo_url = local.logo_url;
+        } catch(_) {}
+      }
+      // Persist merged config to localStorage
       localStorage.setItem(CFG_KEY, JSON.stringify(_cfgCache));
     } else {
       _cfgCache = JSON.parse(localStorage.getItem(CFG_KEY)) || {};
@@ -6740,11 +6741,9 @@ function saveCompanyConfig(cfg) {
   // Save full config (including logo) to localStorage
   localStorage.setItem(CFG_KEY, JSON.stringify(cfg));
   applyCompanyBranding();
-  // Send to API WITHOUT logo_url (base64 too large — logo stays in localStorage only)
+  // Send to API — logo_url included (compressed to small size)
   if (!isDemoMode()) {
-    const apiCfg = Object.assign({}, cfg);
-    delete apiCfg.logo_url;
-    api('POST', '/config', apiCfg).catch(() => {});
+    api('POST', '/config', cfg).catch(() => {});
   }
 }
 function saveSalaryRules(rules) { localStorage.setItem(SAL_KEY, JSON.stringify(rules)); }
@@ -7882,20 +7881,37 @@ function switchSettingsTab(panel, el) {
   if (pEl) pEl.classList.add('active');
 }
 
-// Logo upload
+// Logo upload - compress to small size then save to API
 function handleLogoUpload(input) {
   const file = input.files[0];
   if (!file) return;
-  if (file.size > 2*1024*1024) { showToast('File ធំពេក! អតិបរមា 2MB','error'); return; }
+  if (file.size > 5*1024*1024) { showToast('File ធំពេក! អតិបរមា 5MB','error'); return; }
   const reader = new FileReader();
   reader.onload = (e) => {
-    const url = e.target.result;
-    const cfg = getCompanyConfig();
-    cfg.logo_url = url;
-    saveCompanyConfig(cfg);
-    const box = $('logo-preview-box');
-    if (box) box.innerHTML = `<img src="${url}" style="width:100%;height:100%;object-fit:contain" />`;
-    showToast('Upload Logo បានជោគជ័យ!','success');
+    const img = new Image();
+    img.onload = () => {
+      // Compress to max 120x120px, quality 0.7 → ~10-30KB
+      const MAX = 120;
+      const canvas = document.createElement('canvas');
+      const ratio = Math.min(MAX/img.width, MAX/img.height, 1);
+      canvas.width  = Math.round(img.width  * ratio);
+      canvas.height = Math.round(img.height * ratio);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      const url = canvas.toDataURL('image/png', 0.8);
+      const cfg = getCompanyConfig();
+      cfg.logo_url = url;
+      // Save to localStorage AND API (small enough now)
+      localStorage.setItem(CFG_KEY, JSON.stringify(cfg));
+      _cfgCache = cfg;
+      applyCompanyBranding();
+      if (!isDemoMode()) {
+        api('POST', '/config', { key: 'logo_url', value: url }).catch(() => {});
+      }
+      const box = $('logo-preview-box');
+      if (box) box.innerHTML = `<img src="${url}" style="width:100%;height:100%;object-fit:contain" />`;
+      showToast('Upload Logo បានជោគជ័យ! (sync ទូរស័ព្ទ ✓)','success');
+    };
+    img.src = e.target.result;
   };
   reader.readAsDataURL(file);
 }
