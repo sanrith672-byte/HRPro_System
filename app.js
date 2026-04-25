@@ -6760,6 +6760,11 @@ function applyCompanyBranding() {
   if (wrap && cfg.logo_url) {
     wrap.innerHTML = `<img src="${cfg.logo_url}" style="width:40px;height:40px;object-fit:contain;border-radius:10px" onerror="this.parentNode.innerHTML='<svg viewBox=\\'0 0 40 40\\' fill=\\'none\\'><rect width=\\'40\\' height=\\'40\\' rx=\\'10\\' fill=\\'#FF6B35\\'/><path d=\\'M20 10C17.2 10 15 12.2 15 15C15 17.8 17.2 20 20 20C22.8 20 25 17.8 25 15C25 12.2 22.8 10 20 10Z\\' fill=\\'white\\'/><path d=\\'M10 30C10 25.6 14.5 22 20 22C25.5 22 30 25.6 30 30H10Z\\' fill=\\'white\\' opacity=\\'0.8\\'/></svg>'" />`;
   }
+  // Logo - topbar mobile
+  const topbarLogoWrap = document.getElementById('topbar-logo-wrap');
+  if (topbarLogoWrap && cfg.logo_url) {
+    topbarLogoWrap.innerHTML = '<img src="' + cfg.logo_url + '" style="width:32px;height:32px;object-fit:contain;border-radius:8px" />';
+  }
   // Accent color
   if (cfg.accent_color) {
     document.documentElement.style.setProperty('--primary', cfg.accent_color);
