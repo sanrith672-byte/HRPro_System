@@ -5477,7 +5477,7 @@ function idCardHTML(e, style, cfg) {
 
   // Logo
   const logoImg = cfg.logo_url
-    ? '<img src="'+cfg.logo_url+'" style="height:18px;object-fit:contain;filter:brightness(0) invert(1)" />'
+    ? '<img src="'+cfg.logo_url+'" style="height:18px;object-fit:contain" />'
     : '<span style="font-size:11px;font-weight:800;color:white">'+company+'</span>';
 
   // ── ROYAL ─────────────────────────────────────────────────
@@ -5520,7 +5520,7 @@ function idCardHTML(e, style, cfg) {
       '<div style="height:100%;border-radius:14px;overflow:hidden;background:linear-gradient(145deg,#0a0e1a,#141824,#0d1220);border:1px solid rgba(212,175,55,.25);position:relative">'
       +'<div style="height:4px;background:linear-gradient(90deg,'+gold+',#f0d060,'+gold+')"></div>'
       +'<div style="padding:8px 14px;display:flex;justify-content:space-between;align-items:center">'
-      +(cfg.logo_url?'<img src="'+cfg.logo_url+'" style="height:16px;object-fit:contain;filter:sepia(1) saturate(3) hue-rotate(5deg) brightness(1.2)">':'<span style="color:'+gold+';font-size:11px;font-weight:800">'+company+'</span>')
+      +(cfg.logo_url?'<img src="'+cfg.logo_url+'" style="height:16px;object-fit:contain">':'<span style="color:'+gold+';font-size:11px;font-weight:800">'+company+'</span>')
       +'<div style="border:1px solid rgba(212,175,55,.4);color:'+gold+';font-size:8px;font-weight:700;padding:2px 8px;border-radius:3px">'+dept+'</div></div>'
       +'<div style="display:flex;gap:12px;align-items:center;padding:4px 14px 8px">'
       +avatar(68,'2.5px','rgba(212,175,55,.5)','50%','0 0 20px rgba(212,175,55,.2)')
@@ -5611,7 +5611,7 @@ function idCardHTML(e, style, cfg) {
       '<div style="height:100%;border-radius:14px;overflow:hidden;background:#111827;position:relative">'
       +'<div style="position:absolute;top:0;left:0;right:0;height:4px;background:'+ac+'"></div>'
       +'<div style="padding:12px 14px 6px;display:flex;justify-content:space-between;align-items:flex-start">'
-      +'<div>'+(cfg.logo_url?'<img src="'+cfg.logo_url+'" style="height:16px;object-fit:contain;filter:brightness(0) invert(1);margin-bottom:2px"><br>':'')
+      +'<div>'+(cfg.logo_url?'<img src="'+cfg.logo_url+'" style="height:16px;object-fit:contain;margin-bottom:2px"><br>':'')
       +'<div style="color:#9ca3af;font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase">'+company+'</div></div>'
       +'<div style="text-align:right"><div style="color:#6b7280;font-size:7px;font-weight:700;letter-spacing:1px;text-transform:uppercase">Employee Card</div>'
       +'<div style="color:'+ac+';font-size:10px;font-weight:800;font-family:monospace">'+empId+'</div></div></div>'
@@ -5711,7 +5711,7 @@ function idCardHTML(e, style, cfg) {
     +'<div style="height:3px;background:'+ac+'"></div>'
     +'<div style="position:absolute;top:3px;right:0;bottom:0;width:3px;background:'+ac+'44"></div>'
     +'<div style="padding:8px 14px 6px;display:flex;justify-content:space-between;align-items:center">'
-    +(cfg.logo_url?'<img src="'+cfg.logo_url+'" style="height:18px;object-fit:contain;filter:brightness(0) invert(1)">':'<span style="color:white;font-size:11px;font-weight:800">'+company+'</span>')
+    +(cfg.logo_url?'<img src="'+cfg.logo_url+'" style="height:18px;object-fit:contain">':'<span style="color:white;font-size:11px;font-weight:800">'+company+'</span>')
     +'<div style="border:1px solid '+ac+'66;color:'+ac+';font-size:8px;font-weight:700;padding:2px 8px;border-radius:3px;background:'+ac+'11">'+dept+'</div></div>'
     +'<div style="display:flex;align-items:center;gap:12px;padding:4px 14px 8px">'
     +avatar(68,'2px',ac,'12px','0 4px 12px rgba(0,0,0,.4)')
@@ -5814,7 +5814,7 @@ idCardHTML = function(e, style, cfg) {
 
   function logoImg(filter) {
     return cfg.logo_url
-      ? '<img src="'+cfg.logo_url+'" style="height:18px;object-fit:contain;filter:'+(filter||'brightness(0) invert(1)')+'" />'
+      ? '<img src="'+cfg.logo_url+'" style="height:18px;object-fit:contain" />'
       : '<span style="font-size:11px;font-weight:800;color:white">'+company+'</span>';
   }
 
@@ -5931,7 +5931,7 @@ idCardHTML = function(e, style, cfg) {
       '<div style="height:100%;border-radius:14px;overflow:hidden;background:linear-gradient(135deg,#0d1117 0%,#1a1a2e 40%,#16213e 100%);position:relative">'
       +'<div style="position:absolute;top:0;left:0;right:0;height:60%;background:linear-gradient(180deg,rgba(0,255,136,.08) 0%,rgba(0,200,255,.06) 40%,rgba(120,40,255,.04) 80%,transparent 100%);pointer-events:none"></div>'
       +'<div style="position:absolute;top:5px;left:0;right:0;height:3px;background:linear-gradient(90deg,transparent,#00ff88,#00c8ff,#7828ff,transparent);opacity:.6;filter:blur(2px)"></div>'
-      +'<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px 6px">'+logoImg('brightness(0) invert(1) hue-rotate(90deg) saturate(2)')
+      +'<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px 6px">'+logoImg()
       +'<div style="font-size:8px;font-weight:700;background:linear-gradient(90deg,#00ff88,#00c8ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;border:1px solid rgba(0,200,255,.3);border-radius:20px;padding:2px 8px;-webkit-text-fill-color:unset;color:#00c8ff">🌈 '+dept+'</div></div>'
       +'<div style="display:flex;align-items:center;gap:12px;padding:4px 14px 8px">'
       +avatar(70,'2px','rgba(0,200,255,.5)','50%','0 0 20px rgba(0,200,255,.3),0 0 40px rgba(0,255,136,.15)')
@@ -6142,7 +6142,7 @@ function idCardPortraitHTML(e, style, cfg) {
     + makeQRSvg(empIdRaw, 32, '#111827', '#ffffff') + '</div>';
 
   const logoEl = cfg.logo_url
-    ? '<img src="'+cfg.logo_url+'" style="height:20px;object-fit:contain;filter:brightness(0) invert(1)" />'
+    ? '<img src="'+cfg.logo_url+'" style="height:20px;object-fit:contain" />'
     : '<span style="font-size:10px;font-weight:800;color:white">'+company+'</span>';
 
   // Portrait card wrapper — 204px wide × 323px tall (54mm×86mm at 96dpi)
@@ -6214,7 +6214,7 @@ function idCardPortraitHTML(e, style, cfg) {
       '<div style="width:100%;height:100%;border-radius:14px;overflow:hidden;background:linear-gradient(175deg,#0a0e1a,#141824,#0d1220);border:1px solid rgba(212,175,55,.2);display:flex;flex-direction:column;position:relative">'
       +'<div style="height:3px;background:linear-gradient(90deg,'+gold+',#f0d060,'+gold+')"></div>'
       +'<div style="padding:10px 14px;display:flex;justify-content:space-between;align-items:center">'
-      +(cfg.logo_url?'<img src="'+cfg.logo_url+'" style="height:16px;object-fit:contain;filter:sepia(1) saturate(3) brightness(1.2)">':'<span style="color:'+gold+';font-size:10px;font-weight:800">'+company+'</span>')
+      +(cfg.logo_url?'<img src="'+cfg.logo_url+'" style="height:16px;object-fit:contain">':'<span style="color:'+gold+';font-size:10px;font-weight:800">'+company+'</span>')
       +'<div style="border:1px solid rgba(212,175,55,.4);color:'+gold+';font-size:8px;padding:2px 8px;border-radius:3px">'+dept+'</div></div>'
       +'<div style="display:flex;justify-content:center;padding:6px 0">'+av(88,'rgba(212,175,55,.5)','0 0 24px rgba(212,175,55,.25)')+'</div>'
       +'<div style="text-align:center;padding:8px 12px 4px">'
@@ -6252,7 +6252,7 @@ function idCardPortraitHTML(e, style, cfg) {
       '<div style="width:100%;height:100%;border-radius:14px;overflow:hidden;background:linear-gradient(175deg,#064e3b,#059669,#34d399);display:flex;flex-direction:column;position:relative">'
       +'<div style="position:absolute;bottom:-20px;left:-20px;width:100px;height:100px;border-radius:50%;background:rgba(255,255,255,.06)"></div>'
       +'<div style="padding:10px 14px;display:flex;justify-content:space-between;align-items:center">'
-      +(cfg.logo_url?'<img src="'+cfg.logo_url+'" style="height:18px;object-fit:contain;filter:brightness(0) invert(1)">':'<span style="color:white;font-size:10px;font-weight:800">'+company+'</span>')
+      +(cfg.logo_url?'<img src="'+cfg.logo_url+'" style="height:18px;object-fit:contain">':'<span style="color:white;font-size:10px;font-weight:800">'+company+'</span>')
       +'<div style="background:rgba(255,255,255,.2);color:white;font-size:8px;font-weight:700;padding:2px 8px;border-radius:20px">'+dept+'</div></div>'
       +'<div style="display:flex;justify-content:center;padding:6px 0">'+av(88,'rgba(255,255,255,.6)','0 6px 20px rgba(0,0,0,.4)')+'</div>'
       +'<div style="text-align:center;padding:8px 12px 4px">'
@@ -6291,7 +6291,7 @@ function idCardPortraitHTML(e, style, cfg) {
     const front =
       '<div style="width:100%;height:100%;border-radius:14px;overflow:hidden;background:linear-gradient(175deg,#831843,#db2777,#f9a8d4);display:flex;flex-direction:column">'
       +'<div style="padding:10px 14px;display:flex;justify-content:space-between;align-items:center">'
-      +(cfg.logo_url?'<img src="'+cfg.logo_url+'" style="height:18px;object-fit:contain;filter:brightness(0) invert(1)">':'<span style="color:white;font-size:10px;font-weight:800">'+company+'</span>')
+      +(cfg.logo_url?'<img src="'+cfg.logo_url+'" style="height:18px;object-fit:contain">':'<span style="color:white;font-size:10px;font-weight:800">'+company+'</span>')
       +'<div style="background:rgba(255,255,255,.2);color:white;font-size:8px;padding:2px 8px;border-radius:20px">'+dept+'</div></div>'
       +'<div style="display:flex;justify-content:center;padding:6px 0">'+av(88,'rgba(255,255,255,.6)','0 6px 20px rgba(0,0,0,.35)')+'</div>'
       +'<div style="text-align:center;padding:8px 12px 4px">'
@@ -6326,7 +6326,7 @@ function idCardPortraitHTML(e, style, cfg) {
     const front =
       '<div style="width:100%;height:100%;border-radius:14px;overflow:hidden;background:white;border:2px solid #1e293b;display:flex;flex-direction:column">'
       +'<div style="background:#1e293b;padding:10px 14px;display:flex;justify-content:space-between;align-items:center">'
-      +(cfg.logo_url?'<img src="'+cfg.logo_url+'" style="height:18px;object-fit:contain;filter:brightness(0) invert(1)">':'<span style="color:white;font-size:10px;font-weight:800">'+company+'</span>')
+      +(cfg.logo_url?'<img src="'+cfg.logo_url+'" style="height:18px;object-fit:contain">':'<span style="color:white;font-size:10px;font-weight:800">'+company+'</span>')
       +'<div style="color:rgba(255,255,255,.7);font-size:8px;border:1px solid rgba(255,255,255,.3);padding:2px 8px;border-radius:3px">'+dept+'</div></div>'
       +'<div style="display:flex;justify-content:center;padding:14px 0 8px">'+av(88,'#1e293b','0 4px 12px rgba(0,0,0,.2)')+'</div>'
       +'<div style="text-align:center;padding:0 12px 8px;flex:1">'
@@ -6359,7 +6359,7 @@ function idCardPortraitHTML(e, style, cfg) {
     const front =
       '<div style="width:100%;height:100%;border-radius:14px;overflow:hidden;background:linear-gradient(175deg,#0c4a6e,#0369a1,#0ea5e9,#22d3ee);display:flex;flex-direction:column">'
       +'<div style="padding:10px 14px;display:flex;justify-content:space-between;align-items:center">'
-      +(cfg.logo_url?'<img src="'+cfg.logo_url+'" style="height:18px;object-fit:contain;filter:brightness(0) invert(1)">':'<span style="color:white;font-size:10px;font-weight:800">'+company+'</span>')
+      +(cfg.logo_url?'<img src="'+cfg.logo_url+'" style="height:18px;object-fit:contain">':'<span style="color:white;font-size:10px;font-weight:800">'+company+'</span>')
       +'<div style="background:rgba(255,255,255,.2);color:white;font-size:8px;padding:2px 8px;border-radius:20px">'+dept+'</div></div>'
       +'<div style="display:flex;justify-content:center;padding:6px 0">'+av(88,'rgba(255,255,255,.6)','0 6px 20px rgba(0,0,0,.4)')+'</div>'
       +'<div style="text-align:center;padding:8px 12px 4px">'
