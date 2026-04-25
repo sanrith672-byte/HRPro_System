@@ -7126,8 +7126,8 @@ function renderSettings() {
                 <input class="form-control" id="cfg-slogan" placeholder="ចក្ខុវិស័យ..." value="${cfg.slogan||''}" />
               </div>
               <div class="form-group full-width">
-                <label class="form-label">🪪 ข้อความការ​ត​បាត់ (ID Card)</label>
-                <input class="form-control" id="cfg-lost-card" placeholder="'+( cfg.lost_card_text||'ករណីបាត់ — '+( cfg.lost_card_text||'ករណីបាត់ — If found, please return')+'')+'" value="${cfg.lost_card_text||''+( cfg.lost_card_text||'ករណីបាត់ — '+( cfg.lost_card_text||'ករណីបាត់ — If found, please return')+'')+''}" />
+                <label class="form-label">🪪 អត្ថបទការ​ត​បាត់ (ID Card Footer)</label>
+                <input class="form-control" id="cfg-lost-card" placeholder="ករណីបាត់ — If found, please return" value="${cfg.lost_card_text||'ករណីបាត់ — If found, please return'}" />
                 <div style="font-size:11px;color:var(--text3);margin-top:4px">នឹងបង្ហាញនៅខាងក្រោម ID Card រាល់ style</div>
               </div>
             </div>
@@ -7846,7 +7846,7 @@ function saveCompanySettings() {
   cfg.company_phone   = $('cfg-phone')?.value?.trim() || '';
   cfg.company_address = $('cfg-address')?.value?.trim() || '';
   cfg.slogan       = $('cfg-slogan')?.value?.trim() || '';
-  cfg.lost_card_text = $('cfg-lost-card')?.value?.trim() || ''+( cfg.lost_card_text||'ករណីបាត់ — '+( cfg.lost_card_text||'ករណីបាត់ — If found, please return')+'')+'';
+  cfg.lost_card_text = $('cfg-lost-card')?.value?.trim() || 'ករណីបាត់ — If found, please return';
   saveCompanyConfig(cfg);
   showToast('រក្សាទុកព័ត៌មានក្រុមហ៊ុនបានជោគជ័យ! ✅','success');
 }
