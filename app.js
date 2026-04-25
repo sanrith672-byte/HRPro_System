@@ -5463,12 +5463,17 @@ function idCardHTML(e, style, cfg) {
   // bank row removed
 
   const wrap = (front, back) =>
-    '<div class="id-card id-flip-card" data-name="'+e.name+'" data-dept="'+dept
+    '<div class="id-card-wrapper" style="display:inline-flex;flex-direction:column;align-items:center;gap:4px">'
+    +'<div class="id-card id-flip-card" data-name="'+e.name+'" data-dept="'+dept
     +'" onclick="this.classList.toggle(\'flipped\')" style="cursor:pointer">'
     +'<div class="id-flip-inner">'
     +'<div class="id-flip-front">'+front+'</div>'
     +'<div class="id-flip-back">'+back+'</div>'
-    +'</div></div>';
+    +'</div></div>'
+    +'<button class="btn-print-one" onclick="event.stopPropagation();printSingleCard(this)" data-empid="'+e.id+'" data-empname="'+e.name+'" data-mode="landscape" title="🖨️ Print កាតនេះ">'
+    +'<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" style=\"width:11px;height:11px\"><polyline points=\"6 9 6 2 18 2 18 9\"/><path d=\"M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2\"/><rect x=\"6\" y=\"14\" width=\"12\" height=\"8\"/></svg>'
+    +' Print</button>'
+    +'</div>';
 
   // Logo
   const logoImg = cfg.logo_url
@@ -6101,7 +6106,10 @@ idCardHTML = function(e, style, cfg) {
 function filterIdCards(val) {
   document.querySelectorAll('.id-card').forEach(card => {
     const n=card.dataset.name||'', d=card.dataset.dept||'';
-    card.style.display=(!val||n.includes(val)||d.includes(val))?'':'none';
+    const show = !val||n.includes(val)||d.includes(val);
+    // Hide the wrapper (which includes btn-print-one) if present, else hide card
+    const wrapper = card.closest('.id-card-wrapper');
+    (wrapper||card).style.display = show ? '' : 'none';
   });
 }
 
@@ -6139,12 +6147,17 @@ function idCardPortraitHTML(e, style, cfg) {
 
   // Portrait card wrapper — 204px wide × 323px tall (54mm×86mm at 96dpi)
   function wrapP(front, back) {
-    return '<div class="id-card id-flip-card id-portrait-card" data-name="'+e.name+'" data-dept="'+dept
+    return '<div class="id-card-wrapper" style="display:inline-flex;flex-direction:column;align-items:center;gap:4px">'
+      +'<div class="id-card id-flip-card id-portrait-card" data-name="'+e.name+'" data-dept="'+dept
       +'" onclick="this.classList.toggle(\'flipped\')" style="cursor:pointer;width:204px;height:323px">'
       +'<div class="id-flip-inner">'
       +'<div class="id-flip-front" style="width:204px;height:323px">'+front+'</div>'
       +'<div class="id-flip-back"  style="width:204px;height:323px">'+back+'</div>'
-      +'</div></div>';
+      +'</div></div>'
+      +'<button class="btn-print-one" onclick="event.stopPropagation();printSingleCard(this)" data-empid="'+e.id+'" data-empname="'+e.name+'" data-mode="portrait" title="🖨️ Print កាតនេះ">'
+      +'<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" style=\"width:11px;height:11px\"><polyline points=\"6 9 6 2 18 2 18 9\"/><path d=\"M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2\"/><rect x=\"6\" y=\"14\" width=\"12\" height=\"8\"/></svg>'
+      +' Print</button>'
+      +'</div>';
   }
 
   // ── Portrait Royal ─────────────────────────────────────────
@@ -8511,6 +8524,133 @@ async function printPayroll() {
     +'</div></body></html>');
 }
 
+function printSingleCard(btn) {
+  // Find the id-card-wrapper parent of the button
+  const wrapper = btn.closest('.id-card-wrapper');
+  if (!wrapper) { showToast('មិនរកឃើញកាត!','error'); return; }
+
+  const card = wrapper.querySelector('.id-flip-card');
+  if (!card) { showToast('មិនរកឃើញកាត!','error'); return; }
+
+  const mode   = btn.dataset.mode || currentCardMode;  // 'landscape' or 'portrait'
+  const name   = card.dataset.name || '';
+  const cfg    = getCompanyConfig();
+  const style  = currentCardStyle;
+
+  const logoHtml = cfg.logo_url
+    ? '<img src="'+cfg.logo_url+'" style="height:22px;object-fit:contain;vertical-align:middle;margin-right:6px" />'
+    : '';
+
+  const frontEl = card.querySelector('.id-flip-front');
+  const backEl  = card.querySelector('.id-flip-back');
+  if (!frontEl || !backEl) { showToast('មិនរកឃើញ Front/Back!','error'); return; }
+
+  if (mode === 'portrait') {
+    // Portrait: CR80  54mm × 85.6mm
+    const CW = 54, CH = 85.6, PW = 204, PH = 323;
+    const front = frontEl.cloneNode(true);
+    const back  = backEl.cloneNode(true);
+    [front, back].forEach(el => {
+      el.style.cssText =
+        'position:absolute;top:0;left:0;'
+        +'transform-origin:top left;'
+        +'backface-visibility:visible;-webkit-backface-visibility:visible;'
+        +'width:'+PW+'px;height:'+PH+'px;'
+        +'display:block;border-radius:0;overflow:hidden;';
+    });
+
+    const pairHTML =
+      '<div class="card-pair">'
+        +'<div class="emp-label">'+name+'</div>'
+        +'<div class="card-row">'
+          +'<div class="card-col"><div class="side-label">&#9658; FRONT</div>'
+            +'<div class="card-box">'+front.outerHTML+'</div></div>'
+          +'<div class="card-col"><div class="side-label">&#9664; BACK</div>'
+            +'<div class="card-box">'+back.outerHTML+'</div></div>'
+        +'</div></div>';
+
+    const html = '<!DOCTYPE html><html><head>'
+      +'<meta charset="UTF-8">'
+      +'<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Khmer:wght@400;600;700;800&display=swap" rel="stylesheet">'
+      +'<title>ID Card — '+name+'</title>'
+      +'<style>'
+      +'*{box-sizing:border-box;margin:0;padding:0}'
+      +'@page{size:A4 portrait;margin:10mm}'
+      +'body{font-family:"Noto Sans Khmer",sans-serif;background:white;color:#1e293b;width:190mm;-webkit-print-color-adjust:exact;print-color-adjust:exact}'
+      +'.id-flip-card,.id-portrait-card{perspective:none!important;}'
+      +'.id-flip-inner{transform:none!important;transform-style:flat!important;position:static!important;display:block!important;width:auto!important;height:auto!important;}'
+      +'.id-flip-front,.id-flip-back{transform:none!important;backface-visibility:visible!important;-webkit-backface-visibility:visible!important;}'
+      +'.print-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:6mm;padding-bottom:3mm;border-bottom:2px solid #1d4ed8}'
+      +'.co-name{font-size:11pt;font-weight:800;color:#1d4ed8}'
+      +'.hdr-r{font-size:7pt;color:#64748b;text-align:right;line-height:1.6}'
+      +'.card-pair{display:flex;flex-direction:column;align-items:flex-start}'
+      +'.emp-label{font-size:7pt;font-weight:700;color:#475569;margin-bottom:2mm}'
+      +'.card-row{display:flex;gap:6mm;align-items:flex-start}'
+      +'.card-col{display:flex;flex-direction:column;align-items:center}'
+      +'.side-label{font-size:5.5pt;font-weight:700;color:#94a3b8;margin-bottom:1mm;text-align:center}'
+      +'.card-box{width:'+CW+'mm;height:'+CH+'mm;overflow:hidden;position:relative;border-radius:2mm;box-shadow:0 0 0 0.3mm #94a3b8;flex-shrink:0}'
+      +'.card-box>div{position:absolute!important;top:0!important;left:0!important;width:'+PW+'px!important;height:'+PH+'px!important;transform:scale(calc('+CW+'mm / '+PW+'px))!important;transform-origin:top left!important;border-radius:0!important;overflow:hidden!important;}'
+      +'</style></head><body>'
+      +'<div class="print-header">'
+        +'<div style="display:flex;align-items:center;gap:5px">'+logoHtml+'<span class="co-name">'+(cfg.company_name||'HR Pro')+'</span></div>'
+        +'<div class="hdr-r">&#128203; ID Card &#8212; &#x1794;&#x1789;&#x17B9;<br>'
+          +(CARD_STYLE_META[style]?.label||style)+' &middot; '+new Date().toLocaleDateString('km-KH')
+        +'</div>'
+      +'</div>'
+      +'<div>'+pairHTML+'</div>'
+      +'<script>window.onload=function(){window.focus();window.print();}<\/script>'
+      +'</body></html>';
+
+    printHTML(html);
+
+  } else {
+    // Landscape: CR80  85.6mm × 54mm  → display 323px × 204px
+    const cloneFront = frontEl.cloneNode(true);
+    const cloneBack  = backEl.cloneNode(true);
+    [cloneFront, cloneBack].forEach(el => {
+      el.style.cssText = 'position:relative;transform:none;backface-visibility:visible;width:323px;height:204px;display:block;border-radius:12px;overflow:hidden;';
+    });
+
+    const pairHTML =
+      '<div class="card-pair">'
+        +'<div class="emp-label">'+name+'</div>'
+        +'<div class="card-row">'
+          +'<div class="card-side"><div class="side-label">&#9658; FRONT</div><div class="card-box">'+cloneFront.outerHTML+'</div></div>'
+          +'<div class="card-side"><div class="side-label">&#9664; BACK</div><div class="card-box">'+cloneBack.outerHTML+'</div></div>'
+        +'</div></div>';
+
+    printHTML('<!DOCTYPE html><html><head><meta charset="UTF-8">'
+      +'<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Khmer:wght@400;600;700;800&display=swap" rel="stylesheet">'
+      +'<title>ID Card — '+name+'</title>'
+      +'<style>*{box-sizing:border-box;margin:0;padding:0}'
+      +'body{font-family:"Noto Sans Khmer",sans-serif;background:white;color:#1e293b;padding:6mm}'
+      +'.id-flip-card{perspective:none!important;}'
+      +'.id-flip-inner{transform:none!important;transform-style:flat!important;position:static!important;display:block!important;}'
+      +'.id-flip-front,.id-flip-back{transform:none!important;backface-visibility:visible!important;-webkit-backface-visibility:visible!important;}'
+      +'.print-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:5mm;padding-bottom:3mm;border-bottom:2px solid #1d4ed8}'
+      +'.co-name{font-size:12pt;font-weight:800;color:#1d4ed8}'
+      +'.hdr-r{font-size:7pt;color:#64748b;text-align:right;line-height:1.6}'
+      +'.card-pair{}'
+      +'.emp-label{font-size:7pt;font-weight:700;color:#64748b;letter-spacing:1px;margin-bottom:2mm}'
+      +'.card-row{display:flex;gap:6mm;align-items:flex-start}'
+      +'.card-side{display:flex;flex-direction:column;align-items:center}'
+      +'.side-label{font-size:5.5pt;font-weight:700;color:#94a3b8;margin-bottom:1mm;text-align:center}'
+      +'.card-box{width:323px;height:204px;border-radius:12px;overflow:hidden;flex-shrink:0}'
+      +'.card-box>div{width:100%!important;height:100%!important;border-radius:12px!important;overflow:hidden!important}'
+      +'@media print{@page{size:A4 portrait;margin:8mm}body{padding:4mm}.card-box{box-shadow:0 0 0 0.3mm #94a3b8}}'
+      +'</style></head><body>'
+      +'<div class="print-header">'
+        +'<div style="display:flex;align-items:center;gap:6px">'+logoHtml+'<span class="co-name">'+(cfg.company_name||'HR Pro')+'</span></div>'
+        +'<div class="hdr-r">&#128203; ID Card &#8212; ផ្តេក<br>'
+          +(CARD_STYLE_META[style]?.label||style)+' &middot; '+new Date().toLocaleDateString('km-KH')
+        +'</div>'
+      +'</div>'
+      +'<div>'+pairHTML+'</div>'
+      +'<script>window.onload=function(){window.focus();window.print();}<\/script>'
+      +'</body></html>');
+  }
+}
+
 function printIdCards() {
   // Route to portrait-specific print if current mode is portrait
   if (currentCardMode === 'portrait') { printIdCardsPortrait(); return; }
@@ -8525,7 +8665,7 @@ function printIdCards() {
 
   let pairsHTML = '';
   cards.forEach(card => {
-    if (card.style.display === 'none') return;
+    if ((card.closest('.id-card-wrapper')||card).style.display === 'none') return;
     const name  = card.dataset.name || '';
     const front = card.querySelector('.id-flip-front');
     const back  = card.querySelector('.id-flip-back');
@@ -8598,7 +8738,7 @@ function printIdCardsPortrait() {
 
   let pairsHTML = '';
   cards.forEach(card => {
-    if (card.style.display === 'none') return;
+    if ((card.closest('.id-card-wrapper')||card).style.display === 'none') return;
     const name    = card.dataset.name || '';
     const dept    = card.dataset.dept || '';
     const frontEl = card.querySelector('.id-flip-front');
