@@ -8546,60 +8546,44 @@ function printIdCardsPortrait() {
   const style = currentCardStyle;
 
   const logoHtml = cfg.logo_url
-    ? '<img src="'+cfg.logo_url+'" style="height:26px;object-fit:contain;vertical-align:middle;margin-right:8px" />'
+    ? '<img src="'+cfg.logo_url+'" style="height:28px;object-fit:contain;vertical-align:middle;margin-right:8px" />'
     : '';
 
-  // CR80 Portrait: 54mm × 85.6mm → 204px × 323px at 96dpi
+  // CR80 Portrait: 54mm × 85.6mm = 204px × 323px at 96dpi
+  // Match landscape layout exactly: 1 employee per row, front LEFT + back RIGHT
+  // Portrait pair width = 204+204+5mm_gap = ~118mm < 185mm usable → fits without scaling ✓
   const CARD_W = 204;
   const CARD_H = 323;
-
-  // A4 portrait usable ≈ 185mm × 272mm (at 6mm margin)
-  // Layout: 3 columns, each column = 1 card (front OR back)
-  // → 6 cards per row (3 front + 3 back), but group by employee: front | back | front | back ...
-  // Simpler: 2 employees per row → each employee gets front+back side by side
-  // Column width = 185mm/2 = 92.5mm, pair width = 204*2+4 = 412px native
-  // Scale = 92.5mm / (204px*2/3.7795) = 92.5 / 108mm ≈ 0.856
-  // Scaled H = 323 * 0.856 = 276px ≈ 73mm → fits ~3.5 rows → 7 employees/page
-  const SCALE = 0.84;
-  const sW2 = Math.round((CARD_W * 2 + 6) * SCALE); // scaled pair width
-  const sH  = Math.round(CARD_H * SCALE);            // scaled card height
 
   let pairsHTML = '';
   cards.forEach(card => {
     if (card.style.display === 'none') return;
     const name = card.dataset.name || '';
     const dept = card.dataset.dept || '';
-
-    // Extract front and back inner HTML (the content div, not the wrapper)
     const frontEl = card.querySelector('.id-flip-front');
     const backEl  = card.querySelector('.id-flip-back');
     if (!frontEl || !backEl) return;
 
-    // Clone and reset ALL transform/position so they display flat
     const front = frontEl.cloneNode(true);
     const back  = backEl.cloneNode(true);
 
-    front.style.cssText =
-      'display:block;position:relative;transform:none;backface-visibility:visible;'
-      +'width:'+CARD_W+'px;height:'+CARD_H+'px;border-radius:10px;overflow:hidden;flex-shrink:0;';
-    back.style.cssText =
-      'display:block;position:relative;transform:none;backface-visibility:visible;'
-      +'width:'+CARD_W+'px;height:'+CARD_H+'px;border-radius:10px;overflow:hidden;flex-shrink:0;';
+    // Reset all 3D flip CSS — same as landscape function
+    [front, back].forEach(el => {
+      el.style.cssText =
+        'position:relative;transform:none;backface-visibility:visible;'
+        +'-webkit-backface-visibility:visible;'
+        +'width:'+CARD_W+'px;height:'+CARD_H+'px;'
+        +'display:block;border-radius:12px;overflow:hidden;flex-shrink:0;';
+    });
 
     pairsHTML +=
       '<div class="card-pair">'
-        +'<div class="emp-label">'+name+(dept?' &middot; '+dept:'')+'</div>'
-        +'<div class="pair-wrap" style="height:'+(sH+14)+'px;">'
-          +'<div class="pair-row">'
-            +'<div class="card-col">'
-              +'<div class="side-lbl">&#9654; FRONT</div>'
-              +front.outerHTML
-            +'</div>'
-            +'<div class="card-col">'
-              +'<div class="side-lbl">&#9664; BACK</div>'
-              +back.outerHTML
-            +'</div>'
-          +'</div>'
+        +'<div class="emp-label">'+name+(dept?' · '+dept:'')+'</div>'
+        +'<div class="card-row">'
+          +'<div class="card-side"><div class="side-label">▶ FRONT</div>'
+            +'<div class="card-box">'+front.outerHTML+'</div></div>'
+          +'<div class="card-side"><div class="side-label">◀ BACK</div>'
+            +'<div class="card-box">'+back.outerHTML+'</div></div>'
         +'</div>'
       +'</div>';
   });
@@ -8609,61 +8593,35 @@ function printIdCardsPortrait() {
     +'<title>ID Cards (បញ្ឈ) — '+(cfg.company_name||'HR Pro')+'</title>'
     +'<style>'
     +'*{box-sizing:border-box;margin:0;padding:0}'
-    +'body{font-family:"Noto Sans Khmer",sans-serif;background:#fff;color:#1e293b}'
-
-    // ── Reset ALL flip-card CSS so cloned cards show flat ──
-    +'.id-flip-card,.id-portrait-card{perspective:none!important;transform:none!important;'
-      +'position:static!important;width:'+CARD_W+'px!important;height:'+CARD_H+'px!important}'
-    +'.id-flip-inner{transform:none!important;transform-style:flat!important;'
-      +'position:static!important;display:block!important}'
-    +'.id-flip-front,.id-flip-back{'
-      +'position:static!important;transform:none!important;'
-      +'backface-visibility:visible!important;-webkit-backface-visibility:visible!important;'
-      +'display:block!important;width:'+CARD_W+'px!important;height:'+CARD_H+'px!important}'
-
-    // ── Header ──
-    +'.ph{display:flex;align-items:center;justify-content:space-between;'
-      +'margin-bottom:3mm;padding-bottom:2.5mm;border-bottom:2.5px solid #1d4ed8}'
-    +'.ph-l{display:flex;align-items:center;gap:7px}'
-    +'.ph-name{font-size:12pt;font-weight:800;color:#1d4ed8}'
-    +'.ph-r{font-size:7pt;color:#64748b;text-align:right;line-height:1.6}'
-
-    // ── Grid: 2 employees per row ──
-    +'.grid{display:grid;grid-template-columns:1fr 1fr;gap:3mm 4mm}'
-    +'.card-pair{break-inside:avoid;page-break-inside:avoid;display:flex;flex-direction:column}'
-    +'.emp-label{font-size:5pt;font-weight:700;color:#64748b;letter-spacing:.3px;'
-      +'margin-bottom:1mm;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}'
-
-    // pair-wrap: fixed height = scaled card height, clips the scale overflow
-    +'.pair-wrap{position:relative;overflow:hidden}'
-    // pair-row: holds front+back side by side, then scale from top-left
-    +'.pair-row{'
-      +'display:flex;gap:4px;align-items:flex-start;'
-      +'transform:scale('+SCALE+');transform-origin:top left;'
-      +'width:'+(CARD_W*2+4)+'px}'  // native width before scale
-
-    +'.card-col{display:flex;flex-direction:column;align-items:center}'
-    +'.side-lbl{font-size:5.5pt;font-weight:700;color:#94a3b8;margin-bottom:1.5px;text-align:center}'
-
-    +'@media print{'
-      +'@page{size:A4 portrait;margin:6mm}'
-      +'body{padding:0}'
-      +'img{max-width:100%}'
-    +'}'
+    +'body{font-family:"Noto Sans Khmer",sans-serif;background:white;color:#1e293b;padding:6mm}'
+    // Reset flip card 3D so clones show correctly
+    +'.id-flip-card,.id-portrait-card{perspective:none!important;}'
+    +'.id-flip-inner{transform:none!important;transform-style:flat!important;position:static!important;display:block!important;}'
+    +'.id-flip-front,.id-flip-back{position:static!important;transform:none!important;backface-visibility:visible!important;-webkit-backface-visibility:visible!important;display:block!important;}'
+    // Header — identical to landscape
+    +'.print-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:5mm;padding-bottom:3mm;border-bottom:2px solid #1d4ed8}'
+    +'.header-left{display:flex;align-items:center;gap:8px}'
+    +'.co-name{font-size:13pt;font-weight:800;color:#1d4ed8}'
+    +'.header-right{font-size:8pt;color:#64748b;text-align:right}'
+    // Card list — same structure as landscape
+    +'.cards-grid{display:flex;flex-direction:column;gap:7mm}'
+    +'.card-pair{break-inside:avoid;page-break-inside:avoid}'
+    +'.emp-label{font-size:6.5pt;font-weight:700;color:#64748b;letter-spacing:1px;margin-bottom:1.5mm}'
+    +'.card-row{display:flex;gap:5mm;align-items:flex-start}'
+    +'.side-label{font-size:5.5pt;font-weight:700;color:#94a3b8;letter-spacing:.5px;margin-bottom:1mm;text-align:center}'
+    // Card box — portrait dimensions
+    +'.card-box{width:'+CARD_W+'px;height:'+CARD_H+'px;border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.15);display:block;flex-shrink:0}'
+    +'.card-box>div{width:'+CARD_W+'px!important;height:'+CARD_H+'px!important;border-radius:12px!important;overflow:hidden!important}'
+    +'@media print{@page{size:A4 portrait;margin:6mm}body{padding:3mm}.card-box{box-shadow:0 0 0 0.3mm #94a3b8}}'
     +'</style></head><body>'
-
-    +'<div class="ph">'
-      +'<div class="ph-l">'+logoHtml+'<span class="ph-name">'+(cfg.company_name||'HR Pro')+'</span></div>'
-      +'<div class="ph-r">'
-        +'&#128203; Employee ID Cards — បញ្ឈ (Portrait)<br>'
-        +(CARD_STYLE_META[style]?.label||style)
-        +' &nbsp;·&nbsp; '+new Date().toLocaleDateString('km-KH')
-        +' &nbsp;·&nbsp; '+cards.length+' Cards'
-      +'</div>'
+    +'<div class="print-header">'
+      +'<div class="header-left">'+logoHtml+'<div class="co-name">'+(cfg.company_name||'HR Pro')+'</div></div>'
+      +'<div class="header-right">🪪 Employee ID Cards — បញ្ឈ<br>'+(CARD_STYLE_META[style]?.label||style)+' · '+new Date().toLocaleDateString('km-KH')+'<br>'+cards.length+' Cards</div>'
     +'</div>'
-    +'<div class="grid">'+pairsHTML+'</div>'
+    +'<div class="cards-grid">'+pairsHTML+'</div>'
     +'</body></html>');
 }
+
 
 // ===== MODAL / TOAST / BADGE =====
 function openModal() { $('modal-overlay').classList.add('open'); }
