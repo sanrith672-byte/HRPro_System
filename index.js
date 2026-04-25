@@ -252,6 +252,7 @@ async function getEmployees(request, env) {
     `ALTER TABLE employees ADD COLUMN termination_date TEXT DEFAULT ''`,
     `ALTER TABLE employees ADD COLUMN work_history TEXT DEFAULT ''`,
     `ALTER TABLE employees ADD COLUMN off_days TEXT DEFAULT '[]'`,
+    `ALTER TABLE employees ADD COLUMN work_location TEXT DEFAULT ''`,
   ];
   await Promise.allSettled(colMigrations.map(sql => env.DB.prepare(sql).run()));
 
@@ -267,6 +268,7 @@ async function getEmployees(request, env) {
     COALESCE(e.termination_date,'') as termination_date,
     COALESCE(e.work_history,'') as work_history,
     COALESCE(e.off_days,'[]') as off_days,
+    COALESCE(e.work_location,'') as work_location,
     d.name as department_name, d.icon as dept_icon
   `;
 
@@ -321,6 +323,7 @@ async function getEmployee(id, env) {
            COALESCE(e.termination_date,'') as termination_date,
            COALESCE(e.work_history,'') as work_history,
            COALESCE(e.off_days,'[]') as off_days,
+    COALESCE(e.work_location,'') as work_location,
            d.name as department_name
     FROM employees e
     LEFT JOIN departments d ON e.department_id = d.id
@@ -340,8 +343,8 @@ async function createEmployee(request, env) {
   }
 
   const result = await env.DB.prepare(`
-    INSERT INTO employees (name, position, department_id, phone, email, salary, hire_date, status, gender, custom_id, bank, bank_account, bank_holder, termination_date, work_history, off_days, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+    INSERT INTO employees (name, position, department_id, phone, email, salary, hire_date, status, gender, custom_id, bank, bank_account, bank_holder, termination_date, work_history, off_days, work_location, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
   `).bind(
     name, position, department_id,
     phone||'', email||'', salary||0,
@@ -349,7 +352,7 @@ async function createEmployee(request, env) {
     status||'active', gender||'male',
     custom_id||'', bank||'', bank_account||'', bank_holder||'',
     termination_date||'', work_history||'',
-    JSON.stringify(body.off_days||[])
+    JSON.stringify(body.off_days||[]), body.work_location||''
   ).run();
 
   const newEmp = await env.DB.prepare('SELECT * FROM employees WHERE id = ?').bind(result.meta.last_row_id).first();
@@ -370,7 +373,7 @@ async function updateEmployee(id, request, env) {
       termination_date=?, work_history=?,
       custom_id=COALESCE(?,custom_id),
       bank=COALESCE(?,bank), bank_account=COALESCE(?,bank_account), bank_holder=COALESCE(?,bank_holder),
-      off_days=?,
+      off_days=?, work_location=?,
       updated_at=datetime('now')
     WHERE id=?
   `).bind(
@@ -378,7 +381,7 @@ async function updateEmployee(id, request, env) {
     salary||0, hire_date||'', status||'active', gender||'male',
     termination_date||'', work_history||'',
     custom_id||null, bank||null, bank_account||null, bank_holder||null,
-    JSON.stringify(body.off_days||[]),
+    JSON.stringify(body.off_days||[]), body.work_location||'',
     id
   ).run();
 
@@ -913,6 +916,7 @@ async function initDatabase(env) {
     `CREATE TABLE IF NOT EXISTS app_config (key TEXT PRIMARY KEY, value TEXT DEFAULT '')`,
     // employees — off_days (personal weekly day off)
     `ALTER TABLE employees ADD COLUMN off_days TEXT DEFAULT '[]'`,
+    `ALTER TABLE employees ADD COLUMN work_location TEXT DEFAULT ''`,
   ];
   for (const m of migrations) {
     try { await env.DB.prepare(m).run(); } catch(_) { /* column already exists — OK */ }
