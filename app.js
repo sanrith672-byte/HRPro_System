@@ -8549,11 +8549,17 @@ function printIdCardsPortrait() {
     ? '<img src="'+cfg.logo_url+'" style="height:28px;object-fit:contain;vertical-align:middle;margin-right:8px" />'
     : '';
 
-  // Portrait card real size: 204px wide × 323px tall (CR80 portrait ratio)
-  // A4 portrait usable width ~185mm → fit 3 columns of ~54mm card width
-  // We scale card to 54mm wide × ~85mm tall for 3-per-row layout
-  const CARD_W = 204; // px — real portrait width
-  const CARD_H = 323; // px — real portrait height
+  // Portrait card native size: 204px wide × 323px tall
+  const CARD_W = 204;
+  const CARD_H = 323;
+
+  // A4 usable width ≈ 185mm. Each pair (front+back) = 2×CARD_W + gap.
+  // Scale so 2 pairs fit side-by-side per row comfortably.
+  // SCALE=0.44 → scaled pair width ≈ (204*2+6)*0.44 ≈ 181px (fits well in 2-col grid)
+  const SCALE = 0.44;
+  // Actual rendered height after scale (use for wrapper height to prevent overlap)
+  const scaledH = Math.round(CARD_H * SCALE);
+  const scaledW = Math.round(CARD_W * SCALE);
 
   let pairsHTML = '';
   cards.forEach(card => {
@@ -8567,30 +8573,28 @@ function printIdCardsPortrait() {
     const cloneBack  = back  ? back.cloneNode(true)  : null;
     [cloneFront, cloneBack].forEach(el => {
       if (!el) return;
-      // Force correct portrait dimensions on cloned faces
       el.style.cssText = 'position:relative;transform:none;backface-visibility:visible;'
         +'width:'+CARD_W+'px;height:'+CARD_H+'px;display:block;border-radius:10px;overflow:hidden;';
     });
+    // Use an outer wrapper with explicit height = scaledH to prevent overlap between rows
     pairsHTML +=
       '<div class="card-pair">'
-      +'<div class="emp-label">'+name+(dept?' · '+dept:'')+'</div>'
-      +'<div class="pair-row">'
-      +'<div class="card-side">'
-        +'<div class="side-label">▶ FRONT</div>'
-        +'<div class="card-box front-box">'+(cloneFront?cloneFront.outerHTML:'')+'</div>'
-      +'</div>'
-      +'<div class="card-side">'
-        +'<div class="side-label">◀ BACK</div>'
-        +'<div class="card-box back-box">'+(cloneBack?cloneBack.outerHTML:'')+'</div>'
-      +'</div>'
-      +'</div>'
+        +'<div class="emp-label">'+name+(dept?' · '+dept:'')+'</div>'
+        // scale-wrapper: fixed height = scaled card height so rows don't overlap
+        +'<div class="scale-wrapper" style="height:'+(scaledH+14)+'px">'
+          +'<div class="pair-row">'
+            +'<div class="card-side">'
+              +'<div class="side-label">▶ FRONT</div>'
+              +'<div class="card-box">'+(cloneFront?cloneFront.outerHTML:'')+'</div>'
+            +'</div>'
+            +'<div class="card-side">'
+              +'<div class="side-label">◀ BACK</div>'
+              +'<div class="card-box">'+(cloneBack?cloneBack.outerHTML:'')+'</div>'
+            +'</div>'
+          +'</div>'
+        +'</div>'
       +'</div>';
   });
-
-  // Scale factor: render card at native 204×323 then CSS scale down to fit page
-  // 3 pairs per row: each pair = front+back side by side = 204*2 + gap
-  // Use CSS transform scale so internal card content renders correctly
-  const SCALE = 0.52; // scale 204px → ~106px, fits 3 pairs across A4
 
   printHTML('<!DOCTYPE html><html><head><meta charset="UTF-8">'
     +'<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Khmer:wght@400;600;700;800&display=swap" rel="stylesheet">'
@@ -8602,17 +8606,17 @@ function printIdCardsPortrait() {
     +'.header-left{display:flex;align-items:center;gap:8px}'
     +'.co-name{font-size:13pt;font-weight:800;color:#1d4ed8}'
     +'.header-right{font-size:8pt;color:#64748b;text-align:right;line-height:1.6}'
-    // Outer grid: 3 pairs per row
-    +'.cards-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:4mm;align-items:start}'
-    // Each pair: employee label + front+back side by side, scaled
+    // 2 pairs per row on A4 portrait — more space per pair, readable cards
+    +'.cards-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:3mm 4mm;align-items:start}'
     +'.card-pair{break-inside:avoid;page-break-inside:avoid;display:flex;flex-direction:column;align-items:center}'
-    +'.emp-label{font-size:5.5pt;font-weight:700;color:#475569;letter-spacing:.5px;margin-bottom:1.5mm;text-align:center;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}'
-    // pair-row holds front+back horizontally, then we scale the whole row
+    +'.emp-label{font-size:5.5pt;font-weight:700;color:#475569;letter-spacing:.5px;margin-bottom:1.5mm;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;width:100%}'
+    // scale-wrapper: clips overflow and holds exact height after transform
+    +'.scale-wrapper{position:relative;overflow:visible;width:100%}'
+    // pair-row: transform scale from top-left so it doesn't push siblings
     +'.pair-row{'
-      +'display:flex;flex-direction:row;gap:3px;align-items:flex-start;'
-      +'transform:scale('+SCALE+');transform-origin:top center;'
-      // collapsed height = CARD_H * SCALE to remove whitespace from transform
-      +'margin-bottom:-'+(Math.round(CARD_H*(1-SCALE)))+'px;'
+      +'display:flex;flex-direction:row;gap:4px;align-items:flex-start;'
+      +'transform:scale('+SCALE+');transform-origin:top left;'
+      +'width:'+(CARD_W*2+4)+'px'  // natural width before scale
     +'}'
     +'.card-side{display:flex;flex-direction:column;align-items:center}'
     +'.side-label{font-size:7pt;font-weight:700;color:#94a3b8;letter-spacing:.5px;margin-bottom:2px;text-align:center}'
