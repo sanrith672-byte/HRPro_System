@@ -427,7 +427,7 @@ async function renderDashboard() {
                       return '<tr>'
                         +'<td><div class="employee-cell">'
                         +'<div class="emp-avatar" style="background:'+getColor(e.name)+';'+avStyle+'">'+avInner+'</div>'
-                        +'<div><div class="emp-name">'+e.name+'</div><div class="emp-id">'+(e.custom_id ? '#'+e.custom_id : '#EMP'+String(e.id).padStart(3,'0'))+'</div></div>'
+                        +'<div><div class="emp-name">'+e.name+'</div><div class="emp-id">'+(e.custom_id ? e.custom_id : 'EMP'+String(e.id).padStart(3,'0'))+'</div></div>'
                         +'</div></td>'
                         +'<td>'+e.position+'</td><td>'+(e.department_name||'—')+'</td><td>'+statusBadge(e.status)+'</td>'
                         +'</tr>';
@@ -883,7 +883,7 @@ function renderEmployeesWithData(emps, subtitle) {
         const photo = getEmpPhoto(e.id);
         const avInner = photo ? '<img src="'+photo+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>' : e.name[0];
         const avStyle = photo ? 'overflow:hidden;padding:0' : '';
-        const displayId = e.custom_id ? '#'+e.custom_id : '#EMP'+String(e.id).padStart(3,'0');
+        const displayId = e.custom_id ? e.custom_id : 'EMP'+String(e.id).padStart(3,'0');
         const statusMap = { active:'<span class="badge badge-success">✅ ធ្វើការ</span>', on_leave:'<span class="badge badge-warning">🌴 ច្បាប់</span>', inactive:'<span class="badge badge-danger">⛔ ផ្អាក</span>' };
         const statusBadge = statusMap[e.status] || '<span class="badge">'+e.status+'</span>';
         const bankInfo = (e.bank && e.bank !== '—')
@@ -955,7 +955,7 @@ function _empQuickFilter(val, dept, status) {
     const photo = getEmpPhoto(e.id);
     const avInner = photo ? '<img src="'+photo+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>' : e.name[0];
     const avStyle = photo ? 'overflow:hidden;padding:0' : '';
-    const displayId = e.custom_id ? '#'+e.custom_id : '#EMP'+String(e.id).padStart(3,'0');
+    const displayId = e.custom_id ? e.custom_id : 'EMP'+String(e.id).padStart(3,'0');
     const statusMap = { active:'<span class="badge badge-success">✅ ធ្វើការ</span>', on_leave:'<span class="badge badge-warning">🌴 ច្បាប់</span>', inactive:'<span class="badge badge-danger">⛔ ផ្អាក</span>' };
     const statusBadge = statusMap[e.status] || '<span class="badge">'+e.status+'</span>';
     const bankInfo = (e.bank && e.bank !== '—')
@@ -1058,7 +1058,7 @@ async function renderEmployees(filter='', dept='', status='') {
             const photo = getEmpPhoto(e.id);
             const avInner = photo ? '<img src="'+photo+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>' : e.name[0];
             const avStyle = photo ? 'overflow:hidden;padding:0' : '';
-            const displayId = e.custom_id ? '#'+e.custom_id : '#EMP'+String(e.id).padStart(3,'0');
+            const displayId = e.custom_id ? e.custom_id : 'EMP'+String(e.id).padStart(3,'0');
             const bankInfo = (e.bank && e.bank!=='—')
               ? '<div style="font-size:11px;font-weight:600;color:var(--text2)">'+e.bank+'</div>'
                 +(e.bank_account?'<div style="font-size:10px;color:var(--text3);font-family:var(--mono)">'+e.bank_account+'</div>':'')
@@ -1237,7 +1237,7 @@ async function openEmployeeModal(id=null) {
     + '</div>'
 
     // ── Form fields (3-column wide layout) ──
-    + '<div class="form-grid-3">'    + '<div class="form-group"><label class="form-label">ឈ្មោះពេញ *</label><input class="form-control" id="f-name" placeholder="ឈ្មោះ..." value="' + (emp?.name||'') + '" /></div>'    + '<div class="form-group"><label class="form-label">ភេទ</label><select class="form-control" id="f-gender"><option value="male"' + (emp?.gender==='male'?' selected':'') + '>ប្រុស</option><option value="female"' + (emp?.gender==='female'?' selected':'') + '>ស្រី</option></select></div>'    + '<div class="form-group"><label class="form-label">តំណែង *</label><input class="form-control" id="f-position" placeholder="តំណែង..." value="' + (emp?.position||'') + '" /></div>'    + '<div class="form-group"><label class="form-label">នាយកដ្ឋាន *</label><select class="form-control" id="f-dept">' + deptOptions + '</select></div>'    + '<div class="form-group"><label class="form-label">បៀវត្ស (USD)</label><input class="form-control" id="f-salary" type="number" placeholder="1000" value="' + (emp?.salary||'') + '" /></div>'    + '<div class="form-group"><label class="form-label">លេខទូរស័ព្ទ</label><input class="form-control" id="f-phone" placeholder="012-xxx-xxx" value="' + (emp?.phone||'') + '" /></div>'    + '<div class="form-group"><label class="form-label">អ៊ីម៉ែល</label><input class="form-control" id="f-email" type="email" placeholder="email@example.com" value="' + (emp?.email||'') + '" /></div>'    + '<div class="form-group"><label class="form-label">ថ្ងៃចូលធ្វើការ</label><input class="form-control" id="f-hire" type="date" value="' + (emp?.hire_date||'') + '" /></div>'    + '<div class="form-group"><label class="form-label">📍 ទីតាំងធ្វើការ</label><input class="form-control" id="f-work-location" placeholder="ភ្នំពេញ / សាខាA / ជាន់៣..." value="' + (emp?.work_location||'') + '" /></div>'    + '<div class="form-group"><label class="form-label">ស្ថានភាព</label><select class="form-control" id="f-status" onchange="toggleTerminationDate(this.value)"><option value="active"' + (emp?.status==='active'?' selected':'') + '>✅ ធ្វើការ</option><option value="on_leave"' + (emp?.status==='on_leave'?' selected':'') + '>🌴 ច្បាប់</option><option value="inactive"' + (emp?.status==='inactive'?' selected':'') + '>⛔ ផ្អាក / លាឈប់</option></select></div>'    + '<div class="form-group" id="termination-date-row" style="display:'+(emp?.status==='inactive'?'flex':'none')+';flex-direction:column;gap:6px">'    + '<label class="form-label">📅 ថ្ងៃលាឈប់ពីការងារ</label>'    + '<input class="form-control" id="f-termination-date" type="date" value="'+(emp?.termination_date||'')+'" />'    + '</div>'    + '<div class="full-width"><label class="form-label" style="display:block;margin-bottom:8px">📅 ថ្ងៃសម្រាកប្រចាំសប្តាហ៍ (Day Off)</label><div style="display:flex;flex-wrap:wrap;gap:8px">'    + (function(){var days=[['អាទិត្យ',0],['ច័ន្ទ',1],['អង្គារ',2],['ពុធ',3],['ព្រហស្បតិ៍',4],['សុក្រ',5],['សៅរ៍',6]];var offArr=parseOffDays(emp);return days.map(function(d){var chk=offArr.indexOf(d[1])!==-1?' checked':'';return '<label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;padding:5px 12px;border-radius:20px;border:1.5px solid var(--border)"><input type="checkbox" class="f-offday" value="'+d[1]+'"'+chk+' style="cursor:pointer"/> '+d[0]+'</label>';}).join('');}).call(this)    + '</div></div>'    + '</div>'    // Re-hire section
+    + '<div class="form-grid-3">'    + '<div class="form-group"><label class="form-label">ឈ្មោះពេញ *</label><input class="form-control" id="f-name" placeholder="ឈ្មោះ..." value="' + (emp?.name||'') + '" /></div>'    + '<div class="form-group"><label class="form-label">លេខ ID <span style="font-size:10px;color:var(--text3)">(ជ្រើស auto)</span></label><input class="form-control" id="f-custom-id" placeholder="e.g. 001 (ទុក​ទទេ=auto)" value="' + (emp?.custom_id||'') + '" /></div>'    + '<div class="form-group"><label class="form-label">ភេទ</label><select class="form-control" id="f-gender"><option value="male"' + (emp?.gender==='male'?' selected':'') + '>ប្រុស</option><option value="female"' + (emp?.gender==='female'?' selected':'') + '>ស្រី</option></select></div>'    + '<div class="form-group"><label class="form-label">តំណែង *</label><input class="form-control" id="f-position" placeholder="តំណែង..." value="' + (emp?.position||'') + '" /></div>'    + '<div class="form-group"><label class="form-label">នាយកដ្ឋាន *</label><select class="form-control" id="f-dept">' + deptOptions + '</select></div>'    + '<div class="form-group"><label class="form-label">បៀវត្ស (USD)</label><input class="form-control" id="f-salary" type="number" placeholder="1000" value="' + (emp?.salary||'') + '" /></div>'    + '<div class="form-group"><label class="form-label">លេខទូរស័ព្ទ</label><input class="form-control" id="f-phone" placeholder="012-xxx-xxx" value="' + (emp?.phone||'') + '" /></div>'    + '<div class="form-group"><label class="form-label">អ៊ីម៉ែល</label><input class="form-control" id="f-email" type="email" placeholder="email@example.com" value="' + (emp?.email||'') + '" /></div>'    + '<div class="form-group"><label class="form-label">ថ្ងៃចូលធ្វើការ</label><input class="form-control" id="f-hire" type="date" value="' + (emp?.hire_date||'') + '" /></div>'    + '<div class="form-group"><label class="form-label">📍 ទីតាំងធ្វើការ</label><input class="form-control" id="f-work-location" placeholder="ភ្នំពេញ / សាខាA / ជាន់៣..." value="' + (emp?.work_location||'') + '" /></div>'    + '<div class="form-group"><label class="form-label">ស្ថានភាព</label><select class="form-control" id="f-status" onchange="toggleTerminationDate(this.value)"><option value="active"' + (emp?.status==='active'?' selected':'') + '>✅ ធ្វើការ</option><option value="on_leave"' + (emp?.status==='on_leave'?' selected':'') + '>🌴 ច្បាប់</option><option value="inactive"' + (emp?.status==='inactive'?' selected':'') + '>⛔ ផ្អាក / លាឈប់</option></select></div>'    + '<div class="form-group" id="termination-date-row" style="display:'+(emp?.status==='inactive'?'flex':'none')+';flex-direction:column;gap:6px">'    + '<label class="form-label">📅 ថ្ងៃលាឈប់ពីការងារ</label>'    + '<input class="form-control" id="f-termination-date" type="date" value="'+(emp?.termination_date||'')+'" />'    + '</div>'    + '<div class="full-width"><label class="form-label" style="display:block;margin-bottom:8px">📅 ថ្ងៃសម្រាកប្រចាំសប្តាហ៍ (Day Off)</label><div style="display:flex;flex-wrap:wrap;gap:8px">'    + (function(){var days=[['អាទិត្យ',0],['ច័ន្ទ',1],['អង្គារ',2],['ពុធ',3],['ព្រហស្បតិ៍',4],['សុក្រ',5],['សៅរ៍',6]];var offArr=parseOffDays(emp);return days.map(function(d){var chk=offArr.indexOf(d[1])!==-1?' checked':'';return '<label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;padding:5px 12px;border-radius:20px;border:1.5px solid var(--border)"><input type="checkbox" class="f-offday" value="'+d[1]+'"'+chk+' style="cursor:pointer"/> '+d[0]+'</label>';}).join('');}).call(this)    + '</div></div>'    + '</div>'    // Re-hire section
     + '<div class="form-group full-width" id="rehire-row" style="display:'+(emp?.status==='inactive'&&emp?.termination_date?'block':'none')+'">'
     + '<div style="padding:12px 14px;background:rgba(6,214,160,.08);border:1px solid rgba(6,214,160,.25);border-radius:8px">'
     + '<div style="font-size:12px;font-weight:700;color:var(--success);margin-bottom:8px">🔄 ចូលធ្វើការឡើងវិញ</div>'
@@ -1364,6 +1364,7 @@ async function saveEmployee() {
   const data = {
     name:          $('f-name')?.value.trim(),
     gender:        $('f-gender')?.value,
+    custom_id:     $('f-custom-id')?.value.trim() || null,
     position:      $('f-position')?.value.trim(),
     department_id: parseInt($('f-dept')?.value) || 0,
     phone:         $('f-phone')?.value.trim(),
@@ -1668,7 +1669,7 @@ function printEmployeeReport(emps, rangeLabel, leaveMap) {
   const terminatedCount  = emps.filter(e=>e.termination_date&&e.termination_date!=='').length;
 
   const rows = emps.map((e,i)=>{
-    const displayId  = e.custom_id ? '#'+e.custom_id : '#EMP'+String(e.id).padStart(3,'0');
+    const displayId  = e.custom_id ? e.custom_id : 'EMP'+String(e.id).padStart(3,'0');
     const gender     = e.gender==='male'?'ប្រុស':'ស្រី';
     const statusTxt  = e.status==='active'?'✅ ធ្វើការ':e.status==='on_leave'?'🌴 ច្បាប់':'⛔ ផ្អាក/លាឈប់';
     const termDate   = (e.termination_date && e.termination_date!=='') ? e.termination_date : '—';
@@ -1751,7 +1752,7 @@ async function exportEmployeeExcelFiltered(emps, rangeLabel, leaveMap) {
   const headers = ['#','ID','ឈ្មោះពេញ','ភេទ','តំណែង','នាយកដ្ឋាន','លេខទូរស័ព្ទ','អ៊ីម៉ែល','ថ្ងៃចូលធ្វើការ','រយៈពេលធ្វើការ','ប្រាក់ខែគោល','ថ្ងៃលាឈប់ពីការងារ','ស្ថានភាព'];
   const rows = emps.map((e,i)=>[
     i+1,
-    e.custom_id ? '#'+e.custom_id : '#EMP'+String(e.id).padStart(3,'0'),
+    e.custom_id ? e.custom_id : 'EMP'+String(e.id).padStart(3,'0'),
     e.name||'',
     e.gender==='male'?'ប្រុស':'ស្រី',
     e.position||'',
@@ -3048,7 +3049,7 @@ async function processQRScan_continue(emp, raw, date) {
         '<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--bg3);border-radius:8px;margin-bottom:5px;border-left:3px solid '+borderColor+'">'
         + av
         + '<div style="min-width:0"><div style="font-weight:700;font-size:12px">'+emp.name+'</div>'
-        + '<div style="font-size:10px;color:var(--text3)">'+(emp.custom_id||'#'+emp.id)+' · '+emp.department_name+'</div></div>'
+        + '<div style="font-size:10px;color:var(--text3)">'+(emp.custom_id||'EMP'+String(emp.id).padStart(3,'0'))+' · '+emp.department_name+'</div></div>'
         + '<div style="margin-left:auto;text-align:right;flex-shrink:0">'
         + '<div style="font-size:11px;font-weight:700;color:'+textColor+'">'+(type==='in'?'▶ ':'◀ ')+time+'</div>'
         + '<div style="font-size:9px;color:var(--text3)">'+(type==='in'?(isLate?'⏰ យឺត':'✅ ទាន់'):'🚪 ចេញ')+'</div>'
@@ -5379,7 +5380,7 @@ function idCardHTML(e, style, cfg) {
 
   // ① ID from custom_id field ("លេខ ID" in employee form)
   const rawCustom = (e.custom_id || '').trim().replace(/^#+/, '');
-  const empId    = rawCustom ? '#' + rawCustom : '#' + String(e.id).padStart(4,'0');
+  const empId    = rawCustom ? rawCustom : 'EMP'+String(e.id).padStart(3,'0');
   // QR encodes: custom_id if set, else plain db id (not zero-padded) — consistent with findEmployeeByQR
   const empIdRaw = rawCustom || String(e.id);
 
@@ -5749,7 +5750,7 @@ idCardHTML = function(e, style, cfg) {
   const storedQR = photoCache['qr_' + e.id] || '';
 
   const rawCustom = (e.custom_id||'').trim().replace(/^#+/,'');
-  const empId    = rawCustom ? '#'+rawCustom : '#'+String(e.id).padStart(4,'0');
+  const empId    = rawCustom ? rawCustom : 'EMP'+String(e.id).padStart(3,'0');
   const empIdRaw = rawCustom || String(e.id); // no padStart — must match findEmployeeByQR logic
   const qrSize   = 113;
   const qrInner  = qrSize - 6;
@@ -6091,7 +6092,7 @@ function idCardPortraitHTML(e, style, cfg) {
   const initial = (e.name||'?')[0];
   const ac      = getColor(e.name);
   const rawCustom = (e.custom_id||'').trim().replace(/^#+/,'');
-  const empId     = rawCustom ? '#'+rawCustom : '#'+String(e.id).padStart(4,'0');
+  const empId     = rawCustom ? rawCustom : 'EMP'+String(e.id).padStart(3,'0');
   const empIdRaw  = rawCustom || String(e.id);
   const photo     = getEmpPhoto(e.id);
 
