@@ -1004,8 +1004,13 @@ async function renderEmployees(filter='', dept='', status='') {
     $('emp-count').textContent = empData.total;
 
     // Apply client-side sort
+    function empNum(e) {
+      const c = (e.custom_id||'').replace(/\D/g,'');
+      return c ? parseInt(c) : e.id;
+    }
     const sortFn = {
-      'id':            (a,b) => a.id - b.id,
+      'id':            (a,b) => empNum(a) - empNum(b),
+      'id_desc':       (a,b) => empNum(b) - empNum(a),
       'name':          (a,b) => (a.name||'').localeCompare(b.name||''),
       'name_desc':     (a,b) => (b.name||'').localeCompare(a.name||''),
       'hire_date':     (a,b) => (a.hire_date||'') > (b.hire_date||'') ? 1 : -1,
@@ -1043,7 +1048,8 @@ async function renderEmployees(filter='', dept='', status='') {
       +'<option value="inactive"'+(status==='inactive'?' selected':'')+'>⛔ ផ្អាក/លាឈប់</option>'
       +'</select>'
       +'<select class="filter-input" onchange="renderEmployeesSort(this.value)" id="emp-sort-sel">'
-      +'<option value="id">Sort: ID</option>'
+      +'<option value="id">Sort: EMP ID ↑ (001→999)</option>'
+      +'<option value="id_desc">Sort: EMP ID ↓ (999→001)</option>'
       +'<option value="name">Sort: ឈ្មោះ A→Z</option>'
       +'<option value="name_desc">Sort: ឈ្មោះ Z→A</option>'
       +'<option value="hire_date">Sort: ថ្ងៃចូល ចាស់→ថ្មី</option>'
