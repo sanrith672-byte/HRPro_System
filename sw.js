@@ -1,5 +1,5 @@
-// HR Pro — Service Worker v5 (PWA Fix)
-const CACHE_NAME = 'hr-pro-v5';
+// HR Pro — Service Worker v6 (Logo Fix)
+const CACHE_NAME = 'hr-pro-v6';
 
 const STATIC_ASSETS = [
   '/',
