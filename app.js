@@ -6530,12 +6530,25 @@ function getCompanyConfig() {
 async function loadCompanyConfig() {
   if (isDemoMode()) {
     try { _cfgCache = JSON.parse(localStorage.getItem(CFG_KEY)) || {}; } catch { _cfgCache = {}; }
+    applyCompanyBranding();
     return;
   }
   try {
     const data = await api('GET', '/config');
-    if (data && !data.error) { _cfgCache = data; localStorage.setItem(CFG_KEY, JSON.stringify(data)); }
-    else { _cfgCache = JSON.parse(localStorage.getItem(CFG_KEY)) || {}; }
+    if (data && !data.error) {
+      // Restore logo from localStorage (not stored in API)
+      let localLogo = '';
+      try {
+        const local = JSON.parse(localStorage.getItem(CFG_KEY)) || {};
+        localLogo = local.logo_url || '';
+      } catch(_) {}
+      _cfgCache = data;
+      if (localLogo) _cfgCache.logo_url = localLogo;
+      // Persist merged config back to localStorage
+      localStorage.setItem(CFG_KEY, JSON.stringify(_cfgCache));
+    } else {
+      _cfgCache = JSON.parse(localStorage.getItem(CFG_KEY)) || {};
+    }
   } catch(_) { _cfgCache = JSON.parse(localStorage.getItem(CFG_KEY)) || {}; }
   applyCompanyBranding();
 }
@@ -6714,11 +6727,17 @@ async function saveEditAtt(id, date) {
 }
 
 function saveCompanyConfig(cfg) {
-  _cfgCache = null; // clear cache so next getCompanyConfig() reads fresh
+  _cfgCache = null;
   _cfgCache = cfg;
+  // Save full config (including logo) to localStorage
   localStorage.setItem(CFG_KEY, JSON.stringify(cfg));
   applyCompanyBranding();
-  if (!isDemoMode()) { api('POST', '/config', cfg).catch(() => {}); }
+  // Send to API WITHOUT logo_url (base64 too large — logo stays in localStorage only)
+  if (!isDemoMode()) {
+    const apiCfg = Object.assign({}, cfg);
+    delete apiCfg.logo_url;
+    api('POST', '/config', apiCfg).catch(() => {});
+  }
 }
 function saveSalaryRules(rules) { localStorage.setItem(SAL_KEY, JSON.stringify(rules)); }
 
