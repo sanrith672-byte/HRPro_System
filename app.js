@@ -862,7 +862,7 @@ async function applyEmpAdvSearch() {
     // Client-side filters
     if (name)     emps = emps.filter(e => (e.name||'').toLowerCase().includes(name.toLowerCase()) || (e.employee_code||'').toLowerCase().includes(name.toLowerCase()));
     if (position) emps = emps.filter(e => (e.position||'').toLowerCase().includes(position.toLowerCase()));
-    if (location) emps = emps.filter(e => (e.location||'').toLowerCase().includes(location.toLowerCase()));
+    if (location) emps = emps.filter(e => (e.work_location||e.location||'').toLowerCase().includes(location.toLowerCase()));
     if (salMin)   emps = emps.filter(e => parseFloat(e.salary||0) >= salMin);
     if (salMax < 999999) emps = emps.filter(e => parseFloat(e.salary||0) <= salMax);
     if (hireFrom) emps = emps.filter(e => (e.hire_date||'') >= hireFrom);
@@ -894,7 +894,7 @@ function renderEmployeesWithData(emps, subtitle) {
           +'<td><div style="display:flex;align-items:center;gap:8px"><div class="emp-avatar" style="'+avStyle+'">'+avInner+'</div><div><div style="font-weight:600;font-size:13px">'+e.name+'</div><div style="font-size:11px;color:var(--text3)">'+displayId+'</div></div></div></td>'
           +'<td><div style="font-size:12px">'+( e.position||'—')+'</div></td>'
           +'<td><div style="font-size:12px">'+( e.department||'—')+'</div></td>'
-          +'<td>'+(e.location?'<span style="font-size:12px">📍 '+e.location+'</span>':'<span style="color:var(--text3)">—</span>')+'</td>'
+          +'<td>'+((e.work_location||e.location)?'<span style="font-size:12px">📍 '+(e.work_location||e.location)+'</span>':'<span style="color:var(--text3)">—</span>')+'</td>'
           +'<td><div style="font-size:12px">'+(e.phone||'—')+'</div><div style="font-size:11px;color:var(--text3)">'+(e.email||'')+'</div></td>'
           +'<td>'+bankInfo+'</td>'
           +'<td>'+salaryFmt+'</td>'
@@ -972,7 +972,7 @@ function _empQuickFilter(val, dept, status) {
       +'<td><div style="display:flex;align-items:center;gap:8px"><div class="emp-avatar" style="'+avStyle+'">'+avInner+'</div><div><div style="font-weight:600;font-size:13px">'+e.name+'</div><div style="font-size:11px;color:var(--text3)">'+displayId+'</div></div></div></td>'
       +'<td><div style="font-size:12px">'+(e.position||'—')+'</div></td>'
       +'<td><div style="font-size:12px">'+(e.department||'—')+'</div></td>'
-      +'<td>'+(e.location?'<span style="font-size:12px">📍 '+e.location+'</span>':'<span style="color:var(--text3)">—</span>')+'</td>'
+      +'<td>'+((e.work_location||e.location)?'<span style="font-size:12px">📍 '+(e.work_location||e.location)+'</span>':'<span style="color:var(--text3)">—</span>')+'</td>'
       +'<td><div style="font-size:12px">'+(e.phone||'—')+'</div><div style="font-size:11px;color:var(--text3)">'+(e.email||'')+'</div></td>'
       +'<td>'+bankInfo+'</td>'
       +'<td>'+salaryFmt+'</td>'
