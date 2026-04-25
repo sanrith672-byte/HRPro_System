@@ -6167,7 +6167,7 @@ function idCardPortraitHTML(e, style, cfg) {
         +'<span style="color:#1e293b;font-weight:700;font-size:9px">'+v+'</span></div>'
       ).join('')
       +'</div>'
-      +'<div style="background:#f8faff;border-top:1px solid #e2eaff;padding:5px 14px;text-align:center;font-size:8px;color:#94a3b8">'+( cfg.lost_card_text||'ករណីបាត់ — '+( cfg.lost_card_text||'ករណីបាត់ — If found, please return')+'')+'</div>'
+      +'<div style="background:#f8faff;border-top:1px solid #e2eaff;padding:5px 14px;text-align:center;font-size:8px;color:#94a3b8">'+( cfg.lost_card_text||'ករណីបាត់ — If found, please return')+'</div>'
       +'</div>';
     return wrapP(front, back);
   }
@@ -6487,7 +6487,10 @@ const SAL_KEY = 'hr_salary_rules';
 let _cfgCache = null;
 function getCompanyConfig() {
   if (_cfgCache) return _cfgCache;
-  try { return JSON.parse(localStorage.getItem(CFG_KEY)) || {}; } catch { return {}; }
+  try {
+    _cfgCache = JSON.parse(localStorage.getItem(CFG_KEY)) || {};
+    return _cfgCache;
+  } catch { return {}; }
 }
 async function loadCompanyConfig() {
   if (isDemoMode()) {
@@ -6676,6 +6679,7 @@ async function saveEditAtt(id, date) {
 }
 
 function saveCompanyConfig(cfg) {
+  _cfgCache = null; // clear cache so next getCompanyConfig() reads fresh
   _cfgCache = cfg;
   localStorage.setItem(CFG_KEY, JSON.stringify(cfg));
   applyCompanyBranding();
