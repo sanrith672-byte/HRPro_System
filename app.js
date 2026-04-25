@@ -1214,16 +1214,15 @@ async function openEmployeeModal(id=null) {
     try {
       const allEmps = state.employees && state.employees.length ? state.employees : await api('GET', '/employees?limit=9999');
       const empList = Array.isArray(allEmps) ? allEmps : (allEmps?.employees || allEmps?.records || []);
-      // Extract numeric part from all custom_ids and auto EMP IDs
+
+      // ប្រើតែ custom_id ដែលមានស្រាប់ (មិនប្រើ DB row id)
       let maxNum = 0;
       empList.forEach(function(e) {
         const cid = (e.custom_id || '').replace(/\D/g, '');
-        const aid = String(e.id || 0);
-        const n1 = parseInt(cid) || 0;
-        const n2 = parseInt(aid) || 0;
-        if (n1 > maxNum) maxNum = n1;
-        if (n2 > maxNum) maxNum = n2;
+        const n = parseInt(cid) || 0;
+        if (n > maxNum) maxNum = n;
       });
+      if (maxNum === 0) maxNum = empList.length;
       autoNextId = 'EMP' + String(maxNum + 1).padStart(3, '0');
     } catch(_) {}
   }
