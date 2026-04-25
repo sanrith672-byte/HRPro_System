@@ -8546,20 +8546,27 @@ function printIdCardsPortrait() {
   const style = currentCardStyle;
 
   const logoHtml = cfg.logo_url
-    ? '<img src="'+cfg.logo_url+'" style="height:28px;object-fit:contain;vertical-align:middle;margin-right:8px" />'
+    ? '<img src="'+cfg.logo_url+'" style="height:26px;object-fit:contain;vertical-align:middle;margin-right:8px" />'
     : '';
 
-  // Portrait card native size: 204px wide × 323px tall
-  const CARD_W = 204;
-  const CARD_H = 323;
+  // CR80 Portrait standard: 54mm × 85.6mm
+  // At print 96dpi → 204px × 323px (native render size)
+  // A4 portrait usable: ~185mm wide × ~270mm tall (after 6mm margins)
+  // Layout: 2 employees per row, each employee = front card + back card stacked vertically
+  // Per-employee column width = 185mm / 2 = ~92mm → scale 54mm card → 92mm = scale 1.70
+  // But we keep scale ≤ 1 for clarity; instead fit 3 employees per row at scale 0.58
+  // 3 × (54mm × 0.58 × 2cards_side_by_side) = 3 × ~63mm = ~188mm — too wide
+  // Best: 2 columns, each column = front + back SIDE BY SIDE, scale to fit
+  // Column width available = (185 - 4mm_gap) / 2 = ~90mm
+  // front+back side by side = 108mm native → scale = 90/108 = 0.83 → scaled H = 323*0.83 = 268px ≈ 71mm
+  // → 3 employees per page vertically (270 / (71+8label+4gap) ≈ 3.2) ✓
+  const CARD_W = 204; // px native (54mm @96dpi)
+  const CARD_H = 323; // px native (85.6mm @96dpi)
+  const SCALE  = 0.82; // fits 2 cols of front+back on A4
 
-  // A4 usable width ≈ 185mm. Each pair (front+back) = 2×CARD_W + gap.
-  // Scale so 2 pairs fit side-by-side per row comfortably.
-  // SCALE=0.44 → scaled pair width ≈ (204*2+6)*0.44 ≈ 181px (fits well in 2-col grid)
-  const SCALE = 0.44;
-  // Actual rendered height after scale (use for wrapper height to prevent overlap)
-  const scaledH = Math.round(CARD_H * SCALE);
-  const scaledW = Math.round(CARD_W * SCALE);
+  // Scaled dimensions for wrapper sizing (prevent row overlap)
+  const sH = Math.round(CARD_H * SCALE); // ~265px ≈ 70mm
+  const sW = Math.round(CARD_W * SCALE); // ~167px ≈ 44mm
 
   let pairsHTML = '';
   cards.forEach(card => {
@@ -8569,19 +8576,23 @@ function printIdCardsPortrait() {
     const front = card.querySelector('.id-flip-front');
     const back  = card.querySelector('.id-flip-back');
     if (!front && !back) return;
+
     const cloneFront = front ? front.cloneNode(true) : null;
     const cloneBack  = back  ? back.cloneNode(true)  : null;
     [cloneFront, cloneBack].forEach(el => {
       if (!el) return;
-      el.style.cssText = 'position:relative;transform:none;backface-visibility:visible;'
-        +'width:'+CARD_W+'px;height:'+CARD_H+'px;display:block;border-radius:10px;overflow:hidden;';
+      el.style.cssText =
+        'position:relative;transform:none;backface-visibility:visible;'
+        +'width:'+CARD_W+'px;height:'+CARD_H+'px;display:block;'
+        +'border-radius:10px;overflow:hidden;flex-shrink:0;';
     });
-    // Use an outer wrapper with explicit height = scaledH to prevent overlap between rows
+
+    // Outer wrapper: fixed height = scaled card height so grid rows never overlap
     pairsHTML +=
       '<div class="card-pair">'
         +'<div class="emp-label">'+name+(dept?' · '+dept:'')+'</div>'
-        // scale-wrapper: fixed height = scaled card height so rows don't overlap
-        +'<div class="scale-wrapper" style="height:'+(scaledH+14)+'px">'
+        // Overflow container with exact collapsed height after CSS scale
+        +'<div style="position:relative;width:'+(sW*2+Math.round(4*SCALE))+'px;height:'+(sH+12)+'px;overflow:hidden;">'
           +'<div class="pair-row">'
             +'<div class="card-side">'
               +'<div class="side-label">▶ FRONT</div>'
@@ -8601,41 +8612,63 @@ function printIdCardsPortrait() {
     +'<title>ID Cards (បញ្ឈ) — '+(cfg.company_name||'HR Pro')+'</title>'
     +'<style>'
     +'*{box-sizing:border-box;margin:0;padding:0}'
-    +'body{font-family:"Noto Sans Khmer",sans-serif;background:white;color:#1e293b;padding:5mm}'
-    +'.print-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:4mm;padding-bottom:3mm;border-bottom:2px solid #1d4ed8}'
+    +'body{font-family:"Noto Sans Khmer",sans-serif;background:white;color:#1e293b;padding:0}'
+
+    // Page header
+    +'.print-header{display:flex;align-items:center;justify-content:space-between;'
+      +'margin-bottom:3mm;padding-bottom:2.5mm;border-bottom:2px solid #1d4ed8}'
     +'.header-left{display:flex;align-items:center;gap:8px}'
-    +'.co-name{font-size:13pt;font-weight:800;color:#1d4ed8}'
-    +'.header-right{font-size:8pt;color:#64748b;text-align:right;line-height:1.6}'
-    // 2 pairs per row on A4 portrait — more space per pair, readable cards
-    +'.cards-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:3mm 4mm;align-items:start}'
-    +'.card-pair{break-inside:avoid;page-break-inside:avoid;display:flex;flex-direction:column;align-items:center}'
-    +'.emp-label{font-size:5.5pt;font-weight:700;color:#475569;letter-spacing:.5px;margin-bottom:1.5mm;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;width:100%}'
-    // scale-wrapper: clips overflow and holds exact height after transform
-    +'.scale-wrapper{position:relative;overflow:visible;width:100%}'
-    // pair-row: transform scale from top-left so it doesn't push siblings
+    +'.co-name{font-size:12pt;font-weight:800;color:#1d4ed8}'
+    +'.header-right{font-size:7.5pt;color:#64748b;text-align:right;line-height:1.5}'
+
+    // Grid: 2 employees per row
+    +'.cards-grid{'
+      +'display:grid;'
+      +'grid-template-columns:repeat(2,1fr);'
+      +'gap:4mm 5mm;'
+      +'align-items:start;'
+    +'}'
+
+    // Each employee block
+    +'.card-pair{break-inside:avoid;page-break-inside:avoid;display:flex;flex-direction:column;align-items:flex-start}'
+    +'.emp-label{'
+      +'font-size:5pt;font-weight:700;color:#64748b;letter-spacing:.4px;'
+      +'margin-bottom:1mm;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;'
+    +'}'
+
+    // The two cards side by side, scaled
     +'.pair-row{'
       +'display:flex;flex-direction:row;gap:4px;align-items:flex-start;'
       +'transform:scale('+SCALE+');transform-origin:top left;'
-      +'width:'+(CARD_W*2+4)+'px'  // natural width before scale
     +'}'
     +'.card-side{display:flex;flex-direction:column;align-items:center}'
-    +'.side-label{font-size:7pt;font-weight:700;color:#94a3b8;letter-spacing:.5px;margin-bottom:2px;text-align:center}'
-    +'.card-box{width:'+CARD_W+'px;height:'+CARD_H+'px;border-radius:10px;overflow:hidden;'
-      +'box-shadow:0 2px 8px rgba(0,0,0,.18);display:block;flex-shrink:0}'
-    +'.card-box>div{width:'+CARD_W+'px!important;height:'+CARD_H+'px!important;border-radius:10px!important;overflow:hidden!important}'
+    +'.side-label{font-size:5.5pt;font-weight:700;color:#94a3b8;letter-spacing:.3px;margin-bottom:1.5px;text-align:center}'
+    +'.card-box{'
+      +'width:'+CARD_W+'px;height:'+CARD_H+'px;'
+      +'border-radius:10px;overflow:hidden;'
+      +'box-shadow:0 2px 8px rgba(0,0,0,.2);'
+      +'display:block;flex-shrink:0;'
+    +'}'
+    +'.card-box>div{'
+      +'width:'+CARD_W+'px!important;height:'+CARD_H+'px!important;'
+      +'border-radius:10px!important;overflow:hidden!important;'
+    +'}'
+
     +'@media print{'
       +'@page{size:A4 portrait;margin:6mm}'
-      +'body{padding:3mm}'
-      +'.card-box{box-shadow:0 0 0 0.3mm #94a3b8!important}'
+      +'body{padding:0}'
+      +'.print-header{padding:0 0 2.5mm}'
+      +'.card-box{box-shadow:0 0 0 0.25mm #94a3b8!important}'
     +'}'
     +'</style></head><body>'
     +'<div class="print-header">'
-    +'<div class="header-left">'+logoHtml+'<div class="co-name">'+(cfg.company_name||'HR Pro')+'</div></div>'
-    +'<div class="header-right">🪪 Employee ID Cards<br>'
-      +(CARD_STYLE_META[style]?.label||style)+' — បញ្ឈ<br>'
-      +new Date().toLocaleDateString('km-KH')+'<br>'
-      +cards.length+' Cards'
-    +'</div>'
+      +'<div class="header-left">'+logoHtml+'<div class="co-name">'+(cfg.company_name||'HR Pro')+'</div></div>'
+      +'<div class="header-right">'
+        +'🪪 Employee ID Cards — បញ្ឈ (Portrait)<br>'
+        +(CARD_STYLE_META[style]?.label||style)
+        +' · '+new Date().toLocaleDateString('km-KH')
+        +' · '+cards.length+' Cards'
+      +'</div>'
     +'</div>'
     +'<div class="cards-grid">'+pairsHTML+'</div>'
     +'</body></html>');
