@@ -1613,3 +1613,21 @@ input, select, textarea { font-size: max(14px, 1em); }
   .settings-layout { grid-template-columns: 1fr; gap: 12px; }
   .settings-section-body { padding: 14px; }
 }
+/* ===== TOPBAR MOBILE LOGO ===== */
+.topbar-mobile-logo {
+  display: none;
+  align-items: center;
+  flex-shrink: 0;
+}
+.topbar-mobile-logo img,
+.topbar-mobile-logo svg {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  object-fit: contain;
+}
+@media (max-width: 768px) {
+  .topbar-mobile-logo {
+    display: flex;
+  }
+}
