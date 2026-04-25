@@ -930,12 +930,15 @@ function _empQuickFilter(val, dept, status) {
   const q = (val||'').toLowerCase().trim();
   let emps = state.employees || [];
   
-  if (dept)   emps = emps.filter(e => (e.department||'') === dept);
+  if (dept)   emps = emps.filter(e => (e.department_name||e.department||'') === dept);
   if (status) emps = emps.filter(e => (e.status||'') === status);
   if (q)      emps = emps.filter(e =>
     (e.name||'').toLowerCase().includes(q) ||
     (e.position||'').toLowerCase().includes(q) ||
     (e.employee_code||'').toLowerCase().includes(q) ||
+    (e.custom_id||'').toLowerCase().includes(q) ||
+    (e.department_name||e.department||'').toLowerCase().includes(q) ||
+    (e.work_location||'').toLowerCase().includes(q) ||
     String(e.id).includes(q)
   );
 
