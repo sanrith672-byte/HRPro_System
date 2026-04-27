@@ -2275,6 +2275,19 @@ async function renderMonthlyAttendance(month='') {
       const deductCell = overAbsent > 0
         ? '<td style="text-align:center;font-weight:700;color:var(--danger);font-size:12px">-$'+deduction.toFixed(0)+'</td>'
         : '<td style="text-align:center;color:var(--success);font-size:11px">—</td>';
+      const mob = window.innerWidth < 700;
+      if (mob) {
+        return '<tr>'
+          +'<td style="padding:3px 5px;white-space:nowrap;position:sticky;left:0;z-index:2;background:var(--bg2);box-shadow:2px 0 4px rgba(0,0,0,.15);min-width:72px;max-width:72px"><div style="display:flex;align-items:center;gap:3px">'+av+'<span style="font-size:9px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:44px">'+emp.name.split(' ').pop()+'</span></div></td>'
+          +'<td style="text-align:center;font-weight:700;color:var(--success);font-size:11px;min-width:20px;padding:2px 1px">'+present+'</td>'
+          +'<td style="text-align:center;font-weight:700;color:var(--warning);font-size:11px;min-width:20px;padding:2px 1px">'+late+'</td>'
+          +'<td style="text-align:center;font-weight:700;color:var(--danger);font-size:11px;min-width:20px;padding:2px 1px">'+absent+'</td>'
+          +'<td style="text-align:center;font-weight:700;color:var(--primary);font-size:11px;min-width:20px;padding:2px 1px">'+swap+'</td>'
+          +'<td style="text-align:center;font-weight:700;color:'+(overAbsent>0?'var(--danger)':'var(--text3)')+';font-size:10px;min-width:22px;padding:2px 1px">'+overAbsent+'</td>'
+          +'<td style="text-align:center;font-weight:700;color:'+(overAbsent>0?'var(--danger)':'var(--success)')+';font-size:10px;min-width:34px;padding:2px 1px">'+(overAbsent>0?'-$'+deduction.toFixed(0):'—')+'</td>'
+          +cells
+          +'</tr>';
+      }
       return '<tr>'
         +'<td style="padding:6px 8px;white-space:nowrap;position:sticky;left:0;z-index:1;background:var(--bg2);box-shadow:2px 0 5px rgba(0,0,0,.12)"><div style="display:flex;align-items:center;gap:6px">'+av+'<span style="font-size:12px;font-weight:600">'+emp.name+'</span></div></td>'
         +'<td style="text-align:center;font-weight:700;color:var(--success);font-size:13px;width:30px;position:sticky;left:160px;z-index:1;background:var(--bg2);padding:3px 0;text-align:center;font-weight:700">'+present+'</td>'
@@ -2319,32 +2332,35 @@ async function renderMonthlyAttendance(month='') {
       +'<button class="btn btn-outline btn-sm" style="font-size:11px" onclick="openAbsenceRulesModal()">✏️ កែច្បាប់</button>'
       +'</div>'
       +'<div class="card" style="padding:0"><div style="overflow-x:scroll;overflow-y:auto;max-height:calc(100vh - 320px);will-change:scroll-position;-webkit-overflow-scrolling:touch"><table style="min-width:max-content;border-collapse:collapse;table-layout:auto">'
-      +'<colgroup>'
-      +'<col style="width:160px"/>'
-      +'<col style="width:30px"/>'
-      +'<col style="width:30px"/>'
-      +'<col style="width:30px"/>'
-      +'<col style="width:30px"/>'
-      +'<col style="width:36px"/>'
-      +'<col style="width:52px"/>'
-      +allDays.map(()=>'<col style="min-width:26px;width:26px"/>').join('')
-      +'<col style="width:70px"/>'
-      +'</colgroup>'
+      +(window.innerWidth<700
+        ? '<colgroup><col style="width:72px"/><col style="width:20px"/><col style="width:20px"/><col style="width:20px"/><col style="width:20px"/><col style="width:22px"/><col style="width:34px"/>'+allDays.map(()=>'<col style="min-width:22px;width:22px"/>').join('')+'</colgroup>'
+        : '<colgroup><col style="width:160px"/><col style="width:30px"/><col style="width:30px"/><col style="width:30px"/><col style="width:30px"/><col style="width:36px"/><col style="width:52px"/>'+allDays.map(()=>'<col style="min-width:26px;width:26px"/>').join('')+'<col style="width:70px"/></colgroup>'
+      )
       +'<thead>'
-      +'<tr style="position:sticky;top:0;z-index:4;background:var(--bg2);height:28px">'
-      +'<th style="width:160px;text-align:left;position:sticky;left:0;z-index:5;background:var(--bg2);box-shadow:2px 0 5px rgba(0,0,0,.2);padding:6px 8px" rowspan="2">បុគ្គលិក</th>'
-      +'<th style="width:30px;text-align:center;color:var(--success);position:sticky;left:160px;z-index:5;background:var(--bg2);padding:3px 0;font-size:13px" rowspan="2" title="វត្តមាន">✅</th>'
-      +'<th style="width:30px;text-align:center;color:var(--warning);position:sticky;left:190px;z-index:5;background:var(--bg2);padding:3px 0;font-size:13px" rowspan="2" title="យឺត">⏰</th>'
-      +'<th style="width:30px;text-align:center;color:var(--danger);position:sticky;left:220px;z-index:5;background:var(--bg2);padding:3px 0;font-size:13px" rowspan="2" title="អវត្តមាន">❌</th>'
-      +'<th style="width:30px;text-align:center;color:var(--primary);position:sticky;left:250px;z-index:5;background:var(--bg2);padding:3px 0;font-size:13px" rowspan="2" title="ប្ដូរថ្ងៃ">🔄</th>'
-      +'<th style="width:36px;text-align:center;font-size:10px;position:sticky;left:280px;z-index:5;background:var(--bg2);padding:3px 1px" rowspan="2" title="លើសថ្ងៃ">លើស</th>'
-      +'<th style="width:52px;text-align:center;font-size:10px;position:sticky;left:316px;z-index:5;background:var(--bg2);box-shadow:3px 0 6px rgba(0,0,0,.2);padding:3px 2px" rowspan="2" title="កាត់ប្រាក់">កាត់</th>'
-      +dayThs
-      +'<th style="min-width:70px;text-align:center;padding:3px 4px" rowspan="2">សកម្ម</th>'
-      +'</tr>'
-      +'<tr style="position:sticky;top:28px;z-index:4;background:var(--bg2);height:18px">'
-      +wdThs
-      +'</tr>'
+      +(window.innerWidth<700
+        ? '<tr style="position:sticky;top:0;z-index:4;background:var(--bg2)">'
+          +'<th style="min-width:72px;text-align:left;position:sticky;left:0;z-index:5;background:var(--bg2);box-shadow:2px 0 4px rgba(0,0,0,.2);padding:4px 5px;font-size:10px" rowspan="2">បុគ្គលិក</th>'
+          +'<th style="min-width:20px;text-align:center;color:var(--success);font-size:11px;padding:2px 0" rowspan="2">✅</th>'
+          +'<th style="min-width:20px;text-align:center;color:var(--warning);font-size:11px;padding:2px 0" rowspan="2">⏰</th>'
+          +'<th style="min-width:20px;text-align:center;color:var(--danger);font-size:11px;padding:2px 0" rowspan="2">❌</th>'
+          +'<th style="min-width:20px;text-align:center;color:var(--primary);font-size:11px;padding:2px 0" rowspan="2">🔄</th>'
+          +'<th style="min-width:22px;text-align:center;font-size:9px;padding:2px 0" rowspan="2">លើស</th>'
+          +'<th style="min-width:34px;text-align:center;font-size:9px;padding:2px 0" rowspan="2">កាត់</th>'
+          +dayThs+'</tr>'
+          +'<tr style="position:sticky;top:22px;z-index:4;background:var(--bg2)">'+wdThs+'</tr>'
+        : '<tr style="position:sticky;top:0;z-index:4;background:var(--bg2);height:28px">'
+          +'<th style="width:160px;text-align:left;position:sticky;left:0;z-index:5;background:var(--bg2);box-shadow:2px 0 5px rgba(0,0,0,.2);padding:6px 8px" rowspan="2">បុគ្គលិក</th>'
+          +'<th style="width:30px;text-align:center;color:var(--success);position:sticky;left:160px;z-index:5;background:var(--bg2);padding:3px 0;font-size:13px" rowspan="2" title="វត្តមាន">✅</th>'
+          +'<th style="width:30px;text-align:center;color:var(--warning);position:sticky;left:190px;z-index:5;background:var(--bg2);padding:3px 0;font-size:13px" rowspan="2" title="យឺត">⏰</th>'
+          +'<th style="width:30px;text-align:center;color:var(--danger);position:sticky;left:220px;z-index:5;background:var(--bg2);padding:3px 0;font-size:13px" rowspan="2" title="អវត្តមាន">❌</th>'
+          +'<th style="width:30px;text-align:center;color:var(--primary);position:sticky;left:250px;z-index:5;background:var(--bg2);padding:3px 0;font-size:13px" rowspan="2" title="ប្ដូរថ្ងៃ">🔄</th>'
+          +'<th style="width:36px;text-align:center;font-size:10px;position:sticky;left:280px;z-index:5;background:var(--bg2);padding:3px 1px" rowspan="2" title="លើសថ្ងៃ">លើស</th>'
+          +'<th style="width:52px;text-align:center;font-size:10px;position:sticky;left:316px;z-index:5;background:var(--bg2);box-shadow:3px 0 6px rgba(0,0,0,.2);padding:3px 2px" rowspan="2" title="កាត់ប្រាក់">កាត់</th>'
+          +dayThs
+          +'<th style="min-width:70px;text-align:center;padding:3px 4px" rowspan="2">សកម្ម</th>'
+          +'</tr>'
+          +'<tr style="position:sticky;top:28px;z-index:4;background:var(--bg2);height:18px">'+wdThs+'</tr>'
+      )
       +'</thead>'
       +'<tbody>'+dayRows+'</tbody>'
       +'</table></div></div>';
