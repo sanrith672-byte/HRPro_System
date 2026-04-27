@@ -7750,6 +7750,9 @@ function renderSettings() {
             ${(()=>{
               const perms = getPermissions();
               const roles = ['HR Officer','Finance','Viewer','QR Scanner'];
+              // QR Scanner locked keys
+              const QR_LOCKED_ON = new Set(['attendance_view','attendance_edit']);
+              const regularRoles = roles.filter(r => r !== 'QR Scanner');
               const features = [
                 { key:'employees_view',    label:'👥 មើលបុគ្គលិក' },
                 { key:'employees_edit',    label:'✏️ កែ/បន្ថែម/លុប បុគ្គលិក' },
@@ -7780,14 +7783,15 @@ function renderSettings() {
                     <thead>
                       <tr style="background:var(--bg4)">
                         <th style="padding:10px 12px;text-align:left;border-bottom:2px solid var(--border);min-width:160px;position:sticky;left:0;z-index:2;background:var(--bg4)">មុខងារ</th>
-                        ${roles.map(r=>`<th style="padding:10px 14px;text-align:center;border-bottom:2px solid var(--border);min-width:90px;color:var(--primary);font-size:11px;white-space:nowrap">${r}</th>`).join('')}
+                        ${regularRoles.map(r=>`<th style="padding:10px 14px;text-align:center;border-bottom:2px solid var(--border);min-width:90px;color:var(--primary);font-size:11px;white-space:nowrap">${r}</th>`).join('')}
+                        <th style="padding:10px 14px;text-align:center;border-bottom:2px solid var(--border);min-width:110px;font-size:11px;white-space:nowrap;background:rgba(34,197,94,.08);color:var(--success);border-left:2px solid rgba(34,197,94,.3)">📷 QR Scanner<br><span style="font-size:9px;font-weight:400;opacity:.8">🔒 ចាក់សោ</span></th>
                       </tr>
                     </thead>
                     <tbody>
                       ${features.map((f,i)=>`
                         <tr style="background:${i%2===0?'var(--bg3)':'var(--bg)'}">
                           <td style="padding:9px 12px;border-bottom:1px solid var(--border);font-weight:500;position:sticky;left:0;z-index:1;background:${i%2===0?'var(--bg3)':'var(--bg)'}">${f.label}</td>
-                          ${roles.map(r=>`
+                          ${regularRoles.map(r=>`
                             <td style="text-align:center;padding:9px 14px;border-bottom:1px solid var(--border)">
                               <input type="checkbox" class="perm-cb"
                                 data-role="${r}" data-key="${f.key}"
@@ -7796,6 +7800,12 @@ function renderSettings() {
                                 onchange="updatePermission('${r}','${f.key}',this.checked)" />
                             </td>
                           `).join('')}
+                          <td style="text-align:center;padding:9px 14px;border-bottom:1px solid var(--border);background:${QR_LOCKED_ON.has(f.key)?'rgba(34,197,94,.10)':'rgba(0,0,0,.03)'};border-left:2px solid rgba(34,197,94,.15)">
+                            ${QR_LOCKED_ON.has(f.key)
+                              ? `<span title="បើក — ចាក់សោ" style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:var(--success);border-radius:50%"><svg viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' style='width:12px;height:12px'><polyline points='20 6 9 17 4 12'/></svg></span>`
+                              : `<span title="បិទ — ចាក់សោ" style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:var(--bg4);border-radius:50%;border:2px solid var(--border)"><svg viewBox='0 0 24 24' fill='none' stroke='var(--text3)' stroke-width='2.5' style='width:11px;height:11px'><line x1='18' y1='6' x2='6' y2='18'/><line x1='6' y1='6' x2='18' y2='18'/></svg></span>`
+                            }
+                          </td>
                         </tr>
                       `).join('')}
                     </tbody>
@@ -7816,11 +7826,20 @@ function renderSettings() {
                 })();
                 </script>
 
-                <div style="margin-top:16px;padding:12px 14px;background:rgba(255,183,3,.08);border:1px solid rgba(255,183,3,.25);border-radius:8px">
-                  <div style="font-size:12px;color:var(--warning);font-weight:600;margin-bottom:4px">⚠️ ចំណាំ</div>
-                  <div style="font-size:11px;color:var(--text3)">
-                    • <strong>អ្នកគ្រប់គ្រង (Admin)</strong> — មានសិទ្ធពេញលេញ មិនអាចកំណត់<br>
-                    • ការផ្លាស់ប្ដូរ apply ភ្លាម — user ត្រូវ logout/login ម្តងទៀត
+                <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap">
+                  <div style="flex:1;min-width:220px;padding:12px 14px;background:rgba(34,197,94,.07);border:1px solid rgba(34,197,94,.25);border-radius:8px">
+                    <div style="font-size:12px;color:var(--success);font-weight:700;margin-bottom:4px">📷 QR Scanner — ចាក់សោស្ថិតស្ថេរ</div>
+                    <div style="font-size:11px;color:var(--text3)">
+                      QR Scanner មានតែ <strong>មើល + កត់វត្តមាន</strong> ប៉ុណ្ណោះ។<br>
+                      មុខងារដទៃទៀត <strong>បិទ & ចាក់សោ</strong> — Admin មិនអាចប្ដូរ។
+                    </div>
+                  </div>
+                  <div style="flex:1;min-width:220px;padding:12px 14px;background:rgba(255,183,3,.08);border:1px solid rgba(255,183,3,.25);border-radius:8px">
+                    <div style="font-size:12px;color:var(--warning);font-weight:700;margin-bottom:4px">⚠️ ចំណាំ</div>
+                    <div style="font-size:11px;color:var(--text3)">
+                      • <strong>អ្នកគ្រប់គ្រង</strong> — មានសិទ្ធពេញលេញ មិនអាចកំណត់<br>
+                      • ផ្លាស់ប្ដូរ apply ភ្លាម — user ត្រូវ logout/login
+                    </div>
                   </div>
                 </div>
 
