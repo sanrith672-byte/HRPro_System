@@ -8389,16 +8389,14 @@ async function saveNewAccount() {
     await photoDB.set('user_' + newId, photo);
   }
 
-  // Sync to Worker API (remote = master for all devices)
-  const syncOk = await syncAccountsToAPI(users);
-  if (!syncOk && !isDemoMode()) {
-    showToast('⚠️ រក្សាទុក Local បានហើយ ប៉ុន្តែ Sync ទៅ Server មិនបាន — សូម Check API', 'error');
-  } else {
-    showToast('បន្ថែម Account បានជោគជ័យ! ✅', 'success');
-  }
+  // Show success immediately — account is saved locally
+  showToast('បន្ថែម Account បានជោគជ័យ! ✅', 'success');
   closeModal();
   renderSettings();
   setTimeout(() => switchSettingsTab('accounts'), 50);
+
+  // Sync to Worker API in background (silently, local is already saved)
+  syncAccountsToAPI(users).catch(() => {});
 }
 
 // Sync all accounts to Worker — Remote is master for all devices
@@ -8447,15 +8445,24 @@ async function loadAccountsFromAPI() {
 
     if (!Array.isArray(remoteUsers) || !remoteUsers.length) return;
 
-    // Remote = source of truth for ALL devices
-    // Only keep local password if user changed it on this device
+    // Merge: remote is master, but keep any local-only accounts (sync may have failed before)
     const localUsers = getUsers();
     const merged = remoteUsers.map(ru => {
       const lu = localUsers.find(l => l.username === ru.username);
       return { ...ru, password: lu?.password || ru.password };
     });
+    // Add local accounts that are NOT yet on remote (sync failed previously)
+    for (const lu of localUsers) {
+      if (!merged.find(m => m.username === lu.username)) {
+        merged.push(lu);
+      }
+    }
+    // If we found local-only accounts, push merged list back to remote now
+    if (merged.length > remoteUsers.length) {
+      syncAccountsToAPI(merged).catch(() => {});
+    }
 
-    // Save merged list to localStorage (overwrite local with remote)
+    // Save merged list to localStorage
     saveUsers(merged);
 
     // Cache photos from remote
