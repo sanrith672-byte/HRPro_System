@@ -8293,9 +8293,15 @@ function handleUserPhotoUpload(input, userId) {
       if (idx >= 0) {
         users[idx].photo = url;
         saveUsers(users);
-        syncAccountsToAPI(users).catch(() => {});
+        const synced = await syncAccountsToAPI(users).catch(() => false);
+        if (synced) {
+          showToast('Upload រូបថតបានជោគជ័យ! ✅ (បង្ហាញលើគ្រប់ Device)', 'success');
+        } else {
+          showToast('Upload រូបថតរួច ✅ (⚠️ Sync មិនបាន — ត្រូវ Login ម្តងទៀតនៅ Mobile)', 'error');
+        }
+      } else {
+        showToast('Upload រូបថតបានជោគជ័យ! ✅','success');
       }
-      showToast('Upload រូបថតបានជោគជ័យ! ✅','success');
       // Refresh settings page
       setTimeout(() => { renderSettings(); switchSettingsTab('accounts'); }, 300);
     });
@@ -8437,17 +8443,41 @@ async function saveNewAccount() {
 async function syncAccountsToAPI(users) {
   if (isDemoMode()) return true;
   try {
-    // Strip large photos before sync (base64 images can exceed Worker KV limits)
-    const usersToSync = users.map(u => {
-      const photo = u.photo || photoCache['user_'+u.id] || '';
-      // Only include photo if it's small enough (< 80KB base64 — compressed photos fit here)
-      const safePhoto = (photo && photo.length < 81920) ? photo : '';
+    // ── FIX: Compress photos before sync so all devices can see them ──
+    const usersToSync = await Promise.all(users.map(async u => {
+      let photo = u.photo || photoCache['user_'+u.id] || '';
+
+      // If photo is too large, re-compress it smaller so it can be synced
+      if (photo && photo.length >= 81920) {
+        photo = await new Promise(resolve => {
+          const img = new Image();
+          img.onload = function() {
+            // Reduce to 150px max for sync (smaller = safer across devices)
+            const MAX = 150;
+            let w = img.width, h = img.height;
+            if (w > h) { if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; } }
+            else        { if (h > MAX) { w = Math.round(w * MAX / h); h = MAX; } }
+            const canvas = document.createElement('canvas');
+            canvas.width = w; canvas.height = h;
+            canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+            // Try progressively lower quality until small enough
+            let url = canvas.toDataURL('image/jpeg', 0.6);
+            if (url.length >= 81920) url = canvas.toDataURL('image/jpeg', 0.4);
+            if (url.length >= 81920) url = canvas.toDataURL('image/jpeg', 0.25);
+            resolve(url.length < 81920 ? url : '');
+          };
+          img.onerror = () => resolve('');
+          img.src = photo;
+        });
+      }
+
       return {
         id: u.id, username: u.username,
         password: u.password, role: u.role,
-        name: u.name, photo: safePhoto
+        name: u.name, photo: photo
       };
-    });
+    }));
+
     await api('POST', '/config', {
       key: 'hr_accounts',
       value: JSON.stringify(usersToSync)
