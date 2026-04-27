@@ -8000,7 +8000,10 @@ function renderSettings() {
 function switchSettingsTab(panel, el) {
   document.querySelectorAll('.settings-tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.settings-panel').forEach(p => p.classList.remove('active'));
-  el.classList.add('active');
+  // el can be a DOM element or omitted — find by onclick attribute if needed
+  const tabEl = (el && el.classList) ? el
+    : document.querySelector(`.settings-tab[onclick*="'${panel}'"]`);
+  if (tabEl) tabEl.classList.add('active');
   const pEl = $('panel-' + panel);
   if (pEl) pEl.classList.add('active');
 }
@@ -8286,7 +8289,7 @@ function handleUserPhotoUpload(input, userId) {
     if (session && session.id === userId) updateSidebarAvatar(url, session.name);
     showToast('Upload រូបថតបានជោគជ័យ!','success');
     // Refresh settings page
-    setTimeout(() => { renderSettings(); switchSettingsTab('accounts', document.querySelector('.settings-tab:nth-child(3)')); }, 300);
+    setTimeout(() => { renderSettings(); switchSettingsTab('accounts'); }, 300);
   };
   reader.readAsDataURL(file);
 }
@@ -8299,7 +8302,7 @@ async function removeUserPhoto(userId) {
   showToast('លុបរូបថតរួច!','success');
   closeModal();
   renderSettings();
-  setTimeout(() => switchSettingsTab('accounts', document.querySelector('.settings-tab:nth-child(3)')), 100);
+  setTimeout(() => switchSettingsTab('accounts'), 100);
 }
 
 function updateSidebarAvatar(photoUrl, name) {
@@ -8392,7 +8395,7 @@ async function saveNewAccount() {
   showToast('បន្ថែម Account បានជោគជ័យ! ✅', 'success');
   closeModal();
   renderSettings();
-  setTimeout(() => switchSettingsTab('accounts', document.querySelector('.settings-tab:nth-child(3)')), 50);
+  setTimeout(() => switchSettingsTab('accounts'), 50);
 }
 
 // Sync all accounts to Worker (so all users share same account list)
@@ -8544,7 +8547,7 @@ async function saveEditAccount(id) {
   showToast('កែប្រែ Account បានជោគជ័យ! ✅', 'success');
   closeModal();
   renderSettings();
-  setTimeout(() => switchSettingsTab('accounts', document.querySelector('.settings-tab:nth-child(3)')), 50);
+  setTimeout(() => switchSettingsTab('accounts'), 50);
 }
 
 function deleteAccount(id) {
@@ -8554,7 +8557,7 @@ function deleteAccount(id) {
   syncAccountsToAPI(users);
   showToast('លុប Account រួច!', 'success');
   renderSettings();
-  setTimeout(() => switchSettingsTab('accounts', document.querySelector('.settings-tab:nth-child(3)')), 50);
+  setTimeout(() => switchSettingsTab('accounts'), 50);
 }
 
 function changePassword() {
