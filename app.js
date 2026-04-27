@@ -8423,9 +8423,16 @@ async function loadAccountsFromAPI() {
   try {
     const cfg = await api('GET', '/config');
     const raw = cfg && cfg.hr_accounts;
-    if (!raw) return;
 
-    // cfg.hr_accounts may already be parsed (object/array) or still a string
+    const localUsers = getUsers();
+
+    // If remote has no accounts, keep local and push local to remote
+    if (!raw) {
+      if (localUsers.length) await syncAccountsToAPI(localUsers);
+      return;
+    }
+
+    // Parse remote accounts
     let remoteUsers;
     if (typeof raw === 'string') {
       remoteUsers = JSON.parse(raw);
@@ -8435,21 +8442,23 @@ async function loadAccountsFromAPI() {
       remoteUsers = JSON.parse(JSON.stringify(raw));
     }
 
-    if (!Array.isArray(remoteUsers) || !remoteUsers.length) return;
+    if (!Array.isArray(remoteUsers) || !remoteUsers.length) {
+      if (localUsers.length) await syncAccountsToAPI(localUsers);
+      return;
+    }
 
-    const localUsers = getUsers();
-
-    // Build merged list: start from remote (source of truth)
+    // Merge: start from remote, keep local passwords, add local-only accounts
     const merged = remoteUsers.map(ru => {
       const lu = localUsers.find(l => l.username === ru.username);
-      // Keep local password if admin changed it locally (security)
       return { ...ru, password: lu?.password || ru.password };
     });
 
-    // Add any local-only accounts not yet on remote (pending sync)
+    // Add local-only accounts (created but not yet synced to remote)
+    let needResync = false;
     for (const lu of localUsers) {
       if (!merged.find(m => m.username === lu.username)) {
         merged.push(lu);
+        needResync = true;
       }
     }
 
@@ -8463,8 +8472,9 @@ async function loadAccountsFromAPI() {
       }
     }
 
-    // Re-sync merged list back to API to ensure remote is complete
-    await syncAccountsToAPI(merged);
+    // Only re-sync if we found local-only accounts missing from remote
+    if (needResync) await syncAccountsToAPI(merged);
+
   } catch(e) {
     console.warn('[loadAccountsFromAPI]', e.message);
   }
@@ -9303,7 +9313,7 @@ function initApp() {
   // Ensure adminsupport account exists
   ensureAdminSupport();
 
-  Promise.all([isDemoMode() ? Promise.resolve() : loadCompanyConfig(), loadAllPhotos(), loadAccountsFromAPI(), loadPermissionsFromAPI()]).then(() => {
+  Promise.all([isDemoMode() ? Promise.resolve() : loadCompanyConfig(), loadAllPhotos()]).then(() => {
     const session = getSession();
     if (session) {
       const uname = $('sidebar-user-name');
