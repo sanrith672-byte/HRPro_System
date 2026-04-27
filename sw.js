@@ -1,5 +1,5 @@
-// HR Pro — Service Worker v6 (Logo Fix)
-const CACHE_NAME = 'hr-pro-v6';
+// HR Pro — Service Worker v7 (Network-first fix)
+const CACHE_NAME = 'hr-pro-v7';
 
 const STATIC_ASSETS = [
   '/',
@@ -38,23 +38,37 @@ self.addEventListener('fetch', event => {
   // Never cache API / Worker calls
   if (url.hostname.includes('workers.dev')) return;
 
-  // Cache-first for same-origin static assets
+  // JS and CSS — Network-first (always get latest version)
+  if (url.origin === self.location.origin &&
+      (url.pathname.endsWith('.js') || url.pathname.endsWith('.css'))) {
+    event.respondWith(
+      fetch(event.request).then(res => {
+        if (res.ok) {
+          const clone = res.clone();
+          caches.open(CACHE_NAME).then(c => c.put(event.request, clone));
+        }
+        return res;
+      }).catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
+  // Cache-first for other same-origin static assets (icons, html)
   if (url.origin === self.location.origin) {
     event.respondWith(
       caches.match(event.request).then(cached => {
-        if (cached) return cached;
-        return fetch(event.request).then(res => {
+        const networkFetch = fetch(event.request).then(res => {
           if (res.ok && event.request.method === 'GET') {
             const clone = res.clone();
             caches.open(CACHE_NAME).then(c => c.put(event.request, clone));
           }
           return res;
-        }).catch(() => {
-          // Offline fallback: serve index.html for navigation
-          if (event.request.mode === 'navigate') {
-            return caches.match('/index.html');
-          }
         });
+        return cached || networkFetch;
+      }).catch(() => {
+        if (event.request.mode === 'navigate') {
+          return caches.match('/index.html');
+        }
       })
     );
     return;
