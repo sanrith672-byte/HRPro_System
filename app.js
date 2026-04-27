@@ -140,9 +140,17 @@ function demoApi(method, path, body) {
   // ATTENDANCE GET
   if (resource === 'attendance' && !id && method === 'GET') {
     const params = new URLSearchParams(path.split('?')[1]||'');
+    const month = params.get('month');
     const date = params.get('date') || today();
-    const list = store.filter(a=>a.date===date);
-    return { records: list, stats: { present: list.filter(a=>a.status==='present').length, late: list.filter(a=>a.status==='late').length, absent: 0, total: list.length } };
+    const empId = params.get('employee_id');
+    let list = store;
+    if (empId) list = list.filter(a=>String(a.employee_id)===String(empId));
+    if (month) {
+      list = list.filter(a=>(a.date||'').startsWith(month));
+    } else {
+      list = list.filter(a=>a.date===date);
+    }
+    return { records: list, stats: { present: list.filter(a=>a.status==='present').length, late: list.filter(a=>a.status==='late').length, absent: list.filter(a=>a.status==='absent').length, total: list.length } };
   }
 
   // SALARY GET
