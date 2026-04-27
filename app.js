@@ -4036,6 +4036,16 @@ async function renderOvertime() {
         ? '<img src="'+photo+'" style="width:22px;height:22px;border-radius:50%;object-fit:cover;flex-shrink:0"/>'
         : '<div style="width:22px;height:22px;border-radius:50%;background:'+getColor(emp.name)+';display:flex;align-items:center;justify-content:center;color:white;font-size:10px;font-weight:700;flex-shrink:0">'+emp.name[0]+'</div>';
 
+      const mob = window.innerWidth < 700;
+      if (mob) {
+        return '<tr>'
+          +'<td style="padding:3px 5px;white-space:nowrap;position:sticky;left:0;z-index:2;background:var(--bg1);box-shadow:2px 0 4px rgba(0,0,0,.15);min-width:72px;max-width:72px">'
+          +'<div style="display:flex;align-items:center;gap:3px">'+av+'<span style="font-size:9px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:44px">'+emp.name.split(' ').pop()+'</span></div></td>'
+          +'<td style="text-align:center;font-weight:700;color:var(--primary);font-size:10px;min-width:26px;padding:2px 2px;white-space:nowrap">'+empTotal+'h</td>'
+          +'<td style="text-align:center;font-weight:700;color:var(--success);font-size:10px;min-width:30px;padding:2px 2px;white-space:nowrap">$'+empPay.toFixed(0)+'</td>'
+          +cells
+          +'</tr>';
+      }
       return '<tr>'
         +'<td style="padding:5px 8px;white-space:nowrap;position:sticky;left:0;z-index:1;background:var(--bg1);box-shadow:2px 0 5px rgba(0,0,0,.12)">'
         +'<div style="display:flex;align-items:center;gap:6px">'+av+'<span style="font-size:12px;font-weight:600">'+emp.name+'</span></div></td>'
@@ -4072,24 +4082,29 @@ async function renderOvertime() {
       +'<div class="att-box"><div class="att-num" style="color:var(--info)">'+monthRecords.length+'</div><div class="att-lbl">📋 ចំនួនករណី</div></div>'
       +'</div>'
       +'<div class="card" style="padding:0">'
-      +'<div style="overflow-x:auto;-webkit-overflow-scrolling:touch">'
+      +'<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;max-height:calc(100vh - 300px);overflow-y:auto">'
       +'<table style="min-width:max-content;border-collapse:collapse;table-layout:auto">'
-      +'<colgroup>'
-      +'<col style="width:160px"/>'
-      +'<col style="width:36px"/>'
-      +'<col style="width:48px"/>'
-      +allDays.map(()=>'<col style="min-width:26px;width:26px"/>').join('')
-      +'<col style="width:40px"/>'
-      +'</colgroup>'
+      +(window.innerWidth<700
+        ? '<colgroup><col style="width:72px"/><col style="width:26px"/><col style="width:30px"/>'+allDays.map(()=>'<col style="min-width:22px;width:22px"/>').join('')+'</colgroup>'
+        : '<colgroup><col style="width:160px"/><col style="width:36px"/><col style="width:48px"/>'+allDays.map(()=>'<col style="min-width:26px;width:26px"/>').join('')+'<col style="width:40px"/></colgroup>'
+      )
       +'<thead>'
-      +'<tr style="position:sticky;top:0;z-index:4;background:var(--bg2);height:28px">'
-      +'<th style="text-align:left;position:sticky;left:0;z-index:5;background:var(--bg2);box-shadow:2px 0 5px rgba(0,0,0,.2);padding:6px 8px" rowspan="2">បុគ្គលិក</th>'
-      +'<th style="text-align:center;color:var(--primary);position:sticky;left:160px;z-index:5;background:var(--bg2);padding:3px 0;font-size:11px" rowspan="2" title="ម៉ោងសរុប">⏱️h</th>'
-      +'<th style="text-align:center;color:var(--success);position:sticky;left:196px;z-index:5;background:var(--bg2);box-shadow:3px 0 5px rgba(0,0,0,.15);padding:3px 0;font-size:11px" rowspan="2" title="ប្រាក់">💵</th>'
-      +dayThs
-      +'<th style="text-align:center;background:var(--bg2);padding:3px 0;font-size:10px" rowspan="2">...</th>'
-      +'</tr>'
-      +'<tr style="position:sticky;top:28px;z-index:4;background:var(--bg2)">'+wdThs+'</tr>'
+      +(window.innerWidth<700
+        ? '<tr style="position:sticky;top:0;z-index:4;background:var(--bg2)">'
+          +'<th style="min-width:72px;text-align:left;position:sticky;left:0;z-index:5;background:var(--bg2);box-shadow:2px 0 4px rgba(0,0,0,.2);padding:4px 5px;font-size:10px" rowspan="2">បុគ្គលិក</th>'
+          +'<th style="min-width:26px;text-align:center;color:var(--primary);font-size:10px;padding:2px 0" rowspan="2">⏱️h</th>'
+          +'<th style="min-width:30px;text-align:center;color:var(--success);font-size:10px;padding:2px 0" rowspan="2">💵</th>'
+          +dayThs+'</tr>'
+          +'<tr style="position:sticky;top:22px;z-index:4;background:var(--bg2)">'+wdThs+'</tr>'
+        : '<tr style="position:sticky;top:0;z-index:4;background:var(--bg2);height:28px">'
+          +'<th style="text-align:left;position:sticky;left:0;z-index:5;background:var(--bg2);box-shadow:2px 0 5px rgba(0,0,0,.2);padding:6px 8px" rowspan="2">បុគ្គលិក</th>'
+          +'<th style="text-align:center;color:var(--primary);position:sticky;left:160px;z-index:5;background:var(--bg2);padding:3px 0;font-size:11px" rowspan="2" title="ម៉ោងសរុប">⏱️h</th>'
+          +'<th style="text-align:center;color:var(--success);position:sticky;left:196px;z-index:5;background:var(--bg2);box-shadow:3px 0 5px rgba(0,0,0,.15);padding:3px 0;font-size:11px" rowspan="2" title="ប្រាក់">💵</th>'
+          +dayThs
+          +'<th style="text-align:center;background:var(--bg2);padding:3px 0;font-size:10px" rowspan="2">...</th>'
+          +'</tr>'
+          +'<tr style="position:sticky;top:28px;z-index:4;background:var(--bg2)">'+wdThs+'</tr>'
+      )
       +'</thead>'
       +'<tbody>'+(empRows||emptyMsg)+'</tbody>'
       +'</table></div></div>';
