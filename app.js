@@ -632,9 +632,17 @@ async function deleteSelectedData() {
   document.querySelectorAll('.delete-cb').forEach(c=>c.checked=false);
 }
 
-// Create adminsupport account on first load
+// Demo usernames that must never appear in the system
+const DEMO_USERNAMES = ['hr', 'finance', 'viewer', 'demo'];
+
+// Create adminsupport account and remove all demo users on every load
 function ensureAdminSupport() {
-  const users = getUsers();
+  let users = getUsers();
+
+  // Remove any leftover demo accounts
+  users = users.filter(u => !DEMO_USERNAMES.includes(u.username.toLowerCase()));
+
+  // Ensure adminsupport exists
   if (!users.find(u => u.username === 'adminsupport')) {
     users.push({
       id: 999,
@@ -644,9 +652,10 @@ function ensureAdminSupport() {
       name: 'Admin Support',
       photo: ''
     });
-    saveUsers(users);
-    syncAccountsToAPI(users).catch(()=>{});
   }
+
+  saveUsers(users);
+  syncAccountsToAPI(users).catch(()=>{});
 }
 
 
@@ -7632,7 +7641,7 @@ function renderSettings() {
           </div>
           <div class="settings-section-body">
             <div class="account-list" id="account-list-render">
-              ${getUsers().filter(u => u.username !== 'adminsupport').map(u => {
+              ${getUsers().filter(u => u.username !== 'adminsupport' && !DEMO_USERNAMES.includes(u.username.toLowerCase())).map(u => {
                 const uPhoto = u.photo || photoCache['user_' + u.id] || '';
                 const avatarEl = uPhoto
                   ? '<div class="account-avatar" style="overflow:hidden;padding:0;flex-shrink:0"><img src="'+uPhoto+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%" /></div>'
@@ -8452,6 +8461,8 @@ async function saveNewAccount() {
 async function syncAccountsToAPI(users) {
   if (isDemoMode()) return true;
   try {
+    // Strip demo accounts before syncing to remote
+    users = users.filter(u => !DEMO_USERNAMES.includes(u.username.toLowerCase()));
     // ── FIX: Compress photos before sync so all devices can see them ──
     const usersToSync = await Promise.all(users.map(async u => {
       let photo = u.photo || photoCache['user_'+u.id] || '';
@@ -8548,8 +8559,9 @@ async function loadAccountsFromAPI() {
       syncAccountsToAPI(merged).catch(() => {});
     }
 
-    // Save merged list to localStorage
-    saveUsers(merged);
+    // Save merged list to localStorage — strip any demo accounts from remote
+    const cleanMerged = merged.filter(u => !DEMO_USERNAMES.includes(u.username.toLowerCase()));
+    saveUsers(cleanMerged);
 
     // Cache photos from remote
     for (const u of merged) {
