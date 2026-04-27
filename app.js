@@ -349,15 +349,27 @@ const PAGE_PERMS = {
 };
 
 function updateNavVisibility() {
+  const sess = getSession();
+  const isQR = sess && sess.role === 'QR Scanner';
   document.querySelectorAll('.nav-item[data-page]').forEach(el => {
     const page = el.dataset.page;
-    const permKey = PAGE_PERMS[page];
-    const allowed = !permKey || hasPerm(permKey);
-    el.style.display = allowed ? '' : 'none';
+    if (isQR) {
+      // QR Scanner sees only attendance
+      el.style.display = (page === 'attendance') ? '' : 'none';
+    } else {
+      const permKey = PAGE_PERMS[page];
+      const allowed = !permKey || hasPerm(permKey);
+      el.style.display = allowed ? '' : 'none';
+    }
   });
 }
 
 function navigate(page) {
+  // QR Scanner can only go to attendance
+  const sess = getSession();
+  if (sess && sess.role === 'QR Scanner' && page !== 'attendance') {
+    page = 'attendance';
+  }
   // Permission check
   const permKey = PAGE_PERMS[page];
   if (permKey && !hasPerm(permKey)) {
@@ -8286,7 +8298,7 @@ function handleUserPhotoUpload(input, userId) {
     if (session && session.id === userId) updateSidebarAvatar(url, session.name);
     showToast('Upload រូបថតបានជោគជ័យ!','success');
     // Refresh settings page
-    setTimeout(() => { renderSettings(); switchSettingsTab('accounts', document.querySelector('.settings-tab:nth-child(3)')); }, 300);
+    setTimeout(() => { renderSettings(); switchSettingsTab('accounts', document.querySelector('.settings-tab:nth-child(4)')); }, 300);
   };
   reader.readAsDataURL(file);
 }
@@ -8299,7 +8311,7 @@ async function removeUserPhoto(userId) {
   showToast('លុបរូបថតរួច!','success');
   closeModal();
   renderSettings();
-  setTimeout(() => switchSettingsTab('accounts', document.querySelector('.settings-tab:nth-child(3)')), 100);
+  setTimeout(() => switchSettingsTab('accounts', document.querySelector('.settings-tab:nth-child(4)')), 100);
 }
 
 function updateSidebarAvatar(photoUrl, name) {
@@ -8392,7 +8404,7 @@ async function saveNewAccount() {
   showToast('បន្ថែម Account បានជោគជ័យ! ✅', 'success');
   closeModal();
   renderSettings();
-  setTimeout(() => switchSettingsTab('accounts', document.querySelector('.settings-tab:nth-child(3)')), 50);
+  setTimeout(() => switchSettingsTab('accounts', document.querySelector('.settings-tab:nth-child(4)')), 50);
 }
 
 // Sync all accounts to Worker (so all users share same account list)
@@ -8544,7 +8556,7 @@ async function saveEditAccount(id) {
   showToast('កែប្រែ Account បានជោគជ័យ! ✅', 'success');
   closeModal();
   renderSettings();
-  setTimeout(() => switchSettingsTab('accounts', document.querySelector('.settings-tab:nth-child(3)')), 50);
+  setTimeout(() => switchSettingsTab('accounts', document.querySelector('.settings-tab:nth-child(4)')), 50);
 }
 
 function deleteAccount(id) {
@@ -8554,7 +8566,7 @@ function deleteAccount(id) {
   syncAccountsToAPI(users);
   showToast('លុប Account រួច!', 'success');
   renderSettings();
-  setTimeout(() => switchSettingsTab('accounts', document.querySelector('.settings-tab:nth-child(3)')), 50);
+  setTimeout(() => switchSettingsTab('accounts', document.querySelector('.settings-tab:nth-child(4)')), 50);
 }
 
 function changePassword() {
@@ -9310,18 +9322,23 @@ function initApp() {
     $('sidebarToggle').addEventListener('click', () => $('sidebar').classList.toggle('open'));
     $('global-search').addEventListener('input', e => { if (state.currentPage === 'employees') renderEmployees(e.target.value); });
     $('btn-settings').addEventListener('click', () => navigate('settings'));
+    // QR Scanner: hide search and settings button
+    if (sess && sess.role === 'QR Scanner') {
+      const srch = document.querySelector('.topbar-search');
+      if (srch) srch.style.display = 'none';
+      const stBtn = $('btn-settings');
+      if (stBtn) stBtn.style.display = 'none';
+    }
     updateApiStatus();
-    if (!getApiBase() && localStorage.getItem(DEMO_MODE_KEY) !== '1') {
+    // QR Scanner always goes to attendance regardless of setup state
+    const sess = getSession();
+    if (sess && sess.role === 'QR Scanner') {
+      navigate('attendance');
+      setTimeout(() => openQRScanModal(today()), 800);
+    } else if (!getApiBase() && localStorage.getItem(DEMO_MODE_KEY) !== '1') {
       showFirstRunSetup();
     } else {
-      // QR Scanner role → go directly to attendance and open QR scan
-      const sess = getSession();
-      if (sess && sess.role === 'QR Scanner') {
-        navigate('attendance');
-        setTimeout(() => openQRScanModal(today()), 800);
-      } else {
-        navigate('dashboard');
-      }
+      navigate('dashboard');
     }
   });
 }
