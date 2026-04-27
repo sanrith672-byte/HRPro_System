@@ -2110,9 +2110,8 @@ async function renderMonthlyAttendance(month='') {
   const maxAbsent = rules.max_absent_days !== undefined ? rules.max_absent_days : 2;
 
   try {
-    const [empData, attData, swapDataRaw] = await Promise.all([
+    const [empData, swapDataRaw] = await Promise.all([
       api('GET','/employees?limit=500'),
-      api('GET','/attendance?date='+currentMonth+'-01&limit=9999'),
       api('GET','/dayswap').catch(()=>({records:[]}))
     ]);
     // Build swap map: empId -> { dd -> swapRecord } keyed by swap_date (work date this month)
@@ -2134,20 +2133,18 @@ async function renderMonthlyAttendance(month='') {
         offDateMap[s.employee_id][dd] = s;
       }
     });
-    // Load all attendance for the month by fetching each week? No — use limit trick with month filter
-    // Fetch all attendance records for the month
+    // Fetch all attendance records for the month using month param (primary)
     let allRecords = [];
     try {
-      // Try fetching with month param
       const r1 = await api('GET','/attendance?month='+currentMonth+'&limit=9999');
       allRecords = r1.records || [];
     } catch(_) {}
+    // Fallback: fetch day-by-day if month query returned nothing
     if (!allRecords.length) {
-      // fallback: fetch by date range
       const promises = [];
       for (let d=1; d<=daysInMonth; d++) {
         const dd = String(d).padStart(2,'0');
-        promises.push(api('GET','/attendance?date='+currentMonth+'-'+dd).catch(()=>({records:[]})));
+        promises.push(api('GET','/attendance?date='+currentMonth+'-'+dd+'&limit=9999').catch(()=>({records:[]})));
       }
       const results = await Promise.all(promises);
       results.forEach(r => { allRecords = allRecords.concat(r.records||[]); });
