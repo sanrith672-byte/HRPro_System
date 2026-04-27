@@ -9322,17 +9322,15 @@ function initApp() {
     $('sidebarToggle').addEventListener('click', () => $('sidebar').classList.toggle('open'));
     $('global-search').addEventListener('input', e => { if (state.currentPage === 'employees') renderEmployees(e.target.value); });
     $('btn-settings').addEventListener('click', () => navigate('settings'));
+    updateApiStatus();
+    // QR Scanner always goes to attendance regardless of setup state
+    const sess = getSession();
     // QR Scanner: hide search and settings button
     if (sess && sess.role === 'QR Scanner') {
       const srch = document.querySelector('.topbar-search');
       if (srch) srch.style.display = 'none';
       const stBtn = $('btn-settings');
       if (stBtn) stBtn.style.display = 'none';
-    }
-    updateApiStatus();
-    // QR Scanner always goes to attendance regardless of setup state
-    const sess = getSession();
-    if (sess && sess.role === 'QR Scanner') {
       navigate('attendance');
       setTimeout(() => openQRScanModal(today()), 800);
     } else if (!getApiBase() && localStorage.getItem(DEMO_MODE_KEY) !== '1') {
