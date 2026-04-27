@@ -2078,8 +2078,9 @@ async function renderAttendance(date='') {
       +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>'
       +' 📷 ស្កេន QR</button>'
       +'<button class="btn btn-primary" onclick="openAttModal(\''+today+'\')">'
-      +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> កត់វត្តមាន</button>'
-      +'<button class="btn btn-outline" onclick="openBulkAbsenceModal(\''+today+'\')\" style="border-color:var(--danger);color:var(--danger)">📋 អវត្តមាន/ឈប់</button>'
+      +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> + កត់ម្នាក់</button>'
+      +'<button class="btn btn-primary" onclick="openAttModal(\''+today+"+'\',\'bulk\')\">'"
+      +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> 👥 កត់ទាំងអស់</button>'
       +'<button class="btn btn-outline" onclick="renderMonthlyAttendance(\''+today.slice(0,7)+'\')" style="border-color:var(--info);color:var(--info)">'
       +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>'
       +' 📊 តារាងប្រចាំខែ</button>'
@@ -3254,61 +3255,83 @@ async function saveBulkAbsence() {
 }
 
 
-function openAttModal(dateVal) {
-  $('modal-title').textContent = 'កត់ចូលវត្តមានទាំងអស់';
+function openAttModal(dateVal, mode) {
   const d = dateVal || new Date().toISOString().split('T')[0];
   const rules = getSalaryRules && getSalaryRules();
   const defaultIn  = (rules && rules.work_start_time) || '08:00';
   const defaultOut = (rules && rules.work_end_time)   || '17:00';
   const emps = state.employees || [];
+  const isBulk = mode === 'bulk';
 
-  const empCheckboxes = emps.map(e =>
-    '<label style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:8px;cursor:pointer;border:1px solid var(--border);background:var(--bg1);margin-bottom:5px">'
-    +'<input type="checkbox" class="att-emp-chk" value="'+e.id+'" checked style="width:16px;height:16px;accent-color:var(--primary);cursor:pointer;flex-shrink:0" />'
-    +'<span style="font-size:13px;font-weight:600">'+e.name+'</span>'
-    +'</label>'
-  ).join('');
+  $('modal-title').textContent = isBulk ? 'កត់ចូលវត្តមានទាំងអស់' : 'កត់ចូលវត្តមាន';
 
-  $('modal-body').innerHTML =
-    '<div class="form-grid" style="margin-bottom:14px">'
+  const topForm =
+    '<div class="form-grid" style="margin-bottom:12px">'
     +'<div class="form-group"><label class="form-label">ថ្ងៃខែ</label><input class="form-control" id="a-date" type="date" value="'+d+'" /></div>'
     +'<div class="form-group"><label class="form-label">ម៉ោងចូល</label><input class="form-control" id="a-in" type="time" value="'+defaultIn+'" /></div>'
     +'<div class="form-group"><label class="form-label">ម៉ោងចេញ</label><input class="form-control" id="a-out" type="time" value="'+defaultOut+'" /></div>'
     +'<div class="form-group"><label class="form-label">ស្ថានភាព</label><select class="form-control" id="a-status"><option value="present">✅ វត្តមាន</option><option value="late">⏰ យឺត</option><option value="absent">❌ អវត្តមាន</option></select></div>'
-    +'</div>'
-    +'<div style="margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px">'
-    +'<span style="font-size:13px;font-weight:700;color:var(--text2)">👥 បុគ្គលិក ('+emps.length+' នាក់)</span>'
-    +'<div style="display:flex;gap:6px">'
-    +'<button type="button" class="btn btn-outline btn-sm" style="font-size:11px;padding:3px 10px" onclick="document.querySelectorAll(\'.att-emp-chk\').forEach(c=>c.checked=true)">☑ ជ្រើសទាំងអស់</button>'
-    +'<button type="button" class="btn btn-outline btn-sm" style="font-size:11px;padding:3px 10px" onclick="document.querySelectorAll(\'.att-emp-chk\').forEach(c=>c.checked=false)">☐ លុបចោល</button>'
-    +'</div></div>'
-    +'<div style="max-height:240px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:8px">'+empCheckboxes+'</div>'
-    +'<div class="form-actions">'
-    +'<button class="btn btn-outline" onclick="closeModal()">បោះបង់</button>'
-    +'<button class="btn btn-primary" id="save-att-btn" onclick="saveAttendance()">💾 រក្សាទុកទាំងអស់</button>'
     +'</div>';
+
+  if (isBulk) {
+    const empCheckboxes = emps.map(e =>
+      '<label style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:8px;cursor:pointer;border:1px solid var(--border);background:var(--bg1);margin-bottom:4px">'
+      +'<input type="checkbox" class="att-emp-chk" value="'+e.id+'" checked style="width:16px;height:16px;accent-color:var(--primary);cursor:pointer;flex-shrink:0" />'
+      +'<span style="font-size:13px;font-weight:600">'+e.name+'</span>'
+      +'</label>'
+    ).join('');
+    $('modal-body').innerHTML = topForm
+      +'<div style="margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px">'
+      +'<span style="font-size:13px;font-weight:700;color:var(--text2)">👥 បុគ្គលិក ('+emps.length+' នាក់)</span>'
+      +'<div style="display:flex;gap:6px">'
+      +'<button type="button" class="btn btn-outline btn-sm" style="font-size:11px;padding:3px 10px" onclick="document.querySelectorAll(\'.att-emp-chk\').forEach(c=>c.checked=true)">☑ ទាំងអស់</button>'
+      +'<button type="button" class="btn btn-outline btn-sm" style="font-size:11px;padding:3px 10px" onclick="document.querySelectorAll(\'.att-emp-chk\').forEach(c=>c.checked=false)">☐ លុប</button>'
+      +'</div></div>'
+      +'<div style="max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:8px">'+empCheckboxes+'</div>'
+      +'<div class="form-actions">'
+      +'<button class="btn btn-outline" onclick="closeModal()">បោះបង់</button>'
+      +'<button class="btn btn-primary" id="save-att-btn" onclick="saveAttendance(true)">💾 រក្សាទុកទាំងអស់</button>'
+      +'</div>';
+  } else {
+    $('modal-body').innerHTML = topForm
+      +'<div class="form-group">'
+      +'<label class="form-label">បុគ្គលិក *</label>'
+      +'<select class="form-control" id="a-emp">'+emps.map(e=>'<option value="'+e.id+'">'+e.name+'</option>').join('')+'</select>'
+      +'</div>'
+      +'<div class="form-actions">'
+      +'<button class="btn btn-outline" onclick="closeModal()">បោះបង់</button>'
+      +'<button class="btn btn-primary" id="save-att-btn" onclick="saveAttendance(false)">💾 រក្សាទុក</button>'
+      +'</div>';
+  }
   openModal();
 }
 
-async function saveAttendance() {
+async function saveAttendance(isBulk) {
   const btn = $('save-att-btn');
   const date     = $('a-date').value;
   const checkIn  = $('a-in').value;
   const checkOut = $('a-out').value;
   const status   = $('a-status').value;
-  const selected = Array.from(document.querySelectorAll('.att-emp-chk:checked')).map(c=>parseInt(c.value));
-  if (!selected.length) { showToast('សូមជ្រើសបុគ្គលិកយ៉ាងហោចម្នាក់!','warning'); return; }
-  btn.disabled=true;
-  let done=0, failed=0;
-  for (const empId of selected) {
-    btn.textContent='កំពុងរក្សា '+done+'/'+selected.length+'...';
+
+  if (isBulk) {
+    const selected = Array.from(document.querySelectorAll('.att-emp-chk:checked')).map(c=>parseInt(c.value));
+    if (!selected.length) { showToast('សូមជ្រើសបុគ្គលិកយ៉ាងហោចម្នាក់!','warning'); return; }
+    btn.disabled = true;
+    let done=0, failed=0;
+    for (const empId of selected) {
+      btn.textContent = 'កំពុងរក្សា '+done+'/'+selected.length+'...';
+      try { await api('POST','/attendance',{ employee_id:empId, date, check_in:checkIn, check_out:checkOut, status }); done++; }
+      catch(e) { failed++; }
+    }
+    if (failed===0) showToast('កត់វត្តមាន '+done+' នាក់ជោគជ័យ! ✅','success');
+    else showToast('សម្រេច '+done+' / បរាជ័យ '+failed+' នាក់','warning');
+  } else {
+    btn.disabled=true; btn.textContent='កំពុងរក្សា...';
     try {
-      await api('POST','/attendance',{ employee_id:empId, date, check_in:checkIn, check_out:checkOut, status });
-      done++;
-    } catch(e) { failed++; }
+      await api('POST','/attendance',{ employee_id:parseInt($('a-emp').value), date, check_in:checkIn, check_out:checkOut, status });
+      showToast('កត់វត្តមានបានជោគជ័យ! ✅','success');
+    } catch(e) { showToast('បញ្ហា: '+e.message,'error'); btn.disabled=false; btn.textContent='រក្សាទុក'; return; }
   }
-  if (failed===0) showToast('កត់វត្តមាន '+done+' នាក់បានជោគជ័យ! ✅','success');
-  else showToast('សម្រេច '+done+' / បរាជ័យ '+failed+' នាក់','warning');
   closeModal(); renderAttendance(date);
 }
 
