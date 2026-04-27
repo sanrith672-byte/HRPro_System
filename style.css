@@ -110,7 +110,7 @@ body {
 .content-area {
   flex: 1;
   overflow-y: auto;
-  overflow-x: hidden;
+  overflow-x: auto;
   padding: 24px;
   background: var(--bg);
 }
@@ -1427,7 +1427,7 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 @media (max-width: 480px) {
   .content-area { 
     padding: 10px 10px 80px; /* extra bottom space for bottom nav */
-    overflow-x: hidden;
+    overflow-x: auto;
   }
 }
 
