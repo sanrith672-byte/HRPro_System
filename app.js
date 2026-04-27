@@ -3159,8 +3159,6 @@ function openBulkAbsenceModal(dateVal) {
     + '<div class="form-group"><label class="form-label">ប្រភេទ *</label>'
     + '<select class="form-control" id="ba-status">'
     + '<option value="absent">❌ អវត្តមាន (ខ្វះច្បាប់)</option>'
-    + '<option value="present">✅ វត្តមាន</option>'
-    + '<option value="late">⏰ វត្តមានយឺត</option>'
     + '<option value="leave">🌴 ឈប់សម្រាក (មានច្បាប់)</option>'
     + '<option value="sick">🤒 ឈប់ព្យាបាល</option>'
     + '<option value="holiday">🎉 ថ្ងៃឈប់សម្រាក</option>'
@@ -3218,9 +3216,7 @@ async function saveBulkAbsence() {
 
   btn.disabled = true; btn.textContent = 'កំពុងរក្សា...';
 
-  var notePrefix = statusVal === 'present' ? '\u2705 វត្តមាន'
-    : statusVal === 'late'    ? '\u23F0 វត្តមានយឺត'
-    : statusVal === 'leave'   ? '\uD83C\uDF34 ឈប់ (ច្បាប់)'
+  var notePrefix = statusVal === 'leave' ? '\uD83C\uDF34 ឈប់ (ច្បាប់)'
     : statusVal === 'sick'    ? '\uD83E\uDD12 ឈប់ព្យាបាល'
     : statusVal === 'holiday' ? '\uD83C\uDF89 ថ្ងៃឈប់'
     : '\u274C អវត្តមាន';
@@ -3240,7 +3236,7 @@ async function saveBulkAbsence() {
         date: empDate,
         check_in: null,
         check_out: null,
-        status: statusVal,
+        status: 'absent',
         notes: fullNote,
       });
       success++;
@@ -3251,7 +3247,7 @@ async function saveBulkAbsence() {
 
   btn.disabled = false; btn.textContent = '\uD83D\uDCBE រក្សាទុក';
   closeModal();
-  if (success > 0) showToast('\u2705 បានកត់ ' + notePrefix + ' ' + success + ' នាក់', 'success');
+  if (success > 0) showToast('\u2705 បានកត់អវត្តមាន ' + success + ' នាក់ (' + notePrefix + ')', 'success');
   if (failed > 0) showToast('\u26A0\uFE0F មិនបានកត់ ' + failed + ' នាក់', 'error');
   // Refresh to last date used, or today
   renderAttendance(lastDate || new Date().toISOString().split('T')[0]);
@@ -3259,32 +3255,61 @@ async function saveBulkAbsence() {
 
 
 function openAttModal(dateVal) {
-  $('modal-title').textContent = 'កត់ចូលវត្តមាន';
+  $('modal-title').textContent = 'កត់ចូលវត្តមានទាំងអស់';
   const d = dateVal || new Date().toISOString().split('T')[0];
+  const rules = getSalaryRules && getSalaryRules();
+  const defaultIn  = (rules && rules.work_start_time) || '08:00';
+  const defaultOut = (rules && rules.work_end_time)   || '17:00';
+  const emps = state.employees || [];
+
+  const empCheckboxes = emps.map(e =>
+    '<label style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:8px;cursor:pointer;border:1px solid var(--border);background:var(--bg1);margin-bottom:5px">'
+    +'<input type="checkbox" class="att-emp-chk" value="'+e.id+'" checked style="width:16px;height:16px;accent-color:var(--primary);cursor:pointer;flex-shrink:0" />'
+    +'<span style="font-size:13px;font-weight:600">'+e.name+'</span>'
+    +'</label>'
+  ).join('');
+
   $('modal-body').innerHTML =
-    '<div class="form-grid">'
-    +'<div class="form-group"><label class="form-label">បុគ្គលិក *</label><select class="form-control" id="a-emp">'+state.employees.map(e=>'<option value="'+e.id+'">'+e.name+'</option>').join('')+'</select></div>'
+    '<div class="form-grid" style="margin-bottom:14px">'
     +'<div class="form-group"><label class="form-label">ថ្ងៃខែ</label><input class="form-control" id="a-date" type="date" value="'+d+'" /></div>'
-    +'<div class="form-group"><label class="form-label">ម៉ោងចូល</label><input class="form-control" id="a-in" type="time" value="'+((getSalaryRules&&getSalaryRules().work_start_time)||'08:00')+'" /></div>'
-    +'<div class="form-group"><label class="form-label">ម៉ោងចេញ</label><input class="form-control" id="a-out" type="time" value="'+((getSalaryRules&&getSalaryRules().work_end_time)||'17:00')+'" /></div>'
+    +'<div class="form-group"><label class="form-label">ម៉ោងចូល</label><input class="form-control" id="a-in" type="time" value="'+defaultIn+'" /></div>'
+    +'<div class="form-group"><label class="form-label">ម៉ោងចេញ</label><input class="form-control" id="a-out" type="time" value="'+defaultOut+'" /></div>'
     +'<div class="form-group"><label class="form-label">ស្ថានភាព</label><select class="form-control" id="a-status"><option value="present">✅ វត្តមាន</option><option value="late">⏰ យឺត</option><option value="absent">❌ អវត្តមាន</option></select></div>'
     +'</div>'
+    +'<div style="margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px">'
+    +'<span style="font-size:13px;font-weight:700;color:var(--text2)">👥 បុគ្គលិក ('+emps.length+' នាក់)</span>'
+    +'<div style="display:flex;gap:6px">'
+    +'<button type="button" class="btn btn-outline btn-sm" style="font-size:11px;padding:3px 10px" onclick="document.querySelectorAll(\'.att-emp-chk\').forEach(c=>c.checked=true)">☑ ជ្រើសទាំងអស់</button>'
+    +'<button type="button" class="btn btn-outline btn-sm" style="font-size:11px;padding:3px 10px" onclick="document.querySelectorAll(\'.att-emp-chk\').forEach(c=>c.checked=false)">☐ លុបចោល</button>'
+    +'</div></div>'
+    +'<div style="max-height:240px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:8px">'+empCheckboxes+'</div>'
     +'<div class="form-actions">'
     +'<button class="btn btn-outline" onclick="closeModal()">បោះបង់</button>'
-    +'<button class="btn btn-primary" id="save-att-btn" onclick="saveAttendance()">រក្សាទុក</button>'
+    +'<button class="btn btn-primary" id="save-att-btn" onclick="saveAttendance()">💾 រក្សាទុកទាំងអស់</button>'
     +'</div>';
   openModal();
 }
 
 async function saveAttendance() {
   const btn = $('save-att-btn');
-  btn.disabled=true; btn.textContent='កំពុងរក្សា...';
-  const date = $('a-date').value;
-  try {
-    await api('POST','/attendance',{ employee_id:parseInt($('a-emp').value), date, check_in:$('a-in').value, check_out:$('a-out').value, status:$('a-status').value });
-    showToast('កត់វត្តមានបានជោគជ័យ!','success');
-    closeModal(); renderAttendance(date);
-  } catch(e) { showToast('បញ្ហា: '+e.message,'error'); btn.disabled=false; btn.textContent='រក្សាទុក'; }
+  const date     = $('a-date').value;
+  const checkIn  = $('a-in').value;
+  const checkOut = $('a-out').value;
+  const status   = $('a-status').value;
+  const selected = Array.from(document.querySelectorAll('.att-emp-chk:checked')).map(c=>parseInt(c.value));
+  if (!selected.length) { showToast('សូមជ្រើសបុគ្គលិកយ៉ាងហោចម្នាក់!','warning'); return; }
+  btn.disabled=true;
+  let done=0, failed=0;
+  for (const empId of selected) {
+    btn.textContent='កំពុងរក្សា '+done+'/'+selected.length+'...';
+    try {
+      await api('POST','/attendance',{ employee_id:empId, date, check_in:checkIn, check_out:checkOut, status });
+      done++;
+    } catch(e) { failed++; }
+  }
+  if (failed===0) showToast('កត់វត្តមាន '+done+' នាក់បានជោគជ័យ! ✅','success');
+  else showToast('សម្រេច '+done+' / បរាជ័យ '+failed+' នាក់','warning');
+  closeModal(); renderAttendance(date);
 }
 
 // ===== SALARY =====
