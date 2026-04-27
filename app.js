@@ -638,24 +638,27 @@ const DEMO_USERNAMES = ['hr', 'finance', 'viewer', 'demo'];
 // Create adminsupport account and remove all demo users on every load
 function ensureAdminSupport() {
   let users = getUsers();
+  let changed = false;
 
   // Remove any leftover demo accounts
+  const before = users.length;
   users = users.filter(u => !DEMO_USERNAMES.includes(u.username.toLowerCase()));
+  if (users.length !== before) changed = true;
+
+  // Ensure admin (id=1) exists
+  if (!users.find(u => u.username === 'admin')) {
+    users.unshift({ id: 1, username: 'admin', password: 'admin123', role: 'អ្នកគ្រប់គ្រង', name: 'Admin', photo: '' });
+    changed = true;
+  }
 
   // Ensure adminsupport exists
   if (!users.find(u => u.username === 'adminsupport')) {
-    users.push({
-      id: 999,
-      username: 'adminsupport',
-      password: 'admin',
-      role: 'អ្នកគ្រប់គ្រង',
-      name: 'Admin Support',
-      photo: ''
-    });
+    users.push({ id: 999, username: 'adminsupport', password: 'admin', role: 'អ្នកគ្រប់គ្រង', name: 'Admin Support', photo: '' });
+    changed = true;
   }
 
   saveUsers(users);
-  syncAccountsToAPI(users).catch(()=>{});
+  if (changed) syncAccountsToAPI(users).catch(()=>{});
 }
 
 
@@ -8449,10 +8452,16 @@ async function saveNewAccount() {
   if (synced) {
     showToast('បន្ថែម Account បានជោគជ័យ! ✅ (Sync រួច)', 'success');
   } else {
-    // Sync failed — save will still be local, show warning
-    showToast('✅ រក្សាទុក Account ក្នុង Device រួចហើយ (⚠️ Sync ទៅ Worker មិនបាន — Device ផ្សេងអាចមើលមិនឃើញ)', 'error');
+    showToast('✅ រក្សាទុក Account ក្នុង Device (⚠️ Sync ទៅ Worker មិនបាន)', 'error');
   }
   closeModal();
+  // Always re-save to localStorage AFTER sync attempt to ensure data persists
+  // Re-read from memory (not from API) so refresh won't lose the new user
+  const latestUsers = getUsers();
+  if (!latestUsers.find(u => u.username === newUser.username)) {
+    latestUsers.push(newUser);
+    saveUsers(latestUsers);
+  }
   renderSettings();
   setTimeout(() => switchSettingsTab('accounts'), 50);
 }
@@ -8516,10 +8525,14 @@ async function loadAccountsFromAPI() {
     const cfg = await api('GET', '/config');
     const raw = cfg && cfg.hr_accounts;
 
-    // No remote data yet — push local defaults to remote so other devices can sync
+    // No remote data yet — push local users to remote so other devices can sync
     if (!raw) {
       const localUsers = getUsers();
-      if (localUsers.length) await syncAccountsToAPI(localUsers);
+      if (localUsers.length) {
+        await syncAccountsToAPI(localUsers);
+        // Ensure adminsupport is also pushed
+        ensureAdminSupport();
+      }
       return;
     }
 
@@ -8535,33 +8548,47 @@ async function loadAccountsFromAPI() {
 
     if (!Array.isArray(remoteUsers) || !remoteUsers.length) return;
 
-    // Merge: remote is master, but keep any local-only accounts (sync may have failed before)
+    // Strip demo accounts from remote
+    const filteredRemote = remoteUsers.filter(u => !DEMO_USERNAMES.includes(u.username.toLowerCase()));
+
+    // Merge: use username as unique key
+    // Remote has synced data; local may have newer additions not yet pushed
     const localUsers = getUsers();
-    const merged = remoteUsers.map(ru => {
+    
+    // Build merged map — remote as base
+    const mergedMap = {};
+    for (const ru of filteredRemote) {
       const lu = localUsers.find(l => l.username === ru.username);
-      // Keep local password (not synced for security), and local photo if remote has none
       const localPhoto = lu ? (lu.photo || photoCache['user_'+lu.id] || '') : '';
       const remotePhoto = ru.photo || '';
-      return {
+      mergedMap[ru.username] = {
         ...ru,
+        // Keep local password (passwords are not synced for security)
         password: lu?.password || ru.password,
         photo: remotePhoto || localPhoto
       };
-    });
-    // Add local accounts that are NOT yet on remote (sync failed previously)
+    }
+    // Add local-only accounts (created while offline / sync failed)
+    let hasLocalOnly = false;
     for (const lu of localUsers) {
-      if (!merged.find(m => m.username === lu.username)) {
-        merged.push(lu);
+      if (!DEMO_USERNAMES.includes(lu.username.toLowerCase()) && !mergedMap[lu.username]) {
+        mergedMap[lu.username] = lu;
+        hasLocalOnly = true;
       }
     }
-    // If we found local-only accounts, push merged list back to remote now
-    if (merged.length > remoteUsers.length) {
+
+    const merged = Object.values(mergedMap);
+
+    // If we found local-only accounts, push them to remote so all devices sync
+    if (hasLocalOnly) {
       syncAccountsToAPI(merged).catch(() => {});
     }
 
-    // Save merged list to localStorage — strip any demo accounts from remote
-    const cleanMerged = merged.filter(u => !DEMO_USERNAMES.includes(u.username.toLowerCase()));
-    saveUsers(cleanMerged);
+    // Save clean merged list to localStorage
+    saveUsers(merged);
+
+    // Always ensure admin + adminsupport exist after remote override
+    ensureAdminSupport();
 
     // Cache photos from remote
     for (const u of merged) {
