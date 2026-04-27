@@ -483,7 +483,7 @@ async function getAttendance(request, env) {
 
   if (empId) { query += ' AND a.employee_id = ?'; params.push(empId); }
   if (month) { query += " AND strftime('%Y-%m', a.date) = ?"; params.push(month); }
-  else if (!limit) { query += ' AND a.date = ?'; params.push(date); }
+  else { query += ' AND a.date = ?'; params.push(date); }
 
   query += ' ORDER BY a.date DESC, e.name';
   if (limit) query += ' LIMIT ' + limit;
