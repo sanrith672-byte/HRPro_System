@@ -3159,6 +3159,8 @@ function openBulkAbsenceModal(dateVal) {
     + '<div class="form-group"><label class="form-label">ប្រភេទ *</label>'
     + '<select class="form-control" id="ba-status">'
     + '<option value="absent">❌ អវត្តមាន (ខ្វះច្បាប់)</option>'
+    + '<option value="present">✅ វត្តមាន</option>'
+    + '<option value="late">⏰ វត្តមានយឺត</option>'
     + '<option value="leave">🌴 ឈប់សម្រាក (មានច្បាប់)</option>'
     + '<option value="sick">🤒 ឈប់ព្យាបាល</option>'
     + '<option value="holiday">🎉 ថ្ងៃឈប់សម្រាក</option>'
@@ -3216,7 +3218,9 @@ async function saveBulkAbsence() {
 
   btn.disabled = true; btn.textContent = 'កំពុងរក្សា...';
 
-  var notePrefix = statusVal === 'leave' ? '\uD83C\uDF34 ឈប់ (ច្បាប់)'
+  var notePrefix = statusVal === 'present' ? '\u2705 វត្តមាន'
+    : statusVal === 'late'    ? '\u23F0 វត្តមានយឺត'
+    : statusVal === 'leave'   ? '\uD83C\uDF34 ឈប់ (ច្បាប់)'
     : statusVal === 'sick'    ? '\uD83E\uDD12 ឈប់ព្យាបាល'
     : statusVal === 'holiday' ? '\uD83C\uDF89 ថ្ងៃឈប់'
     : '\u274C អវត្តមាន';
@@ -3236,7 +3240,7 @@ async function saveBulkAbsence() {
         date: empDate,
         check_in: null,
         check_out: null,
-        status: 'absent',
+        status: statusVal,
         notes: fullNote,
       });
       success++;
@@ -3247,7 +3251,7 @@ async function saveBulkAbsence() {
 
   btn.disabled = false; btn.textContent = '\uD83D\uDCBE រក្សាទុក';
   closeModal();
-  if (success > 0) showToast('\u2705 បានកត់អវត្តមាន ' + success + ' នាក់ (' + notePrefix + ')', 'success');
+  if (success > 0) showToast('\u2705 បានកត់ ' + notePrefix + ' ' + success + ' នាក់', 'success');
   if (failed > 0) showToast('\u26A0\uFE0F មិនបានកត់ ' + failed + ' នាក់', 'error');
   // Refresh to last date used, or today
   renderAttendance(lastDate || new Date().toISOString().split('T')[0]);
