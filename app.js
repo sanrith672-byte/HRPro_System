@@ -8389,28 +8389,37 @@ async function saveNewAccount() {
     await photoDB.set('user_' + newId, photo);
   }
 
-  // Show success immediately — account is saved locally
-  showToast('បន្ថែម Account បានជោគជ័យ! ✅', 'success');
+  // Sync to Worker FIRST — wait for result before showing success
+  const synced = await syncAccountsToAPI(users).catch(() => false);
+
+  if (synced) {
+    showToast('បន្ថែម Account បានជោគជ័យ! ✅ (Sync រួច)', 'success');
+  } else {
+    showToast('⚠️ រក្សាទុកក្នុង Device រួចហើយ ប៉ុន្តែ Sync ទៅ Worker មិនបាន — Mobile ប្រហែលមើលមិនឃើញ!', 'error');
+  }
   closeModal();
   renderSettings();
   setTimeout(() => switchSettingsTab('accounts'), 50);
-
-  // Sync to Worker API in background (silently, local is already saved)
-  syncAccountsToAPI(users).catch(() => {});
 }
 
 // Sync all accounts to Worker — Remote is master for all devices
 async function syncAccountsToAPI(users) {
   if (isDemoMode()) return true;
   try {
-    await api('POST', '/config', {
-      key: 'hr_accounts',
-      value: JSON.stringify(users.map(u => ({
+    // Strip large photos before sync (base64 images can exceed Worker KV limits)
+    const usersToSync = users.map(u => {
+      const photo = u.photo || photoCache['user_'+u.id] || '';
+      // Only include photo if it's small enough (< 50KB base64)
+      const safePhoto = (photo && photo.length < 65536) ? photo : '';
+      return {
         id: u.id, username: u.username,
         password: u.password, role: u.role,
-        name: u.name,
-        photo: u.photo || (photoCache['user_'+u.id]||'')
-      })))
+        name: u.name, photo: safePhoto
+      };
+    });
+    await api('POST', '/config', {
+      key: 'hr_accounts',
+      value: JSON.stringify(usersToSync)
     });
     return true; // sync OK
   } catch(e) {
