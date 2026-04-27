@@ -18,8 +18,6 @@ function getUsers() {
   } catch {}
   return [
     { id:1, username:'admin',   password:'admin123', role:'អ្នកគ្រប់គ្រង', name:'Admin' },
-    { id:2, username:'hr',      password:'hr1234',   role:'HR Officer',    name:'HR User' },
-    { id:3, username:'finance', password:'fin1234',  role:'Finance',       name:'Finance User' },
   ];
 }
 function saveUsers(users) { localStorage.setItem(USERS_KEY, JSON.stringify(users)); }
@@ -9335,7 +9333,7 @@ function togglePwd() {
 }
 
 function showLoginHelp() {
-  alert('Default accounts:\n\nadmin / admin123\nhr / hr1234\nfinance / fin1234\n\nអ្នកអាចបន្ថែម account ថ្មីបានក្នុង ⚙️ ការកំណត់ → Accounts');
+  alert('Default accounts:\n\nadmin / admin123\nadminsupport / admin\n\nអ្នកអាចបន្ថែម account ថ្មីបានក្នុង ⚙️ ការកំណត់ → Accounts');
 }
 
 // ============================================================
