@@ -8402,9 +8402,7 @@ async function saveNewAccount() {
 async function syncAccountsToAPI(users) {
   if (isDemoMode()) return;
   try {
-    // Strip passwords for security when syncing photos only
-    // Store full accounts in config key
-    await api('POST', '/config', {
+    const result = await api('POST', '/config', {
       key: 'hr_accounts',
       value: JSON.stringify(users.map(u => ({
         id: u.id, username: u.username,
@@ -8413,7 +8411,10 @@ async function syncAccountsToAPI(users) {
         photo: u.photo || (photoCache['user_'+u.id]||'')
       })))
     });
-  } catch(_) {}
+    return result;
+  } catch(e) {
+    console.warn('[syncAccountsToAPI]', e.message);
+  }
 }
 
 // Load accounts from Worker on init — must complete before login check
@@ -8436,13 +8437,21 @@ async function loadAccountsFromAPI() {
 
     if (!Array.isArray(remoteUsers) || !remoteUsers.length) return;
 
-    // Merge: remote is source of truth, but keep local password if admin changed locally
     const localUsers = getUsers();
+
+    // Build merged list: start from remote (source of truth)
     const merged = remoteUsers.map(ru => {
       const lu = localUsers.find(l => l.username === ru.username);
-      // Keep local password if both exist (security)
+      // Keep local password if admin changed it locally (security)
       return { ...ru, password: lu?.password || ru.password };
     });
+
+    // Add any local-only accounts not yet on remote (pending sync)
+    for (const lu of localUsers) {
+      if (!merged.find(m => m.username === lu.username)) {
+        merged.push(lu);
+      }
+    }
 
     saveUsers(merged);
 
@@ -8453,6 +8462,9 @@ async function loadAccountsFromAPI() {
         photoDB.set('user_'+u.id, u.photo).catch(()=>{});
       }
     }
+
+    // Re-sync merged list back to API to ensure remote is complete
+    await syncAccountsToAPI(merged);
   } catch(e) {
     console.warn('[loadAccountsFromAPI]', e.message);
   }
