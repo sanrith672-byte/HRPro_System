@@ -1190,6 +1190,14 @@ async function loadAllPhotos() {
     try {
       const res = await api('GET', '/employees?limit=500');
       const list = res.employees || res || [];
+      // ── FIX: Merge IndexedDB first (lower priority), then API overwrites ──
+      // This ensures user_X photos from API (loaded by loadAccountsFromAPI) are NOT lost
+      try {
+        const idbAll = await photoDB.getAll();
+        for (const [key, val] of Object.entries(idbAll)) {
+          if (val && !photoCache[key]) photoCache[key] = val; // only fill gaps
+        }
+      } catch(_) {}
       for (const e of list) {
         if (e.photo_data) photoCache['emp_' + e.id] = e.photo_data;
         if (e.qr_data)   photoCache['qr_'  + e.id] = e.qr_data;
@@ -1197,8 +1205,11 @@ async function loadAllPhotos() {
       return;
     } catch(_) {}
   }
+  // Demo mode — load everything from IndexedDB (won't overwrite user_ photos already in cache)
   const all = await photoDB.getAll();
-  Object.assign(photoCache, all);
+  for (const [key, val] of Object.entries(all)) {
+    if (val && !photoCache[key]) photoCache[key] = val;
+  }
 }
 function getEmpPhoto(id) { return photoCache['emp_' + id] || ''; }
 async function setEmpPhoto(id, dataUrl) {
