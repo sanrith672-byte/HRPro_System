@@ -691,6 +691,16 @@ function getPermissions() {
       expenses_view:false, expenses_edit:false,
       departments_edit:false, id_card_print:false, settings_access:false,
     },
+    'QR Scanner': {
+      employees_view:false, employees_edit:false,
+      attendance_view:true, attendance_edit:true,
+      salary_view:false, salary_edit:false,
+      reports_view:false, reports_export:false,
+      leave_view:false, leave_edit:false,
+      loans_view:false, loans_edit:false,
+      expenses_view:false, expenses_edit:false,
+      departments_edit:false, id_card_print:false, settings_access:false,
+    },
   };
 }
 
@@ -705,6 +715,10 @@ function hasPerm(key) {
   const role = session.role || '';
   // Admin always has full access
   if (role === 'អ្នកគ្រប់គ្រង' || role.toLowerCase() === 'admin' || session.username === 'admin' || session.username === 'adminsupport') return true;
+  // QR Scanner: only attendance view/edit
+  if (role === 'QR Scanner') {
+    return key === 'attendance_view' || key === 'attendance_edit';
+  }
   const perms = getPermissions();
   const rolePerms = perms[role];
   if (!rolePerms) return false;
@@ -2070,7 +2084,8 @@ async function renderAttendance(date='') {
         }).join('');
 
     contentArea().innerHTML =
-      '<div class="page-header">'
+      (getSession()?.role === 'QR Scanner' ? '<div style="background:linear-gradient(135deg,rgba(34,197,94,.15),rgba(16,185,129,.1));border:1px solid rgba(34,197,94,.3);border-radius:12px;padding:14px 18px;margin-bottom:16px;display:flex;align-items:center;gap:12px"><span style="font-size:28px">📷</span><div><div style="font-weight:700;font-size:14px;color:var(--success)">របៀប QR Scanner</div><div style="font-size:12px;color:var(--text3)">ចុច "ស្កេន QR" ដើម្បីស្គេន QR Code បុគ្គលិក</div></div><button class="btn btn-success" style="margin-left:auto" onclick="openQRScanModal(\''+today+'\')" >📷 ស្កេន QR ឥឡូវ</button></div>' : '')
+      +'<div class="page-header">'
       +'<div><h2>វត្តមានប្រចាំថ្ងៃ</h2><p>'+label+'</p></div>'
       +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
       +'<input class="filter-input" type="date" value="'+today+'" onchange="renderAttendance(this.value)" />'
@@ -7618,7 +7633,7 @@ function renderSettings() {
                   + '<div class="account-info" style="flex:1;min-width:120px">'
                   + '<div class="account-name" style="font-size:14px">' + u.name + '</div>'
                   + '<div style="font-family:var(--mono);font-size:11px;color:var(--text3)">@' + u.username + '</div>'
-                  + '<div class="account-role" style="margin-top:2px">' + u.role + '</div>'
+                  + '<div class="account-role" style="margin-top:2px">' + u.role + (u.role === 'QR Scanner' ? ' <span style="background:var(--success);color:white;font-size:9px;padding:1px 6px;border-radius:20px;vertical-align:middle">📷 QR</span>' : '') + '</div>'
                   + '</div>'
                   + '<div class="action-btns" style="flex-shrink:0">'
                   + '<button class="btn btn-outline btn-sm" onclick="openEditAccountModal(' + u.id + ')">✏️ កែ</button>'
@@ -7734,7 +7749,7 @@ function renderSettings() {
 
             ${(()=>{
               const perms = getPermissions();
-              const roles = ['HR Officer','Finance','Viewer'];
+              const roles = ['HR Officer','Finance','Viewer','QR Scanner'];
               const features = [
                 { key:'employees_view',    label:'👥 មើលបុគ្គលិក' },
                 { key:'employees_edit',    label:'✏️ កែ/បន្ថែម/លុប បុគ្គលិក' },
@@ -8306,7 +8321,7 @@ function openAddAccountModal() {
     + '<div class="form-group"><label class="form-label">Password *</label><input class="form-control" type="password" id="acc-pwd" placeholder="••••••••" /></div>'
     + '<div class="form-group"><label class="form-label">តំណែង</label>'
     + '<select class="form-control" id="acc-role">'
-    + '<option>អ្នកគ្រប់គ្រង</option><option>HR Officer</option><option>Finance</option><option>Viewer</option>'
+    + '<option>អ្នកគ្រប់គ្រង</option><option>HR Officer</option><option>Finance</option><option>Viewer</option><option>QR Scanner</option>'
     + '</select></div>'
     + '</div>'
     + '<div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">បោះបង់</button>'
@@ -8452,7 +8467,7 @@ function openEditAccountModal(id) {
     + '<div class="form-group"><label class="form-label">Password ថ្មី (ទទេ = មិនផ្លាស់)</label><input class="form-control" type="password" id="eacc-pwd" placeholder="••••••••" /></div>'
     + '<div class="form-group"><label class="form-label">តំណែង</label>'
     + '<select class="form-control" id="eacc-role">'
-    + ['អ្នកគ្រប់គ្រង','HR Officer','Finance','Viewer'].map(r=>'<option'+(user.role===r?' selected':'')+'>'+r+'</option>').join('')
+    + ['អ្នកគ្រប់គ្រង','HR Officer','Finance','Viewer','QR Scanner'].map(r=>'<option'+(user.role===r?' selected':'')+'>'+r+'</option>').join('')
     + '</select></div>'
     + '</div>'
     + '<div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">បោះបង់</button>'
@@ -9280,7 +9295,14 @@ function initApp() {
     if (!getApiBase() && localStorage.getItem(DEMO_MODE_KEY) !== '1') {
       showFirstRunSetup();
     } else {
-      navigate('dashboard');
+      // QR Scanner role → go directly to attendance and open QR scan
+      const sess = getSession();
+      if (sess && sess.role === 'QR Scanner') {
+        navigate('attendance');
+        setTimeout(() => openQRScanModal(today()), 800);
+      } else {
+        navigate('dashboard');
+      }
     }
   });
 }
