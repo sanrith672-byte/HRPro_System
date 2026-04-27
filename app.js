@@ -2079,7 +2079,7 @@ async function renderAttendance(date='') {
       +' 📷 ស្កេន QR</button>'
       +'<button class="btn btn-primary" onclick="openAttModal(\''+today+'\')">'
       +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> + កត់ម្នាក់</button>'
-      +'<button class="btn btn-primary" onclick="openAttModal(\''+today+"+'\',\'bulk\')\">'"
+      +'<button class="btn btn-primary" style="background:var(--info);border-color:var(--info)" onclick="openAttBulk(\''+today+'\')">' 
       +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> 👥 កត់ទាំងអស់</button>'
       +'<button class="btn btn-outline" onclick="renderMonthlyAttendance(\''+today.slice(0,7)+'\')" style="border-color:var(--info);color:var(--info)">'
       +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>'
@@ -3254,6 +3254,8 @@ async function saveBulkAbsence() {
   renderAttendance(lastDate || new Date().toISOString().split('T')[0]);
 }
 
+
+function openAttBulk(d) { openAttModal(d, 'bulk'); }
 
 function openAttModal(dateVal, mode) {
   const d = dateVal || new Date().toISOString().split('T')[0];
