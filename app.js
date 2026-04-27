@@ -8275,21 +8275,30 @@ function openUserPhotoModal(userId, userName) {
 function handleUserPhotoUpload(input, userId) {
   const file = input.files[0];
   if (!file) return;
-  if (file.size > 2*1024*1024) { showToast('រូបថតធំពេក!','error'); return; }
+  if (file.size > 5*1024*1024) { showToast('រូបថតធំពេក! max 5MB','error'); return; }
   const reader = new FileReader();
   reader.onload = async e => {
-    const url = e.target.result;
-    photoCache['user_' + userId] = url;
-    await photoDB.set('user_' + userId, url);
-    // Update preview
-    const prev = document.getElementById('user-photo-preview');
-    if (prev) prev.innerHTML = '<img src="'+url+'" style="width:100%;height:100%;object-fit:cover"/>';
-    // Update sidebar if current user
-    const session = getSession();
-    if (session && session.id === userId) updateSidebarAvatar(url, session.name);
-    showToast('Upload រូបថតបានជោគជ័យ!','success');
-    // Refresh settings page
-    setTimeout(() => { renderSettings(); switchSettingsTab('accounts'); }, 300);
+    compressUserPhoto(e.target.result, async (url) => {
+      photoCache['user_' + userId] = url;
+      await photoDB.set('user_' + userId, url);
+      // Update preview
+      const prev = document.getElementById('user-photo-preview');
+      if (prev) prev.innerHTML = '<img src="'+url+'" style="width:100%;height:100%;object-fit:cover"/>';
+      // Update sidebar if current user
+      const session = getSession();
+      if (session && session.id === userId) updateSidebarAvatar(url, session.name);
+      // Sync photo to Worker so other devices can see it
+      const users = getUsers();
+      const idx = users.findIndex(u => u.id === userId);
+      if (idx >= 0) {
+        users[idx].photo = url;
+        saveUsers(users);
+        syncAccountsToAPI(users).catch(() => {});
+      }
+      showToast('Upload រូបថតបានជោគជ័យ! ✅','success');
+      // Refresh settings page
+      setTimeout(() => { renderSettings(); switchSettingsTab('accounts'); }, 300);
+    });
   };
   reader.readAsDataURL(file);
 }
@@ -8351,16 +8360,37 @@ function openAddAccountModal() {
   openModal();
 }
 
+// Compress user photo to max ~40KB base64 so it can sync to Worker KV
+function compressUserPhoto(dataUrl, callback) {
+  const img = new Image();
+  img.onload = function() {
+    const MAX = 200; // px max dimension
+    let w = img.width, h = img.height;
+    if (w > h) { if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; } }
+    else        { if (h > MAX) { w = Math.round(w * MAX / h); h = MAX; } }
+    const canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+    // Try quality 0.7 first, fallback to 0.5 if still too large
+    let url = canvas.toDataURL('image/jpeg', 0.7);
+    if (url.length > 60000) url = canvas.toDataURL('image/jpeg', 0.5);
+    callback(url);
+  };
+  img.src = dataUrl;
+}
+
 function handleNewAccPhoto(input) {
   const file = input.files[0];
   if (!file) return;
-  if (file.size > 2*1024*1024) { showToast('រូបថតធំពេក! max 2MB','error'); return; }
+  if (file.size > 5*1024*1024) { showToast('រូបថតធំពេក! max 5MB','error'); return; }
   const reader = new FileReader();
   reader.onload = e => {
-    window._newAccPhoto = e.target.result;
-    const prev = document.getElementById('new-acc-photo-preview');
-    if (prev) prev.innerHTML = '<img src="'+e.target.result+'" style="width:100%;height:100%;object-fit:cover" />';
-    showToast('Upload រូបថតរួច!','success');
+    compressUserPhoto(e.target.result, (compressed) => {
+      window._newAccPhoto = compressed;
+      const prev = document.getElementById('new-acc-photo-preview');
+      if (prev) prev.innerHTML = '<img src="'+compressed+'" style="width:100%;height:100%;object-fit:cover" />';
+      showToast('Upload រូបថតរួច!','success');
+    });
   };
   reader.readAsDataURL(file);
 }
@@ -8395,7 +8425,8 @@ async function saveNewAccount() {
   if (synced) {
     showToast('បន្ថែម Account បានជោគជ័យ! ✅ (Sync រួច)', 'success');
   } else {
-    showToast('⚠️ រក្សាទុកក្នុង Device រួចហើយ ប៉ុន្តែ Sync ទៅ Worker មិនបាន — Mobile ប្រហែលមើលមិនឃើញ!', 'error');
+    // Sync failed — save will still be local, show warning
+    showToast('✅ រក្សាទុក Account ក្នុង Device រួចហើយ (⚠️ Sync ទៅ Worker មិនបាន — Device ផ្សេងអាចមើលមិនឃើញ)', 'error');
   }
   closeModal();
   renderSettings();
@@ -8409,8 +8440,8 @@ async function syncAccountsToAPI(users) {
     // Strip large photos before sync (base64 images can exceed Worker KV limits)
     const usersToSync = users.map(u => {
       const photo = u.photo || photoCache['user_'+u.id] || '';
-      // Only include photo if it's small enough (< 50KB base64)
-      const safePhoto = (photo && photo.length < 65536) ? photo : '';
+      // Only include photo if it's small enough (< 80KB base64 — compressed photos fit here)
+      const safePhoto = (photo && photo.length < 81920) ? photo : '';
       return {
         id: u.id, username: u.username,
         password: u.password, role: u.role,
@@ -8458,7 +8489,14 @@ async function loadAccountsFromAPI() {
     const localUsers = getUsers();
     const merged = remoteUsers.map(ru => {
       const lu = localUsers.find(l => l.username === ru.username);
-      return { ...ru, password: lu?.password || ru.password };
+      // Keep local password (not synced for security), and local photo if remote has none
+      const localPhoto = lu ? (lu.photo || photoCache['user_'+lu.id] || '') : '';
+      const remotePhoto = ru.photo || '';
+      return {
+        ...ru,
+        password: lu?.password || ru.password,
+        photo: remotePhoto || localPhoto
+      };
     });
     // Add local accounts that are NOT yet on remote (sync failed previously)
     for (const lu of localUsers) {
@@ -8529,13 +8567,15 @@ function openEditAccountModal(id) {
 function handleEditAccPhoto(input) {
   const file = input.files[0];
   if (!file) return;
-  if (file.size > 2*1024*1024) { showToast('រូបថតធំពេក! max 2MB','error'); return; }
+  if (file.size > 5*1024*1024) { showToast('រូបថតធំពេក! max 5MB','error'); return; }
   const reader = new FileReader();
   reader.onload = e => {
-    window._editAccPhoto = e.target.result;
-    const prev = document.getElementById('edit-acc-photo-preview');
-    if (prev) prev.innerHTML = '<img src="'+e.target.result+'" style="width:100%;height:100%;object-fit:cover" />';
-    showToast('Upload រូបថតរួច!','success');
+    compressUserPhoto(e.target.result, (compressed) => {
+      window._editAccPhoto = compressed;
+      const prev = document.getElementById('edit-acc-photo-preview');
+      if (prev) prev.innerHTML = '<img src="'+compressed+'" style="width:100%;height:100%;object-fit:cover" />';
+      showToast('Upload រូបថតរួច!','success');
+    });
   };
   reader.readAsDataURL(file);
 }
@@ -8572,8 +8612,12 @@ async function saveEditAccount(id) {
   window._editAccPhoto = null;
 
   saveUsers(users);
-  await syncAccountsToAPI(users);
-  showToast('កែប្រែ Account បានជោគជ័យ! ✅', 'success');
+  const synced = await syncAccountsToAPI(users).catch(() => false);
+  if (synced) {
+    showToast('កែប្រែ Account បានជោគជ័យ! ✅ (Sync រួច)', 'success');
+  } else {
+    showToast('✅ រក្សាទុក Account ក្នុង Device រួចហើយ (⚠️ Sync ទៅ Worker មិនបាន)', 'error');
+  }
   closeModal();
   renderSettings();
   setTimeout(() => switchSettingsTab('accounts'), 50);
