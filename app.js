@@ -8296,9 +8296,8 @@ function handleUserPhotoUpload(input, userId) {
         syncAccountsToAPI(users).catch(() => {});
       }
       showToast('Upload រូបថតបានជោគជ័យ! ✅','success');
-      // Refresh account list without rebuilding full settings page
-      closeModal();
-      await refreshAccountListUI();
+      // Refresh settings page
+      setTimeout(() => { renderSettings(); switchSettingsTab('accounts'); }, 300);
     });
   };
   reader.readAsDataURL(file);
@@ -8311,7 +8310,8 @@ async function removeUserPhoto(userId) {
   if (session && session.id === userId) updateSidebarAvatar('', session.name);
   showToast('លុបរូបថតរួច!','success');
   closeModal();
-  await refreshAccountListUI();
+  renderSettings();
+  setTimeout(() => switchSettingsTab('accounts'), 100);
 }
 
 function updateSidebarAvatar(photoUrl, name) {
@@ -8331,43 +8331,6 @@ function updateSidebarAvatar(photoUrl, name) {
 // ============================================================
 // ACCOUNT MANAGEMENT
 // ============================================================
-// ── Refresh account list UI in-place (works on both PC and Mobile) ──
-async function refreshAccountListUI() {
-  // Ensure photos for all users are loaded into photoCache from IndexedDB first
-  const users = getUsers().filter(u => u.username !== 'adminsupport');
-  for (const u of users) {
-    if (!photoCache['user_' + u.id]) {
-      const p = await photoDB.get('user_' + u.id);
-      if (p) photoCache['user_' + u.id] = p;
-    }
-  }
-  const container = document.getElementById('account-list-render');
-  if (!container) {
-    // If settings page not rendered yet, full render then switch tab
-    renderSettings();
-    setTimeout(() => switchSettingsTab('accounts'), 80);
-    return;
-  }
-  // Re-render only the account list items
-  container.innerHTML = users.map(u => {
-    const uPhoto = u.photo || photoCache['user_' + u.id] || '';
-    const avatarEl = uPhoto
-      ? '<div class="account-avatar" style="overflow:hidden;padding:0;flex-shrink:0"><img src="'+uPhoto+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%" /></div>'
-      : '<div class="account-avatar" style="flex-shrink:0;font-size:18px;font-weight:800">' + (u.name||'?')[0].toUpperCase() + '</div>';
-    return '<div class="account-item" style="flex-wrap:wrap;gap:10px">'
-      + avatarEl
-      + '<div class="account-info" style="flex:1;min-width:120px">'
-      + '<div class="account-name" style="font-size:14px">' + u.name + '</div>'
-      + '<div style="font-family:var(--mono);font-size:11px;color:var(--text3)">@' + u.username + '</div>'
-      + '<div class="account-role" style="margin-top:2px">' + u.role + (u.role === 'QR Scanner' ? ' <span style="background:var(--success);color:white;font-size:9px;padding:1px 6px;border-radius:20px;vertical-align:middle">📷 QR</span>' : '') + '</div>'
-      + '</div>'
-      + '<div class="action-btns" style="flex-shrink:0">'
-      + '<button class="btn btn-outline btn-sm" onclick="openEditAccountModal(' + u.id + ')">✏️ កែ</button>'
-      + (u.username !== 'admin' ? '<button class="btn btn-danger btn-sm" onclick="deleteAccount(' + u.id + ')">🗑️</button>' : '')
-      + '</div></div>';
-  }).join('');
-}
-
 function openAddAccountModal() {
   $('modal-title').textContent = 'បន្ថែម Account ថ្មី';
   $('modal-body').innerHTML =
@@ -8466,7 +8429,8 @@ async function saveNewAccount() {
     showToast('✅ រក្សាទុក Account ក្នុង Device រួចហើយ (⚠️ Sync ទៅ Worker មិនបាន — Device ផ្សេងអាចមើលមិនឃើញ)', 'error');
   }
   closeModal();
-  await refreshAccountListUI();
+  renderSettings();
+  setTimeout(() => switchSettingsTab('accounts'), 50);
 }
 
 // Sync all accounts to Worker — Remote is master for all devices
@@ -8655,7 +8619,8 @@ async function saveEditAccount(id) {
     showToast('✅ រក្សាទុក Account ក្នុង Device រួចហើយ (⚠️ Sync ទៅ Worker មិនបាន)', 'error');
   }
   closeModal();
-  await refreshAccountListUI();
+  renderSettings();
+  setTimeout(() => switchSettingsTab('accounts'), 50);
 }
 
 function deleteAccount(id) {
@@ -8664,7 +8629,8 @@ function deleteAccount(id) {
   saveUsers(users);
   syncAccountsToAPI(users);
   showToast('លុប Account រួច!', 'success');
-  refreshAccountListUI();
+  renderSettings();
+  setTimeout(() => switchSettingsTab('accounts'), 50);
 }
 
 function changePassword() {
