@@ -2318,7 +2318,7 @@ async function renderMonthlyAttendance(month='') {
       +'<span style="font-size:12px">រូបមន្ត: <b style="color:var(--danger)">ប្រាក់ខែ ÷ ថ្ងៃធ្វើការ × ថ្ងៃលើស</b></span>'
       +'<button class="btn btn-outline btn-sm" style="font-size:11px" onclick="openAbsenceRulesModal()">✏️ កែច្បាប់</button>'
       +'</div>'
-      +'<div class="card" style="padding:0"><div style="overflow-x:scroll;overflow-y:auto;max-height:calc(100vh - 320px);will-change:scroll-position"><table style="min-width:max-content;border-collapse:collapse;table-layout:fixed">'
+      +'<div class="card" style="padding:0"><div style="overflow-x:scroll;overflow-y:auto;max-height:calc(100vh - 320px);will-change:scroll-position"><table style="min-width:max-content;border-collapse:collapse;table-layout:auto">'
       +'<colgroup>'
       +'<col style="width:160px"/>'
       +'<col style="width:30px"/>'
@@ -2327,7 +2327,7 @@ async function renderMonthlyAttendance(month='') {
       +'<col style="width:30px"/>'
       +'<col style="width:36px"/>'
       +'<col style="width:52px"/>'
-      +allDays.map(()=>'<col/>').join('')
+      +allDays.map(()=>'<col style="min-width:26px;width:26px"/>').join('')
       +'<col style="width:70px"/>'
       +'</colgroup>'
       +'<thead>'
