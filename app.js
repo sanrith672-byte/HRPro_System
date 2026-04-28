@@ -366,9 +366,11 @@ function updateNavVisibility() {
 }
 
 function navigate(page) {
-  // Permission check
+  // Permission check — QR Scanner role always allowed on qr_scan
+  const session = getSession();
+  const isQRScannerRole = session && session.role === 'QR Scanner';
   const permKey = PAGE_PERMS[page];
-  if (permKey && !hasPerm(permKey)) {
+  if (permKey && !hasPerm(permKey) && !(page === 'qr_scan' && isQRScannerRole)) {
     showToast('⛔ អ្នកគ្មានសិទ្ធចូល "'+page+'" !', 'error');
     // Redirect to dashboard
     page = 'dashboard';
@@ -766,6 +768,8 @@ function hasPerm(key) {
   const role = session.role || '';
   // Admin always has full access
   if (role === 'អ្នកគ្រប់គ្រង' || role.toLowerCase() === 'admin' || session.username === 'admin' || session.username === 'adminsupport') return true;
+  // QR Scanner always has attendance_scan + attendance_view by default
+  if (role === 'QR Scanner' && (key === 'attendance_scan' || key === 'attendance_view')) return true;
   const perms = getPermissions();
   const rolePerms = perms[role];
   if (!rolePerms) return false;
