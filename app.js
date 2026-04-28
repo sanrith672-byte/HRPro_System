@@ -1080,6 +1080,7 @@ async function renderEmployees(filter='', dept='', status='') {
       +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
       +(canEdit()?'<button class="btn btn-primary" onclick="openEmployeeModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> + បន្ថែម</button>':'')
       +'<button class="btn btn-outline" style="border-color:var(--info);color:var(--info)" onclick="openEmpAdvSearch()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> 🔍 ស្វែងរក</button>'      +'<button class="btn btn-outline" onclick="openEmployeeReportModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> 🖨️ បោះពុម្ព / Export</button>'
+      +'<button class="btn btn-outline" style="border-color:#10b981;color:#10b981" onclick="openAllQRModal()">📲 QR ទាំងអស់</button>'
       +'</div></div>'
       +'<div class="filter-bar">'
       +'<div style="display:flex;gap:6px;flex:1;min-width:200px">'+'<input id="emp-search-input" class="filter-input" style="flex:1" placeholder="ស្វែងរក..." value="'+filter+'" onkeydown="if(event.key===\'Enter\')_empQuickFilter(this.value,\''+dept+'\',\''+status+'\')"/>'+'<button class="btn btn-primary" style="padding:0 14px;white-space:nowrap;flex-shrink:0" onclick="_empQuickFilter(document.getElementById(\'emp-search-input\').value,\''+dept+'\',\''+status+'\')" title="ស្វែងរក">🔍 ស្វែងរក</button>'+'</div>'
@@ -9325,6 +9326,199 @@ async function doLogin() {
     pEl.value = '';
     pEl.focus();
   }
+}
+
+
+// ================================================================
+// ALL EMPLOYEES QR CARDS — Print/Share sheet
+// ================================================================
+async function openAllQRModal() {
+  // Get current filtered employees from state or reload
+  showToast('កំពុងបង្កើត QR Cards...', 'info');
+  let emps = state.employees || [];
+  if (!emps.length) {
+    try {
+      const d = await api('GET', '/employees?limit=500');
+      emps = d.employees || [];
+    } catch(_) { emps = []; }
+  }
+  // Only active + on_leave
+  emps = emps.filter(e => e.status !== 'inactive');
+
+  // Load company config for branding
+  const cfg = getConfig ? getConfig() : {};
+  const companyName = cfg.company_name || 'HR Pro';
+
+  // Build QR canvas for each employee using qrcode lib (already loaded) or fallback
+  const modal = document.createElement('div');
+  modal.id = 'all-qr-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;display:flex;flex-direction:column;overflow:hidden';
+
+  modal.innerHTML = `
+    <div style="background:var(--bg2);border-bottom:1px solid var(--border);padding:14px 20px;display:flex;align-items:center;gap:12px;flex-shrink:0">
+      <span style="font-size:20px">📲</span>
+      <div style="flex:1">
+        <div style="font-weight:700;font-size:15px">QR Cards បុគ្គលិកទាំងអស់</div>
+        <div style="font-size:12px;color:var(--text3)">${emps.length} នាក់ — បុគ្គលិកម្នាក់អាចស្កេន QR ខ្លួនឯង</div>
+      </div>
+      <button onclick="window.printAllQR()" class="btn btn-primary" style="gap:6px">🖨️ Print ទាំងអស់</button>
+      <button onclick="document.getElementById('all-qr-modal').remove()" class="btn btn-outline">✕ បិទ</button>
+    </div>
+    <div style="flex:1;overflow-y:auto;padding:20px">
+      <div id="all-qr-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px;max-width:1100px;margin:0 auto">
+        <div style="text-align:center;padding:40px;color:var(--text3);grid-column:1/-1">⏳ កំពុង Generate QR...</div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+
+  // Generate QR cards
+  const grid = modal.querySelector('#all-qr-grid');
+  const cards = [];
+
+  for (const emp of emps) {
+    const displayId = emp.custom_id || ('EMP' + String(emp.id).padStart(3,'0'));
+    // QR text = displayId (custom_id or EMP001) — matches findEmployeeByQR() scanner logic
+    const qrText = emp.custom_id || ('EMP' + String(emp.id).padStart(3,'0'));
+
+    const photo = photoCache['emp_' + emp.id] || '';
+    const avatarBg = getColor(emp.name);
+    const avatarInner = photo
+      ? `<img src="${photo}" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>`
+      : `<span style="font-size:20px;font-weight:800;color:#fff">${(emp.name||'?')[0].toUpperCase()}</span>`;
+
+    const card = document.createElement('div');
+    card.className = 'qr-emp-card';
+    card.style.cssText = 'background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:16px 12px;display:flex;flex-direction:column;align-items:center;gap:10px;position:relative;transition:box-shadow .2s';
+    card.innerHTML = `
+      <div style="width:52px;height:52px;border-radius:50%;background:${avatarBg};display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;border:2px solid var(--border)">
+        ${avatarInner}
+      </div>
+      <div style="text-align:center;width:100%">
+        <div style="font-weight:700;font-size:13px;color:var(--text1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${emp.name}</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:2px">${displayId}</div>
+        <div style="font-size:10px;color:var(--info);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${emp.position||''}</div>
+      </div>
+      <canvas id="qr-canvas-${emp.id}" width="130" height="130" style="border-radius:8px;border:1px solid var(--border);background:#fff"></canvas>
+      <div style="font-size:9px;color:var(--text3);text-align:center;line-height:1.4">${emp.department_name||''}</div>
+    `;
+    cards.push({ card, emp, qrText, displayId });
+    grid.innerHTML = '';
+    grid.appendChild(card);
+  }
+  // Re-append all at once
+  grid.innerHTML = '';
+  for (const { card } of cards) grid.appendChild(card);
+
+  // Draw QR codes using canvas (no lib needed — use simple URL QR)
+  for (const { emp, qrText } of cards) {
+    const canvas = document.getElementById('qr-canvas-' + emp.id);
+    if (!canvas) continue;
+    try {
+      await drawQRToCanvas(canvas, qrText);
+    } catch(_) {
+      // fallback: show text
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#f0f0f0';
+      ctx.fillRect(0,0,130,130);
+      ctx.fillStyle = '#333';
+      ctx.font = '9px monospace';
+      ctx.fillText('QR Error', 10, 65);
+    }
+  }
+
+  // Print function
+  window.printAllQR = function() {
+    const empCards = [...grid.querySelectorAll('.qr-emp-card')];
+    let printHtml = `<!DOCTYPE html><html><head><meta charset="utf-8">
+<title>QR Cards — ${companyName}</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Khmer OS', sans-serif; background: #fff; }
+  .print-header { text-align:center; padding: 16px; border-bottom: 2px solid #e5e7eb; margin-bottom: 16px; }
+  .print-header h1 { font-size: 18px; font-weight: 800; color: #111; }
+  .print-header p { font-size: 12px; color: #6b7280; margin-top:4px; }
+  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; padding: 0 16px 16px; }
+  .card { border: 1.5px solid #e5e7eb; border-radius: 12px; padding: 14px 10px; display: flex; flex-direction: column; align-items: center; gap: 8px; page-break-inside: avoid; background: #fff; }
+  .avatar { width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0; border: 2px solid #e5e7eb; font-size: 18px; font-weight: 800; color: #fff; }
+  .emp-name { font-size: 11.5px; font-weight: 700; color: #111; text-align:center; }
+  .emp-id { font-size: 10px; color: #6b7280; text-align:center; margin-top:1px; }
+  .emp-pos { font-size: 9.5px; color: #3b82f6; text-align:center; }
+  .emp-dept { font-size: 9px; color: #9ca3af; text-align:center; }
+  canvas, img.qr-img { border-radius: 6px; border: 1px solid #e5e7eb; background: #fff; }
+  @media print { body { -webkit-print-color-adjust: exact; } @page { margin: 8mm; } }
+</style></head><body>
+<div class="print-header"><h1>📲 ${companyName} — QR Cards បុគ្គលិក</h1><p>សរុប ${emps.length} នាក់ — ស្កេន QR ដើម្បីកត់វត្តមាន</p></div>
+<div class="grid">`;
+
+    for (const { card, emp, displayId } of cards) {
+      const canvas = document.getElementById('qr-canvas-' + emp.id);
+      const qrDataUrl = canvas ? canvas.toDataURL('image/png') : '';
+      const photo = photoCache['emp_' + emp.id] || '';
+      const avatarBg = getColor(emp.name);
+      const avatarHtml = photo
+        ? `<img src="${photo}" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>`
+        : `<span>${(emp.name||'?')[0].toUpperCase()}</span>`;
+
+      printHtml += `<div class="card">
+        <div class="avatar" style="background:${avatarBg}">${avatarHtml}</div>
+        <div class="emp-name">${emp.name}</div>
+        <div class="emp-id">${displayId}</div>
+        <div class="emp-pos">${emp.position||''}</div>
+        ${qrDataUrl ? `<img class="qr-img" src="${qrDataUrl}" width="110" height="110"/>` : '<div style="width:110px;height:110px;background:#f3f4f6;border-radius:6px"></div>'}
+        <div class="emp-dept">${emp.department_name||''}</div>
+      </div>`;
+    }
+    printHtml += `</div></body></html>`;
+
+    const w = window.open('','_blank','width=900,height=700');
+    w.document.write(printHtml);
+    w.document.close();
+    w.onload = () => { w.focus(); w.print(); };
+  };
+}
+
+// ── QR Code generation on <canvas> using qrcode-generator lib or fetch API ──
+async function drawQRToCanvas(canvas, text) {
+  // Try using qrcode-generator if loaded
+  if (typeof qrcode !== 'undefined') {
+    const qr = qrcode(0, 'M');
+    qr.addData(text);
+    qr.make();
+    const size = canvas.width;
+    const ctx = canvas.getContext('2d');
+    const moduleCount = qr.getModuleCount();
+    const cellSize = size / moduleCount;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, size, size);
+    ctx.fillStyle = '#000000';
+    for (let r = 0; r < moduleCount; r++) {
+      for (let c = 0; c < moduleCount; c++) {
+        if (qr.isDark(r, c)) {
+          ctx.fillRect(Math.floor(c * cellSize), Math.floor(r * cellSize), Math.ceil(cellSize), Math.ceil(cellSize));
+        }
+      }
+    }
+    return;
+  }
+
+  // Fallback: use Google Charts QR API as image
+  return new Promise((resolve, reject) => {
+    const encoded = encodeURIComponent(text);
+    const size = canvas.width;
+    const url = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encoded}&format=png&margin=4`;
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0,0,size,size);
+      ctx.drawImage(img, 0, 0, size, size);
+      resolve();
+    };
+    img.onerror = reject;
+    img.src = url;
+  });
 }
 
 function showLoginError(msg) {
