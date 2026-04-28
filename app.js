@@ -348,8 +348,17 @@ const PAGE_PERMS = {
 };
 
 function updateNavVisibility() {
+  // Sidebar nav
   document.querySelectorAll('.nav-item[data-page]').forEach(el => {
     const page = el.dataset.page;
+    const permKey = PAGE_PERMS[page];
+    const allowed = !permKey || hasPerm(permKey);
+    el.style.display = allowed ? '' : 'none';
+  });
+  // Mobile bottom nav — show/hide based on permission, keep "ច្រើនទៀត" always visible
+  document.querySelectorAll('.mob-nav-btn[data-mob-page]').forEach(el => {
+    const page = el.dataset.mobPage;
+    if (page === 'more') return; // always show
     const permKey = PAGE_PERMS[page];
     const allowed = !permKey || hasPerm(permKey);
     el.style.display = allowed ? '' : 'none';
@@ -8867,12 +8876,9 @@ function mobileNav(page, btn) {
 
 // Sync mobile nav active state when desktop nav used
 function syncMobileNav(page) {
-  const map = { dashboard:0, employees:1, attendance:2, qr_scan:3, salary:4 };
-  const btns = document.querySelectorAll('.mob-nav-btn');
-  btns.forEach(b => b.classList.remove('active'));
-  if (map[page] !== undefined && btns[map[page]]) {
-    btns[map[page]].classList.add('active');
-  }
+  document.querySelectorAll('.mob-nav-btn[data-mob-page]').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.mobPage === page);
+  });
 }
 
 // Salary page print (same as payroll report)
