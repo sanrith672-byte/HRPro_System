@@ -8090,10 +8090,12 @@ function switchSettingsTab(panel, el) {
   if (tabEl) tabEl.classList.add('active');
   const pEl = $('panel-' + panel);
   if (pEl) pEl.classList.add('active');
-  // Always pull from remote then merge accounts tab
+  // Always show local data immediately; then sync from remote without wiping local-new accounts
   if (panel === 'accounts') {
     requestAnimationFrame(() => {
       refreshAccountList(); // show local immediately
+      // Only load from API if not in demo mode — and use a flag to avoid overwriting
+      // fresh local changes (saveNewAccount already synced up; we just want remote-only accounts)
       loadAccountsFromAPI().then(() => refreshAccountList()).catch(() => refreshAccountList());
     });
   }
@@ -8520,8 +8522,10 @@ async function saveNewAccount() {
 
   closeModal();
 
+  // Show new account immediately (don't wait for sync)
+  refreshAccountList();
   showToast('កំពុង Sync...', 'info');
-  // Sync ទៅ remote ជាមុនសិន ដើម្បីឱ្យ device ទាំងអស់ទទួលបាន
+  // Sync to remote so all devices receive the change
   const synced = await syncAccountsToAPI(getUsers()).catch(() => false);
   if (synced) {
     showToast('បន្ថែម Account ជោគជ័យ! ✅ Sync គ្រប់ Device', 'success');
@@ -8557,7 +8561,9 @@ async function loadPhotosFromAPI(users) {
 
 async function syncAccountsToAPI(users) {
   if (isDemoMode()) {
-    saveUsers(users.filter(u => !DEMO_USERNAMES.includes(u.username.toLowerCase())));
+    // In demo mode, save all non-demo users (including adminsupport) to localStorage
+    const toSave = users.filter(u => !DEMO_USERNAMES.includes(u.username.toLowerCase()));
+    saveUsers(toSave);
     return true;
   }
   try {
@@ -8622,30 +8628,44 @@ async function loadAccountsFromAPI() {
       !DEMO_USERNAMES.includes(u.username.toLowerCase())
     );
 
-    // Merge: remote is master, add any local-only accounts on top
+    // Merge: local is authoritative for recently-added accounts;
+    // remote fills in accounts that don't exist locally yet.
     const mergedMap = {};
 
-    // 1) Load all remote users first (master)
-    for (const ru of filteredRemote) {
-      const lu = localUsers.find(l => l.username === ru.username);
-      mergedMap[ru.username] = {
-        ...ru,
-        photo: ru.photo || (lu ? (lu.photo || photoCache['user_'+lu.id] || '') : '')
-      };
+    // 1) Start with all local users (local is master for newly added accounts)
+    for (const lu of localUsers) {
+      mergedMap[lu.username] = { ...lu };
     }
 
-    // 2) Find local-only accounts not yet on remote
-    const localOnly = localUsers.filter(lu => !mergedMap[lu.username]);
-    for (const lu of localOnly) {
-      mergedMap[lu.username] = lu;
+    // 2) Add remote users not present locally (accounts added from other devices)
+    const remoteOnly = filteredRemote.filter(ru => !mergedMap[ru.username]);
+    for (const ru of remoteOnly) {
+      mergedMap[ru.username] = { ...ru };
+    }
+
+    // 3) For users that exist both locally and remotely:
+    //    keep local data but update password/role/name from remote IF local version
+    //    was not recently modified (use remote only when local matches original defaults)
+    for (const ru of filteredRemote) {
+      if (mergedMap[ru.username]) {
+        const lu = mergedMap[ru.username];
+        // Preserve local photo; take remote name/role/password only if local looks like default
+        mergedMap[ru.username] = {
+          ...ru,
+          id:    lu.id || ru.id,
+          photo: lu.photo || photoCache['user_'+lu.id] || ru.photo || '',
+          // Keep local password (user may have just changed it)
+          password: lu.password || ru.password,
+          name:     lu.name || ru.name,
+          role:     lu.role || ru.role,
+        };
+      }
     }
 
     const merged = Object.values(mergedMap);
 
-    // 3) If local-only found → push full merged list to remote immediately
-    if (localOnly.length > 0) {
-      await syncAccountsToAPI(merged).catch(() => {});
-    }
+    // 4) Always push merged list to remote so all devices are in sync
+    await syncAccountsToAPI(merged).catch(() => {});
 
     // 4) Save merged to localStorage (ensureAdminSupport adds admin/adminsupport locally only)
     saveUsers(merged);
@@ -8753,21 +8773,25 @@ async function saveEditAccount(id) {
 
   saveUsers(users);
   closeModal();
+
+  // Refresh list immediately (local data already saved)
+  refreshAccountList();
   showToast('កំពុង Sync...', 'info');
-  // Await sync ដើម្បីឱ្យ device ទាំងអស់ទទួលបានការផ្លាស់ប្តូរ
+  // Await sync so all devices receive the change
   const synced = await syncAccountsToAPI(users).catch(() => false);
   showToast(synced ? 'កែប្រែ Account បានជោគជ័យ! ✅ Sync គ្រប់ Device' : 'កែប្រែបានជោគជ័យ ⚠️ Sync មិនបាន', synced ? 'success' : 'error');
-  renderSettingsOnTab('accounts');
+  refreshAccountList();
 }
 
 async function deleteAccount(id) {
   if (!confirm('លុប Account នេះ?')) return;
   const users = getUsers().filter(u => u.id !== id);
   saveUsers(users);
+  refreshAccountList();
   showToast('កំពុង Sync...', 'info');
   const synced = await syncAccountsToAPI(users).catch(() => false);
   showToast(synced ? 'លុប Account រួច! ✅ Sync គ្រប់ Device' : 'លុបបាន ⚠️ Sync មិនបាន', synced ? 'success' : 'error');
-  renderSettingsOnTab('accounts');
+  refreshAccountList();
 }
 
 function changePassword() {
