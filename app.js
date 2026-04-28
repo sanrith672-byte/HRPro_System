@@ -747,7 +747,7 @@ function getPermissions() {
     'QR Scanner': {
       employees_view:false, employees_edit:false, employees_delete:false,
       departments_view:false, departments_edit:false,
-      attendance_view:true, attendance_edit:true, attendance_delete:false, attendance_scan:true,
+      attendance_view:true, attendance_edit:false, attendance_delete:false, attendance_scan:true,
       salary_view:false, salary_edit:false, salary_slip_print:false,
       overtime_view:false, overtime_edit:false,
       allowance_view:false, allowance_edit:false,
@@ -2139,8 +2139,11 @@ async function renderAttendance(date='') {
     const [attData, empData] = await Promise.all([api('GET','/attendance?date='+today), api('GET','/employees')]);
     state.employees = empData.employees;
     const label = new Date(today+'T00:00:00').toLocaleDateString('km-KH',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+    const isQR = getSession()?.role === 'QR Scanner';
+    const colCount = isQR ? 5 : 6;
+
     const attRows = attData.records.length===0
-      ? '<tr><td colspan="6"><div class="empty-state" style="padding:30px"><p>មិនទាន់មានការកត់វត្តមានសម្រាប់ថ្ងៃនេះ</p></div></td></tr>'
+      ? '<tr><td colspan="'+colCount+'"><div class="empty-state" style="padding:30px"><p>មិនទាន់មានការកត់វត្តមានសម្រាប់ថ្ងៃនេះ</p></div></td></tr>'
       : attData.records.map(a => {
           const photo = getEmpPhoto(a.employee_id);
           const av = photo
@@ -2152,16 +2155,30 @@ async function renderAttendance(date='') {
             +'<td><span style="font-family:var(--mono);color:var(--success)">'+(a.check_in||'—')+'</span></td>'
             +'<td><span style="font-family:var(--mono);color:var(--text3)">'+(a.check_out||'—')+'</span></td>'
             +'<td>'+(a.status==='present'?'<span class="badge badge-green">✅ វត្តមាន</span>':a.status==='late'?'<span class="badge badge-yellow">⏰ យឺត</span>':'<span class="badge badge-red">❌ អវត្តមាន</span>')+'</td>'
-            +'<td><div class="action-btns">'
-            +'<button class="btn btn-outline btn-sm" onclick="openEditAttModal('+a.id+',\''+a.employee_name+'\')">✏️</button>'
-            +'<button class="btn btn-outline btn-sm" onclick="quickCheckOut('+a.employee_id+',\''+today+'\')">🚪</button>'
-            +'<button class="btn btn-danger btn-sm" onclick="deleteAttendance('+a.id+',\''+today+'\')">🗑️</button>'
-            +'</div></td>'
+            +(!isQR
+              ? '<td><div class="action-btns">'
+                +'<button class="btn btn-outline btn-sm" onclick="openEditAttModal('+a.id+',\''+a.employee_name+'\')">✏️</button>'
+                +'<button class="btn btn-outline btn-sm" onclick="quickCheckOut('+a.employee_id+',\''+today+'\')">🚪</button>'
+                +'<button class="btn btn-danger btn-sm" onclick="deleteAttendance('+a.id+',\''+today+'\')">🗑️</button>'
+                +'</div></td>'
+              : '')
             +'</tr>';
         }).join('');
 
+    const actionBtns = isQR ? ''
+      : '<button class="btn btn-primary" onclick="openAttModal(\''+today+'\')">'
+        +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> + កត់ម្នាក់</button>'
+        +'<button class="btn btn-primary" style="background:var(--info);border-color:var(--info)" onclick="openAttBulk(\''+today+'\')">'
+        +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> 👥 កត់ទាំងអស់</button>'
+        +'<button class="btn btn-outline" onclick="renderMonthlyAttendance(\''+today.slice(0,7)+'\')" style="border-color:var(--info);color:var(--info)">'
+        +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>'
+        +' 📊 តារាងប្រចាំខែ</button>';
+
+    const theadCols = '<th>បុគ្គលិក</th><th>នាយកដ្ឋាន</th><th>ម៉ោងចូល</th><th>ម៉ោងចេញ</th><th>ស្ថានភាព</th>'
+      + (!isQR ? '<th>សកម្មភាព</th>' : '');
+
     contentArea().innerHTML =
-      (hasPerm('attendance_scan') ? '<div style="background:linear-gradient(135deg,rgba(34,197,94,.15),rgba(16,185,129,.1));border:1px solid rgba(34,197,94,.3);border-radius:12px;padding:14px 18px;margin-bottom:16px;display:flex;align-items:center;gap:12px"><span style="font-size:28px">📷</span><div><div style="font-weight:700;font-size:14px;color:var(--success)">របៀប QR Scanner</div><div style="font-size:12px;color:var(--text3)">ចុច "ស្កេន QR" ដើម្បីស្គេន QR Code បុគ្គលិក</div></div><button class="btn btn-success" style="margin-left:auto" onclick="openQRScanModal(\''+today+'\')" >📷 ស្កេន QR ឥឡូវ</button></div>' : '')
+      (hasPerm('attendance_scan') ? '<div style="background:linear-gradient(135deg,rgba(34,197,94,.15),rgba(16,185,129,.1));border:1px solid rgba(34,197,94,.3);border-radius:12px;padding:14px 18px;margin-bottom:16px;display:flex;align-items:center;gap:12px"><span style="font-size:28px">📷</span><div><div style="font-weight:700;font-size:14px;color:var(--success)">របៀប QR Scanner</div><div style="font-size:12px;color:var(--text3)">ចុច \"ស្កេន QR\" ដើម្បីស្គេន QR Code បុគ្គលិក</div></div><button class="btn btn-success" style="margin-left:auto" onclick="openQRScanModal(\''+today+'\')" >📷 ស្កេន QR ឥឡូវ</button></div>' : '')
       +'<div class="page-header">'
       +'<div><h2>វត្តមានប្រចាំថ្ងៃ</h2><p>'+label+'</p></div>'
       +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
@@ -2169,13 +2186,7 @@ async function renderAttendance(date='') {
       +(hasPerm('attendance_scan') ? '<button class="btn btn-success" onclick="openQRScanModal(\''+today+'\')">'
       +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>'
       +' 📷 ស្កេន QR</button>' : '')
-      +'<button class="btn btn-primary" onclick="openAttModal(\''+today+'\')">'
-      +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> + កត់ម្នាក់</button>'
-      +'<button class="btn btn-primary" style="background:var(--info);border-color:var(--info)" onclick="openAttBulk(\''+today+'\')">' 
-      +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> 👥 កត់ទាំងអស់</button>'
-      +'<button class="btn btn-outline" onclick="renderMonthlyAttendance(\''+today.slice(0,7)+'\')" style="border-color:var(--info);color:var(--info)">'
-      +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>'
-      +' 📊 តារាងប្រចាំខែ</button>'
+      + actionBtns
       +'</div></div>'
       +'<div class="att-summary">'
       +'<div class="att-box"><div class="att-num" style="color:var(--success)">'+attData.stats.present+'</div><div class="att-lbl">✅ មានវត្តមាន</div></div>'
@@ -2186,7 +2197,7 @@ async function renderAttendance(date='') {
       +'<div class="card">'
       +'<div class="card-header"><span class="card-title">ក្បាលបញ្ជីវត្តមាន</span></div>'
       +'<div class="table-container"><table>'
-      +'<thead><tr><th>បុគ្គលិក</th><th>នាយកដ្ឋាន</th><th>ម៉ោងចូល</th><th>ម៉ោងចេញ</th><th>ស្ថានភាព</th><th>សកម្មភាព</th></tr></thead>'
+      +'<thead><tr>'+theadCols+'</tr></thead>'
       +'<tbody>'+attRows+'</tbody>'
       +'</table></div></div>';
   } catch(e) { showError(e.message); }
