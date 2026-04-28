@@ -8018,6 +8018,34 @@ function renderSettings() {
   });
 }
 
+
+// ── Re-render only the account list (no full settings re-render needed) ──
+function refreshAccountList() {
+  const container = document.getElementById('account-list-render');
+  if (!container) return;
+  const users = getUsers().filter(u =>
+    u.username !== 'adminsupport' &&
+    !DEMO_USERNAMES.includes(u.username.toLowerCase())
+  );
+  container.innerHTML = users.map(u => {
+    const uPhoto = u.photo || photoCache['user_' + u.id] || '';
+    const avatarEl = uPhoto
+      ? '<div class="account-avatar" style="overflow:hidden;padding:0;flex-shrink:0"><img src="' + uPhoto + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%" /></div>'
+      : '<div class="account-avatar" style="flex-shrink:0;font-size:18px;font-weight:800">' + (u.name || '?')[0].toUpperCase() + '</div>';
+    return '<div class="account-item" style="flex-wrap:wrap;gap:10px">'
+      + avatarEl
+      + '<div class="account-info" style="flex:1;min-width:120px">'
+      + '<div class="account-name" style="font-size:14px">' + u.name + '</div>'
+      + '<div style="font-family:var(--mono);font-size:11px;color:var(--text3)">@' + u.username + '</div>'
+      + '<div class="account-role" style="margin-top:2px">' + u.role
+      + (u.role === 'QR Scanner' ? ' <span style="background:var(--success);color:white;font-size:9px;padding:1px 6px;border-radius:20px;vertical-align:middle">📷 QR</span>' : '')
+      + '</div></div>'
+      + '<div class="action-btns" style="flex-shrink:0">'
+      + '<button class="btn btn-outline btn-sm" onclick="openEditAccountModal(' + u.id + ')">✏️ កែ</button>'
+      + (u.username !== 'admin' ? '<button class="btn btn-danger btn-sm" onclick="deleteAccount(' + u.id + ')">🗑️</button>' : '')
+      + '</div></div>';
+  }).join('');
+}
 function switchSettingsTab(panel, el) {
   document.querySelectorAll('.settings-tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.settings-panel').forEach(p => p.classList.remove('active'));
@@ -8027,6 +8055,10 @@ function switchSettingsTab(panel, el) {
   if (tabEl) tabEl.classList.add('active');
   const pEl = $('panel-' + panel);
   if (pEl) pEl.classList.add('active');
+  // Always refresh account list when switching to accounts tab
+  if (panel === 'accounts') {
+    setTimeout(() => refreshAccountList(), 10);
+  }
 }
 
 // Logo upload - compress to small size then save to API
@@ -8324,7 +8356,7 @@ function handleUserPhotoUpload(input, userId) {
         showToast('Upload រូបថតបានជោគជ័យ! ✅','success');
       }
       // Refresh settings page
-      setTimeout(() => { renderSettings(); switchSettingsTab('accounts'); }, 300);
+      setTimeout(() => { if (document.getElementById('account-list-render')) { refreshAccountList(); } else { renderSettings(); switchSettingsTab('accounts'); } }, 300);
     });
   };
   reader.readAsDataURL(file);
@@ -8337,8 +8369,7 @@ async function removeUserPhoto(userId) {
   if (session && session.id === userId) updateSidebarAvatar('', session.name);
   showToast('លុបរូបថតរួច!','success');
   closeModal();
-  renderSettings();
-  setTimeout(() => switchSettingsTab('accounts'), 100);
+  if (document.getElementById('account-list-render')) { refreshAccountList(); } else { renderSettings(); setTimeout(() => switchSettingsTab('accounts'), 100); }
 }
 
 function updateSidebarAvatar(photoUrl, name) {
@@ -8462,8 +8493,13 @@ async function saveNewAccount() {
     latestUsers.push(newUser);
     saveUsers(latestUsers);
   }
-  renderSettings();
-  setTimeout(() => switchSettingsTab('accounts'), 50);
+  // Refresh only the account list — no full re-render needed
+  if (document.getElementById('account-list-render')) {
+    refreshAccountList();
+  } else {
+    renderSettings();
+    setTimeout(() => switchSettingsTab('accounts'), 50);
+  }
 }
 
 // Sync all accounts to Worker — Remote is master for all devices
@@ -8697,8 +8733,12 @@ async function saveEditAccount(id) {
     showToast('✅ រក្សាទុក Account ក្នុង Device រួចហើយ (⚠️ Sync ទៅ Worker មិនបាន)', 'error');
   }
   closeModal();
-  renderSettings();
-  setTimeout(() => switchSettingsTab('accounts'), 50);
+  if (document.getElementById('account-list-render')) {
+    refreshAccountList();
+  } else {
+    renderSettings();
+    setTimeout(() => switchSettingsTab('accounts'), 50);
+  }
 }
 
 function deleteAccount(id) {
@@ -8707,8 +8747,12 @@ function deleteAccount(id) {
   saveUsers(users);
   syncAccountsToAPI(users);
   showToast('លុប Account រួច!', 'success');
-  renderSettings();
-  setTimeout(() => switchSettingsTab('accounts'), 50);
+  if (document.getElementById('account-list-render')) {
+    refreshAccountList();
+  } else {
+    renderSettings();
+    setTimeout(() => switchSettingsTab('accounts'), 50);
+  }
 }
 
 function changePassword() {
