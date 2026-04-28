@@ -8022,7 +8022,10 @@ function renderSettings() {
 // ── Re-render only the account list (no full settings re-render needed) ──
 function refreshAccountList() {
   const container = document.getElementById('account-list-render');
-  if (!container) return;
+  if (!container) {
+    // Container not in DOM yet — panel not rendered or not active; skip silently
+    return;
+  }
   const users = getUsers().filter(u =>
     u.username !== 'adminsupport' &&
     !DEMO_USERNAMES.includes(u.username.toLowerCase())
@@ -8046,6 +8049,19 @@ function refreshAccountList() {
       + '</div></div>';
   }).join('');
 }
+
+// Render settings page and immediately show a specific tab (no timing issues)
+function renderSettingsOnTab(tabName) {
+  renderSettings();
+  // Use requestAnimationFrame to ensure DOM is ready before switching tab
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      const tabEl = document.querySelector(`.settings-tab[onclick*="'${tabName}'"]`);
+      switchSettingsTab(tabName, tabEl);
+      // switchSettingsTab already calls refreshAccountList for 'accounts' tab
+    });
+  });
+}
 function switchSettingsTab(panel, el) {
   document.querySelectorAll('.settings-tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.settings-panel').forEach(p => p.classList.remove('active'));
@@ -8057,7 +8073,7 @@ function switchSettingsTab(panel, el) {
   if (pEl) pEl.classList.add('active');
   // Always refresh account list when switching to accounts tab
   if (panel === 'accounts') {
-    setTimeout(() => refreshAccountList(), 10);
+    requestAnimationFrame(() => refreshAccountList());
   }
 }
 
@@ -8356,7 +8372,7 @@ function handleUserPhotoUpload(input, userId) {
         showToast('Upload រូបថតបានជោគជ័យ! ✅','success');
       }
       // Refresh settings page
-      setTimeout(() => { renderSettings(); setTimeout(() => { switchSettingsTab('accounts'); setTimeout(() => refreshAccountList(), 30); }, 50); }, 300);
+      setTimeout(() => renderSettingsOnTab('accounts'), 300);
     });
   };
   reader.readAsDataURL(file);
@@ -8369,7 +8385,7 @@ async function removeUserPhoto(userId) {
   if (session && session.id === userId) updateSidebarAvatar('', session.name);
   showToast('លុបរូបថតរួច!','success');
   closeModal();
-  renderSettings(); setTimeout(() => { switchSettingsTab('accounts'); setTimeout(() => refreshAccountList(), 30); }, 50);
+  renderSettingsOnTab('accounts');
 }
 
 function updateSidebarAvatar(photoUrl, name) {
@@ -8481,11 +8497,7 @@ async function saveNewAccount() {
   showToast('បន្ថែម Account បានជោគជ័យ! ✅', 'success');
   closeModal();
   // Re-render settings and switch to accounts tab immediately
-  renderSettings();
-  setTimeout(() => {
-    switchSettingsTab('accounts');
-    setTimeout(() => refreshAccountList(), 30);
-  }, 50);
+  renderSettingsOnTab('accounts');
   // Sync to Worker in background — don't block UI
   syncAccountsToAPI(users).then(synced => {
     if (!synced) {
@@ -8724,8 +8736,7 @@ async function saveEditAccount(id) {
   saveUsers(users);
   showToast('កែប្រែ Account បានជោគជ័យ! ✅', 'success');
   closeModal();
-  renderSettings();
-  setTimeout(() => { switchSettingsTab('accounts'); setTimeout(() => refreshAccountList(), 30); }, 50);
+  renderSettingsOnTab('accounts');
   // Sync in background
   syncAccountsToAPI(users).catch(() => {});
 }
@@ -8736,8 +8747,7 @@ function deleteAccount(id) {
   saveUsers(users);
   syncAccountsToAPI(users);
   showToast('លុប Account រួច!', 'success');
-  renderSettings();
-  setTimeout(() => { switchSettingsTab('accounts'); setTimeout(() => refreshAccountList(), 30); }, 50);
+  renderSettingsOnTab('accounts');
 }
 
 function changePassword() {
