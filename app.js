@@ -8544,6 +8544,7 @@ async function syncAccountsToAPI(users) {
         });
       }
 
+      // password is synced so all devices share the same credentials
       return {
         id: u.id, username: u.username,
         password: u.password, role: u.role,
@@ -8607,8 +8608,8 @@ async function loadAccountsFromAPI() {
       const remotePhoto = ru.photo || '';
       mergedMap[ru.username] = {
         ...ru,
-        // Keep local password (passwords are not synced for security)
-        password: lu?.password || ru.password,
+        // Remote password is master — synced across all devices
+        password: ru.password || lu?.password || '',
         photo: remotePhoto || localPhoto
       };
     }
@@ -8764,7 +8765,9 @@ function changePassword() {
   if (!user || user.password !== oldPwd) { showToast('Password ចាស់មិនត្រឹមត្រូវ!', 'error'); return; }
   user.password = newPwd;
   saveUsers(users);
-  showToast('ផ្លាស់ Password បានជោគជ័យ! 🔑', 'success');
+  // Sync new password to Worker so all devices get updated
+  syncAccountsToAPI(users).catch(() => {});
+  showToast('ផ្លាស់ Password បានជោគជ័យ! 🔑 (Sync ទៅគ្រប់ Device)', 'success');
   if ($('chpwd-old')) $('chpwd-old').value = '';
   if ($('chpwd-new')) $('chpwd-new').value = '';
   if ($('chpwd-confirm')) $('chpwd-confirm').value = '';
