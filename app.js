@@ -8381,11 +8381,13 @@ function handleUserPhotoUpload(input, userId) {
       if (idx >= 0) {
         users[idx].photo = url;
         saveUsers(users);
-        const synced = await syncAccountsToAPI(users).catch(() => false);
+        // Sync photo separately, then sync accounts
+      await syncPhotoToAPI(userId, url).catch(() => {});
+      const synced = await syncAccountsToAPI(users).catch(() => false);
         if (synced) {
-          showToast('Upload រូបថតបានជោគជ័យ! ✅ (បង្ហាញលើគ្រប់ Device)', 'success');
+          showToast('Upload រូបថាតបានជោគជ័យ! ✅ (បង្ហាញលើរគ្រប់ Device)', 'success');
         } else {
-          showToast('Upload រូបថតរួច ✅ (⚠️ Sync មិនបាន — ត្រូវ Login ម្តងទៀតនៅ Mobile)', 'error');
+          showToast('Upload រូបថាតរួច ✅ (⚠️ Sync មិនបាន — ត្រូវ Login ម្តងតីយនៅ Mobile)', 'error');
         }
       } else {
         showToast('Upload រូបថតបានជោគជ័យ! ✅','success');
@@ -8506,10 +8508,11 @@ async function saveNewAccount() {
   users.push(newUser);
   saveUsers(users);
 
-  // Save photo to IndexedDB + cache
+  // Save photo to IndexedDB + cache + sync to Worker separately
   if (photo) {
     photoCache['user_' + newId] = photo;
     await photoDB.set('user_' + newId, photo);
+    syncPhotoToAPI(newId, photo).catch(() => {});
   }
 
   closeModal();
@@ -8526,58 +8529,56 @@ async function saveNewAccount() {
 }
 
 // Sync all accounts to Worker — Remote is master for all devices
+// Sync a single user photo to Worker (separate from account list)
+async function syncPhotoToAPI(userId, photoData) {
+  if (isDemoMode() || !photoData) return;
+  try {
+    await api('POST', '/config', { key: 'hr_photo_' + userId, value: photoData });
+  } catch(e) { console.warn('[syncPhotoToAPI]', e.message); }
+}
+
+// Load all user photos from Worker after accounts loaded
+async function loadPhotosFromAPI(users) {
+  if (isDemoMode()) return;
+  try {
+    const cfg = await api('GET', '/config');
+    for (const u of users) {
+      const remotePhoto = cfg && cfg['hr_photo_' + u.id];
+      if (remotePhoto && !photoCache['user_' + u.id]) {
+        photoCache['user_' + u.id] = remotePhoto;
+        photoDB.set('user_' + u.id, remotePhoto).catch(() => {});
+      }
+    }
+  } catch(e) { console.warn('[loadPhotosFromAPI]', e.message); }
+}
+
 async function syncAccountsToAPI(users) {
   if (isDemoMode()) {
-    // In demo mode — save locally and consider it "synced"
     saveUsers(users.filter(u => !DEMO_USERNAMES.includes(u.username.toLowerCase())));
     return true;
   }
   try {
-    // Strip demo accounts before syncing to remote
-    users = users.filter(u => !DEMO_USERNAMES.includes(u.username.toLowerCase()));
-    // ── FIX: Compress photos before sync so all devices can see them ──
-    const usersToSync = await Promise.all(users.map(async u => {
-      let photo = u.photo || photoCache['user_'+u.id] || '';
-
-      // If photo is too large, re-compress it smaller so it can be synced
-      if (photo && photo.length >= 81920) {
-        photo = await new Promise(resolve => {
-          const img = new Image();
-          img.onload = function() {
-            // Reduce to 150px max for sync (smaller = safer across devices)
-            const MAX = 150;
-            let w = img.width, h = img.height;
-            if (w > h) { if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; } }
-            else        { if (h > MAX) { w = Math.round(w * MAX / h); h = MAX; } }
-            const canvas = document.createElement('canvas');
-            canvas.width = w; canvas.height = h;
-            canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-            // Try progressively lower quality until small enough
-            let url = canvas.toDataURL('image/jpeg', 0.6);
-            if (url.length >= 81920) url = canvas.toDataURL('image/jpeg', 0.4);
-            if (url.length >= 81920) url = canvas.toDataURL('image/jpeg', 0.25);
-            resolve(url.length < 81920 ? url : '');
-          };
-          img.onerror = () => resolve('');
-          img.src = photo;
-        });
-      }
-
-      return {
-        id: u.id, username: u.username,
-        password: u.password, role: u.role,
-        name: u.name, photo: photo
-      };
-    }));
+    // Strip demo accounts + strip photos (photos stored separately in IndexedDB)
+    // Photos are NOT synced here — avoids Cloudflare 100KB body limit
+    const usersToSync = users
+      .filter(u => !DEMO_USERNAMES.includes(u.username.toLowerCase()))
+      .map(u => ({
+        id: u.id,
+        username: u.username,
+        password: u.password,
+        role: u.role,
+        name: u.name,
+        photo: '' // photos stored locally in IndexedDB per device
+      }));
 
     await api('POST', '/config', {
       key: 'hr_accounts',
       value: JSON.stringify(usersToSync)
     });
-    return true; // sync OK
+    return true;
   } catch(e) {
     console.warn('[syncAccountsToAPI] FAILED:', e.message);
-    return false; // sync failed
+    return false;
   }
 }
 
@@ -8653,7 +8654,10 @@ async function loadAccountsFromAPI() {
     // Always ensure admin + adminsupport exist after remote override
     ensureAdminSupport();
 
-    // Cache photos from remote
+    // Load photos separately (not bundled in account sync)
+    loadPhotosFromAPI(merged).catch(() => {});
+
+    // Cache any photos already in merged (legacy)
     for (const u of merged) {
       if (u.photo) {
         photoCache['user_'+u.id] = u.photo;
