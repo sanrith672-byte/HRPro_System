@@ -8591,16 +8591,22 @@ async function syncAccountsToAPI(users) {
   }
 }
 
-// Load accounts from Worker on init — Remote is MASTER (all devices sync from here)
+// Load accounts from Worker — LOCAL is always MASTER.
+// Remote only contributes accounts added from OTHER devices (not present locally).
 async function loadAccountsFromAPI() {
   if (isDemoMode()) return;
   try {
     const cfg = await api('GET', '/config');
     const raw = cfg && cfg.hr_accounts;
 
-    // No remote data yet — push local to remote
+    // Get current local users — these are always authoritative
+    const localUsers = getUsers().filter(u =>
+      u.username !== 'adminsupport' &&
+      !DEMO_USERNAMES.includes(u.username.toLowerCase())
+    );
+
+    // No remote data yet — push local up and done
     if (!raw) {
-      const localUsers = getUsers().filter(u => u.username !== 'adminsupport' && !DEMO_USERNAMES.includes(u.username.toLowerCase()));
       if (localUsers.length) await syncAccountsToAPI(localUsers).catch(() => {});
       ensureAdminSupport();
       return;
@@ -8614,66 +8620,37 @@ async function loadAccountsFromAPI() {
       remoteUsers = raw;
     } else { return; }
 
-    if (!Array.isArray(remoteUsers) || !remoteUsers.length) return;
+    if (!Array.isArray(remoteUsers)) return;
 
-    // Filter demo from remote
+    // Filter out system/demo accounts from remote
     const filteredRemote = remoteUsers.filter(u =>
       u.username !== 'adminsupport' &&
       !DEMO_USERNAMES.includes(u.username.toLowerCase())
     );
 
-    // Get local users (exclude system accounts for comparison)
-    const localUsers = getUsers().filter(u =>
-      u.username !== 'adminsupport' &&
-      !DEMO_USERNAMES.includes(u.username.toLowerCase())
-    );
+    // Only import accounts from remote that don't exist locally yet
+    // (accounts added from another device/browser)
+    const localUsernameSet = new Set(localUsers.map(u => u.username));
+    const remoteOnlyAccounts = filteredRemote.filter(ru => !localUsernameSet.has(ru.username));
 
-    // Merge: local is authoritative for recently-added accounts;
-    // remote fills in accounts that don't exist locally yet.
-    const mergedMap = {};
-
-    // 1) Start with all local users (local is master for newly added accounts)
-    for (const lu of localUsers) {
-      mergedMap[lu.username] = { ...lu };
+    if (remoteOnlyAccounts.length === 0) {
+      // Nothing new from remote — push local up to keep remote in sync
+      await syncAccountsToAPI(localUsers).catch(() => {});
+      ensureAdminSupport();
+      return;
     }
 
-    // 2) Add remote users not present locally (accounts added from other devices)
-    const remoteOnly = filteredRemote.filter(ru => !mergedMap[ru.username]);
-    for (const ru of remoteOnly) {
-      mergedMap[ru.username] = { ...ru };
-    }
-
-    // 3) For users that exist both locally and remotely:
-    //    keep local data but update password/role/name from remote IF local version
-    //    was not recently modified (use remote only when local matches original defaults)
-    for (const ru of filteredRemote) {
-      if (mergedMap[ru.username]) {
-        const lu = mergedMap[ru.username];
-        // Preserve local photo; take remote name/role/password only if local looks like default
-        mergedMap[ru.username] = {
-          ...ru,
-          id:    lu.id || ru.id,
-          photo: lu.photo || photoCache['user_'+lu.id] || ru.photo || '',
-          // Keep local password (user may have just changed it)
-          password: lu.password || ru.password,
-          name:     lu.name || ru.name,
-          role:     lu.role || ru.role,
-        };
-      }
-    }
-
-    const merged = Object.values(mergedMap);
-
-    // 4) Always push merged list to remote so all devices are in sync
-    await syncAccountsToAPI(merged).catch(() => {});
-
-    // 4) Save merged to localStorage (ensureAdminSupport adds admin/adminsupport locally only)
+    // Merge: local wins, append remote-only additions
+    const merged = [...localUsers, ...remoteOnlyAccounts];
     saveUsers(merged);
     ensureAdminSupport();
 
-    // 5) Load photos separately
-    loadPhotosFromAPI(merged).catch(() => {});
-    for (const u of merged) {
+    // Push merged back so all devices are up to date
+    await syncAccountsToAPI(merged).catch(() => {});
+
+    // Load photos for newly imported remote accounts only
+    loadPhotosFromAPI(remoteOnlyAccounts).catch(() => {});
+    for (const u of remoteOnlyAccounts) {
       if (u.photo) {
         photoCache['user_'+u.id] = u.photo;
         photoDB.set('user_'+u.id, u.photo).catch(() => {});
