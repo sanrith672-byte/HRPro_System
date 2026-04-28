@@ -567,7 +567,15 @@ async function restoreAllData(input) {
     // Restore accounts
     if (d.accounts && d.accounts.length) {
       saveUsers(d.accounts);
-      await syncAccountsToAPI(d.accounts);
+      // Re-create each account in D1
+      if (!isDemoMode()) {
+        for (const u of d.accounts.filter(u => u.username !== 'adminsupport' && !DEMO_USERNAMES.includes(u.username.toLowerCase()))) {
+          await api('POST', '/accounts', { username: u.username, password: u.password, name: u.name, role: u.role, photo: '' }).catch(() =>
+            api('PUT', '/accounts/' + u.id, { name: u.name, role: u.role, password: u.password }).catch(() => {})
+          );
+        }
+        await loadAccountsFromAPI();
+      }
     }
 
     // Restore config
@@ -7646,7 +7654,7 @@ function renderSettings() {
           </div>
           <div class="settings-section-body">
             <div class="account-list" id="account-list-render">
-              ${getUsers().filter(u => u.username !== 'adminsupport' && !DEMO_USERNAMES.includes(u.username.toLowerCase())).map(u => {
+              ${(window._accountsCache || getUsers()).filter(u => u.username !== 'adminsupport' && !DEMO_USERNAMES.includes(u.username.toLowerCase())).map(u => {
                 const uPhoto = u.photo || photoCache['user_' + u.id] || '';
                 const avatarEl = uPhoto
                   ? '<div class="account-avatar" style="overflow:hidden;padding:0"><img src="'+uPhoto+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%" /></div>'
@@ -8041,14 +8049,14 @@ async function syncAndRefreshAccounts() {
 
 function refreshAccountList() {
   const container = document.getElementById('account-list-render');
-  if (!container) {
-    // Container not in DOM yet — panel not rendered or not active; skip silently
+  if (!container) return;
+  const users = (window._accountsCache || getUsers()).filter(u =>
+    u.username !== 'adminsupport' && !DEMO_USERNAMES.includes(u.username.toLowerCase())
+  );
+  if (!users.length) {
+    container.innerHTML = '<div style="color:var(--text3);text-align:center;padding:24px">មិនមាន Account ទេ</div>';
     return;
   }
-  const users = getUsers().filter(u =>
-    u.username !== 'adminsupport' &&
-    !DEMO_USERNAMES.includes(u.username.toLowerCase())
-  );
   container.innerHTML = users.map(u => {
     const uPhoto = u.photo || photoCache['user_' + u.id] || '';
     const avatarEl = uPhoto
@@ -8069,7 +8077,6 @@ function refreshAccountList() {
   }).join('');
 }
 
-// Render settings page and immediately show a specific tab (no timing issues)
 function renderSettingsOnTab(tabName) {
   renderSettings();
   // Use requestAnimationFrame to ensure DOM is ready before switching tab
@@ -8090,12 +8097,10 @@ function switchSettingsTab(panel, el) {
   if (tabEl) tabEl.classList.add('active');
   const pEl = $('panel-' + panel);
   if (pEl) pEl.classList.add('active');
-  // Always show local data immediately; then sync from remote without wiping local-new accounts
+  // Always pull from remote then merge accounts tab
   if (panel === 'accounts') {
     requestAnimationFrame(() => {
       refreshAccountList(); // show local immediately
-      // Only load from API if not in demo mode — and use a flag to avoid overwriting
-      // fresh local changes (saveNewAccount already synced up; we just want remote-only accounts)
       loadAccountsFromAPI().then(() => refreshAccountList()).catch(() => refreshAccountList());
     });
   }
@@ -8388,12 +8393,10 @@ function handleUserPhotoUpload(input, userId) {
         saveUsers(users);
         // Sync photo separately, then sync accounts
       await syncPhotoToAPI(userId, url).catch(() => {});
-      const synced = await syncAccountsToAPI(users).catch(() => false);
-        if (synced) {
-          showToast('Upload រូបថាតបានជោគជ័យ! ✅ (បង្ហាញលើរគ្រប់ Device)', 'success');
-        } else {
-          showToast('Upload រូបថាតរួច ✅ (⚠️ Sync មិនបាន — ត្រូវ Login ម្តងតីយនៅ Mobile)', 'error');
-        }
+      if (!isDemoMode()) {
+        await api('PUT', '/accounts/' + userId, { photo: url }).catch(() => {});
+      }
+      showToast('Upload រូបថតបានជោគជ័យ! ✅', 'success');
       } else {
         showToast('Upload រូបថតបានជោគជ័យ! ✅','success');
       }
@@ -8504,173 +8507,64 @@ async function saveNewAccount() {
   window._newAccPhoto = null;
 
   if (!name || !username || !password) { showToast('សូមបំពេញឱ្យគ្រប់!', 'error'); return; }
-
-  const users = getUsers();
-  if (users.find(u => u.username === username)) { showToast('Username នេះមានរួចហើយ!', 'error'); return; }
-
-  const newId = Math.max(...users.map(u=>u.id), 0) + 1;
-  const newUser = { id: newId, username, password, role, name, photo };
-  users.push(newUser);
-  saveUsers(users);
-
-  // Save photo to IndexedDB + cache + sync to Worker separately
-  if (photo) {
-    photoCache['user_' + newId] = photo;
-    await photoDB.set('user_' + newId, photo);
-    syncPhotoToAPI(newId, photo).catch(() => {});
-  }
+  const cache = window._accountsCache || getUsers();
+  if (cache.find(u => u.username === username)) { showToast('Username នេះមានរួចហើយ!', 'error'); return; }
 
   closeModal();
-
-  // Show new account immediately (don't wait for sync)
-  refreshAccountList();
-  showToast('កំពុង Sync...', 'info');
-  // Sync to remote so all devices receive the change
-  const synced = await syncAccountsToAPI(getUsers()).catch(() => false);
-  if (synced) {
-    showToast('បន្ថែម Account ជោគជ័យ! ✅ Sync គ្រប់ Device', 'success');
-  } else {
-    showToast('បន្ថែម Account ជោគជ័យ ⚠️ Sync មិនបាន — ពិនិត្យ Worker URL', 'error');
-  }
-  refreshAccountList();
-}
-
-// Sync all accounts to Worker — Remote is master for all devices
-// Sync a single user photo to Worker (separate from account list)
-async function syncPhotoToAPI(userId, photoData) {
-  if (isDemoMode() || !photoData) return;
+  showToast('កំពុងបន្ថែម...', 'info');
   try {
-    await api('POST', '/config', { key: 'hr_photo_' + userId, value: photoData });
-  } catch(e) { console.warn('[syncPhotoToAPI]', e.message); }
-}
-
-// Load all user photos from Worker after accounts loaded
-async function loadPhotosFromAPI(users) {
-  if (isDemoMode()) return;
-  try {
-    const cfg = await api('GET', '/config');
-    for (const u of users) {
-      const remotePhoto = cfg && cfg['hr_photo_' + u.id];
-      if (remotePhoto && !photoCache['user_' + u.id]) {
-        photoCache['user_' + u.id] = remotePhoto;
-        photoDB.set('user_' + u.id, remotePhoto).catch(() => {});
-      }
+    if (isDemoMode()) {
+      const users = getUsers();
+      const newId = Math.max(...users.map(u=>u.id), 0) + 1;
+      const nu = { id: newId, username, password, role, name, photo };
+      users.push(nu);
+      saveUsers(users);
+      window._accountsCache = users.filter(u => u.username !== 'adminsupport' && !DEMO_USERNAMES.includes(u.username.toLowerCase()));
+    } else {
+      await api('POST', '/accounts', { username, password, name, role, photo });
+      await loadAccountsFromAPI();
     }
-  } catch(e) { console.warn('[loadPhotosFromAPI]', e.message); }
-}
-
-async function syncAccountsToAPI(users) {
-  if (isDemoMode()) {
-    // In demo mode, save all non-demo users (including adminsupport) to localStorage
-    const toSave = users.filter(u => !DEMO_USERNAMES.includes(u.username.toLowerCase()));
-    saveUsers(toSave);
-    return true;
-  }
-  try {
-    // Strip demo accounts + strip photos (photos stored separately in IndexedDB)
-    // Photos are NOT synced here — avoids Cloudflare 100KB body limit
-    const usersToSync = users
-      .filter(u => !DEMO_USERNAMES.includes(u.username.toLowerCase()))
-      .map(u => ({
-        id: u.id,
-        username: u.username,
-        password: u.password,
-        role: u.role,
-        name: u.name,
-        photo: '' // photos stored locally in IndexedDB per device
-      }));
-
-    await api('POST', '/config', {
-      key: 'hr_accounts',
-      value: JSON.stringify(usersToSync)
-    });
-    return true;
+    showToast('បន្ថែម Account ជោគជ័យ! ✅', 'success');
   } catch(e) {
-    console.warn('[syncAccountsToAPI] FAILED:', e.message);
-    return false;
+    showToast('Error: ' + e.message, 'error');
+    await loadAccountsFromAPI();
   }
+  refreshAccountList();
 }
 
-// Load accounts from Worker — LOCAL is always MASTER.
-// Remote only contributes accounts added from OTHER devices (not present locally).
+// Load all accounts from D1 → cache in window._accountsCache & localStorage
 async function loadAccountsFromAPI() {
-  if (isDemoMode()) return;
   try {
-    const cfg = await api('GET', '/config');
-    const raw = cfg && cfg.hr_accounts;
-
-    // Get current local users — these are always authoritative
-    const localUsers = getUsers().filter(u =>
-      u.username !== 'adminsupport' &&
-      !DEMO_USERNAMES.includes(u.username.toLowerCase())
-    );
-
-    // No remote data yet — push local up and done
-    if (!raw) {
-      if (localUsers.length) await syncAccountsToAPI(localUsers).catch(() => {});
-      ensureAdminSupport();
+    if (isDemoMode()) {
+      window._accountsCache = getUsers().filter(u =>
+        u.username !== 'adminsupport' && !DEMO_USERNAMES.includes(u.username.toLowerCase())
+      );
       return;
     }
-
-    // Parse remote accounts
-    let remoteUsers;
-    if (typeof raw === 'string') {
-      try { remoteUsers = JSON.parse(raw); } catch { return; }
-    } else if (Array.isArray(raw)) {
-      remoteUsers = raw;
-    } else { return; }
-
-    if (!Array.isArray(remoteUsers)) return;
-
-    // Filter out system/demo accounts from remote
-    const filteredRemote = remoteUsers.filter(u =>
-      u.username !== 'adminsupport' &&
-      !DEMO_USERNAMES.includes(u.username.toLowerCase())
-    );
-
-    // Only import accounts from remote that don't exist locally yet
-    // (accounts added from another device/browser)
-    const localUsernameSet = new Set(localUsers.map(u => u.username));
-    const remoteOnlyAccounts = filteredRemote.filter(ru => !localUsernameSet.has(ru.username));
-
-    if (remoteOnlyAccounts.length === 0) {
-      // Nothing new from remote — push local up to keep remote in sync
-      await syncAccountsToAPI(localUsers).catch(() => {});
-      ensureAdminSupport();
-      return;
-    }
-
-    // Merge: local wins, append remote-only additions
-    const merged = [...localUsers, ...remoteOnlyAccounts];
-    saveUsers(merged);
-    ensureAdminSupport();
-
-    // Push merged back so all devices are up to date
-    await syncAccountsToAPI(merged).catch(() => {});
-
-    // Load photos for newly imported remote accounts only
-    loadPhotosFromAPI(remoteOnlyAccounts).catch(() => {});
-    for (const u of remoteOnlyAccounts) {
-      if (u.photo) {
-        photoCache['user_'+u.id] = u.photo;
-        photoDB.set('user_'+u.id, u.photo).catch(() => {});
-      }
-    }
-
+    const res = await api('GET', '/accounts');
+    const accounts = res.accounts || [];
+    window._accountsCache = accounts;
+    // Keep localStorage in sync so getUsers()/login works
+    saveUsers([
+      ...accounts,
+      { id: 999, username: 'adminsupport', password: 'admin', role: 'អ្នកគ្រប់គ្រង', name: 'Admin Support', photo: '' }
+    ]);
   } catch(e) {
     console.warn('[loadAccountsFromAPI]', e.message);
+    window._accountsCache = getUsers().filter(u =>
+      u.username !== 'adminsupport' && !DEMO_USERNAMES.includes(u.username.toLowerCase())
+    );
   }
 }
 
 function openEditAccountModal(id) {
-  const users = getUsers();
+  const users = window._accountsCache || getUsers();
   const user = users.find(u => u.id === id);
   if (!user) return;
   window._editAccPhoto = null;
   const existingPhoto = user.photo || photoCache['user_' + id] || '';
   $('modal-title').textContent = 'កែប្រែ Account — ' + user.name;
   $('modal-body').innerHTML =
-    // Photo upload
     '<div style="display:flex;align-items:center;gap:16px;padding:14px;background:var(--bg3);border-radius:10px;border:1px solid var(--border);margin-bottom:16px">'
     +'<div id="edit-acc-photo-preview" style="width:72px;height:72px;border-radius:50%;background:var(--bg4);border:3px solid var(--border);display:flex;align-items:center;justify-content:center;overflow:hidden;cursor:pointer;flex-shrink:0" onclick="$(\'edit-acc-photo-input\').click()">'
     +(existingPhoto
@@ -8701,73 +8595,69 @@ function openEditAccountModal(id) {
   openModal();
 }
 
-function handleEditAccPhoto(input) {
-  const file = input.files[0];
-  if (!file) return;
-  if (file.size > 5*1024*1024) { showToast('រូបថតធំពេក! max 5MB','error'); return; }
-  const reader = new FileReader();
-  reader.onload = e => {
-    compressUserPhoto(e.target.result, (compressed) => {
-      window._editAccPhoto = compressed;
-      const prev = document.getElementById('edit-acc-photo-preview');
-      if (prev) prev.innerHTML = '<img src="'+compressed+'" style="width:100%;height:100%;object-fit:cover" />';
-      showToast('Upload រូបថតរួច!','success');
-    });
-  };
-  reader.readAsDataURL(file);
-}
-
-function removeEditAccPhoto() {
-  window._editAccPhoto = '__remove__';
-  const prev = document.getElementById('edit-acc-photo-preview');
-  if (prev) prev.innerHTML = '<span style="font-size:24px;color:var(--text3)">👤</span>';
-}
-
 async function saveEditAccount(id) {
-  const users = getUsers();
-  const idx = users.findIndex(u => u.id === id);
-  if (idx < 0) return;
-  const pwd = $('eacc-pwd')?.value;
-  users[idx].name     = $('eacc-name')?.value.trim()  || users[idx].name;
-  users[idx].username = $('eacc-user')?.value.trim()  || users[idx].username;
-  users[idx].role     = $('eacc-role')?.value          || users[idx].role;
-  if (pwd) users[idx].password = pwd;
+  const users = window._accountsCache || getUsers();
+  const user = users.find(u => u.id === id);
+  if (!user) return;
+  const pwd  = $('eacc-pwd')?.value;
+  const name = $('eacc-name')?.value.trim() || user.name;
+  const role = $('eacc-role')?.value || user.role;
+  let photo  = user.photo || '';
 
-  // Handle photo
   if (window._editAccPhoto === '__remove__') {
-    users[idx].photo = '';
+    photo = '';
     delete photoCache['user_' + id];
     await photoDB.del('user_' + id);
   } else if (window._editAccPhoto) {
-    users[idx].photo = window._editAccPhoto;
-    photoCache['user_' + id] = window._editAccPhoto;
-    await photoDB.set('user_' + id, window._editAccPhoto);
-    // Update sidebar if current user
+    photo = window._editAccPhoto;
+    photoCache['user_' + id] = photo;
+    await photoDB.set('user_' + id, photo);
     const session = getSession();
-    if (session && session.id === id) updateSidebarAvatar(window._editAccPhoto, users[idx].name);
+    if (session && session.id === id) updateSidebarAvatar(photo, name);
   }
   window._editAccPhoto = null;
 
-  saveUsers(users);
   closeModal();
-
-  // Refresh list immediately (local data already saved)
-  refreshAccountList();
   showToast('កំពុង Sync...', 'info');
-  // Await sync so all devices receive the change
-  const synced = await syncAccountsToAPI(users).catch(() => false);
-  showToast(synced ? 'កែប្រែ Account បានជោគជ័យ! ✅ Sync គ្រប់ Device' : 'កែប្រែបានជោគជ័យ ⚠️ Sync មិនបាន', synced ? 'success' : 'error');
+  try {
+    if (isDemoMode()) {
+      const allUsers = getUsers();
+      const idx = allUsers.findIndex(u => u.id === id);
+      if (idx >= 0) {
+        allUsers[idx] = { ...allUsers[idx], name, role, photo };
+        if (pwd) allUsers[idx].password = pwd;
+        saveUsers(allUsers);
+      }
+      window._accountsCache = allUsers.filter(u => u.username !== 'adminsupport' && !DEMO_USERNAMES.includes(u.username.toLowerCase()));
+    } else {
+      await api('PUT', '/accounts/' + id, { name, role, photo, ...(pwd ? { password: pwd } : {}) });
+      await loadAccountsFromAPI();
+    }
+    showToast('កែប្រែ Account បានជោគជ័យ! ✅', 'success');
+  } catch(e) {
+    showToast('Error: ' + e.message, 'error');
+    await loadAccountsFromAPI();
+  }
   refreshAccountList();
 }
 
 async function deleteAccount(id) {
   if (!confirm('លុប Account នេះ?')) return;
-  const users = getUsers().filter(u => u.id !== id);
-  saveUsers(users);
-  refreshAccountList();
-  showToast('កំពុង Sync...', 'info');
-  const synced = await syncAccountsToAPI(users).catch(() => false);
-  showToast(synced ? 'លុប Account រួច! ✅ Sync គ្រប់ Device' : 'លុបបាន ⚠️ Sync មិនបាន', synced ? 'success' : 'error');
+  showToast('កំពុងលុប...', 'info');
+  try {
+    if (isDemoMode()) {
+      const users = getUsers().filter(u => u.id !== id);
+      saveUsers(users);
+      window._accountsCache = users.filter(u => u.username !== 'adminsupport' && !DEMO_USERNAMES.includes(u.username.toLowerCase()));
+    } else {
+      await api('DELETE', '/accounts/' + id);
+      await loadAccountsFromAPI();
+    }
+    showToast('លុប Account រួច! ✅', 'success');
+  } catch(e) {
+    showToast('Error: ' + e.message, 'error');
+    await loadAccountsFromAPI();
+  }
   refreshAccountList();
 }
 
@@ -8783,14 +8673,19 @@ function changePassword() {
   const users = getUsers();
   const user = users.find(u => u.id === session.id);
   if (!user || user.password !== oldPwd) { showToast('Password ចាស់មិនត្រឹមត្រូវ!', 'error'); return; }
+  // Update local
   user.password = newPwd;
   saveUsers(users);
-  syncAccountsToAPI(users).catch(() => {});
+  // Sync to D1
+  if (!isDemoMode()) {
+    api('PUT', '/accounts/' + session.id, { password: newPwd }).catch(() => {});
+  }
   showToast('ផ្លាស់ Password បានជោគជ័យ! 🔑', 'success');
   if ($('chpwd-old')) $('chpwd-old').value = '';
   if ($('chpwd-new')) $('chpwd-new').value = '';
   if ($('chpwd-confirm')) $('chpwd-confirm').value = '';
 }
+
 
 // Fix missing closeSidebar (called from index.html sidebar overlay)
 function closeSidebar() {
