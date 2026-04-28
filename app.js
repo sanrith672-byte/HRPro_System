@@ -9807,16 +9807,10 @@ async function initApp() {
     if (!getApiBase() && localStorage.getItem(DEMO_MODE_KEY) !== '1') {
       showFirstRunSetup();
     } else {
-      // QR Scanner role → go directly to attendance and open QR scan
+      // QR Scanner role → go directly to QR scan page
       const sess = getSession();
       if (sess && sess.role === 'QR Scanner') {
-        state.currentPage = 'attendance';
-        document.querySelectorAll('.nav-item').forEach(a => a.classList.remove('active'));
-        document.querySelector('[data-page="attendance"]')?.classList.add('active');
-        $('page-title').textContent = 'វត្តមានប្រចាំថ្ងៃ';
-        syncMobileNav('attendance');
-        await renderAttendance();
-        openQRScanModal(today());
+        navigate('qr_scan');
       } else {
         navigate('dashboard');
       }
