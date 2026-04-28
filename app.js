@@ -8088,9 +8088,10 @@ function switchSettingsTab(panel, el) {
   if (tabEl) tabEl.classList.add('active');
   const pEl = $('panel-' + panel);
   if (pEl) pEl.classList.add('active');
-  // Always pull from remote then refresh accounts tab
+  // Always pull from remote then merge accounts tab
   if (panel === 'accounts') {
     requestAnimationFrame(() => {
+      refreshAccountList(); // show local immediately
       loadAccountsFromAPI().then(() => refreshAccountList()).catch(() => refreshAccountList());
     });
   }
@@ -8516,7 +8517,6 @@ async function saveNewAccount() {
   }
 
   closeModal();
-  renderSettingsOnTab('accounts');
 
   showToast('កំពុង Sync...', 'info');
   const synced = await syncAccountsToAPI(users).catch(() => false);
@@ -8525,6 +8525,7 @@ async function saveNewAccount() {
   } else {
     showToast('បន្ថែម Account ជោគជ័យ ⚠️ Sync មិនបាន — ពិនិត្យ Worker URL', 'error');
   }
+  renderSettingsOnTab('accounts');
   refreshAccountList();
 }
 
