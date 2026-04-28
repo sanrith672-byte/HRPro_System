@@ -1,17 +1,16 @@
-// HR Pro — Service Worker v7 (Network-first fix)
-const CACHE_NAME = 'hr-pro-v7';
+// HR Pro — Service Worker v8 (Force cache clear)
+const CACHE_NAME = 'hr-pro-v8';
 
 const STATIC_ASSETS = [
   '/',
   '/index.html',
-  '/style.css',
-  '/app.js',
   '/manifest.json',
   '/icons/icon-192x192.png',
   '/icons/icon-512x512.png',
   '/icons/icon-maskable-512x512.png',
   '/icons/favicon-32x32.png',
   '/icons/apple-touch-icon.png',
+  // NOTE: app.js and style.css NOT cached here — always fetched from network
 ];
 
 self.addEventListener('install', event => {
