@@ -9678,14 +9678,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 });
 
-function initApp() {
+async function initApp() {
   $('current-date').textContent = new Date().toLocaleDateString('km-KH', {year:'numeric',month:'short',day:'numeric'});
 
   // Load config + photos together
   // Ensure adminsupport account exists
   ensureAdminSupport();
 
-  Promise.all([isDemoMode() ? Promise.resolve() : loadCompanyConfig(), loadAllPhotos()]).then(() => {
+  Promise.all([isDemoMode() ? Promise.resolve() : loadCompanyConfig(), loadAllPhotos()]).then(async () => {
     const session = getSession();
     if (session) {
       const uname = $('sidebar-user-name');
@@ -9713,9 +9713,14 @@ function initApp() {
     } else {
       // QR Scanner role → go directly to attendance and open QR scan
       const sess = getSession();
-      if (sess && sess.role === 'QR Scanner') {
-        navigate('attendance');
-        setTimeout(() => openQRScanModal(today()), 800);
+      if (sess && (sess.role === 'QR Scanner' || hasPerm('attendance_scan'))) {
+        state.currentPage = 'attendance';
+        document.querySelectorAll('.nav-item').forEach(a => a.classList.remove('active'));
+        document.querySelector('[data-page="attendance"]')?.classList.add('active');
+        $('page-title').textContent = 'វត្តមានប្រចាំថ្ងៃ';
+        syncMobileNav('attendance');
+        await renderAttendance();
+        openQRScanModal(today());
       } else {
         navigate('dashboard');
       }
