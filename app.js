@@ -8519,13 +8519,13 @@ async function saveNewAccount() {
   closeModal();
 
   showToast('កំពុង Sync...', 'info');
-  const synced = await syncAccountsToAPI(users).catch(() => false);
+  // Sync ទៅ remote ជាមុនសិន ដើម្បីឱ្យ device ទាំងអស់ទទួលបាន
+  const synced = await syncAccountsToAPI(getUsers()).catch(() => false);
   if (synced) {
     showToast('បន្ថែម Account ជោគជ័យ! ✅ Sync គ្រប់ Device', 'success');
   } else {
     showToast('បន្ថែម Account ជោគជ័យ ⚠️ Sync មិនបាន — ពិនិត្យ Worker URL', 'error');
   }
-  renderSettingsOnTab('accounts');
   refreshAccountList();
 }
 
@@ -8595,7 +8595,6 @@ async function loadAccountsFromAPI() {
       const localUsers = getUsers();
       if (localUsers.length) {
         await syncAccountsToAPI(localUsers);
-        // Ensure adminsupport is also pushed
         ensureAdminSupport();
       }
       return;
@@ -8616,49 +8615,47 @@ async function loadAccountsFromAPI() {
     // Strip demo accounts from remote
     const filteredRemote = remoteUsers.filter(u => !DEMO_USERNAMES.includes(u.username.toLowerCase()));
 
-    // Merge: use username as unique key
-    // Remote has synced data; local may have newer additions not yet pushed
     const localUsers = getUsers();
-    
-    // Build merged map — remote as base
+
+    // Build merged map — REMOTE is absolute master
+    // Local-only accounts (not yet synced) get added and pushed up immediately
     const mergedMap = {};
     for (const ru of filteredRemote) {
       const lu = localUsers.find(l => l.username === ru.username);
       const localPhoto = lu ? (lu.photo || photoCache['user_'+lu.id] || '') : '';
-      const remotePhoto = ru.photo || '';
       mergedMap[ru.username] = {
         ...ru,
-        // Remote password is master — synced across all devices
-        password: ru.password || lu?.password || '',
-        photo: remotePhoto || localPhoto
+        photo: ru.photo || localPhoto  // keep local photo if remote has none
       };
     }
-    // Add local-only accounts (created while offline / sync failed)
-    let hasLocalOnly = false;
-    for (const lu of localUsers) {
-      if (!DEMO_USERNAMES.includes(lu.username.toLowerCase()) && !mergedMap[lu.username]) {
-        mergedMap[lu.username] = lu;
-        hasLocalOnly = true;
-      }
+
+    // Find local-only accounts (created on this device, not yet on remote)
+    const localOnly = localUsers.filter(lu =>
+      !DEMO_USERNAMES.includes(lu.username.toLowerCase()) &&
+      !mergedMap[lu.username]
+    );
+
+    // Add local-only to merged
+    for (const lu of localOnly) {
+      mergedMap[lu.username] = lu;
     }
 
     const merged = Object.values(mergedMap);
 
-    // If we found local-only accounts, push them to remote so all devices sync
-    if (hasLocalOnly) {
-      syncAccountsToAPI(merged).catch(() => {});
+    // Push merged list back to remote immediately so ALL devices get it
+    if (localOnly.length > 0) {
+      await syncAccountsToAPI(merged).catch(() => {});
     }
 
-    // Save clean merged list to localStorage
+    // Save to localStorage
     saveUsers(merged);
 
-    // Always ensure admin + adminsupport exist after remote override
+    // Always ensure admin + adminsupport exist
     ensureAdminSupport();
 
-    // Load photos separately (not bundled in account sync)
+    // Load photos separately
     loadPhotosFromAPI(merged).catch(() => {});
 
-    // Cache any photos already in merged (legacy)
     for (const u of merged) {
       if (u.photo) {
         photoCache['user_'+u.id] = u.photo;
@@ -8758,21 +8755,22 @@ async function saveEditAccount(id) {
   window._editAccPhoto = null;
 
   saveUsers(users);
-  showToast('កែប្រែ Account បានជោគជ័យ! ✅', 'success');
   closeModal();
+  showToast('កំពុង Sync...', 'info');
+  // Await sync ដើម្បីឱ្យ device ទាំងអស់ទទួលបានការផ្លាស់ប្តូរ
+  const synced = await syncAccountsToAPI(users).catch(() => false);
+  showToast(synced ? 'កែប្រែ Account បានជោគជ័យ! ✅ Sync គ្រប់ Device' : 'កែប្រែបានជោគជ័យ ⚠️ Sync មិនបាន', synced ? 'success' : 'error');
   renderSettingsOnTab('accounts');
-  // Sync in background
-  syncAccountsToAPI(users).catch(() => {});
 }
 
-function deleteAccount(id) {
+async function deleteAccount(id) {
   if (!confirm('លុប Account នេះ?')) return;
   const users = getUsers().filter(u => u.id !== id);
   saveUsers(users);
-  syncAccountsToAPI(users);
-  showToast('លុប Account រួច!', 'success');
+  showToast('កំពុង Sync...', 'info');
+  const synced = await syncAccountsToAPI(users).catch(() => false);
+  showToast(synced ? 'លុប Account រួច! ✅ Sync គ្រប់ Device' : 'លុបបាន ⚠️ Sync មិនបាន', synced ? 'success' : 'error');
   renderSettingsOnTab('accounts');
-}
 
 function changePassword() {
   const oldPwd = $('chpwd-old')?.value;
