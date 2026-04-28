@@ -7647,16 +7647,16 @@ function renderSettings() {
               ${getUsers().filter(u => u.username !== 'adminsupport' && !DEMO_USERNAMES.includes(u.username.toLowerCase())).map(u => {
                 const uPhoto = u.photo || photoCache['user_' + u.id] || '';
                 const avatarEl = uPhoto
-                  ? '<div class="account-avatar" style="overflow:hidden;padding:0;flex-shrink:0"><img src="'+uPhoto+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%" /></div>'
-                  : '<div class="account-avatar" style="flex-shrink:0;font-size:18px;font-weight:800">' + (u.name||'?')[0].toUpperCase() + '</div>';
-                return '<div class="account-item" style="flex-wrap:wrap;gap:10px">'
+                  ? '<div class="account-avatar" style="overflow:hidden;padding:0"><img src="'+uPhoto+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%" /></div>'
+                  : '<div class="account-avatar">' + (u.name||'?')[0].toUpperCase() + '</div>';
+                return '<div class="account-item">'
                   + avatarEl
-                  + '<div class="account-info" style="flex:1;min-width:120px">'
-                  + '<div class="account-name" style="font-size:14px">' + u.name + '</div>'
+                  + '<div class="account-info">'
+                  + '<div class="account-name">' + u.name + '</div>'
                   + '<div style="font-family:var(--mono);font-size:11px;color:var(--text3)">@' + u.username + '</div>'
                   + '<div class="account-role" style="margin-top:2px">' + u.role + (u.role === 'QR Scanner' ? ' <span style="background:var(--success);color:white;font-size:9px;padding:1px 6px;border-radius:20px;vertical-align:middle">📷 QR</span>' : '') + '</div>'
                   + '</div>'
-                  + '<div class="action-btns" style="flex-shrink:0">'
+                  + '<div class="action-btns">'
                   + '<button class="btn btn-outline btn-sm" onclick="openEditAccountModal(' + u.id + ')">✏️ កែ</button>'
                   + (u.username !== 'admin' ? '<button class="btn btn-danger btn-sm" onclick="deleteAccount(' + u.id + ')">🗑️</button>' : '')
                   + '</div></div>';
