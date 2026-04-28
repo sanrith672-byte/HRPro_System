@@ -348,17 +348,29 @@ const PAGE_PERMS = {
 };
 
 function updateNavVisibility() {
+  const session = getSession();
+  const isQRScanner = session && session.role === 'QR Scanner';
+
   // Sidebar nav
   document.querySelectorAll('.nav-item[data-page]').forEach(el => {
     const page = el.dataset.page;
+    // Hide dashboard & attendance for QR Scanner
+    if (isQRScanner && (page === 'dashboard' || page === 'attendance')) {
+      el.style.display = 'none'; return;
+    }
     const permKey = PAGE_PERMS[page];
     const allowed = !permKey || hasPerm(permKey);
     el.style.display = allowed ? '' : 'none';
   });
-  // Mobile bottom nav — show/hide based on permission, keep "ច្រើនទៀត" always visible
+
+  // Mobile bottom nav
   document.querySelectorAll('.mob-nav-btn[data-mob-page]').forEach(el => {
     const page = el.dataset.mobPage;
-    if (page === 'more') return; // always show
+    if (page === 'more') return;
+    // Hide dashboard & attendance for QR Scanner
+    if (isQRScanner && (page === 'dashboard' || page === 'attendance')) {
+      el.style.display = 'none'; return;
+    }
     const permKey = PAGE_PERMS[page];
     const allowed = !permKey || hasPerm(permKey);
     el.style.display = allowed ? '' : 'none';
