@@ -140,4 +140,5 @@ git add app.js
 git add wrangler.toml UpdateCode.txt
 git commit -m "update wrangler config"
 git push origin main
+wrangler deploy
 wrangler pages deploy . --project-name hrpro-sansukun --commit-dirty=true

@@ -8356,7 +8356,7 @@ function handleUserPhotoUpload(input, userId) {
         showToast('Upload រូបថតបានជោគជ័យ! ✅','success');
       }
       // Refresh settings page
-      setTimeout(() => { if (document.getElementById('account-list-render')) { refreshAccountList(); } else { renderSettings(); switchSettingsTab('accounts'); } }, 300);
+      setTimeout(() => { renderSettings(); setTimeout(() => { switchSettingsTab('accounts'); setTimeout(() => refreshAccountList(), 30); }, 50); }, 300);
     });
   };
   reader.readAsDataURL(file);
@@ -8369,7 +8369,7 @@ async function removeUserPhoto(userId) {
   if (session && session.id === userId) updateSidebarAvatar('', session.name);
   showToast('លុបរូបថតរួច!','success');
   closeModal();
-  if (document.getElementById('account-list-render')) { refreshAccountList(); } else { renderSettings(); setTimeout(() => switchSettingsTab('accounts'), 100); }
+  renderSettings(); setTimeout(() => { switchSettingsTab('accounts'); setTimeout(() => refreshAccountList(), 30); }, 50);
 }
 
 function updateSidebarAvatar(photoUrl, name) {
@@ -8477,34 +8477,30 @@ async function saveNewAccount() {
     await photoDB.set('user_' + newId, photo);
   }
 
-  // Sync to Worker FIRST — wait for result before showing success
-  const synced = await syncAccountsToAPI(users).catch(() => false);
-
-  if (synced) {
-    showToast('បន្ថែម Account បានជោគជ័យ! ✅ (Sync រួច)', 'success');
-  } else {
-    showToast('✅ រក្សាទុក Account ក្នុង Device (⚠️ Sync ទៅ Worker មិនបាន)', 'error');
-  }
+  // Save to localStorage immediately — show UI right away
+  showToast('បន្ថែម Account បានជោគជ័យ! ✅', 'success');
   closeModal();
-  // Always re-save to localStorage AFTER sync attempt to ensure data persists
-  // Re-read from memory (not from API) so refresh won't lose the new user
-  const latestUsers = getUsers();
-  if (!latestUsers.find(u => u.username === newUser.username)) {
-    latestUsers.push(newUser);
-    saveUsers(latestUsers);
-  }
-  // Refresh only the account list — no full re-render needed
-  if (document.getElementById('account-list-render')) {
-    refreshAccountList();
-  } else {
-    renderSettings();
-    setTimeout(() => switchSettingsTab('accounts'), 50);
-  }
+  // Re-render settings and switch to accounts tab immediately
+  renderSettings();
+  setTimeout(() => {
+    switchSettingsTab('accounts');
+    setTimeout(() => refreshAccountList(), 30);
+  }, 50);
+  // Sync to Worker in background — don't block UI
+  syncAccountsToAPI(users).then(synced => {
+    if (!synced) {
+      console.warn('[saveNewAccount] Sync failed — data saved locally only');
+    }
+  }).catch(() => {});
 }
 
 // Sync all accounts to Worker — Remote is master for all devices
 async function syncAccountsToAPI(users) {
-  if (isDemoMode()) return true;
+  if (isDemoMode()) {
+    // In demo mode — save locally and consider it "synced"
+    saveUsers(users.filter(u => !DEMO_USERNAMES.includes(u.username.toLowerCase())));
+    return true;
+  }
   try {
     // Strip demo accounts before syncing to remote
     users = users.filter(u => !DEMO_USERNAMES.includes(u.username.toLowerCase()));
@@ -8726,19 +8722,12 @@ async function saveEditAccount(id) {
   window._editAccPhoto = null;
 
   saveUsers(users);
-  const synced = await syncAccountsToAPI(users).catch(() => false);
-  if (synced) {
-    showToast('កែប្រែ Account បានជោគជ័យ! ✅ (Sync រួច)', 'success');
-  } else {
-    showToast('✅ រក្សាទុក Account ក្នុង Device រួចហើយ (⚠️ Sync ទៅ Worker មិនបាន)', 'error');
-  }
+  showToast('កែប្រែ Account បានជោគជ័យ! ✅', 'success');
   closeModal();
-  if (document.getElementById('account-list-render')) {
-    refreshAccountList();
-  } else {
-    renderSettings();
-    setTimeout(() => switchSettingsTab('accounts'), 50);
-  }
+  renderSettings();
+  setTimeout(() => { switchSettingsTab('accounts'); setTimeout(() => refreshAccountList(), 30); }, 50);
+  // Sync in background
+  syncAccountsToAPI(users).catch(() => {});
 }
 
 function deleteAccount(id) {
@@ -8747,12 +8736,8 @@ function deleteAccount(id) {
   saveUsers(users);
   syncAccountsToAPI(users);
   showToast('លុប Account រួច!', 'success');
-  if (document.getElementById('account-list-render')) {
-    refreshAccountList();
-  } else {
-    renderSettings();
-    setTimeout(() => switchSettingsTab('accounts'), 50);
-  }
+  renderSettings();
+  setTimeout(() => { switchSettingsTab('accounts'); setTimeout(() => refreshAccountList(), 30); }, 50);
 }
 
 function changePassword() {
