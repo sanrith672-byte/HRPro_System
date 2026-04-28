@@ -9346,7 +9346,7 @@ async function openAllQRModal() {
   emps = emps.filter(e => e.status !== 'inactive');
 
   // Load company config for branding
-  const cfg = getConfig ? getConfig() : {};
+  const cfg = getCompanyConfig ? getCompanyConfig() : {};
   const companyName = cfg.company_name || 'HR Pro';
 
   // Build QR canvas for each employee using qrcode lib (already loaded) or fallback
