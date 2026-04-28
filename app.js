@@ -2835,7 +2835,12 @@ async function quickCheckOut(empId, date) {
   try {
     await api('POST','/attendance',{ employee_id:empId, date, check_out:time, status:'present' });
     showToast('ចុះម៉ោងចេញ '+time+' បានជោគជ័យ!','success');
-    renderAttendance(date);
+    // QR Scanner role stays on QR scan page
+    if (getSession()?.role === 'QR Scanner') {
+      navigate('qr_scan');
+    } else {
+      renderAttendance(date);
+    }
   } catch(e) { showToast('Error: '+e.message,'error'); }
 }
 
@@ -3263,7 +3268,12 @@ async function processQRScan_continue(emp, raw, date) {
       setTimeout(() => {
         overlay.remove();
         closeModal();
-        renderAttendance(date);
+        // QR Scanner role stays on QR scan page — never redirect to attendance
+        if (getSession()?.role === 'QR Scanner') {
+          navigate('qr_scan');
+        } else {
+          renderAttendance(date);
+        }
       }, 1400);
     }, 300);
 
