@@ -8558,6 +8558,17 @@ function handleEditAccPhoto(input) {
   reader.readAsDataURL(file);
 }
 
+// Remove photo in EDIT account modal
+function removeEditAccPhoto() {
+  window._editAccPhoto = '__remove__';
+  const prev = document.getElementById('edit-acc-photo-preview');
+  if (prev) {
+    const initials = (document.getElementById('eacc-name')?.value || '?')[0].toUpperCase();
+    prev.innerHTML = '<span style="font-size:24px;font-weight:800;color:var(--text2)">' + initials + '</span>';
+  }
+  showToast('រូបថតនឹងត្រូវបានលុប!', 'info');
+}
+
 // Sync photo to API Worker (stores in D1 via PUT /accounts/:id)
 async function syncPhotoToAPI(userId, photoUrl) {
   if (isDemoMode() || !getApiBase()) return;
