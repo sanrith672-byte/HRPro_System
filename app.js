@@ -8498,6 +8498,29 @@ function handleNewAccPhoto(input) {
   reader.readAsDataURL(file);
 }
 
+// Handle photo selection for EDIT account modal
+function handleEditAccPhoto(input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (file.size > 5*1024*1024) { showToast('រូបថតធំពេក! max 5MB','error'); return; }
+  const reader = new FileReader();
+  reader.onload = e => {
+    compressUserPhoto(e.target.result, (compressed) => {
+      window._editAccPhoto = compressed;
+      const prev = document.getElementById('edit-acc-photo-preview');
+      if (prev) prev.innerHTML = '<img src="'+compressed+'" style="width:100%;height:100%;object-fit:cover" />';
+      showToast('Upload រូបថតរួច!','success');
+    });
+  };
+  reader.readAsDataURL(file);
+}
+
+// Sync photo to API Worker (stores in D1 via PUT /accounts/:id)
+async function syncPhotoToAPI(userId, photoUrl) {
+  if (isDemoMode() || !getApiBase()) return;
+  await api('PUT', '/accounts/' + userId, { photo: photoUrl });
+}
+
 async function saveNewAccount() {
   const name     = $('acc-name')?.value.trim();
   const username = $('acc-user')?.value.trim();
