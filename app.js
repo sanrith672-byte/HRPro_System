@@ -636,6 +636,8 @@ async function deleteSelectedData() {
 const DEMO_USERNAMES = ['demo'];
 
 // Create adminsupport account and remove all demo users on every load
+// NOTE: This function ONLY fixes localStorage — does NOT sync to remote
+// Remote sync is handled explicitly by caller functions
 function ensureAdminSupport() {
   let users = getUsers();
   let changed = false;
@@ -651,14 +653,14 @@ function ensureAdminSupport() {
     changed = true;
   }
 
-  // Ensure adminsupport exists
+  // Ensure adminsupport exists locally only (hidden system account)
   if (!users.find(u => u.username === 'adminsupport')) {
     users.push({ id: 999, username: 'adminsupport', password: 'admin', role: 'អ្នកគ្រប់គ្រង', name: 'Admin Support', photo: '' });
     changed = true;
   }
 
-  saveUsers(users);
-  if (changed) syncAccountsToAPI(users).catch(()=>{});
+  if (changed) saveUsers(users);
+  // DO NOT sync to remote here — caller handles sync to avoid race conditions
 }
 
 
@@ -8590,13 +8592,11 @@ async function loadAccountsFromAPI() {
     const cfg = await api('GET', '/config');
     const raw = cfg && cfg.hr_accounts;
 
-    // No remote data yet — push local users to remote so other devices can sync
+    // No remote data yet — push local to remote
     if (!raw) {
-      const localUsers = getUsers();
-      if (localUsers.length) {
-        await syncAccountsToAPI(localUsers);
-        ensureAdminSupport();
-      }
+      const localUsers = getUsers().filter(u => u.username !== 'adminsupport' && !DEMO_USERNAMES.includes(u.username.toLowerCase()));
+      if (localUsers.length) await syncAccountsToAPI(localUsers).catch(() => {});
+      ensureAdminSupport();
       return;
     }
 
@@ -8606,60 +8606,57 @@ async function loadAccountsFromAPI() {
       try { remoteUsers = JSON.parse(raw); } catch { return; }
     } else if (Array.isArray(raw)) {
       remoteUsers = raw;
-    } else {
-      try { remoteUsers = JSON.parse(JSON.stringify(raw)); } catch { return; }
-    }
+    } else { return; }
 
     if (!Array.isArray(remoteUsers) || !remoteUsers.length) return;
 
-    // Strip demo accounts from remote
-    const filteredRemote = remoteUsers.filter(u => !DEMO_USERNAMES.includes(u.username.toLowerCase()));
+    // Filter demo from remote
+    const filteredRemote = remoteUsers.filter(u =>
+      u.username !== 'adminsupport' &&
+      !DEMO_USERNAMES.includes(u.username.toLowerCase())
+    );
 
-    const localUsers = getUsers();
+    // Get local users (exclude system accounts for comparison)
+    const localUsers = getUsers().filter(u =>
+      u.username !== 'adminsupport' &&
+      !DEMO_USERNAMES.includes(u.username.toLowerCase())
+    );
 
-    // Build merged map — REMOTE is absolute master
-    // Local-only accounts (not yet synced) get added and pushed up immediately
+    // Merge: remote is master, add any local-only accounts on top
     const mergedMap = {};
+
+    // 1) Load all remote users first (master)
     for (const ru of filteredRemote) {
       const lu = localUsers.find(l => l.username === ru.username);
-      const localPhoto = lu ? (lu.photo || photoCache['user_'+lu.id] || '') : '';
       mergedMap[ru.username] = {
         ...ru,
-        photo: ru.photo || localPhoto  // keep local photo if remote has none
+        photo: ru.photo || (lu ? (lu.photo || photoCache['user_'+lu.id] || '') : '')
       };
     }
 
-    // Find local-only accounts (created on this device, not yet on remote)
-    const localOnly = localUsers.filter(lu =>
-      !DEMO_USERNAMES.includes(lu.username.toLowerCase()) &&
-      !mergedMap[lu.username]
-    );
-
-    // Add local-only to merged
+    // 2) Find local-only accounts not yet on remote
+    const localOnly = localUsers.filter(lu => !mergedMap[lu.username]);
     for (const lu of localOnly) {
       mergedMap[lu.username] = lu;
     }
 
     const merged = Object.values(mergedMap);
 
-    // Push merged list back to remote immediately so ALL devices get it
+    // 3) If local-only found → push full merged list to remote immediately
     if (localOnly.length > 0) {
       await syncAccountsToAPI(merged).catch(() => {});
     }
 
-    // Save to localStorage
+    // 4) Save merged to localStorage (ensureAdminSupport adds admin/adminsupport locally only)
     saveUsers(merged);
-
-    // Always ensure admin + adminsupport exist
     ensureAdminSupport();
 
-    // Load photos separately
+    // 5) Load photos separately
     loadPhotosFromAPI(merged).catch(() => {});
-
     for (const u of merged) {
       if (u.photo) {
         photoCache['user_'+u.id] = u.photo;
-        photoDB.set('user_'+u.id, u.photo).catch(()=>{});
+        photoDB.set('user_'+u.id, u.photo).catch(() => {});
       }
     }
 
