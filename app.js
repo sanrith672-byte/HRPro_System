@@ -332,6 +332,7 @@ const PAGE_PERMS = {
   employees:       'employees_view',
   departments:     'departments_view',
   attendance:      'attendance_view',
+  qr_scan:         'attendance_scan',
   salary:          'salary_view',
   overtime:        'overtime_view',
   allowance:       'allowance_view',
@@ -365,11 +366,16 @@ function navigate(page) {
   }
 
   state.currentPage = page;
+  // Stop QR scanner if leaving qr_scan page
+  if (window._qrPageNavGuard && page !== 'qr_scan') {
+    window._qrPageNavGuard();
+    window._qrPageNavGuard = null;
+  }
   document.querySelectorAll('.nav-item').forEach(a => a.classList.remove('active'));
   document.querySelector(`[data-page="${page}"]`)?.classList.add('active');
   const titles = {
     dashboard:'ទំព័រដើម', employees:'គ្រប់គ្រងបុគ្គលិក', departments:'នាយកដ្ឋាន',
-    attendance:'វត្តមានប្រចាំថ្ងៃ', salary:'គ្រប់គ្រងបៀវត្ស', reports:'របាយការណ៍',
+    attendance:'វត្តមានប្រចាំថ្ងៃ', qr_scan:'ស្កេន QR — វត្តមាន', salary:'គ្រប់គ្រងបៀវត្ស', reports:'របាយការណ៍',
     overtime:'ថែមម៉ោង', allowance:'ប្រាក់ឧបត្ថម្ភ', loans:'ប្រាក់ខ្ចីបុគ្គលិក',
     expenses:'ស្នើរប្រាក់ចំណាយ', general_expense:'ការចំណាយទូទៅ',
     id_card:'កាតសម្គាល់ខ្លួនបុគ្គលិក', leave:'ច្បាប់ឈប់សម្រាក',
@@ -383,7 +389,7 @@ function navigate(page) {
   if (sb && window.innerWidth <= 900) sb.classList.remove('open');
   ({
     dashboard:renderDashboard, employees:renderEmployees, departments:renderDepartments,
-    attendance:renderAttendance, salary:renderSalary, reports:renderReports,
+    attendance:renderAttendance, qr_scan:renderQRScanPage, salary:renderSalary, reports:renderReports,
     overtime:renderOvertime, allowance:renderAllowance, loans:renderLoans,
     expenses:renderExpenses, general_expense:renderGeneralExpense,
     id_card:renderIdCard, leave:renderLeave, dayswap:renderDaySwap, settings:renderSettings,
@@ -2798,6 +2804,85 @@ async function quickCheckOut(empId, date) {
   } catch(e) { showToast('Error: '+e.message,'error'); }
 }
 
+// ===== QR SCAN PAGE (standalone page, not modal) =====
+async function renderQRScanPage() {
+  showLoading();
+  const today = new Date().toISOString().split('T')[0];
+  try {
+    const d = await api('GET', '/employees?limit=500');
+    state.employees = d.employees || [];
+  } catch(_) {}
+
+  contentArea().innerHTML =
+    '<div class="page-header">'
+    +'<div><h2>📷 ស្កេន QR — វត្តមាន</h2><p>ស្កេន QR Code បុគ្គលិក ដើម្បីកត់វត្តមានភ្លាមៗ</p></div>'
+    +'</div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;max-width:900px;margin:0 auto">'
+
+    // Left: Camera
+    +'<div class="card" style="padding:20px">'
+    +'<div style="font-weight:700;font-size:14px;margin-bottom:14px;display:flex;align-items:center;gap:8px">'
+    +'<span style="width:8px;height:8px;background:var(--success);border-radius:50%;display:inline-block"></span>កាមេរ៉ា'
+    +'</div>'
+    +'<div style="position:relative;width:100%;border-radius:12px;overflow:hidden;background:#000;aspect-ratio:1;margin-bottom:14px">'
+    +'<video id="qr-video" style="width:100%;height:100%;object-fit:cover" autoplay playsinline muted></video>'
+    +'<div style="position:absolute;inset:0;pointer-events:none">'
+    +'<div style="position:absolute;top:16px;left:16px;width:44px;height:44px;border-top:3px solid var(--primary);border-left:3px solid var(--primary);border-radius:4px 0 0 0"></div>'
+    +'<div style="position:absolute;top:16px;right:16px;width:44px;height:44px;border-top:3px solid var(--primary);border-right:3px solid var(--primary);border-radius:0 4px 0 0"></div>'
+    +'<div style="position:absolute;bottom:16px;left:16px;width:44px;height:44px;border-bottom:3px solid var(--primary);border-left:3px solid var(--primary);border-radius:0 0 0 4px"></div>'
+    +'<div style="position:absolute;bottom:16px;right:16px;width:44px;height:44px;border-bottom:3px solid var(--primary);border-right:3px solid var(--primary);border-radius:0 0 4px 0"></div>'
+    +'<div id="qr-scan-line" style="position:absolute;left:16px;right:16px;height:2px;background:var(--primary);top:50%;animation:qrScanLine 2s ease-in-out infinite;box-shadow:0 0 8px var(--primary)"></div>'
+    +'</div>'
+    +'<div id="qr-scan-status" style="position:absolute;bottom:0;left:0;right:0;text-align:center;color:white;font-size:11px;background:rgba(0,0,0,.6);padding:6px">📷 កំពុងចាប់ផ្ដើម...</div>'
+    +'</div>'
+    // Check in/out type
+    +'<div style="display:flex;gap:6px;margin-bottom:12px;background:var(--bg3);padding:4px;border-radius:8px">'
+    +'<button id="scan-type-in" class="btn btn-success btn-sm" style="flex:1;border:none" onclick="setScanType(\'in\')">🟢 ចូល</button>'
+    +'<button id="scan-type-out" class="btn btn-outline btn-sm" style="flex:1;border:none" onclick="setScanType(\'out\')">🔴 ចេញ</button>'
+    +'</div>'
+    // Manual input
+    +'<div style="background:var(--bg3);border-radius:10px;padding:12px">'
+    +'<div style="font-size:11px;color:var(--text3);margin-bottom:8px;text-align:center">ឬវាយ ID / ឈ្មោះ / custom ID</div>'
+    +'<div style="display:flex;gap:6px">'
+    +'<input class="form-control" id="qr-manual-id" placeholder="e.g. EMP-001, 4, សាន..." style="flex:1" '
+    +'onkeydown="if(event.key===\'Enter\')processQRScan(this.value,\''+today+'\')" />'
+    +'<button class="btn btn-primary" onclick="processQRScan($(\'qr-manual-id\').value,\''+today+'\')">'
+    +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><polyline points="20 6 9 17 4 12"/></svg>'
+    +'</button>'
+    +'</div>'
+    +'</div>'
+    +'</div>'
+
+    // Right: Log
+    +'<div class="card" style="padding:20px;display:flex;flex-direction:column">'
+    +'<div style="font-weight:700;font-size:14px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between">'
+    +'<span>📋 កំណត់ហេតុស្កេន</span>'
+    +'<span id="qr-count" style="font-size:12px;color:var(--text3);font-weight:400">0 នាក់</span>'
+    +'</div>'
+    +'<div id="qr-result-log" style="flex:1;overflow-y:auto;border-radius:8px;min-height:300px"></div>'
+    +'<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">'
+    +'<button class="btn btn-outline btn-sm" onclick="navigate(\'attendance\')">'
+    +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/></svg>'
+    +' មើលតារាងវត្តមាន</button>'
+    +'</div>'
+    +'</div>'
+
+    +'</div>'
+    +'<style>@keyframes qrScanLine{0%,100%{top:20%}50%{top:80%}}</style>';
+
+  window._scanType = 'in';
+  window._scanCount = 0;
+
+  // Start scanner inline (reuse existing startQRScanner)
+  startQRScanner(today);
+
+  // Stop scanner when leaving the page
+  const origNavigate = window._qrPageNavGuard;
+  if (origNavigate) origNavigate();
+  window._qrPageNavGuard = () => stopQRScanner();
+}
+
+// ===== QR Scanner modal (uses camera) =====
 // QR Scanner modal (uses camera)
 async function openQRScanModal(date) {
   // Always load fresh employee list before opening scanner
@@ -8782,7 +8867,7 @@ function mobileNav(page, btn) {
 
 // Sync mobile nav active state when desktop nav used
 function syncMobileNav(page) {
-  const map = { dashboard:0, employees:1, attendance:2, salary:3 };
+  const map = { dashboard:0, employees:1, attendance:2, qr_scan:3, salary:4 };
   const btns = document.querySelectorAll('.mob-nav-btn');
   btns.forEach(b => b.classList.remove('active'));
   if (map[page] !== undefined && btns[map[page]]) {
