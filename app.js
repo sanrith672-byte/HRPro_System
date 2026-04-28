@@ -8094,7 +8094,44 @@ function switchSettingsTab(panel, el) {
       loadAccountsFromAPI().then(() => refreshAccountList()).catch(() => refreshAccountList());
     });
   }
-}, IDLE_WARNING_MS);
+}
+
+function resetIdleTimer() {
+  if (!isLoggedIn()) return;
+  clearTimeout(_idleTimer);
+  clearTimeout(_idleWarnTimer);
+  // If warning toast was shown, hide it
+  if (_idleWarningShown) {
+    const warn = document.getElementById('idle-warning-banner');
+    if (warn) warn.remove();
+    _idleWarningShown = false;
+  }
+  // Set warning at 14 min
+  _idleWarnTimer = setTimeout(() => {
+    if (!isLoggedIn()) return;
+    _idleWarningShown = true;
+    let banner = document.getElementById('idle-warning-banner');
+    if (!banner) {
+      banner = document.createElement('div');
+      banner.id = 'idle-warning-banner';
+      banner.style.cssText = [
+        'position:fixed','bottom:80px','left:50%','transform:translateX(-50%)',
+        'background:#f59e0b','color:#1a1a1a','font-weight:700',
+        'padding:12px 24px','border-radius:12px','z-index:99999',
+        'box-shadow:0 4px 20px rgba(0,0,0,0.3)','font-size:14px',
+        'display:flex','align-items:center','gap:10px','white-space:nowrap',
+      ].join(';');
+      banner.innerHTML = '⚠️ ប្រព័ន្ធនឹងចាក់ច័ញស្វ័យប្រវត្តិក្នុង <span id="idle-countdown">60</span> វិនាតី — <button onclick="resetIdleTimer()" style="background:#1a1a1a;color:#f59e0b;border:none;padding:4px 12px;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px">ស្នើ​ থাকতে</button>';
+      document.body.appendChild(banner);
+      let secs = 60;
+      const cdEl = document.getElementById('idle-countdown');
+      const cdInterval = setInterval(() => {
+        secs--;
+        if (cdEl) cdEl.textContent = secs;
+        if (secs <= 0 || !document.getElementById('idle-warning-banner')) clearInterval(cdInterval);
+      }, 1000);
+    }
+  }, IDLE_WARNING_MS);
 
   // Auto logout at 15 min
   _idleTimer = setTimeout(() => {
