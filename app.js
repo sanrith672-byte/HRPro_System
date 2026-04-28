@@ -633,7 +633,7 @@ async function deleteSelectedData() {
 }
 
 // Demo usernames that must never appear in the system
-const DEMO_USERNAMES = ['finance', 'viewer', 'demo'];
+const DEMO_USERNAMES = ['demo'];
 
 // Create adminsupport account and remove all demo users on every load
 function ensureAdminSupport() {
