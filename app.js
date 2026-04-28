@@ -8771,6 +8771,7 @@ async function deleteAccount(id) {
   const synced = await syncAccountsToAPI(users).catch(() => false);
   showToast(synced ? 'លុប Account រួច! ✅ Sync គ្រប់ Device' : 'លុបបាន ⚠️ Sync មិនបាន', synced ? 'success' : 'error');
   renderSettingsOnTab('accounts');
+}
 
 function changePassword() {
   const oldPwd = $('chpwd-old')?.value;
