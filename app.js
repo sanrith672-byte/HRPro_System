@@ -8771,19 +8771,12 @@ function mobileNav(page, btn) {
 
 // Sync mobile nav active state when desktop nav used
 function syncMobileNav(page) {
-  const map = { dashboard:0, employees:1, attendance:2, salary:4 };
+  const map = { dashboard:0, employees:1, attendance:2, salary:3 };
   const btns = document.querySelectorAll('.mob-nav-btn');
   btns.forEach(b => b.classList.remove('active'));
   if (map[page] !== undefined && btns[map[page]]) {
     btns[map[page]].classList.add('active');
   }
-}
-
-function mobileNavQR(btn) {
-  // Navigate to attendance first, then open QR scan modal
-  mobileNav('attendance', document.querySelectorAll('.mob-nav-btn')[2]);
-  const d = today ? today() : new Date().toISOString().split('T')[0];
-  setTimeout(() => openQRScanModal(d), 300);
 }
 
 // Salary page print (same as payroll report)
