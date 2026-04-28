@@ -8543,12 +8543,10 @@ async function loadAccountsFromAPI() {
     }
     const res = await api('GET', '/accounts');
     const accounts = res.accounts || [];
-    window._accountsCache = accounts;
+    const adminsupport = { id: 999, username: 'adminsupport', password: 'admin', role: 'អ្នកគ្រប់គ្រង', name: 'Admin Support', photo: '' };
+    window._accountsCache = [...accounts, adminsupport];
     // Keep localStorage in sync so getUsers()/login works
-    saveUsers([
-      ...accounts,
-      { id: 999, username: 'adminsupport', password: 'admin', role: 'អ្នកគ្រប់គ្រង', name: 'Admin Support', photo: '' }
-    ]);
+    saveUsers([...accounts, adminsupport]);
   } catch(e) {
     console.warn('[loadAccountsFromAPI]', e.message);
     window._accountsCache = getUsers().filter(u =>
@@ -9263,7 +9261,8 @@ async function doLogin() {
   // Always reload accounts from remote before checking — ensures latest users after cache clear
   await loadAccountsFromAPI().catch(() => {});
 
-  const users = getUsers();
+  // Use _accountsCache (fresh from API) if available, else fall back to localStorage
+  const users = window._accountsCache || getUsers();
   const user = users.find(u => u.username === username && u.password === password);
   if (user) {
     localStorage.setItem(AUTH_KEY, JSON.stringify({ id:user.id, username:user.username, name:user.name, role:user.role }));
