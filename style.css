@@ -1264,6 +1264,32 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 .mob-nav-btn span { font-size: 10px; font-weight: 600; }
 .mob-nav-btn.active { color: var(--primary); background: rgba(255,107,53,.1); }
 
+/* QR Scan special button */
+.mob-nav-qr { color: var(--success) !important; position: relative; top: -6px; }
+.mob-qr-ring {
+  width: 44px; height: 44px;
+  background: linear-gradient(135deg, var(--success), #059669);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 4px 14px rgba(16,185,129,.45);
+  border: 3px solid var(--bg2);
+}
+.mob-qr-ring svg { width: 22px; height: 22px; stroke: white; }
+.mob-nav-qr span { font-size: 10px; font-weight: 700; color: var(--success); margin-top: -2px; }
+
+/* QR Scan special button */
+.mob-nav-qr { color: var(--success) !important; position: relative; top: -6px; }
+.mob-qr-ring {
+  width: 44px; height: 44px;
+  background: linear-gradient(135deg, var(--success), #059669);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 4px 14px rgba(16,185,129,.45);
+  border: 3px solid var(--bg2);
+}
+.mob-qr-ring svg { width: 22px; height: 22px; stroke: white; }
+.mob-nav-qr span { font-size: 10px; font-weight: 700; color: var(--success); margin-top: -2px; }
+
 @media (max-width: 480px) {
   .mobile-bottom-nav { display: flex; }
 }
