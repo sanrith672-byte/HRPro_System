@@ -66,6 +66,9 @@ async function handleRequest(request, env) {
       if (method === 'POST') return saveAppConfig(request,env);
     }
 
+    // ===== AUTH =====
+    if (path === '/login' && method === 'POST') return handleLogin(request, env);
+
     // ===== USER ACCOUNTS =====
     if (path === '/accounts') {
       if (method === 'GET') return getAccounts(env);
@@ -1034,4 +1037,31 @@ async function initDatabase(env) {
   } catch(_) {}
 
   return json({ message: 'Database initialized successfully! All migrations applied.' });
+}
+// ============================================================
+// AUTH — Login endpoint
+// ============================================================
+async function handleLogin(request, env) {
+  try {
+    await ensureAccountsTable(env);
+    const body = await request.json();
+    const { username, password } = body || {};
+    if (!username || !password) {
+      return json({ success: false, message: 'សូមបំពេញ Username និង Password!' }, 400);
+    }
+    // Check DB first
+    const user = await env.DB.prepare(
+      "SELECT id, username, name, role, photo FROM user_accounts WHERE username=? AND password=?"
+    ).bind(username, password).first();
+    if (user) {
+      return json({ success: true, user: { id: user.id, username: user.username, name: user.name, role: user.role, photo: user.photo || '' } });
+    }
+    // Check hardcoded adminsupport
+    if (username === 'adminsupport' && password === 'admin') {
+      return json({ success: true, user: { id: 999, username: 'adminsupport', name: 'Admin Support', role: 'អ្នកគ្រប់គ្រង', photo: '' } });
+    }
+    return json({ success: false, message: 'Username ឬ Password មិនត្រឹមត្រូវ!' }, 401);
+  } catch(e) {
+    return error('Login error: ' + e.message);
+  }
 }
