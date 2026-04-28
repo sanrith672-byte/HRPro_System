@@ -66,6 +66,17 @@ async function handleRequest(request, env) {
       if (method === 'POST') return saveAppConfig(request,env);
     }
 
+    // ===== USER ACCOUNTS =====
+    if (path === '/accounts') {
+      if (method === 'GET') return getAccounts(env);
+      if (method === 'POST') return createAccount(request, env);
+    }
+    if (path.match(/^\/accounts\/\d+$/)) {
+      const id = parseInt(path.split('/')[2]);
+      if (method === 'PUT') return updateAccount(id, request, env);
+      if (method === 'DELETE') return deleteAccount(id, env);
+    }
+
     // ===== DEPARTMENTS =====
     if (path === '/departments') {
       if (method === 'GET') return getDepartments(env);
@@ -747,6 +758,85 @@ async function repayLoan(id, request, env) {
 // DATABASE INITIALIZATION
 // ============================================================
 
+
+// ============================================================
+// USER ACCOUNTS (D1 SQL)
+// ============================================================
+async function ensureAccountsTable(env) {
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS user_accounts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT NOT NULL UNIQUE,
+    password TEXT NOT NULL,
+    name TEXT NOT NULL,
+    role TEXT DEFAULT 'Viewer',
+    photo TEXT DEFAULT '',
+    created_at TEXT,
+    updated_at TEXT
+  )`).run();
+}
+
+async function getAccounts(env) {
+  try {
+    await ensureAccountsTable(env);
+    const rows = await env.DB.prepare(
+      "SELECT id,username,name,role,photo,created_at,updated_at FROM user_accounts ORDER BY id ASC"
+    ).all();
+    return json({ accounts: rows.results || [] });
+  } catch(e) { return error(e.message); }
+}
+
+async function createAccount(request, env) {
+  try {
+    await ensureAccountsTable(env);
+    const body = await request.json();
+    const { username, password, name, role = 'Viewer', photo = '' } = body;
+    if (!username || !password || !name) return error('username, password, name required');
+    const now = new Date().toISOString();
+    const result = await env.DB.prepare(
+      "INSERT INTO user_accounts(username,password,name,role,photo,created_at,updated_at) VALUES(?,?,?,?,?,?,?)"
+    ).bind(username, password, name, role, photo, now, now).run();
+    return json({ id: result.meta.last_row_id, username, name, role, message: 'created' }, 201);
+  } catch(e) {
+    if (e.message && e.message.includes('UNIQUE')) return error('Username នេះមានរួចហើយ!', 409);
+    return error(e.message);
+  }
+}
+
+async function updateAccount(id, request, env) {
+  try {
+    await ensureAccountsTable(env);
+    const body = await request.json();
+    const { password, name, role, photo } = body;
+    const now = new Date().toISOString();
+    const existing = await env.DB.prepare("SELECT * FROM user_accounts WHERE id=?").bind(id).first();
+    if (!existing) return error('Account not found', 404);
+    await env.DB.prepare(
+      "UPDATE user_accounts SET name=?,role=?,photo=?,updated_at=?" +
+      (password ? ",password=?" : "") +
+      " WHERE id=?"
+    ).bind(
+      name || existing.name,
+      role || existing.role,
+      photo !== undefined ? photo : existing.photo,
+      now,
+      ...(password ? [password] : []),
+      id
+    ).run();
+    return json({ message: 'updated', id });
+  } catch(e) { return error(e.message); }
+}
+
+async function deleteAccount(id, env) {
+  try {
+    await ensureAccountsTable(env);
+    const existing = await env.DB.prepare("SELECT username FROM user_accounts WHERE id=?").bind(id).first();
+    if (!existing) return error('Account not found', 404);
+    if (existing.username === 'admin') return error('Cannot delete admin account', 403);
+    await env.DB.prepare("DELETE FROM user_accounts WHERE id=?").bind(id).run();
+    return json({ message: 'deleted', id });
+  } catch(e) { return error(e.message); }
+}
+
 async function initDatabase(env) {
   const statements = [
     `CREATE TABLE IF NOT EXISTS departments (
@@ -914,6 +1004,16 @@ async function initDatabase(env) {
     `ALTER TABLE employees ADD COLUMN termination_date TEXT DEFAULT ''`,
     `ALTER TABLE employees ADD COLUMN work_history TEXT DEFAULT ''`,
     `CREATE TABLE IF NOT EXISTS app_config (key TEXT PRIMARY KEY, value TEXT DEFAULT '')`,
+    `CREATE TABLE IF NOT EXISTS user_accounts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      username TEXT NOT NULL UNIQUE,
+      password TEXT NOT NULL,
+      name TEXT NOT NULL,
+      role TEXT DEFAULT 'Viewer',
+      photo TEXT DEFAULT '',
+      created_at TEXT,
+      updated_at TEXT
+    )`,
     // employees — off_days (personal weekly day off)
     `ALTER TABLE employees ADD COLUMN off_days TEXT DEFAULT '[]'`,
     `ALTER TABLE employees ADD COLUMN work_location TEXT DEFAULT ''`,
@@ -921,6 +1021,17 @@ async function initDatabase(env) {
   for (const m of migrations) {
     try { await env.DB.prepare(m).run(); } catch(_) { /* column already exists — OK */ }
   }
+
+  // Ensure admin account exists
+  try {
+    const existing = await env.DB.prepare("SELECT id FROM user_accounts WHERE username='admin'").first();
+    if (!existing) {
+      const now = new Date().toISOString();
+      await env.DB.prepare(
+        "INSERT INTO user_accounts(username,password,name,role,photo,created_at,updated_at) VALUES(?,?,?,?,?,?,?)"
+      ).bind('admin','admin123','Admin','អ្នកគ្រប់គ្រង','',now,now).run();
+    }
+  } catch(_) {}
 
   return json({ message: 'Database initialized successfully! All migrations applied.' });
 }
