@@ -330,18 +330,18 @@ function updateApiStatus() {
 // Map page → permission key needed to access
 const PAGE_PERMS = {
   employees:       'employees_view',
-  departments:     'employees_view',
+  departments:     'departments_view',
   attendance:      'attendance_view',
   salary:          'salary_view',
-  overtime:        'salary_view',
-  allowance:       'salary_view',
+  overtime:        'overtime_view',
+  allowance:       'allowance_view',
   reports:         'reports_view',
   loans:           'loans_view',
   expenses:        'expenses_view',
   general_expense: 'expenses_view',
   id_card:         'id_card_print',
   leave:           'leave_view',
-  dayswap:         'leave_view',
+  dayswap:         'dayswap_view',
   settings:        'settings_access',
   dashboard:       null, // always allowed
 };
@@ -682,44 +682,60 @@ function getPermissions() {
   // Default: HR Officer & Finance have most access, Viewer is read-only
   return {
     'HR Officer': {
-      employees_view:true, employees_edit:true,
-      attendance_view:true, attendance_edit:true,
-      salary_view:true, salary_edit:false,
+      employees_view:true, employees_edit:true, employees_delete:true,
+      departments_view:true, departments_edit:false,
+      attendance_view:true, attendance_edit:true, attendance_delete:false,
+      salary_view:true, salary_edit:false, salary_slip_print:true,
+      overtime_view:true, overtime_edit:true,
+      allowance_view:true, allowance_edit:true,
       reports_view:true, reports_export:true,
       leave_view:true, leave_edit:true,
+      dayswap_view:true, dayswap_edit:true,
       loans_view:true, loans_edit:false,
       expenses_view:true, expenses_edit:true,
-      departments_edit:false, id_card_print:true, settings_access:false,
+      id_card_print:true, settings_access:false,
     },
     'Finance': {
-      employees_view:true, employees_edit:false,
-      attendance_view:true, attendance_edit:false,
-      salary_view:true, salary_edit:true,
+      employees_view:true, employees_edit:false, employees_delete:false,
+      departments_view:true, departments_edit:false,
+      attendance_view:true, attendance_edit:false, attendance_delete:false,
+      salary_view:true, salary_edit:true, salary_slip_print:true,
+      overtime_view:true, overtime_edit:false,
+      allowance_view:true, allowance_edit:false,
       reports_view:true, reports_export:true,
       leave_view:true, leave_edit:false,
+      dayswap_view:true, dayswap_edit:false,
       loans_view:true, loans_edit:true,
       expenses_view:true, expenses_edit:true,
-      departments_edit:false, id_card_print:false, settings_access:false,
+      id_card_print:false, settings_access:false,
     },
     'Viewer': {
-      employees_view:true, employees_edit:false,
-      attendance_view:true, attendance_edit:false,
-      salary_view:false, salary_edit:false,
+      employees_view:true, employees_edit:false, employees_delete:false,
+      departments_view:true, departments_edit:false,
+      attendance_view:true, attendance_edit:false, attendance_delete:false,
+      salary_view:false, salary_edit:false, salary_slip_print:false,
+      overtime_view:false, overtime_edit:false,
+      allowance_view:false, allowance_edit:false,
       reports_view:false, reports_export:false,
       leave_view:true, leave_edit:false,
+      dayswap_view:true, dayswap_edit:false,
       loans_view:false, loans_edit:false,
       expenses_view:false, expenses_edit:false,
-      departments_edit:false, id_card_print:false, settings_access:false,
+      id_card_print:false, settings_access:false,
     },
     'QR Scanner': {
-      employees_view:false, employees_edit:false,
-      attendance_view:true, attendance_edit:true,
-      salary_view:false, salary_edit:false,
+      employees_view:false, employees_edit:false, employees_delete:false,
+      departments_view:false, departments_edit:false,
+      attendance_view:true, attendance_edit:true, attendance_delete:false,
+      salary_view:false, salary_edit:false, salary_slip_print:false,
+      overtime_view:false, overtime_edit:false,
+      allowance_view:false, allowance_edit:false,
       reports_view:false, reports_export:false,
       leave_view:false, leave_edit:false,
+      dayswap_view:false, dayswap_edit:false,
       loans_view:false, loans_edit:false,
       expenses_view:false, expenses_edit:false,
-      departments_edit:false, id_card_print:false, settings_access:false,
+      id_card_print:false, settings_access:false,
     },
   };
 }
@@ -7783,23 +7799,53 @@ function renderSettings() {
               const roles = ['HR Officer','Finance','Viewer','QR Scanner'];
               const regularRoles = roles;
               const features = [
-                { key:'employees_view',    label:'👥 មើលបុគ្គលិក' },
-                { key:'employees_edit',    label:'✏️ កែ/បន្ថែម/លុប បុគ្គលិក' },
-                { key:'attendance_view',   label:'📅 មើលវត្តមាន' },
-                { key:'attendance_edit',   label:'✏️ កែ/បន្ថែម វត្តមាន' },
-                { key:'salary_view',       label:'💵 មើលបៀវត្ស' },
-                { key:'salary_edit',       label:'✏️ កែ/បន្ថែម បៀវត្ស' },
-                { key:'reports_view',      label:'📊 មើលរបាយការណ៍' },
-                { key:'reports_export',    label:'📤 Export PDF/Excel' },
-                { key:'leave_view',        label:'🌴 មើលច្បាប់' },
-                { key:'leave_edit',        label:'✏️ អនុម័ត/លុប ច្បាប់' },
-                { key:'loans_view',        label:'💰 មើលប្រាក់ខ្ចី' },
-                { key:'loans_edit',        label:'✏️ កែ/បន្ថែម ប្រាក់ខ្ចី' },
-                { key:'expenses_view',     label:'🧾 មើលចំណាយ' },
-                { key:'expenses_edit',     label:'✏️ អនុម័ត/លុប ចំណាយ' },
-                { key:'departments_edit',  label:'🏢 កែ/បន្ថែម នាយកដ្ឋាន' },
-                { key:'id_card_print',     label:'🪪 បោះពុម្ព ID Card' },
-                { key:'settings_access',   label:'⚙️ ចូល Settings' },
+                // --- Group: បុគ្គលិក ---
+                { group: '👥 បុគ្គលិក' },
+                { key:'employees_view',      label:'👁️ មើលបុគ្គលិក' },
+                { key:'employees_edit',      label:'✏️ បន្ថែម / កែ បុគ្គលិក' },
+                { key:'employees_delete',    label:'🗑️ លុបបុគ្គលិក' },
+                // --- Group: នាយកដ្ឋាន ---
+                { group: '🏢 នាយកដ្ឋាន' },
+                { key:'departments_view',    label:'👁️ មើលនាយកដ្ឋាន' },
+                { key:'departments_edit',    label:'✏️ បន្ថែម / កែ / លុប នាយកដ្ឋាន' },
+                // --- Group: វត្តមាន ---
+                { group: '📅 វត្តមាន' },
+                { key:'attendance_view',     label:'👁️ មើលវត្តមាន' },
+                { key:'attendance_edit',     label:'✏️ បន្ថែម / កែ វត្តមាន' },
+                { key:'attendance_delete',   label:'🗑️ លុបវត្តមាន' },
+                // --- Group: បៀវត្ស ---
+                { group: '💵 បៀវត្ស' },
+                { key:'salary_view',         label:'👁️ មើលបៀវត្ស' },
+                { key:'salary_edit',         label:'✏️ បន្ថែម / កែ បៀវត្ស' },
+                { key:'salary_slip_print',   label:'🖨️ បោះពុម្ព Salary Slip' },
+                // --- Group: ថែមម៉ោង & ប្រាក់ឧបត្ថម្ភ ---
+                { group: '⏱️ ថែមម៉ោង & ប្រាក់ឧបត្ថម្ភ' },
+                { key:'overtime_view',       label:'👁️ មើលថែមម៉ោង' },
+                { key:'overtime_edit',       label:'✏️ បន្ថែម / កែ / លុប ថែមម៉ោង' },
+                { key:'allowance_view',      label:'👁️ មើលប្រាក់ឧបត្ថម្ភ' },
+                { key:'allowance_edit',      label:'✏️ បន្ថែម / កែ / លុប ប្រាក់ឧបត្ថម្ភ' },
+                // --- Group: របាយការណ៍ ---
+                { group: '📊 របាយការណ៍' },
+                { key:'reports_view',        label:'👁️ មើលរបាយការណ៍' },
+                { key:'reports_export',      label:'📤 Export PDF / Excel' },
+                // --- Group: ច្បាប់ & ប្តូរថ្ងៃ ---
+                { group: '🌴 ច្បាប់ & ប្តូរថ្ងៃ' },
+                { key:'leave_view',          label:'👁️ មើលច្បាប់' },
+                { key:'leave_edit',          label:'✏️ អនុម័ត / លុប ច្បាប់' },
+                { key:'dayswap_view',        label:'👁️ មើលការប្តូរថ្ងៃ' },
+                { key:'dayswap_edit',        label:'✏️ អនុម័ត / លុប ការប្តូរថ្ងៃ' },
+                // --- Group: ប្រាក់ខ្ចី ---
+                { group: '💰 ប្រាក់ខ្ចី' },
+                { key:'loans_view',          label:'👁️ មើលប្រាក់ខ្ចី' },
+                { key:'loans_edit',          label:'✏️ បន្ថែម / កែ / លុប ប្រាក់ខ្ចី' },
+                // --- Group: ចំណាយ ---
+                { group: '🧾 ចំណាយ' },
+                { key:'expenses_view',       label:'👁️ មើលចំណាយ' },
+                { key:'expenses_edit',       label:'✏️ អនុម័ត / លុប ចំណាយ' },
+                // --- Group: ផ្សេងៗ ---
+                { group: '🔧 ផ្សេងៗ' },
+                { key:'id_card_print',       label:'🪪 បោះពុម្ព ID Card' },
+                { key:'settings_access',     label:'⚙️ ចូល Settings' },
               ];
 
               return `
@@ -7816,19 +7862,28 @@ function renderSettings() {
                       </tr>
                     </thead>
                     <tbody>
-                      ${features.map((f,i)=>`
-                        <tr style="background:${i%2===0?'var(--bg3)':'var(--bg)'}">
-                          <td style="padding:9px 12px;border-bottom:1px solid var(--border);font-weight:500;position:sticky;left:0;z-index:1;background:${i%2===0?'var(--bg3)':'var(--bg)'}">${f.label}</td>
-                          ${regularRoles.map(r=>`
-                            <td style="text-align:center;padding:9px 14px;border-bottom:1px solid var(--border);${r==='QR Scanner'?'background:rgba(34,197,94,.04)':''}">
-                              <input type="checkbox" class="perm-cb"
-                                data-role="${r}" data-key="${f.key}"
-                                ${(perms[r]?.[f.key] === true) ? 'checked' : ''}
-                                style="width:20px;height:20px;accent-color:${r==='QR Scanner'?'var(--success)':'var(--primary)'};cursor:pointer"
-                                onchange="updatePermission('${r}','${f.key}',this.checked)" />
-                            </td>
-                          `).join('')}
-                      `).join('')}
+                      ${(()=>{
+                        let rowIdx=0;
+                        return features.map(f=>{
+                          if(f.group){
+                            return `<tr><td colspan="${regularRoles.length+1}" style="padding:8px 12px 5px;font-size:11px;font-weight:700;color:var(--primary);background:var(--bg4);border-bottom:1px solid var(--border);border-top:2px solid var(--border);letter-spacing:.3px;position:sticky;left:0">${f.group}</td></tr>`;
+                          }
+                          const bg = rowIdx++%2===0?'var(--bg3)':'var(--bg)';
+                          return `
+                            <tr style="background:${bg}">
+                              <td style="padding:9px 12px;border-bottom:1px solid var(--border);font-weight:500;position:sticky;left:0;z-index:1;background:${bg};padding-left:20px">${f.label}</td>
+                              ${regularRoles.map(r=>`
+                                <td style="text-align:center;padding:9px 14px;border-bottom:1px solid var(--border);${r==='QR Scanner'?'background:rgba(34,197,94,.04)':''}">
+                                  <input type="checkbox" class="perm-cb"
+                                    data-role="${r}" data-key="${f.key}"
+                                    ${(perms[r]?.[f.key] === true) ? 'checked' : ''}
+                                    style="width:20px;height:20px;accent-color:${r==='QR Scanner'?'var(--success)':'var(--primary)'};cursor:pointer"
+                                    onchange="updatePermission('${r}','${f.key}',this.checked)" />
+                                </td>
+                              `).join('')}
+                            </tr>`;
+                        }).join('');
+                      })()}
                     </tbody>
                   </table>
                 </div>
