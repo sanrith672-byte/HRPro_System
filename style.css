@@ -1379,13 +1379,54 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 
 /* ===== ACCOUNT ITEMS ===== */
 .account-list { display:flex;flex-direction:column;gap:10px; }
-.account-item { display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm); }
+.account-item { display:flex;align-items:center;flex-wrap:wrap;gap:10px;padding:12px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm); }
 .perm-scroll-hint { text-align:center;font-size:11px;color:var(--text3);padding:6px;background:var(--bg4);border-bottom:1px solid var(--border);animation:hint-fade 2s ease-in-out forwards; }
 @keyframes hint-fade { 0%{opacity:1} 70%{opacity:1} 100%{opacity:0} }
-.account-avatar { width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--accent));display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:white;flex-shrink:0; }
-.account-info { flex:1; }
+.account-avatar { width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--accent));display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px;color:white;flex-shrink:0; }
+.account-info { flex:1;min-width:120px; }
 .account-name { font-size:13px;font-weight:600; }
 .account-role { font-size:11px;color:var(--text3); }
+.account-item .action-btns { flex-shrink:0;margin-left:auto; }
+
+/* ── Account panel: responsive for all devices ── */
+@media (max-width: 480px) {
+  .account-item {
+    padding: 10px 12px;
+    gap: 10px;
+  }
+  .account-avatar { width: 44px; height: 44px; font-size: 18px; }
+  .account-name { font-size: 14px; }
+  .account-role { font-size: 12px; }
+  .account-item .action-btns {
+    width: 100%;
+    display: flex;
+    gap: 8px;
+    margin-left: 0;
+    padding-top: 4px;
+    border-top: 1px solid var(--border);
+  }
+  .account-item .action-btns .btn {
+    flex: 1;
+    justify-content: center;
+    padding: 8px 10px;
+    font-size: 12px;
+    min-height: 40px;
+  }
+  #panel-accounts .form-actions {
+    flex-direction: column;
+    gap: 8px;
+  }
+  #panel-accounts .form-actions .btn {
+    width: 100%;
+    justify-content: center;
+    padding: 12px;
+    font-size: 13px;
+    min-height: 44px;
+  }
+  #panel-accounts .form-grid {
+    grid-template-columns: 1fr;
+  }
+}
 /* ============================================================
    MOBILE IMPROVEMENTS — Full responsive overhaul
    ============================================================ */
