@@ -684,7 +684,7 @@ function getPermissions() {
     'HR Officer': {
       employees_view:true, employees_edit:true, employees_delete:true,
       departments_view:true, departments_edit:false,
-      attendance_view:true, attendance_edit:true, attendance_delete:false,
+      attendance_view:true, attendance_edit:true, attendance_delete:false, attendance_scan:true,
       salary_view:true, salary_edit:false, salary_slip_print:true,
       overtime_view:true, overtime_edit:true,
       allowance_view:true, allowance_edit:true,
@@ -698,7 +698,7 @@ function getPermissions() {
     'Finance': {
       employees_view:true, employees_edit:false, employees_delete:false,
       departments_view:true, departments_edit:false,
-      attendance_view:true, attendance_edit:false, attendance_delete:false,
+      attendance_view:true, attendance_edit:false, attendance_delete:false, attendance_scan:false,
       salary_view:true, salary_edit:true, salary_slip_print:true,
       overtime_view:true, overtime_edit:false,
       allowance_view:true, allowance_edit:false,
@@ -712,7 +712,7 @@ function getPermissions() {
     'Viewer': {
       employees_view:true, employees_edit:false, employees_delete:false,
       departments_view:true, departments_edit:false,
-      attendance_view:true, attendance_edit:false, attendance_delete:false,
+      attendance_view:true, attendance_edit:false, attendance_delete:false, attendance_scan:false,
       salary_view:false, salary_edit:false, salary_slip_print:false,
       overtime_view:false, overtime_edit:false,
       allowance_view:false, allowance_edit:false,
@@ -726,7 +726,7 @@ function getPermissions() {
     'QR Scanner': {
       employees_view:false, employees_edit:false, employees_delete:false,
       departments_view:false, departments_edit:false,
-      attendance_view:true, attendance_edit:true, attendance_delete:false,
+      attendance_view:true, attendance_edit:true, attendance_delete:false, attendance_scan:true,
       salary_view:false, salary_edit:false, salary_slip_print:false,
       overtime_view:false, overtime_edit:false,
       allowance_view:false, allowance_edit:false,
@@ -2128,14 +2128,14 @@ async function renderAttendance(date='') {
         }).join('');
 
     contentArea().innerHTML =
-      (getSession()?.role === 'QR Scanner' ? '<div style="background:linear-gradient(135deg,rgba(34,197,94,.15),rgba(16,185,129,.1));border:1px solid rgba(34,197,94,.3);border-radius:12px;padding:14px 18px;margin-bottom:16px;display:flex;align-items:center;gap:12px"><span style="font-size:28px">📷</span><div><div style="font-weight:700;font-size:14px;color:var(--success)">របៀប QR Scanner</div><div style="font-size:12px;color:var(--text3)">ចុច "ស្កេន QR" ដើម្បីស្គេន QR Code បុគ្គលិក</div></div><button class="btn btn-success" style="margin-left:auto" onclick="openQRScanModal(\''+today+'\')" >📷 ស្កេន QR ឥឡូវ</button></div>' : '')
+      (hasPerm('attendance_scan') ? '<div style="background:linear-gradient(135deg,rgba(34,197,94,.15),rgba(16,185,129,.1));border:1px solid rgba(34,197,94,.3);border-radius:12px;padding:14px 18px;margin-bottom:16px;display:flex;align-items:center;gap:12px"><span style="font-size:28px">📷</span><div><div style="font-weight:700;font-size:14px;color:var(--success)">របៀប QR Scanner</div><div style="font-size:12px;color:var(--text3)">ចុច "ស្កេន QR" ដើម្បីស្គេន QR Code បុគ្គលិក</div></div><button class="btn btn-success" style="margin-left:auto" onclick="openQRScanModal(\''+today+'\')" >📷 ស្កេន QR ឥឡូវ</button></div>' : '')
       +'<div class="page-header">'
       +'<div><h2>វត្តមានប្រចាំថ្ងៃ</h2><p>'+label+'</p></div>'
       +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
       +'<input class="filter-input" type="date" value="'+today+'" onchange="renderAttendance(this.value)" />'
-      +'<button class="btn btn-success" onclick="openQRScanModal(\''+today+'\')">'
+      +(hasPerm('attendance_scan') ? '<button class="btn btn-success" onclick="openQRScanModal(\''+today+'\')">'
       +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>'
-      +' 📷 ស្កេន QR</button>'
+      +' 📷 ស្កេន QR</button>' : '')
       +'<button class="btn btn-primary" onclick="openAttModal(\''+today+'\')">'
       +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> + កត់ម្នាក់</button>'
       +'<button class="btn btn-primary" style="background:var(--info);border-color:var(--info)" onclick="openAttBulk(\''+today+'\')">' 
@@ -7813,6 +7813,7 @@ function renderSettings() {
                 { key:'attendance_view',     label:'👁️ មើលវត្តមាន' },
                 { key:'attendance_edit',     label:'✏️ បន្ថែម / កែ វត្តមាន' },
                 { key:'attendance_delete',   label:'🗑️ លុបវត្តមាន' },
+                { key:'attendance_scan',     label:'📷 ស្កេន QR វត្តមាន' },
                 // --- Group: បៀវត្ស ---
                 { group: '💵 បៀវត្ស' },
                 { key:'salary_view',         label:'👁️ មើលបៀវត្ស' },
