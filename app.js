@@ -2888,9 +2888,9 @@ async function renderQRScanPage() {
     +'</div>'
     +'<div id="qr-result-log" style="flex:1;overflow-y:auto;border-radius:8px;min-height:300px"></div>'
     +'<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">'
-    +'<button class="btn btn-outline btn-sm" onclick="navigate(\'attendance\')">'
+    +(getSession()?.role !== 'QR Scanner' ? '<button class="btn btn-outline btn-sm" onclick="navigate(\'attendance\')">'
     +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/></svg>'
-    +' មើលតារាងវត្តមាន</button>'
+    +' មើលតារាងវត្តមាន</button>' : '')
     +'</div>'
     +'</div>'
 
