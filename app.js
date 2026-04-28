@@ -8023,7 +8023,6 @@ function renderSettings() {
 
 
 // ── Re-render only the account list (no full settings re-render needed) ──
-
 async function syncAndRefreshAccounts() {
   const btn = document.getElementById('sync-accounts-btn');
   if (btn) { btn.disabled = true; btn.textContent = '⏳ Sync...'; }
@@ -8037,6 +8036,7 @@ async function syncAndRefreshAccounts() {
     if (btn) { btn.disabled = false; btn.textContent = '🔄 Sync / Refresh'; }
   }
 }
+
 function refreshAccountList() {
   const container = document.getElementById('account-list-render');
   if (!container) {
@@ -8096,6 +8096,1166 @@ function switchSettingsTab(panel, el) {
   }
 }
 
+// Logo upload - compress to small size then save to API
+function handleLogoUpload(input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (file.size > 5*1024*1024) { showToast('File ធំពេក! អតិបរមា 5MB','error'); return; }
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const img = new Image();
+    img.onload = () => {
+      // Compress to max 120x120px, quality 0.7 → ~10-30KB
+      const MAX = 120;
+      const canvas = document.createElement('canvas');
+      const ratio = Math.min(MAX/img.width, MAX/img.height, 1);
+      canvas.width  = Math.round(img.width  * ratio);
+      canvas.height = Math.round(img.height * ratio);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      const url = canvas.toDataURL('image/png', 0.8);
+      const cfg = getCompanyConfig();
+      cfg.logo_url = url;
+      // Save to localStorage AND API (small enough now)
+      localStorage.setItem(CFG_KEY, JSON.stringify(cfg));
+      _cfgCache = cfg;
+      applyCompanyBranding();
+      if (!isDemoMode()) {
+        api('POST', '/config', { key: 'logo_url', value: url }).catch(() => {});
+      }
+      const box = $('logo-preview-box');
+      if (box) box.innerHTML = `<img src="${url}" style="width:100%;height:100%;object-fit:contain" />`;
+      showToast('Upload Logo បានជោគជ័យ! (sync ទូរស័ព្ទ ✓)','success');
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeLogo() {
+  const cfg = getCompanyConfig();
+  delete cfg.logo_url;
+  saveCompanyConfig(cfg);
+  showToast('លុប Logo រួច!','success');
+  renderSettings();
+}
+
+function saveCompanySettings() {
+  const cfg = getCompanyConfig();
+  cfg.company_name = $('cfg-company-name')?.value?.trim() || cfg.company_name;
+  cfg.admin_name   = $('cfg-admin-name')?.value?.trim() || cfg.admin_name;
+  cfg.admin_role   = $('cfg-admin-role')?.value?.trim() || cfg.admin_role;
+  cfg.company_email   = $('cfg-email')?.value?.trim() || '';
+  cfg.company_phone   = $('cfg-phone')?.value?.trim() || '';
+  cfg.company_address = $('cfg-address')?.value?.trim() || '';
+  cfg.slogan       = $('cfg-slogan')?.value?.trim() || '';
+  cfg.lost_card_text = $('cfg-lost-card')?.value?.trim() || 'ករណីបាត់ — If found, please return';
+  saveCompanyConfig(cfg);
+  showToast('រក្សាទុកព័ត៌មានក្រុមហ៊ុនបានជោគជ័យ! ✅','success');
+}
+
+function saveSalarySettings() {
+  const cur = $('sr-currency')?.value || 'USD';
+  const rules = {
+    payroll_day:          parseInt($('sr-payday')?.value)        || 25,
+    currency:             cur,
+    currency_symbol:      cur === 'KHR' ? '៛' : '$',
+    tax_rate:             parseFloat($('sr-tax')?.value)         || 0,
+    income_tax_threshold: parseFloat($('sr-tax-threshold')?.value)|| 1500,
+    nssf_employee:        parseFloat($('sr-nssf-emp')?.value)    || 0,
+    nssf_employer:        parseFloat($('sr-nssf-er')?.value)     || 0,
+    ot_rate_multiplier:   parseFloat($('sr-ot-rate')?.value)     || 1.5,
+    default_ot_hourly_rate: parseFloat($('sr-ot-hourly')?.value) || 5,
+    meal_allowance:       parseFloat($('sr-meal')?.value)        || 0,
+    transport_allowance:  parseFloat($('sr-transport')?.value)   || 0,
+    payroll_auto:         $('sr-auto')?.checked || false,
+    max_absent_days:      parseInt($('sr-max-absent')?.value)    !== undefined && $('sr-max-absent') ? parseInt($('sr-max-absent').value) : 2,
+    work_start_time:      $('sr-work-start')?.value || '08:00',
+    work_end_time:        $('sr-work-end')?.value   || '17:00',
+    late_grace_minutes:   parseInt($('sr-late-grace')?.value) || 0,
+  };
+  saveSalaryRules(rules);
+  showToast('រក្សាទុកការកំណត់បៀវត្សបានជោគជ័យ! ✅','success');
+  updateLatePreview();
+}
+
+function updateLatePreview() {
+  const startEl = document.getElementById('sr-work-start');
+  const graceEl = document.getElementById('sr-late-grace');
+  const prevEl  = document.getElementById('late-preview');
+  if (!startEl || !graceEl || !prevEl) return;
+  const parts = (startEl.value || '08:00').split(':').map(Number);
+  const grace = parseInt(graceEl.value) || 0;
+  const total = parts[0] * 60 + parts[1] + grace;
+  prevEl.textContent = String(Math.floor(total/60)).padStart(2,'0') + ':' + String(total%60).padStart(2,'0');
+}
+
+function toggleAutoPayrollUI(on) {
+  const panel = document.getElementById('auto-payroll-panel');
+  if (panel) panel.style.display = on ? 'block' : 'none';
+}
+
+async function runAutoPayrollNow() {
+  const res = document.getElementById('auto-payroll-result');
+  if (res) res.innerHTML = '<span style="color:var(--text3)">⏳ កំពុងដំណើរការ...</span>';
+  const rules = getSalaryRules();
+  const month = thisMonth();
+  const maxAbsent = rules.max_absent_days !== undefined ? rules.max_absent_days : 2;
+  try {
+    const empData = await api('GET', '/employees?limit=500');
+    const emps = (empData.employees || []).filter(e => e.status === 'active');
+    if (!emps.length) {
+      if (res) res.innerHTML = '<span style="color:var(--warning)">⚠️ មិនមានបុគ្គលិក Active</span>';
+      return;
+    }
+    const [y, m] = month.split('-').map(Number);
+    const daysInMonth = new Date(y, m, 0).getDate();
+    let allAttRecords = [];
+    try { const r1 = await api('GET', '/attendance?month=' + month + '&limit=9999'); allAttRecords = r1.records || []; } catch(_) {}
+    if (!allAttRecords.length) {
+      const promises = [];
+      for (let d = 1; d <= daysInMonth; d++) {
+        const dd = String(d).padStart(2, '0');
+        promises.push(api('GET', '/attendance?date=' + month + '-' + dd).catch(() => ({ records: [] })));
+      }
+      const results = await Promise.all(promises);
+      results.forEach(r => { allAttRecords = allAttRecords.concat(r.records || []); });
+    }
+    const attMap = {};
+    allAttRecords.forEach(a => {
+      if (!attMap[a.employee_id]) attMap[a.employee_id] = {};
+      attMap[a.employee_id][(a.date || '').slice(-2)] = a;
+    });
+    // Build all days of month
+    const allMonthDays = [];
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dt = new Date(y, m - 1, d);
+      allMonthDays.push({ dd: String(d).padStart(2, '0'), wd: dt.getDay() });
+    }
+    let success = 0, updated = 0, skip = 0;
+    for (const e of emps) {
+      const base = e.salary || 0;
+      // Per-employee off days (default: skip Sunday=0)
+      const empOffDays = parseOffDays(e);
+      const empWorkDays = allMonthDays.filter(function(x) { return empOffDays.indexOf(x.wd) === -1; });
+      const workingDaysCount = empWorkDays.length;
+      let absent = 0;
+      const empAtt = attMap[e.id] || {};
+      empWorkDays.forEach(function(x) { const a = empAtt[x.dd]; if (!a || a.status === 'absent') absent++; });
+      const overAbsent = Math.max(0, absent - maxAbsent);
+      const dailyRate = workingDaysCount > 0 ? base / workingDaysCount : 0;
+      const deduction = parseFloat((overAbsent * dailyRate).toFixed(2));
+      const net = base - deduction;
+      const absenceNote = deduction > 0
+        ? 'Auto Payroll · អវត្តមាន ' + absent + ' ថ្ងៃ, លើស ' + overAbsent + ' ថ្ងៃ (-$' + deduction.toFixed(2) + ')'
+        : 'Auto Payroll';
+      try {
+        const existSal = await api('GET', '/salary?month=' + month).catch(() => ({ records: [] }));
+        const existing = (existSal.records || []).find(r => r.employee_id === e.id);
+        if (!existing) {
+          await api('POST', '/salary', { employee_id: e.id, month, base_salary: base, bonus: 0, deduction, net_salary: net, notes: absenceNote });
+          success++;
+        } else {
+          const prevNote = existing.notes || '';
+          if (!prevNote.includes('Auto Payroll')) {
+            const newNet = (existing.base_salary || base) + (existing.bonus || 0) - deduction;
+            await api('PUT', '/salary/' + existing.id, { ...existing, deduction, net_salary: newNet, notes: (prevNote ? prevNote + ' | ' : '') + absenceNote });
+            updated++;
+          } else { skip++; }
+        }
+      } catch(_) { skip++; }
+    }
+    const msg = '✅ បង្កើត ' + success + (updated ? ' · ធ្វើបច្ចុប្បន្នភាព ' + updated : '') + (skip ? ' · រំលង ' + skip : '');
+    if (res) res.innerHTML = '<span style="color:var(--success)">' + msg + '</span>';
+    showToast('Auto Payroll ' + month + ' — ' + (success + updated) + ' នាក់ ✅ (កាត់តាមប្រាក់ខែ)', 'success');
+  } catch(e) {
+    if (res) res.innerHTML = '<span style="color:var(--danger)">❌ Error: ' + e.message + '</span>';
+  }
+}
+async function checkAutoPayrollStatus() {
+  const res = document.getElementById('auto-payroll-result');
+  if (res) res.innerHTML = '<span style="color:var(--text3)">⏳ កំពុងពិនិត្យ...</span>';
+  const month = thisMonth();
+  try {
+    const data = await api('GET', '/salary?month=' + month);
+    const count = (data.records || []).length;
+    const paid = (data.records || []).filter(r => r.status === 'paid').length;
+    if (res) res.innerHTML = '<span style="color:var(--info)">📋 ខែ '+month+': '+count+' កំណត់ត្រា · បង់រួច '+paid+'</span>';
+  } catch(e) {
+    if (res) res.innerHTML = '<span style="color:var(--danger)">❌ '+e.message+'</span>';
+  }
+}
+
+function resetSalarySettings() {
+  if (!confirm('Reset ទៅ Default?')) return;
+  localStorage.removeItem(SAL_KEY);
+  showToast('Reset រួច!','success');
+  renderSettings();
+  setTimeout(()=>switchSettingsTab('salary_rules', document.querySelector('.settings-tab:nth-child(2)')),100);
+}
+
+function setAccentColor(color, el) {
+  document.querySelectorAll('.color-swatch').forEach(s=>s.classList.remove('selected'));
+  el.classList.add('selected');
+  document.documentElement.style.setProperty('--primary', color);
+  const cfg = getCompanyConfig();
+  cfg.accent_color = color;
+  saveCompanyConfig(cfg);
+  showToast('ផ្លាស់ប្ដូរពណ៌រួច!','success');
+}
+
+function toggleLogoDisplay(show) {
+  const cfg = getCompanyConfig();
+  cfg.show_logo = show;
+  saveCompanyConfig(cfg);
+}
+
+function saveApiSettings() {
+  const url = $('cfg-url-2')?.value?.trim().replace(/\/$/,'');
+  if (!url) { showToast('សូមដាក់ Worker URL!','error'); return; }
+  localStorage.setItem(STORAGE_KEY, url);
+  localStorage.removeItem(DEMO_MODE_KEY);
+  showToast('រក្សាទុក Worker URL រួច!','success');
+  updateApiStatus();
+  renderSettings();
+}
+
+async function testConnection2() {
+  const url = $('cfg-url-2')?.value?.trim().replace(/\/$/,'');
+  const res = $('conn-result');
+  if (!url) { if(res) res.innerHTML='<span style="color:var(--danger)">❌ សូមដាក់ URL!</span>'; return; }
+  if(res) res.innerHTML='<span style="color:var(--text3)">⏳ កំពុងសាកល្បង...</span>';
+  try {
+    const r = await fetch(url+'/stats');
+    if(res) res.innerHTML = r.ok
+      ? '<span style="color:var(--success)">✅ ភ្ជាប់ Worker បានជោគជ័យ!</span>'
+      : `<span style="color:var(--warning)">⚠️ Worker ឆ្លើយតប (${r.status}) — ពិនិត្យ CORS</span>`;
+  } catch {
+    if(res) res.innerHTML='<span style="color:var(--danger)">❌ ភ្ជាប់មិនបាន — ពិនិត្យ URL & CORS</span>';
+  }
+}
+
+async function initWorkerDB() {
+  try {
+    await api('POST','/init');
+    showToast('Initialize Database បានជោគជ័យ! 🗃️','success');
+  } catch(e) { showToast('Error: '+e.message,'error'); }
+}
+
+// ── User account photo ──
+function openUserPhotoModal(userId, userName) {
+  $('modal-title').textContent = 'រូបថតគណនី — ' + userName;
+  const existing = photoCache['user_' + userId] || '';
+  $('modal-body').innerHTML =
+    '<div style="text-align:center;margin-bottom:20px">'
+    +'<div id="user-photo-preview" style="width:100px;height:100px;border-radius:50%;background:var(--bg4);border:3px solid var(--border);display:inline-flex;align-items:center;justify-content:center;overflow:hidden;cursor:pointer;margin-bottom:12px" onclick="$(\'user-photo-input\').click()">'
+    +(existing?'<img src="'+existing+'" style="width:100%;height:100%;object-fit:cover"/>':'<svg viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="1.5" style="width:36px;height:36px"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>')
+    +'</div>'
+    +'<div><button class="btn btn-outline btn-sm" onclick="$(\'user-photo-input\').click()">📂 ជ្រើសរូបថត</button>'
+    +(existing?'<button class="btn btn-danger btn-sm" style="margin-left:8px" onclick="removeUserPhoto('+userId+')">🗑️ លុប</button>':'')
+    +'</div>'
+    +'<div style="font-size:11px;color:var(--text3);margin-top:6px">JPG, PNG — max 2MB</div>'
+    +'</div>'
+    +'<input type="file" id="user-photo-input" accept="image/*" style="display:none" onchange="handleUserPhotoUpload(this,'+userId+')" />'
+    +'<div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">បិទ</button></div>';
+  openModal();
+}
+
+function handleUserPhotoUpload(input, userId) {
+  const file = input.files[0];
+  if (!file) return;
+  if (file.size > 5*1024*1024) { showToast('រូបថតធំពេក! max 5MB','error'); return; }
+  const reader = new FileReader();
+  reader.onload = async e => {
+    compressUserPhoto(e.target.result, async (url) => {
+      photoCache['user_' + userId] = url;
+      await photoDB.set('user_' + userId, url);
+      // Update preview
+      const prev = document.getElementById('user-photo-preview');
+      if (prev) prev.innerHTML = '<img src="'+url+'" style="width:100%;height:100%;object-fit:cover"/>';
+      // Update sidebar if current user
+      const session = getSession();
+      if (session && session.id === userId) updateSidebarAvatar(url, session.name);
+      // Sync photo to Worker so other devices can see it
+      const users = getUsers();
+      const idx = users.findIndex(u => u.id === userId);
+      if (idx >= 0) {
+        users[idx].photo = url;
+        saveUsers(users);
+        const synced = await syncAccountsToAPI(users).catch(() => false);
+        if (synced) {
+          showToast('Upload រូបថតបានជោគជ័យ! ✅ (បង្ហាញលើគ្រប់ Device)', 'success');
+        } else {
+          showToast('Upload រូបថតរួច ✅ (⚠️ Sync មិនបាន — ត្រូវ Login ម្តងទៀតនៅ Mobile)', 'error');
+        }
+      } else {
+        showToast('Upload រូបថតបានជោគជ័យ! ✅','success');
+      }
+      // Refresh settings page
+      setTimeout(() => renderSettingsOnTab('accounts'), 300);
+    });
+  };
+  reader.readAsDataURL(file);
+}
+
+async function removeUserPhoto(userId) {
+  delete photoCache['user_' + userId];
+  await photoDB.del('user_' + userId);
+  const session = getSession();
+  if (session && session.id === userId) updateSidebarAvatar('', session.name);
+  showToast('លុបរូបថតរួច!','success');
+  closeModal();
+  renderSettingsOnTab('accounts');
+}
+
+function updateSidebarAvatar(photoUrl, name) {
+  const avatarEl = $('sidebar-user-avatar');
+  if (!avatarEl) return;
+  if (photoUrl) {
+    avatarEl.style.overflow = 'hidden';
+    avatarEl.style.padding = '0';
+    avatarEl.innerHTML = '<img src="'+photoUrl+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%" />';
+  } else {
+    avatarEl.style.overflow = '';
+    avatarEl.style.padding = '';
+    avatarEl.textContent = (name||'A')[0].toUpperCase();
+  }
+}
+
+// ============================================================
+// ACCOUNT MANAGEMENT
+// ============================================================
+function openAddAccountModal() {
+  $('modal-title').textContent = 'បន្ថែម Account ថ្មី';
+  $('modal-body').innerHTML =
+    // Photo upload
+    '<div style="display:flex;align-items:center;gap:16px;padding:14px;background:var(--bg3);border-radius:10px;border:1px solid var(--border);margin-bottom:16px">'
+    +'<div id="new-acc-photo-preview" style="width:72px;height:72px;border-radius:50%;background:var(--bg4);border:3px solid var(--border);display:flex;align-items:center;justify-content:center;overflow:hidden;cursor:pointer;flex-shrink:0" onclick="$(\'new-acc-photo-input\').click()">'
+    +'<svg viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="1.5" style="width:28px;height:28px"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>'
+    +'</div>'
+    +'<div>'
+    +'<div style="font-weight:700;font-size:13px;margin-bottom:4px">រូបថត Account</div>'
+    +'<div style="font-size:11px;color:var(--text3);margin-bottom:8px">JPG, PNG — អតិបរមា 2MB</div>'
+    +'<button class="btn btn-outline btn-sm" onclick="$(\'new-acc-photo-input\').click()">📂 ជ្រើស</button>'
+    +'</div>'
+    +'<input type="file" id="new-acc-photo-input" accept="image/*" style="display:none" onchange="handleNewAccPhoto(this)" />'
+    +'</div>'
+    + '<div class="form-grid">'
+    + '<div class="form-group"><label class="form-label">ឈ្មោះពេញ *</label><input class="form-control" id="acc-name" placeholder="ឈ្មោះ..." /></div>'
+    + '<div class="form-group"><label class="form-label">Username *</label><input class="form-control" id="acc-user" placeholder="username" /></div>'
+    + '<div class="form-group"><label class="form-label">Password *</label><input class="form-control" type="password" id="acc-pwd" placeholder="••••••••" /></div>'
+    + '<div class="form-group"><label class="form-label">តំណែង</label>'
+    + '<select class="form-control" id="acc-role">'
+    + '<option>អ្នកគ្រប់គ្រង</option><option>HR Officer</option><option>Finance</option><option>Viewer</option><option>QR Scanner</option>'
+    + '</select></div>'
+    + '</div>'
+    + '<div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">បោះបង់</button>'
+    + '<button class="btn btn-primary" onclick="saveNewAccount()">បន្ថែម</button></div>';
+  openModal();
+}
+
+// Compress user photo to max ~40KB base64 so it can sync to Worker KV
+function compressUserPhoto(dataUrl, callback) {
+  const img = new Image();
+  img.onload = function() {
+    const MAX = 200; // px max dimension
+    let w = img.width, h = img.height;
+    if (w > h) { if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; } }
+    else        { if (h > MAX) { w = Math.round(w * MAX / h); h = MAX; } }
+    const canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+    // Try quality 0.7 first, fallback to 0.5 if still too large
+    let url = canvas.toDataURL('image/jpeg', 0.7);
+    if (url.length > 60000) url = canvas.toDataURL('image/jpeg', 0.5);
+    callback(url);
+  };
+  img.src = dataUrl;
+}
+
+function handleNewAccPhoto(input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (file.size > 5*1024*1024) { showToast('រូបថតធំពេក! max 5MB','error'); return; }
+  const reader = new FileReader();
+  reader.onload = e => {
+    compressUserPhoto(e.target.result, (compressed) => {
+      window._newAccPhoto = compressed;
+      const prev = document.getElementById('new-acc-photo-preview');
+      if (prev) prev.innerHTML = '<img src="'+compressed+'" style="width:100%;height:100%;object-fit:cover" />';
+      showToast('Upload រូបថតរួច!','success');
+    });
+  };
+  reader.readAsDataURL(file);
+}
+
+async function saveNewAccount() {
+  const name     = $('acc-name')?.value.trim();
+  const username = $('acc-user')?.value.trim();
+  const password = $('acc-pwd')?.value;
+  const role     = $('acc-role')?.value;
+  const photo    = window._newAccPhoto || '';
+  window._newAccPhoto = null;
+
+  if (!name || !username || !password) { showToast('សូមបំពេញឱ្យគ្រប់!', 'error'); return; }
+
+  const users = getUsers();
+  if (users.find(u => u.username === username)) { showToast('Username នេះមានរួចហើយ!', 'error'); return; }
+
+  const newId = Math.max(...users.map(u=>u.id), 0) + 1;
+  const newUser = { id: newId, username, password, role, name, photo };
+  users.push(newUser);
+  saveUsers(users);
+
+  // Save photo to IndexedDB + cache
+  if (photo) {
+    photoCache['user_' + newId] = photo;
+    await photoDB.set('user_' + newId, photo);
+  }
+
+  closeModal();
+  renderSettingsOnTab('accounts');
+
+  showToast('កំពុង Sync...', 'info');
+  const synced = await syncAccountsToAPI(users).catch(() => false);
+  if (synced) {
+    showToast('បន្ថែម Account ជោគជ័យ! ✅ Sync គ្រប់ Device', 'success');
+  } else {
+    showToast('បន្ថែម Account ជោគជ័យ ⚠️ Sync មិនបាន — ពិនិត្យ Worker URL', 'error');
+  }
+  refreshAccountList();
+}
+
+// Sync all accounts to Worker — Remote is master for all devices
+async function syncAccountsToAPI(users) {
+  if (isDemoMode()) {
+    // In demo mode — save locally and consider it "synced"
+    saveUsers(users.filter(u => !DEMO_USERNAMES.includes(u.username.toLowerCase())));
+    return true;
+  }
+  try {
+    // Strip demo accounts before syncing to remote
+    users = users.filter(u => !DEMO_USERNAMES.includes(u.username.toLowerCase()));
+    // ── FIX: Compress photos before sync so all devices can see them ──
+    const usersToSync = await Promise.all(users.map(async u => {
+      let photo = u.photo || photoCache['user_'+u.id] || '';
+
+      // If photo is too large, re-compress it smaller so it can be synced
+      if (photo && photo.length >= 81920) {
+        photo = await new Promise(resolve => {
+          const img = new Image();
+          img.onload = function() {
+            // Reduce to 150px max for sync (smaller = safer across devices)
+            const MAX = 150;
+            let w = img.width, h = img.height;
+            if (w > h) { if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; } }
+            else        { if (h > MAX) { w = Math.round(w * MAX / h); h = MAX; } }
+            const canvas = document.createElement('canvas');
+            canvas.width = w; canvas.height = h;
+            canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+            // Try progressively lower quality until small enough
+            let url = canvas.toDataURL('image/jpeg', 0.6);
+            if (url.length >= 81920) url = canvas.toDataURL('image/jpeg', 0.4);
+            if (url.length >= 81920) url = canvas.toDataURL('image/jpeg', 0.25);
+            resolve(url.length < 81920 ? url : '');
+          };
+          img.onerror = () => resolve('');
+          img.src = photo;
+        });
+      }
+
+      return {
+        id: u.id, username: u.username,
+        password: u.password, role: u.role,
+        name: u.name, photo: photo
+      };
+    }));
+
+    await api('POST', '/config', {
+      key: 'hr_accounts',
+      value: JSON.stringify(usersToSync)
+    });
+    return true; // sync OK
+  } catch(e) {
+    console.warn('[syncAccountsToAPI] FAILED:', e.message);
+    return false; // sync failed
+  }
+}
+
+// Load accounts from Worker on init — Remote is MASTER (all devices sync from here)
+async function loadAccountsFromAPI() {
+  if (isDemoMode()) return;
+  try {
+    const cfg = await api('GET', '/config');
+    const raw = cfg && cfg.hr_accounts;
+
+    // No remote data yet — push local users to remote so other devices can sync
+    if (!raw) {
+      const localUsers = getUsers();
+      if (localUsers.length) {
+        await syncAccountsToAPI(localUsers);
+        // Ensure adminsupport is also pushed
+        ensureAdminSupport();
+      }
+      return;
+    }
+
+    // Parse remote accounts
+    let remoteUsers;
+    if (typeof raw === 'string') {
+      try { remoteUsers = JSON.parse(raw); } catch { return; }
+    } else if (Array.isArray(raw)) {
+      remoteUsers = raw;
+    } else {
+      try { remoteUsers = JSON.parse(JSON.stringify(raw)); } catch { return; }
+    }
+
+    if (!Array.isArray(remoteUsers) || !remoteUsers.length) return;
+
+    // Strip demo accounts from remote
+    const filteredRemote = remoteUsers.filter(u => !DEMO_USERNAMES.includes(u.username.toLowerCase()));
+
+    // Merge: use username as unique key
+    // Remote has synced data; local may have newer additions not yet pushed
+    const localUsers = getUsers();
+    
+    // Build merged map — remote as base
+    const mergedMap = {};
+    for (const ru of filteredRemote) {
+      const lu = localUsers.find(l => l.username === ru.username);
+      const localPhoto = lu ? (lu.photo || photoCache['user_'+lu.id] || '') : '';
+      const remotePhoto = ru.photo || '';
+      mergedMap[ru.username] = {
+        ...ru,
+        // Remote password is master — synced across all devices
+        password: ru.password || lu?.password || '',
+        photo: remotePhoto || localPhoto
+      };
+    }
+    // Add local-only accounts (created while offline / sync failed)
+    let hasLocalOnly = false;
+    for (const lu of localUsers) {
+      if (!DEMO_USERNAMES.includes(lu.username.toLowerCase()) && !mergedMap[lu.username]) {
+        mergedMap[lu.username] = lu;
+        hasLocalOnly = true;
+      }
+    }
+
+    const merged = Object.values(mergedMap);
+
+    // If we found local-only accounts, push them to remote so all devices sync
+    if (hasLocalOnly) {
+      syncAccountsToAPI(merged).catch(() => {});
+    }
+
+    // Save clean merged list to localStorage
+    saveUsers(merged);
+
+    // Always ensure admin + adminsupport exist after remote override
+    ensureAdminSupport();
+
+    // Cache photos from remote
+    for (const u of merged) {
+      if (u.photo) {
+        photoCache['user_'+u.id] = u.photo;
+        photoDB.set('user_'+u.id, u.photo).catch(()=>{});
+      }
+    }
+
+  } catch(e) {
+    console.warn('[loadAccountsFromAPI]', e.message);
+  }
+}
+
+function openEditAccountModal(id) {
+  const users = getUsers();
+  const user = users.find(u => u.id === id);
+  if (!user) return;
+  window._editAccPhoto = null;
+  const existingPhoto = user.photo || photoCache['user_' + id] || '';
+  $('modal-title').textContent = 'កែប្រែ Account — ' + user.name;
+  $('modal-body').innerHTML =
+    // Photo upload
+    '<div style="display:flex;align-items:center;gap:16px;padding:14px;background:var(--bg3);border-radius:10px;border:1px solid var(--border);margin-bottom:16px">'
+    +'<div id="edit-acc-photo-preview" style="width:72px;height:72px;border-radius:50%;background:var(--bg4);border:3px solid var(--border);display:flex;align-items:center;justify-content:center;overflow:hidden;cursor:pointer;flex-shrink:0" onclick="$(\'edit-acc-photo-input\').click()">'
+    +(existingPhoto
+      ? '<img src="'+existingPhoto+'" style="width:100%;height:100%;object-fit:cover" />'
+      : '<span style="font-size:24px;font-weight:800;color:var(--text2)">'+(user.name||'?')[0].toUpperCase()+'</span>')
+    +'</div>'
+    +'<div>'
+    +'<div style="font-weight:700;font-size:13px;margin-bottom:4px">រូបថត Account</div>'
+    +'<div style="font-size:11px;color:var(--text3);margin-bottom:8px">JPG, PNG — max 2MB</div>'
+    +'<div style="display:flex;gap:6px">'
+    +'<button class="btn btn-outline btn-sm" onclick="$(\'edit-acc-photo-input\').click()">📂 ជ្រើស</button>'
+    +(existingPhoto ? '<button class="btn btn-danger btn-sm" onclick="removeEditAccPhoto()">🗑️</button>' : '')
+    +'</div>'
+    +'</div>'
+    +'<input type="file" id="edit-acc-photo-input" accept="image/*" style="display:none" onchange="handleEditAccPhoto(this)" />'
+    +'</div>'
+    + '<div class="form-grid">'
+    + '<div class="form-group"><label class="form-label">ឈ្មោះពេញ</label><input class="form-control" id="eacc-name" value="' + user.name + '" /></div>'
+    + '<div class="form-group"><label class="form-label">Username</label><input class="form-control" id="eacc-user" value="' + user.username + '" ' + (user.username==='admin'?'readonly':'')+'/></div>'
+    + '<div class="form-group"><label class="form-label">Password ថ្មី (ទទេ = មិនផ្លាស់)</label><input class="form-control" type="password" id="eacc-pwd" placeholder="••••••••" /></div>'
+    + '<div class="form-group"><label class="form-label">តំណែង</label>'
+    + '<select class="form-control" id="eacc-role">'
+    + ['អ្នកគ្រប់គ្រង','HR Officer','Finance','Viewer','QR Scanner'].map(r=>'<option'+(user.role===r?' selected':'')+'>'+r+'</option>').join('')
+    + '</select></div>'
+    + '</div>'
+    + '<div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">បោះបង់</button>'
+    + '<button class="btn btn-primary" onclick="saveEditAccount(' + id + ')">💾 រក្សាទុក</button></div>';
+  openModal();
+}
+
+function handleEditAccPhoto(input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (file.size > 5*1024*1024) { showToast('រូបថតធំពេក! max 5MB','error'); return; }
+  const reader = new FileReader();
+  reader.onload = e => {
+    compressUserPhoto(e.target.result, (compressed) => {
+      window._editAccPhoto = compressed;
+      const prev = document.getElementById('edit-acc-photo-preview');
+      if (prev) prev.innerHTML = '<img src="'+compressed+'" style="width:100%;height:100%;object-fit:cover" />';
+      showToast('Upload រូបថតរួច!','success');
+    });
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeEditAccPhoto() {
+  window._editAccPhoto = '__remove__';
+  const prev = document.getElementById('edit-acc-photo-preview');
+  if (prev) prev.innerHTML = '<span style="font-size:24px;color:var(--text3)">👤</span>';
+}
+
+async function saveEditAccount(id) {
+  const users = getUsers();
+  const idx = users.findIndex(u => u.id === id);
+  if (idx < 0) return;
+  const pwd = $('eacc-pwd')?.value;
+  users[idx].name     = $('eacc-name')?.value.trim()  || users[idx].name;
+  users[idx].username = $('eacc-user')?.value.trim()  || users[idx].username;
+  users[idx].role     = $('eacc-role')?.value          || users[idx].role;
+  if (pwd) users[idx].password = pwd;
+
+  // Handle photo
+  if (window._editAccPhoto === '__remove__') {
+    users[idx].photo = '';
+    delete photoCache['user_' + id];
+    await photoDB.del('user_' + id);
+  } else if (window._editAccPhoto) {
+    users[idx].photo = window._editAccPhoto;
+    photoCache['user_' + id] = window._editAccPhoto;
+    await photoDB.set('user_' + id, window._editAccPhoto);
+    // Update sidebar if current user
+    const session = getSession();
+    if (session && session.id === id) updateSidebarAvatar(window._editAccPhoto, users[idx].name);
+  }
+  window._editAccPhoto = null;
+
+  saveUsers(users);
+  showToast('កែប្រែ Account បានជោគជ័យ! ✅', 'success');
+  closeModal();
+  renderSettingsOnTab('accounts');
+  // Sync in background
+  syncAccountsToAPI(users).catch(() => {});
+}
+
+function deleteAccount(id) {
+  if (!confirm('លុប Account នេះ?')) return;
+  const users = getUsers().filter(u => u.id !== id);
+  saveUsers(users);
+  syncAccountsToAPI(users);
+  showToast('លុប Account រួច!', 'success');
+  renderSettingsOnTab('accounts');
+}
+
+function changePassword() {
+  const oldPwd = $('chpwd-old')?.value;
+  const newPwd = $('chpwd-new')?.value;
+  const confirm = $('chpwd-confirm')?.value;
+  const session = getSession();
+  if (!session) return;
+  if (!oldPwd || !newPwd || !confirm) { showToast('សូមបំពេញឱ្យគ្រប់!', 'error'); return; }
+  if (newPwd !== confirm) { showToast('Password ថ្មីមិនដូចគ្នា!', 'error'); return; }
+  if (newPwd.length < 6) { showToast('Password ត្រូវតែ ≥ 6 អក្សរ!', 'error'); return; }
+  const users = getUsers();
+  const user = users.find(u => u.id === session.id);
+  if (!user || user.password !== oldPwd) { showToast('Password ចាស់មិនត្រឹមត្រូវ!', 'error'); return; }
+  user.password = newPwd;
+  saveUsers(users);
+  syncAccountsToAPI(users).catch(() => {});
+  showToast('ផ្លាស់ Password បានជោគជ័យ! 🔑', 'success');
+  if ($('chpwd-old')) $('chpwd-old').value = '';
+  if ($('chpwd-new')) $('chpwd-new').value = '';
+  if ($('chpwd-confirm')) $('chpwd-confirm').value = '';
+}
+
+// Fix missing closeSidebar (called from index.html sidebar overlay)
+function closeSidebar() {
+  const sb = document.getElementById('sidebar');
+  if (sb) sb.classList.remove('open');
+  const ov = document.getElementById('sidebar-overlay');
+  if (ov) ov.classList.remove('open');
+}
+
+// ===== MOBILE NAV =====
+function mobileNav(page, btn) {
+  document.querySelectorAll('.mob-nav-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  // Close sidebar if open
+  const sidebar = document.getElementById('sidebar');
+  if (sidebar) sidebar.classList.remove('open');
+  navigate(page);
+}
+
+// Sync mobile nav active state when desktop nav used
+function syncMobileNav(page) {
+  const map = { dashboard:0, employees:1, attendance:2, salary:3 };
+  const btns = document.querySelectorAll('.mob-nav-btn');
+  btns.forEach(b => b.classList.remove('active'));
+  if (map[page] !== undefined && btns[map[page]]) {
+    btns[map[page]].classList.add('active');
+  }
+}
+
+// Salary page print (same as payroll report)
+function printSalaryPage() { printPayroll(); }
+
+// ============================================================
+// PRINT FUNCTIONS
+// ============================================================
+
+async function printPayroll() {
+  const cfg   = getCompanyConfig();
+  const month = document.getElementById('rpt-month')?.value
+             || document.querySelector('input[type=month]')?.value
+             || thisMonth();
+  const rules = getSalaryRules();
+  const sym   = rules.currency_symbol || '$';
+
+  showToast('⏳ កំពុងរៀបចំ...', 'info');
+
+  let records = [], empMap = {};
+  try {
+    const [salData, empData] = await Promise.all([
+      api('GET', '/salary?month=' + month),
+      api('GET', '/employees?limit=500'),
+    ]);
+    records = salData.records || [];
+    (empData.employees || []).forEach(e => { empMap[e.id] = e; });
+  } catch(e) { showToast('Error: ' + e.message, 'error'); return; }
+
+  if (!records.length) { showToast('មិនទាន់មានទិន្នន័យ!', 'error'); return; }
+
+  let totalNet = 0, totalBase = 0;
+  const tableBody = records.map((r, i) => {
+    const emp  = empMap[r.employee_id] || {};
+    totalNet  += parseFloat(r.net_salary)  || 0;
+    totalBase += parseFloat(r.base_salary) || 0;
+    const statusHtml = r.status === 'paid'
+      ? '<span style="color:#16a34a;font-weight:700">✅ បានបង់</span>'
+      : '<span style="color:#d97706;font-weight:700">⏳ រង់ចាំ</span>';
+    return '<tr style="background:'+(i%2===0?'white':'#f8faff')+'">'
+      +'<td style="text-align:center;color:#666">'+(i+1)+'</td>'
+      +'<td style="font-weight:600">'+(r.employee_name||'—')+'</td>'
+      +'<td style="font-size:10px;color:#64748b">'+(r.department||'—')+'</td>'
+      +'<td style="font-family:monospace">'+sym+(r.base_salary||0)+'</td>'
+      +'<td style="font-family:monospace;color:#16a34a">+'+sym+(r.bonus||0)+'</td>'
+      +'<td style="font-family:monospace;color:#dc2626">-'+sym+(r.deduction||0)+'</td>'
+      +'<td style="font-family:monospace;font-weight:800;color:#1d4ed8">'+sym+(r.net_salary||0)+'</td>'
+      +'<td>'+statusHtml+'</td>'
+      +'</tr>';
+  }).join('');
+  const totalRow = '<tr style="background:#dbeafe;border-top:2px solid #1a3a8f">'
+    +'<td colspan="3" style="text-align:right;font-weight:700;padding:8px 6px">សរុប:</td>'
+    +'<td style="font-family:monospace;font-weight:700">'+sym+totalBase.toFixed(2)+'</td>'
+    +'<td></td><td></td>'
+    +'<td style="font-family:monospace;font-weight:800;color:#1a3a8f">'+sym+totalNet.toFixed(2)+'</td>'
+    +'<td></td></tr>';
+
+  const logoHtml = cfg.logo_url
+    ? '<img src="'+cfg.logo_url+'" style="width:48px;height:48px;object-fit:contain;border-radius:6px;margin-right:12px" />'
+    : '<div style="width:48px;height:48px;background:#1a3a8f;border-radius:6px;display:flex;align-items:center;justify-content:center;color:white;font-weight:800;font-size:18px;margin-right:12px">HR</div>';
+
+  printHTML('<!DOCTYPE html><html><head><meta charset="UTF-8">'
+    +'<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Khmer:wght@400;600;700;800&display=swap" rel="stylesheet">'
+    +'<title>Payroll '+month+'</title>'
+    +'<style>*{box-sizing:border-box;margin:0;padding:0;font-family:"Noto Sans Khmer",sans-serif}'
+    +'body{padding:16px;color:#1a1f2e;background:white}'
+    +'.header{display:flex;align-items:center;margin-bottom:14px;padding-bottom:10px;border-bottom:2px solid #1a3a8f}'
+    +'.co-name{font-size:18px;font-weight:800;color:#1a3a8f}'
+    +'.rpt-title{font-size:13px;font-weight:700;margin:2px 0}'
+    +'.rpt-sub{font-size:10px;color:#666}'
+    +'table{width:100%;border-collapse:collapse;font-size:10px}'
+    +'th{background:#1a3a8f;color:white;padding:7px 5px;text-align:left}'
+    +'td{padding:5px;border-bottom:1px solid #e2e8f0;vertical-align:middle}'
+    +'.footer{margin-top:16px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}'
+    +'.sign{border-top:1px dashed #999;padding-top:4px;font-size:9px;color:#666;text-align:center;margin-top:20px}'
+    +'@media print{@page{size:A4 landscape;margin:8mm}body{padding:0}}'
+    +'</style></head><body>'
+    +'<div class="header">'+logoHtml
+    +'<div><div class="co-name">'+(cfg.company_name||'HR Pro')+'</div>'
+    +'<div class="rpt-title">របាយការណ៍ប្រាក់ខែ — Payroll Report</div>'
+    +'<div class="rpt-sub">ខែ: '+month+' | សរុប: '+records.length+' នាក់ | បោះពុម្ពនៅ: '+new Date().toLocaleDateString('km-KH')+'</div>'
+    +'</div></div>'
+    +'<table><thead><tr>'
+    +'<th style="width:28px">លេខ</th><th>ឈ្មោះ</th><th>នាយកដ្ឋាន</th>'
+    +'<th>មូលដ្ឋាន</th><th>រង្វាន់</th><th>កាត់</th><th>Net</th><th>ស្ថានភាព</th>'
+    +'</tr></thead><tbody>'+tableBody+totalRow+'</tbody></table>'
+    +'<div class="footer">'
+    +'<div class="sign">ហត្ថលេខាអ្នកត្រួតពិនិត្យ</div>'
+    +'<div class="sign">ហត្ថលេខាអ្នកអនុម័ត</div>'
+    +'<div class="sign">ហត្ថលេខានាយក</div>'
+    +'</div></body></html>');
+}
+
+function printSingleCard(btn) {
+  // Find the id-card-wrapper parent of the button
+  const wrapper = btn.closest('.id-card-wrapper');
+  if (!wrapper) { showToast('មិនរកឃើញកាត!','error'); return; }
+
+  const card = wrapper.querySelector('.id-flip-card');
+  if (!card) { showToast('មិនរកឃើញកាត!','error'); return; }
+
+  const mode   = btn.dataset.mode || currentCardMode;  // 'landscape' or 'portrait'
+  const name   = card.dataset.name || '';
+  const cfg    = getCompanyConfig();
+  const style  = currentCardStyle;
+
+  const logoHtml = cfg.logo_url
+    ? '<img src="'+cfg.logo_url+'" style="height:22px;object-fit:contain;vertical-align:middle;margin-right:6px" />'
+    : '';
+
+  const frontEl = card.querySelector('.id-flip-front');
+  const backEl  = card.querySelector('.id-flip-back');
+  if (!frontEl || !backEl) { showToast('មិនរកឃើញ Front/Back!','error'); return; }
+
+  if (mode === 'portrait') {
+    // Portrait: CR80  54mm × 85.6mm
+    const CW = 54, CH = 85.6, PW = 204, PH = 323;
+    const front = frontEl.cloneNode(true);
+    const back  = backEl.cloneNode(true);
+    [front, back].forEach(el => {
+      el.style.cssText =
+        'position:absolute;top:0;left:0;'
+        +'transform-origin:top left;'
+        +'backface-visibility:visible;-webkit-backface-visibility:visible;'
+        +'width:'+PW+'px;height:'+PH+'px;'
+        +'display:block;border-radius:0;overflow:hidden;';
+    });
+
+    const pairHTML =
+      '<div class="card-pair">'
+        +'<div class="emp-label">'+name+'</div>'
+        +'<div class="card-row">'
+          +'<div class="card-col"><div class="side-label">&#9658; FRONT</div>'
+            +'<div class="card-box">'+front.outerHTML+'</div></div>'
+          +'<div class="card-col"><div class="side-label">&#9664; BACK</div>'
+            +'<div class="card-box">'+back.outerHTML+'</div></div>'
+        +'</div></div>';
+
+    const html = '<!DOCTYPE html><html><head>'
+      +'<meta charset="UTF-8">'
+      +'<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Khmer:wght@400;600;700;800&display=swap" rel="stylesheet">'
+      +'<title>ID Card — '+name+'</title>'
+      +'<style>'
+      +'*{box-sizing:border-box;margin:0;padding:0}'
+      +'@page{size:A4 portrait;margin:10mm}'
+      +'body{font-family:"Noto Sans Khmer",sans-serif;background:white;color:#1e293b;width:190mm;-webkit-print-color-adjust:exact;print-color-adjust:exact}'
+      +'.id-flip-card,.id-portrait-card{perspective:none!important;}'
+      +'.id-flip-inner{transform:none!important;transform-style:flat!important;position:static!important;display:block!important;width:auto!important;height:auto!important;}'
+      +'.id-flip-front,.id-flip-back{transform:none!important;backface-visibility:visible!important;-webkit-backface-visibility:visible!important;}'
+      +'.print-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:6mm;padding-bottom:3mm;border-bottom:2px solid #1d4ed8}'
+      +'.co-name{font-size:11pt;font-weight:800;color:#1d4ed8}'
+      +'.hdr-r{font-size:7pt;color:#64748b;text-align:right;line-height:1.6}'
+      +'.card-pair{display:flex;flex-direction:column;align-items:flex-start}'
+      +'.emp-label{font-size:7pt;font-weight:700;color:#475569;margin-bottom:2mm}'
+      +'.card-row{display:flex;gap:6mm;align-items:flex-start}'
+      +'.card-col{display:flex;flex-direction:column;align-items:center}'
+      +'.side-label{font-size:5.5pt;font-weight:700;color:#94a3b8;margin-bottom:1mm;text-align:center}'
+      +'.card-box{width:'+CW+'mm;height:'+CH+'mm;overflow:hidden;position:relative;border-radius:2mm;box-shadow:0 0 0 0.3mm #94a3b8;flex-shrink:0}'
+      +'.card-box>div{position:absolute!important;top:0!important;left:0!important;width:'+PW+'px!important;height:'+PH+'px!important;transform:scale(calc('+CW+'mm / '+PW+'px))!important;transform-origin:top left!important;border-radius:0!important;overflow:hidden!important;}'
+      +'</style></head><body>'
+      +'<div class="print-header">'
+        +'<div style="display:flex;align-items:center;gap:5px">'+logoHtml+'<span class="co-name">'+(cfg.company_name||'HR Pro')+'</span></div>'
+        +'<div class="hdr-r">&#128203; ID Card &#8212; &#x1794;&#x1789;&#x17B9;<br>'
+          +(CARD_STYLE_META[style]?.label||style)+' &middot; '+new Date().toLocaleDateString('km-KH')
+        +'</div>'
+      +'</div>'
+      +'<div>'+pairHTML+'</div>'
+      +'<script>window.onload=function(){window.focus();window.print();}<\/script>'
+      +'</body></html>';
+
+    printHTML(html);
+
+  } else {
+    // Landscape: CR80  85.6mm × 54mm  → display 323px × 204px
+    const cloneFront = frontEl.cloneNode(true);
+    const cloneBack  = backEl.cloneNode(true);
+    [cloneFront, cloneBack].forEach(el => {
+      el.style.cssText = 'position:relative;transform:none;backface-visibility:visible;width:323px;height:204px;display:block;border-radius:12px;overflow:hidden;';
+    });
+
+    const pairHTML =
+      '<div class="card-pair">'
+        +'<div class="emp-label">'+name+'</div>'
+        +'<div class="card-row">'
+          +'<div class="card-side"><div class="side-label">&#9658; FRONT</div><div class="card-box">'+cloneFront.outerHTML+'</div></div>'
+          +'<div class="card-side"><div class="side-label">&#9664; BACK</div><div class="card-box">'+cloneBack.outerHTML+'</div></div>'
+        +'</div></div>';
+
+    printHTML('<!DOCTYPE html><html><head><meta charset="UTF-8">'
+      +'<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Khmer:wght@400;600;700;800&display=swap" rel="stylesheet">'
+      +'<title>ID Card — '+name+'</title>'
+      +'<style>*{box-sizing:border-box;margin:0;padding:0}'
+      +'body{font-family:"Noto Sans Khmer",sans-serif;background:white;color:#1e293b;padding:6mm}'
+      +'.id-flip-card{perspective:none!important;}'
+      +'.id-flip-inner{transform:none!important;transform-style:flat!important;position:static!important;display:block!important;}'
+      +'.id-flip-front,.id-flip-back{transform:none!important;backface-visibility:visible!important;-webkit-backface-visibility:visible!important;}'
+      +'.print-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:5mm;padding-bottom:3mm;border-bottom:2px solid #1d4ed8}'
+      +'.co-name{font-size:12pt;font-weight:800;color:#1d4ed8}'
+      +'.hdr-r{font-size:7pt;color:#64748b;text-align:right;line-height:1.6}'
+      +'.card-pair{}'
+      +'.emp-label{font-size:7pt;font-weight:700;color:#64748b;letter-spacing:1px;margin-bottom:2mm}'
+      +'.card-row{display:flex;gap:6mm;align-items:flex-start}'
+      +'.card-side{display:flex;flex-direction:column;align-items:center}'
+      +'.side-label{font-size:5.5pt;font-weight:700;color:#94a3b8;margin-bottom:1mm;text-align:center}'
+      +'.card-box{width:323px;height:204px;border-radius:12px;overflow:hidden;flex-shrink:0}'
+      +'.card-box>div{width:100%!important;height:100%!important;border-radius:12px!important;overflow:hidden!important}'
+      +'@media print{@page{size:A4 portrait;margin:8mm}body{padding:4mm}.card-box{box-shadow:0 0 0 0.3mm #94a3b8}}'
+      +'</style></head><body>'
+      +'<div class="print-header">'
+        +'<div style="display:flex;align-items:center;gap:6px">'+logoHtml+'<span class="co-name">'+(cfg.company_name||'HR Pro')+'</span></div>'
+        +'<div class="hdr-r">&#128203; ID Card &#8212; ផ្តេក<br>'
+          +(CARD_STYLE_META[style]?.label||style)+' &middot; '+new Date().toLocaleDateString('km-KH')
+        +'</div>'
+      +'</div>'
+      +'<div>'+pairHTML+'</div>'
+      +'<script>window.onload=function(){window.focus();window.print();}<\/script>'
+      +'</body></html>');
+  }
+}
+
+function printIdCards() {
+  // Route to portrait-specific print if current mode is portrait
+  if (currentCardMode === 'portrait') { printIdCardsPortrait(); return; }
+  const cards = document.querySelectorAll('.id-flip-card');
+  if (!cards.length) { showToast('មិនទាន់មានកាត!','error'); return; }
+  const cfg   = getCompanyConfig();
+  const style = currentCardStyle;
+
+  const logoHtml = cfg.logo_url
+    ? '<img src="'+cfg.logo_url+'" style="height:28px;object-fit:contain;vertical-align:middle;margin-right:8px" />'
+    : '';
+
+  let pairsHTML = '';
+  cards.forEach(card => {
+    if ((card.closest('.id-card-wrapper')||card).style.display === 'none') return;
+    const name  = card.dataset.name || '';
+    const front = card.querySelector('.id-flip-front');
+    const back  = card.querySelector('.id-flip-back');
+    if (!front && !back) return;
+    const cloneFront = front ? front.cloneNode(true) : null;
+    const cloneBack  = back  ? back.cloneNode(true)  : null;
+    [cloneFront, cloneBack].forEach(el => {
+      if (!el) return;
+      el.style.cssText = 'position:relative;transform:none;backface-visibility:visible;width:323px;height:204px;display:block;border-radius:12px;overflow:hidden;';
+    });
+    pairsHTML +=
+      '<div class="card-pair">'
+      +'<div class="emp-label">'+name+'</div>'
+      +'<div class="card-row">'
+      +'<div class="card-side"><div class="side-label">▶ FRONT</div><div class="card-box">'+(cloneFront?cloneFront.outerHTML:'')+'</div></div>'
+      +'<div class="card-side"><div class="side-label">◀ BACK</div><div class="card-box">'+(cloneBack?cloneBack.outerHTML:'')+'</div></div>'
+      +'</div></div>';
+  });
+
+  printHTML('<!DOCTYPE html><html><head><meta charset="UTF-8">'
+    +'<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Khmer:wght@400;600;700;800&display=swap" rel="stylesheet">'
+    +'<title>ID Cards — '+(cfg.company_name||'HR Pro')+'</title>'
+    +'<style>*{box-sizing:border-box;margin:0;padding:0}'
+    +'body{font-family:"Noto Sans Khmer",sans-serif;background:white;color:#1e293b;padding:6mm}'
+    +'.print-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:5mm;padding-bottom:3mm;border-bottom:2px solid #1d4ed8}'
+    +'.header-left{display:flex;align-items:center;gap:8px}'
+    +'.co-name{font-size:13pt;font-weight:800;color:#1d4ed8}'
+    +'.header-right{font-size:8pt;color:#64748b;text-align:right}'
+    +'.cards-grid{display:flex;flex-direction:column;gap:7mm}'
+    +'.card-pair{break-inside:avoid;page-break-inside:avoid}'
+    +'.emp-label{font-size:6.5pt;font-weight:700;color:#64748b;letter-spacing:1px;margin-bottom:1.5mm}'
+    +'.card-row{display:flex;gap:5mm;align-items:flex-start}'
+    +'.side-label{font-size:5.5pt;font-weight:700;color:#94a3b8;letter-spacing:.5px;margin-bottom:1mm;text-align:center}'
+    +'.card-box{width:323px;height:204px;border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.15);display:block;flex-shrink:0}'
+    +'.card-box>div{width:100%!important;height:100%!important;border-radius:12px!important;overflow:hidden!important}'
+    +'@media print{@page{size:A4 portrait;margin:6mm}body{padding:3mm}.card-box{box-shadow:0 0 0 0.3mm #94a3b8}}'
+    +'</style></head><body>'
+    +'<div class="print-header">'
+    +'<div class="header-left">'+logoHtml+'<div class="co-name">'+(cfg.company_name||'HR Pro')+'</div></div>'
+    +'<div class="header-right">🪪 Employee ID Cards<br>'+(CARD_STYLE_META[style]?.label||style)+' · '+new Date().toLocaleDateString('km-KH')+'<br>'+cards.length+' Cards</div>'
+    +'</div>'
+    +'<div class="cards-grid">'+pairsHTML+'</div>'
+    +'</body></html>');
+}
+
+function printIdCardsPortrait() {
+  const cards = document.querySelectorAll('.id-flip-card');
+  if (!cards.length) { showToast('មិនទាន់មានកាត!','error'); return; }
+  const cfg   = getCompanyConfig();
+  const style = currentCardStyle;
+
+  const logoHtml = cfg.logo_url
+    ? '<img src="'+cfg.logo_url+'" style="height:20px;object-fit:contain;vertical-align:middle;margin-right:5px" />'
+    : '';
+
+  // CR80 Portrait physical: 54mm × 85.6mm
+  // Strategy: size card-box in mm (browser respects mm at print),
+  // render inner content at native px then CSS-scale to fill mm box.
+  // 54mm / 25.4 * 96dpi = 204px → scale factor = 1.0 (no scale needed if dpi=96)
+  // But browser screen dpi varies, so we use mm for outer box and transform for inner.
+  const CW = 54;      // card width mm
+  const CH = 85.6;    // card height mm
+  const PW = 204;     // inner render px
+  const PH = 323;     // inner render px
+
+  // CSS transform scale: mm → px conversion at 96dpi: 1mm = 3.7795px
+  // box mm → px: 54mm * 3.7795 = 204px, 85.6mm * 3.7795 = 323px → scale = 1.0 exactly
+  // So inner px content fills mm box perfectly at 96dpi print.
+  // For safety we use transform scale inside the mm box.
+
+  let pairsHTML = '';
+  cards.forEach(card => {
+    if ((card.closest('.id-card-wrapper')||card).style.display === 'none') return;
+    const name    = card.dataset.name || '';
+    const dept    = card.dataset.dept || '';
+    const frontEl = card.querySelector('.id-flip-front');
+    const backEl  = card.querySelector('.id-flip-back');
+    if (!frontEl || !backEl) return;
+
+    const front = frontEl.cloneNode(true);
+    const back  = backEl.cloneNode(true);
+    [front, back].forEach(el => {
+      el.style.cssText =
+        'position:absolute;top:0;left:0;'
+        +'transform-origin:top left;'
+        +'backface-visibility:visible;-webkit-backface-visibility:visible;'
+        +'width:'+PW+'px;height:'+PH+'px;'
+        +'display:block;border-radius:0;overflow:hidden;';
+    });
+
+    pairsHTML +=
+      '<div class="card-pair">'
+        +'<div class="emp-label">'+name+(dept?' · '+dept:'')+'</div>'
+        +'<div class="card-row">'
+          +'<div class="card-col"><div class="side-label">&#9658; FRONT</div>'
+            +'<div class="card-box">'+front.outerHTML+'</div></div>'
+          +'<div class="card-col"><div class="side-label">&#9664; BACK</div>'
+            +'<div class="card-box">'+back.outerHTML+'</div></div>'
+        +'</div></div>';
+  });
+
+  const html = '<!DOCTYPE html><html><head>'
+    +'<meta charset="UTF-8">'
+    +'<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Khmer:wght@400;600;700;800&display=swap" rel="stylesheet">'
+    +'<title>ID Cards Portrait</title>'
+    +'<style>'
+    +'*{box-sizing:border-box;margin:0;padding:0}'
+    +'@page{size:A4 portrait;margin:8mm}'
+    // body width = A4 - margins = 210-16=194mm
+    // DO NOT set body width in px — use mm so browser does not auto-scale
+    +'body{'
+      +'font-family:"Noto Sans Khmer",sans-serif;'
+      +'background:white;color:#1e293b;'
+      +'width:194mm;'
+      +'-webkit-print-color-adjust:exact;print-color-adjust:exact;'
+    +'}'
+    // Flip card reset
+    +'.id-flip-card,.id-portrait-card{perspective:none!important;}'
+    +'.id-flip-inner{transform:none!important;transform-style:flat!important;'
+      +'position:static!important;display:block!important;width:auto!important;height:auto!important;}'
+    +'.id-flip-front,.id-flip-back{'
+      +'transform:none!important;backface-visibility:visible!important;'
+      +'-webkit-backface-visibility:visible!important;}'
+    // Header
+    +'.print-header{display:flex;align-items:center;justify-content:space-between;'
+      +'margin-bottom:5mm;padding-bottom:3mm;border-bottom:2px solid #1d4ed8;width:100%;}'
+    +'.co-name{font-size:11pt;font-weight:800;color:#1d4ed8}'
+    +'.hdr-r{font-size:7pt;color:#64748b;text-align:right;line-height:1.6}'
+    // Card layout — widths in mm to prevent px-based overflow
+    +'.cards-grid{display:flex;flex-direction:column;gap:5mm}'
+    +'.card-pair{break-inside:avoid;page-break-inside:avoid}'
+    +'.emp-label{font-size:6pt;font-weight:700;color:#475569;letter-spacing:.4px;margin-bottom:1.5mm}'
+    +'.card-row{display:flex;gap:5mm;align-items:flex-start}'
+    +'.card-col{display:flex;flex-direction:column;align-items:center}'
+    +'.side-label{font-size:5.5pt;font-weight:700;color:#94a3b8;margin-bottom:1mm;text-align:center}'
+    // card-box sized in mm = exact CR80 portrait physical size
+    // inner px content fills this exactly at 96dpi
+    +'.card-box{'
+      +'width:'+CW+'mm;'        // 54mm = CR80 width
+      +'height:'+CH+'mm;'       // 85.6mm = CR80 height
+      +'overflow:hidden;'
+      +'position:relative;'
+      +'border-radius:2mm;'
+      +'box-shadow:0 0 0 0.3mm #94a3b8;'
+      +'flex-shrink:0;'
+    +'}'
+    // Inner content: positioned absolute, scale to fit mm box exactly
+    // At 96dpi: 54mm = 204.09px, 85.6mm = 323.35px → scale ≈ 1.0
+    // Use scale(1) to force correct render
+    +'.card-box>div{'
+      +'position:absolute!important;'
+      +'top:0!important;left:0!important;'
+      +'width:'+PW+'px!important;'
+      +'height:'+PH+'px!important;'
+      +'transform:scale(calc('+CW+'mm / '+PW+'px))!important;'
+      +'transform-origin:top left!important;'
+      +'border-radius:0!important;'
+      +'overflow:hidden!important;'
+    +'}'
+    +'</style></head><body>'
+    +'<div class="print-header">'
+      +'<div style="display:flex;align-items:center;gap:5px">'+logoHtml
+        +'<span class="co-name">'+(cfg.company_name||'HR Pro')+'</span></div>'
+      +'<div class="hdr-r">&#128203; Employee ID Cards &#8212; &#x1794;&#x1789;&#x17B9;<br>'
+        +(CARD_STYLE_META[style]?.label||style)
+        +' &middot; '+new Date().toLocaleDateString('km-KH')
+        +' &middot; '+cards.length+' Cards'
+      +'</div>'
+    +'</div>'
+    +'<div class="cards-grid">'+pairsHTML+'</div>'
+    +'<script>window.onload=function(){window.focus();window.print();}<\/script>'
+    +'</body></html>';
+
+  const w = window.open('','_blank','width=900,height=750');
+  if (!w) { showToast('សូម allow popup!','warning'); return; }
+  w.document.write(html);
+  w.document.close();
+}
+
+// ===== MODAL / TOAST / BADGE =====
+function openModal() { $('modal-overlay').classList.add('open'); }
+function closeModal() { $('modal-overlay').classList.remove('open'); document.getElementById('modal')?.classList.remove('modal--wide'); }
+
+function showToast(msg, type='info') {
+  const icons={success:'✅',error:'❌',warning:'⚠️',info:'ℹ️'};
+  const t=document.createElement('div');
+  t.className=`toast ${type}`;
+  t.innerHTML=`<span class="toast-icon">${icons[type]||'ℹ️'}</span><span class="toast-msg">${msg}</span>`;
+  $('toast-container').appendChild(t);
+  setTimeout(()=>t.remove(),3500);
+}
+
+function statusBadge(status) {
+  return ({active:'<span class="badge badge-green">✅ ធ្វើការ</span>',on_leave:'<span class="badge badge-yellow">🌴 ច្បាប់</span>',inactive:'<span class="badge badge-red">⛔ ផ្អាក</span>'}[status])||`<span class="badge">${status}</span>`;
+}
+
+// ============================================================
+// AUTO LOGOUT — 15 minutes idle detection
+// ============================================================
+const IDLE_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
+const IDLE_WARNING_MS = 14 * 60 * 1000; // Warning at 14 minutes (1 min before logout)
+let _idleTimer = null;
+let _idleWarnTimer = null;
+let _idleWarningShown = false;
+
 function resetIdleTimer() {
   if (!isLoggedIn()) return;
   clearTimeout(_idleTimer);
@@ -8110,6 +9270,7 @@ function resetIdleTimer() {
   _idleWarnTimer = setTimeout(() => {
     if (!isLoggedIn()) return;
     _idleWarningShown = true;
+    // Show warning banner
     let banner = document.getElementById('idle-warning-banner');
     if (!banner) {
       banner = document.createElement('div');
@@ -8121,8 +9282,9 @@ function resetIdleTimer() {
         'box-shadow:0 4px 20px rgba(0,0,0,0.3)','font-size:14px',
         'display:flex','align-items:center','gap:10px','white-space:nowrap',
       ].join(';');
-      banner.innerHTML = '⚠️ ប្រព័ន្ធនឹងចាក់ច័ញស្វ័យប្រវត្តិក្នុង <span id="idle-countdown">60</span> វិនាតី — <button onclick="resetIdleTimer()" style="background:#1a1a1a;color:#f59e0b;border:none;padding:4px 12px;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px">ស្នើ​ থাকতে</button>';
+      banner.innerHTML = '⚠️ ប្រព័ន្ធនឹងចាក់ចេញស្វ័យប្រវត្តិក្នុង <span id="idle-countdown">60</span> វិនាទី — <button onclick="resetIdleTimer()" style="background:#1a1a1a;color:#f59e0b;border:none;padding:4px 12px;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px">ស្នើ​ থাকতে</button>';
       document.body.appendChild(banner);
+      // Countdown
       let secs = 60;
       const cdEl = document.getElementById('idle-countdown');
       const cdInterval = setInterval(() => {
