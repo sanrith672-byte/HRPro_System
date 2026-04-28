@@ -354,10 +354,9 @@ function updateNavVisibility() {
   // Sidebar nav
   document.querySelectorAll('.nav-item[data-page]').forEach(el => {
     const page = el.dataset.page;
-    // QR Scanner role: only show qr_scan page, hide everything else
-    if (isQRScanner) {
-      el.style.display = (page === 'qr_scan') ? '' : 'none';
-      return;
+    // Hide dashboard & attendance for QR Scanner
+    if (isQRScanner && (page === 'dashboard' || page === 'attendance')) {
+      el.style.display = 'none'; return;
     }
     const permKey = PAGE_PERMS[page];
     const allowed = !permKey || hasPerm(permKey);
@@ -368,10 +367,9 @@ function updateNavVisibility() {
   document.querySelectorAll('.mob-nav-btn[data-mob-page]').forEach(el => {
     const page = el.dataset.mobPage;
     if (page === 'more') return;
-    // QR Scanner role: only show qr_scan page, hide everything else
-    if (isQRScanner) {
-      el.style.display = (page === 'qr_scan') ? '' : 'none';
-      return;
+    // Hide dashboard & attendance for QR Scanner
+    if (isQRScanner && (page === 'dashboard' || page === 'attendance')) {
+      el.style.display = 'none'; return;
     }
     const permKey = PAGE_PERMS[page];
     const allowed = !permKey || hasPerm(permKey);
@@ -382,13 +380,9 @@ function updateNavVisibility() {
 function navigate(page) {
   // Permission check
   const permKey = PAGE_PERMS[page];
-  const session = getSession();
-  const isQRScannerRole = session && session.role === 'QR Scanner';
-  // QR Scanner role always has access to qr_scan page regardless of stored permissions
-  const skipPermCheck = isQRScannerRole && page === 'qr_scan';
-  if (permKey && !skipPermCheck && !hasPerm(permKey)) {
+  if (permKey && !hasPerm(permKey)) {
     showToast('⛔ អ្នកគ្មានសិទ្ធចូល "'+page+'" !', 'error');
-    page = isQRScannerRole ? 'qr_scan' : 'dashboard';
+    page = 'dashboard';
   }
 
   state.currentPage = page;
@@ -790,8 +784,6 @@ function hasPerm(key) {
   const role = session.role || '';
   // Admin always has full access
   if (role === 'អ្នកគ្រប់គ្រង' || role.toLowerCase() === 'admin' || session.username === 'admin' || session.username === 'adminsupport') return true;
-  // QR Scanner role always has attendance_scan permission (core function of this role)
-  if (role === 'QR Scanner' && (key === 'attendance_scan' || key === 'attendance_view' || key === 'attendance_edit')) return true;
   const perms = getPermissions();
   const rolePerms = perms[role];
   if (!rolePerms) return false;
@@ -2835,12 +2827,7 @@ async function quickCheckOut(empId, date) {
   try {
     await api('POST','/attendance',{ employee_id:empId, date, check_out:time, status:'present' });
     showToast('ចុះម៉ោងចេញ '+time+' បានជោគជ័យ!','success');
-    // QR Scanner role stays on QR scan page
-    if (getSession()?.role === 'QR Scanner') {
-      navigate('qr_scan');
-    } else {
-      renderAttendance(date);
-    }
+    renderAttendance(date);
   } catch(e) { showToast('Error: '+e.message,'error'); }
 }
 
@@ -3268,12 +3255,7 @@ async function processQRScan_continue(emp, raw, date) {
       setTimeout(() => {
         overlay.remove();
         closeModal();
-        // QR Scanner role stays on QR scan page — never redirect to attendance
-        if (getSession()?.role === 'QR Scanner') {
-          navigate('qr_scan');
-        } else {
-          renderAttendance(date);
-        }
+        renderAttendance(date);
       }, 1400);
     }, 300);
 
