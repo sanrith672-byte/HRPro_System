@@ -7779,23 +7779,56 @@ function renderSettings() {
           </div>
           <div class="settings-section-body">
             <div class="account-list" id="account-list-render">
-              ${(window._accountsCache || getUsers()).filter(u => u.username !== 'adminsupport' && !DEMO_USERNAMES.includes(u.username.toLowerCase())).map(u => {
-                const uPhoto = u.photo || photoCache['user_' + u.id] || '';
-                const avatarEl = uPhoto
-                  ? '<div class="account-avatar" style="overflow:hidden;padding:0"><img src="'+uPhoto+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%" /></div>'
-                  : '<div class="account-avatar">' + (u.name||'?')[0].toUpperCase() + '</div>';
-                return '<div class="account-item">'
-                  + avatarEl
-                  + '<div class="account-info">'
-                  + '<div class="account-name">' + u.name + '</div>'
-                  + '<div style="font-family:var(--mono);font-size:11px;color:var(--text3)">@' + u.username + '</div>'
-                  + '<div class="account-role" style="margin-top:2px">' + u.role + (u.role === 'QR Scanner' ? ' <span style="background:var(--success);color:white;font-size:9px;padding:1px 6px;border-radius:20px;vertical-align:middle">📷 QR</span>' : '') + '</div>'
-                  + '</div>'
-                  + '<div class="action-btns">'
-                  + '<button class="btn btn-outline btn-sm" onclick="openEditAccountModal(' + u.id + ')">✏️ កែ</button>'
-                  + (u.username !== 'admin' ? '<button class="btn btn-danger btn-sm" onclick="deleteAccount(' + u.id + ')">🗑️</button>' : '')
-                  + '</div></div>';
-              }).join('')}
+              \${(() => {
+                const allUsers = (window._accountsCache || getUsers()).filter(u => u.username !== 'adminsupport' && !DEMO_USERNAMES.includes(u.username.toLowerCase()));
+                const qrUsers    = allUsers.filter(u => u.role === 'QR Scanner');
+                const staffUsers = allUsers.filter(u => u.role !== 'QR Scanner');
+                const buildItem = u => {
+                  const uPhoto = u.photo || photoCache['user_' + u.id] || '';
+                  const avatarEl = uPhoto
+                    ? '<div class="account-avatar" style="overflow:hidden;padding:0"><img src="'+uPhoto+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%" /></div>'
+                    : '<div class="account-avatar">' + (u.name||'?')[0].toUpperCase() + '</div>';
+                  const roleTag = u.role === 'QR Scanner' ? ' <span style="background:var(--success);color:white;font-size:9px;padding:2px 7px;border-radius:20px;vertical-align:middle;margin-left:4px">📷 QR</span>' : '';
+                  return '<div class="account-item">' + avatarEl
+                    + '<div class="account-info"><div class="account-name">'+u.name+'</div>'
+                    + '<div style="font-family:var(--mono);font-size:11px;color:var(--text3)">@'+u.username+'</div>'
+                    + '<div class="account-role" style="margin-top:2px">'+u.role+roleTag+'</div></div>'
+                    + '<div class="action-btns">'
+                    + '<button class="btn btn-outline btn-sm" onclick="openEditAccountModal('+u.id+')">✏️ កែ</button>'
+                    + (u.username !== 'admin' ? '<button class="btn btn-danger btn-sm" onclick="deleteAccount('+u.id+')">🗑️</button>' : '')
+                    + '</div></div>';
+                };
+                const grpHdr = (lbl,icon,color,cnt) =>
+                  '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px 8px">'
+                  +'<div style="width:30px;height:30px;border-radius:8px;background:'+color+';display:flex;align-items:center;justify-content:center;font-size:15px">'+icon+'</div>'
+                  +'<div style="flex:1"><div style="font-size:12px;font-weight:700;color:var(--text1)">'+lbl+'</div>'
+                  +'<div style="font-size:10px;color:var(--text3)">'+cnt+' Account'+(cnt!==1?'s':'')+'</div></div>'
+                  +'<div style="font-size:11px;font-weight:600;padding:2px 10px;border-radius:20px;background:'+color+';color:var(--text2)">'+cnt+'</div>'
+                  +'</div><div style="height:1px;background:var(--border);margin:0 14px 6px"></div>';
+                let out = '';
+                if (staffUsers.length) {
+                  out += '<div style="background:var(--bg3);border:1px solid var(--border);border-radius:12px;margin-bottom:14px;overflow:hidden">';
+                  out += grpHdr('បុគ្គលិក / Admin','👥','rgba(99,102,241,.18)',staffUsers.length);
+                  out += staffUsers.map(buildItem).join('');
+                  out += '</div>';
+                }
+                if (qrUsers.length) {
+                  out += '<div style="background:var(--bg3);border:2px solid rgba(16,185,129,.35);border-radius:12px;margin-bottom:14px;overflow:hidden">';
+                  out += grpHdr('QR Scanner','📷','rgba(16,185,129,.22)',qrUsers.length);
+                  out += qrUsers.map(buildItem).join('');
+                  out += '<div style="padding:10px 14px 12px"><button class="btn btn-outline btn-sm" style="border-color:var(--success);color:var(--success);width:100%" onclick="openAddQRScannerModal()">＋ បន្ថែម QR Scanner</button></div>';
+                  out += '</div>';
+                } else {
+                  out += '<div style="background:var(--bg3);border:2px dashed rgba(16,185,129,.4);border-radius:12px;margin-bottom:14px;padding:20px;text-align:center">';
+                  out += '<div style="font-size:32px;margin-bottom:8px">📷</div>';
+                  out += '<div style="font-size:13px;font-weight:700;color:var(--text2);margin-bottom:4px">គ្មាន QR Scanner ទេ</div>';
+                  out += '<div style="font-size:11px;color:var(--text3);margin-bottom:12px">បង្កើត Account ដាច់ដោយឡែកសម្រាប់ QR Scanner</div>';
+                  out += '<button class="btn btn-outline btn-sm" style="border-color:var(--success);color:var(--success)" onclick="openAddQRScannerModal()">＋ បន្ថែម QR Scanner</button>';
+                  out += '</div>';
+                }
+                return out;
+              })()}
+            
             </div>
             <div class="form-actions" style="margin-top:16px;padding-top:0;border:none">
               <button class="btn btn-primary" onclick="openAddAccountModal()">
@@ -8202,34 +8235,128 @@ async function syncAndRefreshAccounts() {
   }
 }
 
+function _buildAccountItemHTML(u) {
+  const uPhoto = u.photo || photoCache['user_' + u.id] || '';
+  const avatarEl = uPhoto
+    ? '<div class="account-avatar" style="overflow:hidden;padding:0;flex-shrink:0"><img src="' + uPhoto + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%" /></div>'
+    : '<div class="account-avatar" style="flex-shrink:0;font-size:18px;font-weight:800">' + (u.name || '?')[0].toUpperCase() + '</div>';
+  const isQR = u.role === 'QR Scanner';
+  const roleTag = isQR
+    ? '<span style="background:var(--success);color:white;font-size:9px;padding:2px 7px;border-radius:20px;vertical-align:middle;margin-left:4px">📷 QR</span>'
+    : '';
+  return '<div class="account-item" style="flex-wrap:wrap;gap:10px">'
+    + avatarEl
+    + '<div class="account-info" style="flex:1;min-width:120px">'
+    + '<div class="account-name" style="font-size:14px">' + u.name + '</div>'
+    + '<div style="font-family:var(--mono);font-size:11px;color:var(--text3)">@' + u.username + '</div>'
+    + '<div class="account-role" style="margin-top:2px">' + u.role + roleTag + '</div>'
+    + '</div>'
+    + '<div class="action-btns" style="flex-shrink:0">'
+    + '<button class="btn btn-outline btn-sm" onclick="openEditAccountModal(' + u.id + ')">✏️ កែ</button>'
+    + (u.username !== 'admin' ? '<button class="btn btn-danger btn-sm" onclick="deleteAccount(' + u.id + ')">🗑️</button>' : '')
+    + '</div></div>';
+}
+
+function _buildGroupHeader(label, icon, color, count) {
+  return '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px 8px;margin-top:4px">'
+    + '<div style="width:30px;height:30px;border-radius:8px;background:' + color + ';display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0">' + icon + '</div>'
+    + '<div style="flex:1">'
+    + '<div style="font-size:12px;font-weight:700;color:var(--text1)">' + label + '</div>'
+    + '<div style="font-size:10px;color:var(--text3)">' + count + ' Account' + (count !== 1 ? 's' : '') + '</div>'
+    + '</div>'
+    + '<div style="font-size:11px;font-weight:600;padding:2px 10px;border-radius:20px;background:' + color + ';color:var(--text2)">' + count + '</div>'
+    + '</div>'
+    + '<div style="height:1px;background:var(--border);margin:0 14px 6px"></div>';
+}
+
 function refreshAccountList() {
   const container = document.getElementById('account-list-render');
   if (!container) return;
-  const users = (window._accountsCache || getUsers()).filter(u =>
+  const allUsers = (window._accountsCache || getUsers()).filter(u =>
     u.username !== 'adminsupport' && !DEMO_USERNAMES.includes(u.username.toLowerCase())
   );
-  if (!users.length) {
+  if (!allUsers.length) {
     container.innerHTML = '<div style="color:var(--text3);text-align:center;padding:24px">មិនមាន Account ទេ</div>';
     return;
   }
-  container.innerHTML = users.map(u => {
-    const uPhoto = u.photo || photoCache['user_' + u.id] || '';
-    const avatarEl = uPhoto
-      ? '<div class="account-avatar" style="overflow:hidden;padding:0;flex-shrink:0"><img src="' + uPhoto + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%" /></div>'
-      : '<div class="account-avatar" style="flex-shrink:0;font-size:18px;font-weight:800">' + (u.name || '?')[0].toUpperCase() + '</div>';
-    return '<div class="account-item" style="flex-wrap:wrap;gap:10px">'
-      + avatarEl
-      + '<div class="account-info" style="flex:1;min-width:120px">'
-      + '<div class="account-name" style="font-size:14px">' + u.name + '</div>'
-      + '<div style="font-family:var(--mono);font-size:11px;color:var(--text3)">@' + u.username + '</div>'
-      + '<div class="account-role" style="margin-top:2px">' + u.role
-      + (u.role === 'QR Scanner' ? ' <span style="background:var(--success);color:white;font-size:9px;padding:1px 6px;border-radius:20px;vertical-align:middle">📷 QR</span>' : '')
-      + '</div></div>'
-      + '<div class="action-btns" style="flex-shrink:0">'
-      + '<button class="btn btn-outline btn-sm" onclick="openEditAccountModal(' + u.id + ')">✏️ កែ</button>'
-      + (u.username !== 'admin' ? '<button class="btn btn-danger btn-sm" onclick="deleteAccount(' + u.id + ')">🗑️</button>' : '')
-      + '</div></div>';
-  }).join('');
+
+  const qrUsers    = allUsers.filter(u => u.role === 'QR Scanner');
+  const staffUsers = allUsers.filter(u => u.role !== 'QR Scanner');
+
+  let html = '';
+
+  // ── Group 1: Staff / Admin ────────────────────────────────────
+  if (staffUsers.length) {
+    html += '<div style="background:var(--bg3);border:1px solid var(--border);border-radius:12px;margin-bottom:14px;overflow:hidden">';
+    html += _buildGroupHeader('បុគ្គលិក / Admin', '👥', 'rgba(99,102,241,.18)', staffUsers.length);
+    html += staffUsers.map(_buildAccountItemHTML).join('');
+    html += '</div>';
+  }
+
+  // ── Group 2: QR Scanner ───────────────────────────────────────
+  if (qrUsers.length) {
+    html += '<div style="background:var(--bg3);border:2px solid rgba(16,185,129,.35);border-radius:12px;margin-bottom:14px;overflow:hidden;box-shadow:0 0 0 1px rgba(16,185,129,.10)">';
+    html += _buildGroupHeader('QR Scanner', '📷', 'rgba(16,185,129,.22)', qrUsers.length);
+    html += qrUsers.map(_buildAccountItemHTML).join('');
+    // Quick-add QR Scanner button inside the group
+    html += '<div style="padding:10px 14px 12px">'
+      + '<button class="btn btn-outline btn-sm" style="border-color:var(--success);color:var(--success);width:100%;" onclick="openAddQRScannerModal()">＋ បន្ថែម QR Scanner</button>'
+      + '</div>';
+    html += '</div>';
+  } else {
+    // Empty state — prompt to add first QR Scanner
+    html += '<div style="background:var(--bg3);border:2px dashed rgba(16,185,129,.4);border-radius:12px;margin-bottom:14px;padding:20px;text-align:center">';
+    html += '<div style="font-size:32px;margin-bottom:8px">📷</div>';
+    html += '<div style="font-size:13px;font-weight:700;color:var(--text2);margin-bottom:4px">គ្មាន QR Scanner ទេ</div>';
+    html += '<div style="font-size:11px;color:var(--text3);margin-bottom:12px">បង្កើត Account ដាច់ដោយឡែកសម្រាប់ QR Scanner</div>';
+    html += '<button class="btn btn-outline btn-sm" style="border-color:var(--success);color:var(--success)" onclick="openAddQRScannerModal()">＋ បន្ថែម QR Scanner</button>';
+    html += '</div>';
+  }
+
+  container.innerHTML = html;
+}
+
+function openAddQRScannerModal() {
+  $('modal-title').textContent = 'បន្ថែម QR Scanner Account';
+  $('modal-body').innerHTML =
+    '<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.3);border-radius:10px;margin-bottom:16px">'
+    + '<span style="font-size:28px">📷</span>'
+    + '<div><div style="font-weight:700;font-size:13px;color:var(--success)">QR Scanner Account</div>'
+    + '<div style="font-size:11px;color:var(--text3)">Account នេះអាចស្កេន QR វត្តមានបុគ្គលិកបានប៉ុណ្ណោះ</div></div>'
+    + '</div>'
+    + '<div class="form-grid">'
+    + '<div class="form-group"><label class="form-label">ឈ្មោះពេញ *</label><input class="form-control" id="qracc-name" placeholder="ឈ្មោះ Scanner..." /></div>'
+    + '<div class="form-group"><label class="form-label">Username *</label><input class="form-control" id="qracc-user" placeholder="qr_scanner1" /></div>'
+    + '<div class="form-group"><label class="form-label">Password *</label><input class="form-control" type="password" id="qracc-pwd" placeholder="••••••••" /></div>'
+    + '<div class="form-group"><label class="form-label">Role</label>'
+    + '<input class="form-control" value="QR Scanner" readonly style="color:var(--success);font-weight:700;background:rgba(16,185,129,.08);border-color:rgba(16,185,129,.4)" /></div>'
+    + '</div>'
+    + '<div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">បោះបង់</button>'
+    + '<button class="btn btn-primary" style="background:var(--success);border-color:var(--success)" onclick="saveNewQRScannerAccount()">📷 បន្ថែម</button></div>';
+  openModal();
+}
+
+async function saveNewQRScannerAccount() {
+  const name     = $('qracc-name')?.value.trim();
+  const username = $('qracc-user')?.value.trim();
+  const password = $('qracc-pwd')?.value;
+  if (!name || !username || !password) { showToast('សូមបំពេញឱ្យគ្រប់!', 'error'); return; }
+  const cache = window._accountsCache || getUsers();
+  if (cache.find(u => u.username === username)) { showToast('Username នេះមានរួចហើយ!', 'error'); return; }
+  const newUser = { id: Date.now(), username, password, name, role: 'QR Scanner', photo: '' };
+  // Save to API or local
+  if (!isDemoMode() && getApiBase()) {
+    try {
+      const res = await api('POST', '/accounts', { username, password, name, role: 'QR Scanner', photo: '' });
+      if (res && res.id) newUser.id = res.id;
+    } catch(e) { showToast('API Error: ' + e.message, 'error'); return; }
+  }
+  if (!window._accountsCache) window._accountsCache = getUsers();
+  window._accountsCache.push(newUser);
+  saveUsers(window._accountsCache);
+  closeModal();
+  refreshAccountList();
+  showToast('បន្ថែម QR Scanner រួចហើយ! 📷', 'success');
 }
 
 function renderSettingsOnTab(tabName) {
