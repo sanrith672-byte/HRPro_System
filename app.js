@@ -9713,7 +9713,7 @@ async function initApp() {
     } else {
       // QR Scanner role → go directly to attendance and open QR scan
       const sess = getSession();
-      if (sess && (sess.role === 'QR Scanner' || hasPerm('attendance_scan'))) {
+      if (sess && sess.role === 'QR Scanner') {
         state.currentPage = 'attendance';
         document.querySelectorAll('.nav-item').forEach(a => a.classList.remove('active'));
         document.querySelector('[data-page="attendance"]')?.classList.add('active');
