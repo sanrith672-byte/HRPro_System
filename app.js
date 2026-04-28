@@ -9258,10 +9258,38 @@ async function doLogin() {
   btn.disabled = true;
   document.getElementById('login-btn-text').textContent = 'កំពុងចូល...';
 
-  // Always reload accounts from remote before checking — ensures latest users after cache clear
-  await loadAccountsFromAPI().catch(() => {});
+  // --- Try server-side login first (works with D1 DB, no stale cache issues) ---
+  const apiBase = getApiBase();
+  if (apiBase && !isDemoMode()) {
+    try {
+      const res = await fetch(apiBase.replace(/\/$/, '') + '/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+      const data = await res.json();
+      if (data.success && data.user) {
+        // Refresh accounts cache in background (non-blocking)
+        loadAccountsFromAPI().catch(() => {});
+        localStorage.setItem(AUTH_KEY, JSON.stringify(data.user));
+        animateLoginSuccess();
+        return;
+      } else {
+        showLoginError(data.message || 'Username ឬ Password មិនត្រឹមត្រូវ!');
+        btn.disabled = false;
+        document.getElementById('login-btn-text').textContent = 'ចូល';
+        pEl.value = '';
+        pEl.focus();
+        return;
+      }
+    } catch(e) {
+      // API unreachable — fall through to local check below
+      console.warn('[doLogin] API unreachable, using local fallback:', e.message);
+    }
+  }
 
-  // Use _accountsCache (fresh from API) if available, else fall back to localStorage
+  // --- Fallback: Demo mode OR API unreachable → check local users ---
+  await loadAccountsFromAPI().catch(() => {});
   const users = window._accountsCache || getUsers();
   const user = users.find(u => u.username === username && u.password === password);
   if (user) {
