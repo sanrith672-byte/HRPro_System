@@ -9346,7 +9346,7 @@ function stopIdleTimer() {
 // ============================================================
 // AUTH — Login / Logout
 // ============================================================
-function doLogin() {
+async function doLogin() {
   const uEl = document.getElementById('login-username');
   const pEl = document.getElementById('login-password');
   const btn = document.getElementById('login-btn');
@@ -9364,20 +9364,21 @@ function doLogin() {
   btn.disabled = true;
   document.getElementById('login-btn-text').textContent = 'កំពុងចូល...';
 
-  setTimeout(() => {
-    const users = getUsers();
-    const user = users.find(u => u.username === username && u.password === password);
-    if (user) {
-      localStorage.setItem(AUTH_KEY, JSON.stringify({ id:user.id, username:user.username, name:user.name, role:user.role }));
-      animateLoginSuccess();
-    } else {
-      showLoginError('Username ឬ Password មិនត្រឹមត្រូវ!');
-      btn.disabled = false;
-      document.getElementById('login-btn-text').textContent = 'ចូល';
-      pEl.value = '';
-      pEl.focus();
-    }
-  }, 600);
+  // Always reload accounts from remote before checking — ensures latest users after cache clear
+  await loadAccountsFromAPI().catch(() => {});
+
+  const users = getUsers();
+  const user = users.find(u => u.username === username && u.password === password);
+  if (user) {
+    localStorage.setItem(AUTH_KEY, JSON.stringify({ id:user.id, username:user.username, name:user.name, role:user.role }));
+    animateLoginSuccess();
+  } else {
+    showLoginError('Username ឬ Password មិនត្រឹមត្រូវ!');
+    btn.disabled = false;
+    document.getElementById('login-btn-text').textContent = 'ចូល';
+    pEl.value = '';
+    pEl.focus();
+  }
 }
 
 function showLoginError(msg) {
