@@ -2855,7 +2855,7 @@ async function renderQRScanPage() {
     '<div class="page-header">'
     +'<div><h2>📷 ស្កេន QR — វត្តមាន</h2><p>ស្កេន QR Code បុគ្គលិក ដើម្បីកត់វត្តមានភ្លាមៗ</p></div>'
     +'</div>'
-    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;max-width:900px;margin:0 auto">'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;max-width:900px;margin:0 auto" class="qr-scan-grid">'
 
     // Left: Camera
     +'<div class="card" style="padding:20px">'
@@ -2906,7 +2906,7 @@ async function renderQRScanPage() {
     +'</div>'
 
     +'</div>'
-    +'<style>@keyframes qrScanLine{0%,100%{top:20%}50%{top:80%}}</style>';
+    +'<style>@keyframes qrScanLine{0%,100%{top:20%}50%{top:80%}}@media(max-width:700px){.qr-scan-grid{grid-template-columns:1fr!important;}}</style>';
 
   window._scanType = 'in';
   window._scanCount = 0;
@@ -3255,12 +3255,19 @@ async function processQRScan_continue(emp, raw, date) {
       // Show brief success overlay then close
       const overlay = document.createElement('div');
       overlay.style.cssText = 'position:fixed;inset:0;background:rgba(6,214,160,.15);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;pointer-events:none';
+      const _ovPhoto = getEmpPhoto(emp.id);
+      const _ovAvatar = _ovPhoto
+        ? '<img src="'+_ovPhoto+'" style="width:80px;height:80px;border-radius:50%;object-fit:cover;border:3px solid var(--success);margin-bottom:10px"/>'
+        : '<div style="width:80px;height:80px;border-radius:50%;background:'+getColor(emp.name)+';display:flex;align-items:center;justify-content:center;color:white;font-size:28px;font-weight:700;margin-bottom:10px;border:3px solid var(--success)">'+emp.name[0]+'</div>';
       overlay.innerHTML =
-        '<div style="background:var(--bg2);border:2px solid var(--success);border-radius:20px;padding:28px 40px;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.5)">'
-        +'<div style="font-size:48px;margin-bottom:10px">'+(type==='in'?'✅':'🚪')+'</div>'
+        '<div style="background:var(--bg2);border:2px solid var(--success);border-radius:20px;padding:28px 40px;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.5);max-width:320px;width:90vw">'
+        +'<div style="display:flex;flex-direction:column;align-items:center">'
+        + _ovAvatar
+        +'<div style="font-size:32px;margin-bottom:6px">'+(type==='in'?'✅':'🚪')+'</div>'
         +'<div style="font-size:18px;font-weight:800;color:var(--text)">'+emp.name+'</div>'
         +'<div style="font-size:13px;color:var(--success);font-weight:700;margin-top:4px">'+(type==='in'?'ចូល ':'ចេញ ')+time+(isLate?' ⏰ យឺត':'')+'</div>'
         +'<div style="font-size:11px;color:var(--text3);margin-top:8px">'+(emp.custom_id||emp.department_name||'')+'</div>'
+        +'</div>'
         +'</div>';
       document.body.appendChild(overlay);
       setTimeout(() => {
