@@ -2862,7 +2862,7 @@ async function renderQRScanPage() {
     +'onchange="onQRScanDateChange(this.value)" />'
     +'</div>'
     +'<button class="btn btn-outline btn-sm" '
-    +'onclick="var t=new Date().toISOString().split(\'T\')[0];document.getElementById(\'qr-scan-date\').value=t;onQRScanDateChange(t)" '
+    +'onclick="resetQRScanToToday()" '
     +'style="font-size:12px">🔄 ថ្ងៃនេះ</button>'
     +'</div>'
     +'</div>'
@@ -2922,8 +2922,11 @@ async function renderQRScanPage() {
   window._scanType = 'in';
   window._scanCount = 0;
 
-  // Start scanner with today's date
-  startQRScanner(today);
+  // Update date picker max to today (local date) and start scanner
+  const _todayLocal = today();
+  const _datePicker = document.getElementById('qr-scan-date');
+  if (_datePicker) { _datePicker.value = _todayLocal; _datePicker.max = _todayLocal; }
+  startQRScanner(_todayLocal);
 
   // Stop scanner when leaving the page
   const origNavigate = window._qrPageNavGuard;
@@ -2934,7 +2937,7 @@ async function renderQRScanPage() {
 // Get currently selected scan date from the date picker
 function getQRScanDate() {
   const el = document.getElementById('qr-scan-date');
-  return el ? el.value : new Date().toISOString().split('T')[0];
+  return el ? el.value : today();
 }
 
 // Called when date picker changes — restart scanner with new date
@@ -2946,6 +2949,14 @@ function onQRScanDateChange(newDate) {
   if (cnt) cnt.textContent = '0 នាក់';
   stopQRScanner();
   setTimeout(() => startQRScanner(newDate), 200);
+}
+
+// Reset date picker to today (local date) and restart scanner
+function resetQRScanToToday() {
+  const t = today();
+  const el = document.getElementById('qr-scan-date');
+  if (el) { el.value = t; el.max = t; }
+  onQRScanDateChange(t);
 }
 
 // ===== QR Scanner modal (uses camera) =====
@@ -6825,8 +6836,19 @@ async function deleteRecord(endpoint, id, rerender) {
 }
 
 // ===== DATE HELPERS =====
-function today() { return new Date().toISOString().split('T')[0]; }
-function thisMonth() { return new Date().toISOString().slice(0,7); }
+function today() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const day = String(d.getDate()).padStart(2,'0');
+  return y+'-'+m+'-'+day;
+}
+function thisMonth() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  return y+'-'+m;
+}
 
 // ============================================================
 // SETTINGS HELPERS — localStorage config
