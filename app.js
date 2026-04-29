@@ -2845,7 +2845,7 @@ async function quickCheckOut(empId, date) {
 // ===== QR SCAN PAGE (standalone page, not modal) =====
 async function renderQRScanPage() {
   showLoading();
-  const today = new Date().toISOString().split('T')[0];
+  const _today = today();
   try {
     const d = await api('GET', '/employees?limit=500');
     state.employees = d.employees || [];
@@ -2857,7 +2857,7 @@ async function renderQRScanPage() {
     +'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
     +'<div style="display:flex;align-items:center;gap:8px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:8px 14px">'
     +'<span style="font-size:13px;font-weight:600;color:var(--text2)">📅 ថ្ងៃស្កេន:</span>'
-    +'<input type="date" id="qr-scan-date" value="'+today+'" max="'+today+'" '
+    +'<input type="date" id="qr-scan-date" value="'+_today+'" max="'+_today+'" '
     +'style="border:none;background:transparent;font-size:13px;font-weight:700;color:var(--primary);cursor:pointer;outline:none" '
     +'onchange="onQRScanDateChange(this.value)" />'
     +'</div>'
@@ -2923,10 +2923,10 @@ async function renderQRScanPage() {
   window._scanCount = 0;
 
   // Update date picker max to today (local date) and start scanner
-  const _todayLocal = today();
+  // _todayLocal already set as _today above
   const _datePicker = document.getElementById('qr-scan-date');
-  if (_datePicker) { _datePicker.value = _todayLocal; _datePicker.max = _todayLocal; }
-  startQRScanner(_todayLocal);
+  if (_datePicker) { _datePicker.value = _today; _datePicker.max = _today; }
+  startQRScanner(_today);
 
   // Stop scanner when leaving the page
   const origNavigate = window._qrPageNavGuard;
