@@ -8327,24 +8327,153 @@ function refreshAccountList() {
   container.innerHTML = html;
 }
 
-function openAddQRScannerModal() {
-  $('modal-title').textContent = 'បន្ថែម QR Scanner Account';
-  $('modal-body').innerHTML =
-    '<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.3);border-radius:10px;margin-bottom:16px">'
-    + '<span style="font-size:28px">📷</span>'
-    + '<div><div style="font-weight:700;font-size:13px;color:var(--success)">QR Scanner Account</div>'
-    + '<div style="font-size:11px;color:var(--text3)">Account នេះអាចស្កេន QR វត្តមានបុគ្គលិកបានប៉ុណ្ណោះ</div></div>'
-    + '</div>'
-    + '<div class="form-grid">'
-    + '<div class="form-group"><label class="form-label">ឈ្មោះពេញ *</label><input class="form-control" id="qracc-name" placeholder="ឈ្មោះ Scanner..." /></div>'
-    + '<div class="form-group"><label class="form-label">Username *</label><input class="form-control" id="qracc-user" placeholder="qr_scanner1" /></div>'
-    + '<div class="form-group"><label class="form-label">Password *</label><input class="form-control" type="password" id="qracc-pwd" placeholder="••••••••" /></div>'
-    + '<div class="form-group"><label class="form-label">Role</label>'
-    + '<input class="form-control" value="QR Scanner" readonly style="color:var(--success);font-weight:700;background:rgba(16,185,129,.08);border-color:rgba(16,185,129,.4)" /></div>'
-    + '</div>'
-    + '<div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">បោះបង់</button>'
-    + '<button class="btn btn-primary" style="background:var(--success);border-color:var(--success)" onclick="saveNewQRScannerAccount()">📷 បន្ថែម</button></div>';
+async function openAddQRScannerModal() {
+  $('modal-title').textContent = '📷 QR Scanner Accounts — បុគ្គលិក';
+  $('modal-body').innerHTML = '<div style="text-align:center;padding:20px;color:var(--text3)">⏳ កំពុងទាញបុគ្គលិក...</div>';
+  document.getElementById('modal').classList.add('modal--wide');
   openModal();
+
+  // Load employees + existing QR accounts
+  let emps = [];
+  try {
+    const empData = await api('GET', '/employees?limit=500');
+    emps = (empData.employees || []).filter(e => e.status !== 'inactive');
+  } catch(_) {}
+  const allUsers = window._accountsCache || getUsers();
+  const existingNames = new Set(allUsers.filter(u => u.role === 'QR Scanner').map(u => u.name.trim().toLowerCase()));
+
+  // Build employee rows
+  const empRows = emps.map(emp => {
+    const displayId = emp.custom_id || ('EMP' + String(emp.id).padStart(3,'0'));
+    const photo = getEmpPhoto(emp.id);
+    const av = photo
+      ? '<img src="'+photo+'" style="width:36px;height:36px;border-radius:50%;object-fit:cover;flex-shrink:0"/>'
+      : '<div style="width:36px;height:36px;border-radius:50%;background:'+getColor(emp.name)+';display:flex;align-items:center;justify-content:center;color:#fff;font-size:15px;font-weight:800;flex-shrink:0">'+(emp.name||'?')[0]+'</div>';
+    const alreadyHas = existingNames.has(emp.name.trim().toLowerCase());
+    const autoUser = displayId.toLowerCase().replace(/[^a-z0-9]/g,'') || ('emp'+emp.id);
+    const autoPass = displayId.toLowerCase();
+    return '<div class="qr-emp-row" id="qr-row-'+emp.id+'" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;border:1.5px solid '+(alreadyHas?'rgba(16,185,129,.4)':'var(--border)')+';margin-bottom:6px;background:'+(alreadyHas?'rgba(16,185,129,.06)':'var(--bg)')+';">'
+      + av
+      + '<div style="flex:1;min-width:0">'
+      + '<div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+emp.name+'</div>'
+      + '<div style="font-size:10px;color:var(--text3)">'+displayId+' · '+(emp.position||'—')+'</div>'
+      + '</div>'
+      + (alreadyHas
+          ? '<span style="font-size:11px;background:rgba(16,185,129,.15);color:var(--success);padding:3px 10px;border-radius:20px;white-space:nowrap;flex-shrink:0">✅ មានហើយ</span>'
+          : '<button class="btn btn-sm" style="background:var(--success);color:#fff;border:none;flex-shrink:0;white-space:nowrap;font-size:11px;padding:4px 12px" onclick="generateQRUserForEmp('+emp.id+',\''+emp.name.replace(/'/g,"\\'")+'\',' + '\'' + autoUser + '\',' + '\'' + autoPass + '\')">+ បង្កើត</button>'
+        )
+      + '</div>';
+  }).join('');
+
+  const notYet = emps.filter(e => !existingNames.has(e.name.trim().toLowerCase())).length;
+
+  $('modal-body').innerHTML =
+    '<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.3);border-radius:10px;margin-bottom:14px">'
+    + '<span style="font-size:24px">📷</span>'
+    + '<div style="flex:1"><div style="font-weight:700;font-size:13px;color:var(--success)">QR Scanner — បុគ្គលិកម្នាក់ = Account មួយ</div>'
+    + '<div style="font-size:11px;color:var(--text3)">Password default = EMP ID · Username = EMP ID (អ្នកអាចកែបន្ទាប់)</div></div>'
+    + '</div>'
+    + (notYet > 0
+        ? '<button class="btn btn-success" style="width:100%;margin-bottom:12px" onclick="generateAllQRUsers()">⚡ បង្កើត QR Account ទាំងអស់ (' + notYet + ' នាក់) ភ្លាមៗ</button>'
+        : '<div style="text-align:center;padding:10px;color:var(--success);font-weight:700;margin-bottom:12px">✅ បុគ្គលិកទាំងអស់មាន QR Account ហើយ!</div>'
+      )
+    + '<input class="filter-input" style="width:100%;margin-bottom:10px" placeholder="🔍 ស្វែងរកបុគ្គលិក..." oninput="filterQREmpRows(this.value)"/>'
+    + '<div id="qr-emp-list" style="max-height:350px;overflow-y:auto">' + (emps.length ? empRows : '<div style="text-align:center;padding:30px;color:var(--text3)">មិនទាន់មានបុគ្គលិក</div>') + '</div>'
+    + '<div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">'
+    + '<div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:10px">✏️ ឬបន្ថែម Manual</div>'
+    + '<div class="form-grid">'
+    + '<div class="form-group"><label class="form-label">ឈ្មោះ *</label><input class="form-control" id="qracc-name" placeholder="ឈ្មោះ..." /></div>'
+    + '<div class="form-group"><label class="form-label">Username *</label><input class="form-control" id="qracc-user" placeholder="qr01" /></div>'
+    + '<div class="form-group"><label class="form-label">Password *</label><input class="form-control" id="qracc-pwd" placeholder="••••" /></div>'
+    + '<div class="form-group"><label class="form-label">Role</label><input class="form-control" value="QR Scanner" readonly style="color:var(--success);font-weight:700;background:rgba(16,185,129,.08)"/></div>'
+    + '</div>'
+    + '<div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">បិទ</button>'
+    + '<button class="btn btn-primary" style="background:var(--success);border-color:var(--success)" onclick="saveNewQRScannerAccount()">📷 បន្ថែម Manual</button></div>'
+    + '</div>';
+}
+
+// Filter QR emp rows by name/id
+function filterQREmpRows(val) {
+  const q = val.toLowerCase().trim();
+  document.querySelectorAll('.qr-emp-row').forEach(row => {
+    row.style.display = (!q || row.textContent.toLowerCase().includes(q)) ? '' : 'none';
+  });
+}
+
+// Generate QR Scanner account for one employee
+async function generateQRUserForEmp(empId, empName, username, password) {
+  const btn = document.querySelector('#qr-row-' + empId + ' button');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳...'; }
+  const cache = window._accountsCache || getUsers();
+  let finalUser = username;
+  let suffix = 1;
+  while (cache.find(u => u.username === finalUser)) { finalUser = username + suffix++; }
+  const newUser = { id: Date.now() + empId, username: finalUser, password, name: empName, role: 'QR Scanner', photo: '' };
+  try {
+    if (!isDemoMode() && getApiBase()) {
+      const res = await api('POST', '/accounts', { username: finalUser, password, name: empName, role: 'QR Scanner', photo: '' });
+      if (res && res.id) newUser.id = res.id;
+    }
+    if (!window._accountsCache) window._accountsCache = getUsers();
+    window._accountsCache.push(newUser);
+    saveUsers(window._accountsCache);
+    const row = document.getElementById('qr-row-' + empId);
+    if (row) {
+      row.style.border = '1.5px solid rgba(16,185,129,.4)';
+      row.style.background = 'rgba(16,185,129,.06)';
+      if (btn) btn.replaceWith(Object.assign(document.createElement('span'), {
+        style: 'font-size:11px;background:rgba(16,185,129,.15);color:var(--success);padding:3px 10px;border-radius:20px;white-space:nowrap;flex-shrink:0',
+        textContent: '✅ មានហើយ'
+      }));
+    }
+    showToast('✅ '+empName+' → user: '+finalUser+' / pwd: '+password, 'success');
+  } catch(e) {
+    if (btn) { btn.disabled = false; btn.textContent = '+ បង្កើត'; }
+    showToast('Error: ' + e.message, 'error');
+  }
+}
+
+// Generate QR Scanner accounts for ALL employees without one
+async function generateAllQRUsers() {
+  const btn = document.querySelector('button[onclick="generateAllQRUsers()"]');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ កំពុងបង្កើត...'; }
+  let emps = [];
+  try { const d = await api('GET', '/employees?limit=500'); emps = (d.employees||[]).filter(e=>e.status!=='inactive'); } catch(_) {}
+  const existingNames = new Set((window._accountsCache || getUsers()).filter(u=>u.role==='QR Scanner').map(u=>u.name.trim().toLowerCase()));
+  const toCreate = emps.filter(e => !existingNames.has(e.name.trim().toLowerCase()));
+  let done = 0;
+  for (const emp of toCreate) {
+    const displayId = emp.custom_id || ('EMP' + String(emp.id).padStart(3,'0'));
+    const baseUser = displayId.toLowerCase().replace(/[^a-z0-9]/g,'') || ('emp'+emp.id);
+    const password = displayId.toLowerCase();
+    const cache = window._accountsCache || getUsers();
+    let finalUser = baseUser; let suffix = 1;
+    while (cache.find(u => u.username === finalUser)) { finalUser = baseUser + suffix++; }
+    const newUser = { id: Date.now() + emp.id, username: finalUser, password, name: emp.name, role: 'QR Scanner', photo: '' };
+    try {
+      if (!isDemoMode() && getApiBase()) {
+        const res = await api('POST', '/accounts', { username: finalUser, password, name: emp.name, role: 'QR Scanner', photo: '' });
+        if (res && res.id) newUser.id = res.id;
+      }
+      if (!window._accountsCache) window._accountsCache = getUsers();
+      window._accountsCache.push(newUser);
+      saveUsers(window._accountsCache);
+      const row = document.getElementById('qr-row-' + emp.id);
+      if (row) {
+        row.style.border = '1.5px solid rgba(16,185,129,.4)';
+        row.style.background = 'rgba(16,185,129,.06)';
+        const rowBtn = row.querySelector('button');
+        if (rowBtn) rowBtn.replaceWith(Object.assign(document.createElement('span'), {
+          style: 'font-size:11px;background:rgba(16,185,129,.15);color:var(--success);padding:3px 10px;border-radius:20px;white-space:nowrap;flex-shrink:0',
+          textContent: '✅ មានហើយ'
+        }));
+      }
+      done++;
+    } catch(_) {}
+  }
+  showToast('✅ បង្កើត QR Account ' + done + ' នាក់! (Password = EMP ID)', 'success');
+  refreshAccountList();
+  if (btn) { btn.textContent = '✅ បង្កើតរួច ' + done + ' នាក់!'; }
 }
 
 async function saveNewQRScannerAccount() {
