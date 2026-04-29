@@ -167,7 +167,7 @@ function demoApi(method, path, body) {
       if (loan.paid_amount >= loan.amount) loan.status = 'paid';
       if (!loan.payments) loan.payments = [];
       loan.payments.push({
-        date: body.date || new Date().toISOString().split('T')[0],
+        date: body.date || today(),
         amount: body.amount || 0,
         note: body.note || '',
         remaining: Math.max(0, loan.amount - loan.paid_amount)
@@ -538,7 +538,7 @@ async function backupAllData() {
     const blob = new Blob([JSON.stringify(backup, null, 2)], {type:'application/json'});
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement('a');
-    const date = new Date().toISOString().slice(0,10);
+    const date = today();
     a.href = url; a.download = (cfg.company_name||'HRPro')+'_Backup_'+date+'.json';
     a.click(); setTimeout(()=>URL.revokeObjectURL(url),1000);
 
@@ -1551,8 +1551,8 @@ async function saveEmployee() {
 
 
 function openEmployeeReportModal() {
-  const firstDay = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
-  const lastDay  = new Date(new Date().getFullYear(), new Date().getMonth()+1, 0).toISOString().split('T')[0];
+  const firstDay = thisMonth()+'-01';
+  const lastDay  = (()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(new Date(d.getFullYear(),d.getMonth()+1,0).getDate()).padStart(2,'0')})();
   $('modal-title').textContent = '🖨️ បោះពុម្ព / Export បុគ្គលិក';
   $('modal-body').innerHTML =
     // Date range section
@@ -1752,7 +1752,7 @@ function calcWorkDuration(hireDate, termDate, workHistoryJson) {
   }
 
   // Add current period
-  const endDate = (termDate && termDate !== '') ? termDate : new Date().toISOString().split('T')[0];
+  const endDate = (termDate && termDate !== '') ? termDate : today();
   totalDays += daysBetween(hireDate, endDate);
 
   return totalDays > 0 ? formatDays(totalDays) : '< 1 ថ្ងៃ';
@@ -2134,7 +2134,7 @@ async function deleteDept(id) {
 // ===== ATTENDANCE =====
 async function renderAttendance(date='') {
   showLoading();
-  const today = date || new Date().toISOString().split('T')[0];
+  const today = date || (()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')})();
   try {
     const [attData, empData] = await Promise.all([api('GET','/attendance?date='+today), api('GET','/employees')]);
     state.employees = empData.employees;
@@ -2215,7 +2215,7 @@ async function deleteAttendance(id, date) {
 // ===== MONTHLY ATTENDANCE TABLE =====
 async function renderMonthlyAttendance(month='') {
   showLoading();
-  const currentMonth = month || new Date().toISOString().slice(0,7);
+  const currentMonth = month || thisMonth();
   const [y, m] = currentMonth.split('-').map(Number);
   const daysInMonth = new Date(y, m, 0).getDate();
   const rules = getSalaryRules();
@@ -2329,7 +2329,7 @@ async function renderMonthlyAttendance(month='') {
 
     // Table header row 1: day numbers
     const dayThs = allDays.map(({d,wd}) => {
-      const isToday = (new Date().toISOString().slice(0,7)===currentMonth && new Date().getDate()===d);
+      const isToday = (thisMonth()===currentMonth && new Date().getDate()===d);
       const isWeekend = (wd === 0 || wd === 6);
       const bg = isToday ? 'background:var(--primary);color:white;' : isWeekend ? 'background:var(--bg2);color:var(--text3);' : '';
       return '<th style="padding:2px 1px;font-size:11px;font-weight:600;text-align:center;'+bg+'">' + d + '</th>';
@@ -3350,7 +3350,7 @@ async function processQRScan_continue(emp, raw, date) {
 // ===== BULK ABSENCE / LEAVE MODAL =====
 // ===== BULK ABSENCE / LEAVE MODAL (per-employee date) =====
 function openBulkAbsenceModal(dateVal) {
-  var d = dateVal || new Date().toISOString().split('T')[0];
+  var d = dateVal || today();
   var emps = state.employees || [];
   if (!emps.length) { showToast('មិនទាន់មានបុគ្គលិក!', 'error'); return; }
 
@@ -3479,14 +3479,14 @@ async function saveBulkAbsence() {
   if (success > 0) showToast('\u2705 បានកត់អវត្តមាន ' + success + ' នាក់ (' + notePrefix + ')', 'success');
   if (failed > 0) showToast('\u26A0\uFE0F មិនបានកត់ ' + failed + ' នាក់', 'error');
   // Refresh to last date used, or today
-  renderAttendance(lastDate || new Date().toISOString().split('T')[0]);
+  renderAttendance(lastDate || today());
 }
 
 
 function openAttBulk(d) { openAttModal(d, 'bulk'); }
 
 function openAttModal(dateVal, mode) {
-  const d = dateVal || new Date().toISOString().split('T')[0];
+  const d = dateVal || today();
   const rules = getSalaryRules && getSalaryRules();
   const defaultIn  = (rules && rules.work_start_time) || '08:00';
   const defaultOut = (rules && rules.work_end_time)   || '17:00';
@@ -3584,7 +3584,7 @@ function showQRPopup(el, empId) {
 
 async function renderSalary(month='') {
   showLoading();
-  const currentMonth = month || new Date().toISOString().slice(0,7);
+  const currentMonth = month || thisMonth();
   try {
     const data = await api('GET', '/salary?month=' + currentMonth);
     // Preload employees for QR/bank lookup
@@ -4240,7 +4240,7 @@ async function ensureEmployees() {
 // ============================================================
 async function renderOvertime() {
   showLoading();
-  let currentMonth = (window._otMonth || new Date().toISOString().slice(0,7));
+  let currentMonth = (window._otMonth || thisMonth());
   try {
     const [empData, otData] = await Promise.all([
       api('GET','/employees?limit=500'),
@@ -4278,7 +4278,7 @@ async function renderOvertime() {
 
     // Build header rows
     const dayThs = allDays.map(({d, wd}) => {
-      const isToday = (new Date().toISOString().slice(0,7)===currentMonth && new Date().getDate()===d);
+      const isToday = (thisMonth()===currentMonth && new Date().getDate()===d);
       const isWeekend = (wd===0||wd===6);
       const bg = isToday ? 'background:var(--primary);color:white;' : isWeekend ? 'background:var(--bg2);color:var(--text3);' : '';
       return '<th style="padding:2px 1px;font-size:11px;font-weight:600;text-align:center;min-width:26px;'+bg+'">' + d + '</th>';
@@ -5115,7 +5115,7 @@ async function saveLoan() {
 async function openRepayModal(id, name, left, installAmt) {
   $('modal-title').textContent = 'ការសង/កាត់ប្រាក់ — ' + name;
   const suggested = installAmt > 0 ? Math.min(installAmt, left) : left;
-  const todayVal = new Date().toISOString().split('T')[0];
+  const todayVal = today();
   let pmts = [];
   try {
     const allLoans = await api('GET', '/loans');
@@ -5199,7 +5199,7 @@ function calcRepayRemain(left) {
 async function saveRepay(id, left) {
   const amount = parseFloat($('rp-amount')?.value)||0;
   if (!amount || amount > left + 0.01) { showToast('ចំនួនមិនត្រឹមត្រូវ!','error'); return; }
-  const date = $('rp-date')?.value || new Date().toISOString().split('T')[0];
+  const date = $('rp-date')?.value || today();
   const note = $('rp-note')?.value || '';
   try {
     await api('PUT', `/loans/${id}/repay`, { amount, date, note });
@@ -7031,7 +7031,7 @@ async function openEditAttModal(attId, empName) {
 
     if (!r) {
       // Fallback: search today's records
-      const today_date = new Date().toISOString().split('T')[0];
+      const today_date = today();
       const data = await api('GET', '/attendance?date='+today_date);
       r = (data.records||[]).find(x=>x.id===attId);
     }
