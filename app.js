@@ -2854,6 +2854,17 @@ async function renderQRScanPage() {
   contentArea().innerHTML =
     '<div class="page-header">'
     +'<div><h2>📷 ស្កេន QR — វត្តមាន</h2><p>ស្កេន QR Code បុគ្គលិក ដើម្បីកត់វត្តមានភ្លាមៗ</p></div>'
+    +'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
+    +'<div style="display:flex;align-items:center;gap:8px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:8px 14px">'
+    +'<span style="font-size:13px;font-weight:600;color:var(--text2)">📅 ថ្ងៃស្កេន:</span>'
+    +'<input type="date" id="qr-scan-date" value="'+today+'" max="'+today+'" '
+    +'style="border:none;background:transparent;font-size:13px;font-weight:700;color:var(--primary);cursor:pointer;outline:none" '
+    +'onchange="onQRScanDateChange(this.value)" />'
+    +'</div>'
+    +'<button class="btn btn-outline btn-sm" '
+    +'onclick="var t=new Date().toISOString().split(\'T\')[0];document.getElementById(\'qr-scan-date\').value=t;onQRScanDateChange(t)" '
+    +'style="font-size:12px">🔄 ថ្ងៃនេះ</button>'
+    +'</div>'
     +'</div>'
     +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;max-width:900px;margin:0 auto" class="qr-scan-grid">'
 
@@ -2878,13 +2889,13 @@ async function renderQRScanPage() {
     +'<button id="scan-type-in" class="btn btn-success btn-sm" style="flex:1;border:none" onclick="setScanType(\'in\')">🟢 ចូល</button>'
     +'<button id="scan-type-out" class="btn btn-outline btn-sm" style="flex:1;border:none" onclick="setScanType(\'out\')">🔴 ចេញ</button>'
     +'</div>'
-    // Manual input
+    // Manual input — uses getQRScanDate() so it always picks up the selected date
     +'<div style="background:var(--bg3);border-radius:10px;padding:12px">'
     +'<div style="font-size:11px;color:var(--text3);margin-bottom:8px;text-align:center">ឬវាយ ID / ឈ្មោះ / custom ID</div>'
     +'<div style="display:flex;gap:6px">'
     +'<input class="form-control" id="qr-manual-id" placeholder="e.g. EMP-001, 4, សាន..." style="flex:1" '
-    +'onkeydown="if(event.key===\'Enter\')processQRScan(this.value,\''+today+'\')" />'
-    +'<button class="btn btn-primary" onclick="processQRScan($(\'qr-manual-id\').value,\''+today+'\')">'
+    +'onkeydown="if(event.key===\'Enter\')processQRScan(this.value,getQRScanDate())" />'
+    +'<button class="btn btn-primary" onclick="processQRScan($(\'qr-manual-id\').value,getQRScanDate())">'
     +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><polyline points="20 6 9 17 4 12"/></svg>'
     +'</button>'
     +'</div>'
@@ -2911,13 +2922,30 @@ async function renderQRScanPage() {
   window._scanType = 'in';
   window._scanCount = 0;
 
-  // Start scanner inline (reuse existing startQRScanner)
+  // Start scanner with today's date
   startQRScanner(today);
 
   // Stop scanner when leaving the page
   const origNavigate = window._qrPageNavGuard;
   if (origNavigate) origNavigate();
   window._qrPageNavGuard = () => stopQRScanner();
+}
+
+// Get currently selected scan date from the date picker
+function getQRScanDate() {
+  const el = document.getElementById('qr-scan-date');
+  return el ? el.value : new Date().toISOString().split('T')[0];
+}
+
+// Called when date picker changes — restart scanner with new date
+function onQRScanDateChange(newDate) {
+  window._scanCount = 0;
+  const log = document.getElementById('qr-result-log');
+  if (log) log.innerHTML = '';
+  const cnt = document.getElementById('qr-count');
+  if (cnt) cnt.textContent = '0 នាក់';
+  stopQRScanner();
+  setTimeout(() => startQRScanner(newDate), 200);
 }
 
 // ===== QR Scanner modal (uses camera) =====
