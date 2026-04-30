@@ -753,7 +753,7 @@ function getPermissions() {
       allowance_view:false, allowance_edit:false,
       reports_view:false, reports_export:false,
       leave_view:false, leave_edit:false,
-      dayswap_view:false, dayswap_edit:false,
+      dayswap_view:true, dayswap_edit:true,
       loans_view:false, loans_edit:false,
       expenses_view:false, expenses_edit:false,
       id_card_print:false, settings_access:false,
@@ -7126,7 +7126,7 @@ async function renderDaySwap() {
     contentArea().innerHTML = `
       <div class="page-header">
         <div><h2>🔄 ប្តូរថ្ងៃឈប់សម្រាក</h2><p>គ្រប់គ្រងការស្នើប្តូរថ្ងៃ OFF</p></div>
-        ${canEdit() ? `<button class="btn btn-primary" onclick="openDaySwapModal()">
+        ${hasPerm('dayswap_edit') ? `<button class="btn btn-primary" onclick="openDaySwapModal()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           ស្នើប្តូរថ្ងៃ
         </button>` : ''}
@@ -7177,11 +7177,11 @@ async function renderDaySwap() {
                   ? '<span class="badge badge-red">❌ បដិសេធ</span>'
                   : '<span class="badge badge-yellow">⏳ រង់ចាំ</span>'}</td>
                 <td><div class="action-btns">
-                  ${r.status==='pending' && canEdit() ? `
+                  ${r.status==='pending' && hasPerm('dayswap_edit') ? `
                     <button class="btn btn-success btn-sm" onclick="updateDaySwap(${r.id},'approved')">✅</button>
                     <button class="btn btn-danger btn-sm" onclick="updateDaySwap(${r.id},'rejected')">❌</button>` : ''}
-                  ${canEdit() ? `<button class="btn btn-outline btn-sm" onclick="openDaySwapModal(${r.id})" style="border-color:var(--info);color:var(--info)">✏️</button>` : ''}
-                  ${canEdit() ? `<button class="btn btn-danger btn-sm" onclick="deleteRecord('dayswap',${r.id},renderDaySwap)">🗑️</button>` : ''}
+                  ${hasPerm('dayswap_edit') ? `<button class="btn btn-outline btn-sm" onclick="openDaySwapModal(${r.id})" style="border-color:var(--info);color:var(--info)">✏️</button>` : ''}
+                  ${hasPerm('dayswap_edit') ? `<button class="btn btn-danger btn-sm" onclick="deleteRecord('dayswap',${r.id},renderDaySwap)">🗑️</button>` : ''}
                 </div></td>
               </tr>`;
             }).join('')}
