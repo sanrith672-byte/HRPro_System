@@ -2868,6 +2868,7 @@ async function renderQRScanPage() {
     state.scanLocations = locData.records || [];
   } catch(_) {}
 
+  const _sess = getSession();
   contentArea().innerHTML =
     '<div class="page-header">'
     +'<div><h2>📷 ស្កេន QR — វត្តមាន</h2><p>ជ្រើសរបៀបស្កេន ហើយកត់វត្តមានភ្លាមៗ</p></div>'
@@ -2885,26 +2886,8 @@ async function renderQRScanPage() {
     // ── Scanner Identity Banner ──
     +((_sess && _sess.role === 'QR Scanner') ? '<div style="max-width:900px;margin:0 auto 18px;background:linear-gradient(135deg,rgba(16,185,129,.12),rgba(6,214,160,.08));border:1.5px solid rgba(16,185,129,.35);border-radius:14px;padding:12px 18px;display:flex;align-items:center;gap:12px"><div style="width:38px;height:38px;border-radius:50%;background:var(--success);display:flex;align-items:center;justify-content:center;color:white;font-size:16px;font-weight:800;flex-shrink:0">'+((_sess.name||'S')[0])+'</div><div style="flex:1"><div style="font-weight:800;font-size:14px;color:var(--text)">'+(_sess.name||'QR Scanner')+'</div><div style="font-size:11px;color:var(--text3)">📷 QR Scanner — វត្តមានដែលស្កែនដោយខ្ញុំ</div></div><span style="background:var(--success);color:white;font-size:10px;padding:3px 10px;border-radius:20px;font-weight:700">ACTIVE</span></div>' : '')
 
-    // ── Scan Mode Selector ──
-    +'<div id="qr-mode-selector" style="max-width:900px;margin:0 auto 22px">'
-    +'<div style="font-size:13px;font-weight:700;color:var(--text2);margin-bottom:12px;text-align:center">🔍 ជ្រើសរបៀបស្កេន</div>'
-    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">'
-
-    // Card 1 — Location QR
-    +'<div id="mode-card-location" onclick="setQRMode(\'location\')" style="cursor:pointer;border:2.5px solid var(--border);border-radius:16px;padding:22px 18px;text-align:center;transition:all .2s;background:var(--bg2)">'
-    +'<div style="font-size:40px;margin-bottom:10px">📍</div>'
-    +'<div style="font-weight:800;font-size:14px;color:var(--text);margin-bottom:5px">ស្កេន QR ទីតាំង</div>'
-    +'<div style="font-size:11px;color:var(--text3);line-height:1.5">ស្កែន QR ទីតាំងមុន<br>រួចស្កែន QR កាតបុគ្គលិក</div>'
-    +'</div>'
-
-    // Card 2 — Employee QR
-    +'<div id="mode-card-employee" onclick="setQRMode(\'employee\')" style="cursor:pointer;border:2.5px solid var(--border);border-radius:16px;padding:22px 18px;text-align:center;transition:all .2s;background:var(--bg2)">'
-    +'<div style="font-size:40px;margin-bottom:10px">🪪</div>'
-    +'<div style="font-weight:800;font-size:14px;color:var(--text);margin-bottom:5px">ស្កេន QR កាតបុគ្គលិក</div>'
-    +'<div style="font-size:11px;color:var(--text3);line-height:1.5">ស្កែន QR Code ពីកាតបុគ្គលិក<br>ដោយផ្ទាល់</div>'
-    +'</div>'
-    +'</div>'
-    +'</div>'
+    // ── No mode selector — direct employee scan ──
+    +'<div id="qr-mode-selector" style="display:none"></div>'
 
     // ── Scanner UI (hidden until mode chosen) ──
     +'<div id="qr-scanner-ui" style="display:none;max-width:900px;margin:0 auto">'
@@ -2963,8 +2946,7 @@ async function renderQRScanPage() {
     +'</button>'
     +'</div>'
     +'</div>'
-    // Change mode
-    +'<button class="btn btn-outline btn-sm" onclick="showQRModeSelector()" style="width:100%;margin-top:10px;font-size:11px">↩ ប្ដូររបៀបស្កែន</button>'
+    // No mode change button needed
     +'</div>'
 
     // Right: Log
@@ -3004,6 +2986,9 @@ async function renderQRScanPage() {
   const origNavigate = window._qrPageNavGuard;
   if (origNavigate) origNavigate();
   window._qrPageNavGuard = () => stopQRScanner();
+
+  // Auto-start employee scan mode directly
+  setQRMode('employee');
 }
 
 // ── Render location quick-pick list ──
@@ -7350,77 +7335,230 @@ function applyCompanyBranding() {
 async function renderLocations() {
   showLoading();
   try {
-    const data = await api('GET', '/locations').catch(() => ({ records: [] }));
-    const locs = data.records || [];
-    const canEdit = hasPerm('locations_edit');
+    const [data, empData, attData] = await Promise.all([
+      api('GET', '/locations').catch(() => ({ records: [] })),
+      api('GET', '/employees?limit=500').catch(() => ({ employees: [] })),
+      api('GET', '/attendance?limit=5000').catch(() => ({ records: [] }))
+    ]);
+    const locs     = data.records || [];
+    const allEmps  = (empData.employees || []).filter(e => e.status === 'active');
+    const allAtt   = attData.records || [];
+    const canEdit  = hasPerm('locations_edit');
 
-    contentArea().innerHTML = `
-      <div class="page-header">
-        <div>
-          <h2>📍 ទីតាំងស្កេន</h2>
-          <p>គ្រប់គ្រងទីតាំង និង QR Code សម្រាប់ស្កេន</p>
-        </div>
-        ${canEdit ? `<button class="btn btn-primary" onclick="openLocationModal()">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          បន្ថែមទីតាំង
-        </button>` : ''}
-      </div>
+    // ── Missing Scan helpers ──
+    const _todayStr = today();
+    const todayAtt      = allAtt.filter(a => a.date === _todayStr);
+    const scannedInIds  = new Set(todayAtt.filter(a => a.check_in  && a.check_in  !== '').map(a => a.employee_id));
+    const scannedOutIds = new Set(todayAtt.filter(a => a.check_out && a.check_out !== '').map(a => a.employee_id));
+    const missingIn     = allEmps.filter(e => !scannedInIds.has(e.id));
+    const missingOut    = allEmps.filter(e => scannedInIds.has(e.id) && !scannedOutIds.has(e.id));
+    const scanLog       = todayAtt.map(a => {
+      const emp = allEmps.find(e => e.id === a.employee_id) || { name: a.employee_name || '—', custom_id: '', department_name: '' };
+      return { emp, check_in: a.check_in || '', check_out: a.check_out || '', status: a.status || '', notes: a.notes || '' };
+    }).sort((a, b) => (a.check_in || '99:99').localeCompare(b.check_in || '99:99'));
 
-      ${locs.length === 0 ? `
-        <div class="card" style="padding:60px;text-align:center">
-          <div style="font-size:48px;margin-bottom:16px">📍</div>
-          <div style="font-size:16px;font-weight:700;color:var(--text2);margin-bottom:8px">មិនទាន់មានទីតាំង</div>
-          <div style="font-size:13px;color:var(--text3);margin-bottom:20px">បន្ថែមទីតាំងដំបូងដើម្បីបង្កើត QR Code</div>
-          ${canEdit ? `<button class="btn btn-primary" onclick="openLocationModal()">+ បន្ថែមទីតាំង</button>` : ''}
-        </div>
-      ` : `
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:18px">
-          ${locs.map(loc => `
-            <div class="card" style="padding:20px;display:flex;flex-direction:column;gap:14px">
-              <!-- Header -->
-              <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
-                <div style="flex:1;min-width:0">
-                  <div style="font-size:15px;font-weight:800;color:var(--text);margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
-                    📍 ${loc.name}
-                  </div>
-                  <div style="font-size:12px;color:var(--text3)">${loc.description || 'គ្មានការពិពណ៌នា'}</div>
-                </div>
-                ${canEdit ? `<div style="display:flex;gap:6px;flex-shrink:0">
-                  <button class="btn btn-outline btn-sm" onclick="openLocationModal(${loc.id})" style="border-color:var(--info);color:var(--info)">✏️</button>
-                  <button class="btn btn-danger btn-sm" onclick="deleteLocationRecord(${loc.id})">🗑️</button>
-                </div>` : ''}
-              </div>
-              <!-- QR Code -->
-              <div style="display:flex;flex-direction:column;align-items:center;background:var(--bg3);border-radius:12px;padding:16px;gap:10px">
-                <div id="loc-qr-${loc.id}" style="width:140px;height:140px;background:#fff;border-radius:8px;padding:6px;display:flex;align-items:center;justify-content:center" data-qrtext="${encodeURIComponent('LOC:'+loc.id+':'+loc.name)}" data-qrsize="128"></div>
-                <div style="font-size:11px;color:var(--text3);text-align:center">QR Code — ស្កែន QR នេះ ដើម្បីកត់វត្តមាន</div>
-              </div>
-              <!-- Download button -->
-              <button class="btn btn-outline btn-sm" style="width:100%;font-size:12px" onclick="downloadLocationQR(${loc.id},'${loc.name.replace(/'/g,"\\'")}')">
-                ⬇️ ទាញយក QR Code
-              </button>
-            </div>
-          `).join('')}
-        </div>
-      `}
-    `;
+    contentArea().innerHTML =
+      // ── Page Header ──
+      '<div class="page-header">'
+      +'<div><h2>📍 ទីតាំងស្កេន</h2><p>គ្រប់គ្រងទីតាំង, QR Code និងតាមដានការស្កែន</p></div>'
+      +(canEdit ? '<button class="btn btn-primary" onclick="openLocationModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> បន្ថែមទីតាំង</button>' : '')
+      +'</div>'
 
-    // Render QR codes
+      // ── Stat Cards ──
+      +'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;margin-bottom:24px">'
+
+      // Scanned In
+      +'<div class="card" style="padding:18px;display:flex;align-items:center;gap:16px;background:linear-gradient(135deg,rgba(16,185,129,.08),rgba(6,214,160,.05));border:1.5px solid rgba(16,185,129,.25)">'
+      +'<div style="width:50px;height:50px;border-radius:14px;background:rgba(16,185,129,.15);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">✅</div>'
+      +'<div><div style="font-size:11px;color:var(--text3);font-weight:600">ស្កែនចូលថ្ងៃនេះ</div>'
+      +'<div style="font-size:28px;font-weight:900;color:var(--success)">'+scannedInIds.size+'</div>'
+      +'<div style="font-size:11px;color:var(--text3)">ក្នុង '+allEmps.length+' នាក់</div></div></div>'
+
+      // Missing In
+      +'<div class="card" style="padding:18px;display:flex;align-items:center;gap:16px;background:linear-gradient(135deg,rgba(239,68,68,.08),rgba(220,38,38,.05));border:1.5px solid rgba(239,68,68,.25)">'
+      +'<div style="width:50px;height:50px;border-radius:14px;background:rgba(239,68,68,.15);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">⚠️</div>'
+      +'<div><div style="font-size:11px;color:var(--text3);font-weight:600">ខ្វះស្កែនចូល</div>'
+      +'<div style="font-size:28px;font-weight:900;color:var(--danger)">'+missingIn.length+'</div>'
+      +'<div style="font-size:11px;color:var(--text3)">នាក់មិនបានចូល</div></div></div>'
+
+      // Missing Out
+      +'<div class="card" style="padding:18px;display:flex;align-items:center;gap:16px;background:linear-gradient(135deg,rgba(245,158,11,.08),rgba(234,179,8,.05));border:1.5px solid rgba(245,158,11,.25)">'
+      +'<div style="width:50px;height:50px;border-radius:14px;background:rgba(245,158,11,.15);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">🚪</div>'
+      +'<div><div style="font-size:11px;color:var(--text3);font-weight:600">ខ្វះស្កែនចេញ</div>'
+      +'<div style="font-size:28px;font-weight:900;color:var(--warning)">'+missingOut.length+'</div>'
+      +'<div style="font-size:11px;color:var(--text3)">នាក់ចូលហើយ​មិនចេញ</div></div></div>'
+
+      +'</div>'
+
+      // ── Tabs ──
+      +'<div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:20px">'
+      +'<button id="loc-tab-missing" onclick="switchLocTab(\'missing\')" style="padding:10px 20px;font-size:13px;font-weight:700;border:none;background:none;cursor:pointer;border-bottom:3px solid var(--primary);color:var(--primary);margin-bottom:-2px;transition:all .2s">🔍 ខ្វះស្កែន</button>'
+      +'<button id="loc-tab-log" onclick="switchLocTab(\'log\')" style="padding:10px 20px;font-size:13px;font-weight:700;border:none;background:none;cursor:pointer;border-bottom:3px solid transparent;color:var(--text3);margin-bottom:-2px;transition:all .2s">📋 កំណត់ហេតុស្កែន</button>'
+      +'<button id="loc-tab-qr" onclick="switchLocTab(\'qr\')" style="padding:10px 20px;font-size:13px;font-weight:700;border:none;background:none;cursor:pointer;border-bottom:3px solid transparent;color:var(--text3);margin-bottom:-2px;transition:all .2s">📍 QR ទីតាំង</button>'
+      +'</div>'
+
+      // ── Panel: Missing Scan ──
+      +'<div id="loc-panel-missing">'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">'
+
+      // Missing Check-In card
+      +'<div class="card" style="padding:0;overflow:hidden">'
+      +'<div style="padding:14px 18px;background:linear-gradient(135deg,rgba(239,68,68,.1),rgba(220,38,38,.05));border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">'
+      +'<div style="display:flex;align-items:center;gap:8px"><span style="font-size:18px">🔴</span>'
+      +'<div><div style="font-weight:800;font-size:13px;color:var(--text)">ខ្វះស្កែនចូល</div>'
+      +'<div style="font-size:11px;color:var(--text3)">ថ្ងៃ '+_todayStr+'</div></div></div>'
+      +'<span style="background:var(--danger);color:white;font-size:11px;font-weight:800;padding:3px 10px;border-radius:20px">'+missingIn.length+' នាក់</span>'
+      +'</div>'
+      +'<div style="max-height:360px;overflow-y:auto">'
+      +(missingIn.length === 0
+        ? '<div style="padding:30px;text-align:center;color:var(--success)"><div style="font-size:32px;margin-bottom:8px">✅</div><div style="font-size:13px;font-weight:700">បុគ្គលិកទាំងអស់ស្កែនចូលហើយ!</div></div>'
+        : missingIn.map(e =>
+            '<div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border)">'
+            +'<div style="width:34px;height:34px;border-radius:50%;background:'+getColor(e.name)+';display:flex;align-items:center;justify-content:center;color:white;font-size:13px;font-weight:700;flex-shrink:0">'+(e.name||'?')[0]+'</div>'
+            +'<div style="flex:1;min-width:0">'
+            +'<div style="font-weight:700;font-size:13px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+e.name+'</div>'
+            +'<div style="font-size:11px;color:var(--text3)">'+(e.custom_id||'')+' '+(e.department_name?'· '+e.department_name:'')+'</div>'
+            +'</div>'
+            +'<span style="background:rgba(239,68,68,.12);color:var(--danger);font-size:10px;font-weight:700;padding:3px 8px;border-radius:10px;white-space:nowrap">មិនចូល</span>'
+            +'</div>'
+          ).join('')
+      )
+      +'</div></div>'
+
+      // Missing Check-Out card
+      +'<div class="card" style="padding:0;overflow:hidden">'
+      +'<div style="padding:14px 18px;background:linear-gradient(135deg,rgba(245,158,11,.1),rgba(234,179,8,.05));border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">'
+      +'<div style="display:flex;align-items:center;gap:8px"><span style="font-size:18px">🟡</span>'
+      +'<div><div style="font-weight:800;font-size:13px;color:var(--text)">ខ្វះស្កែនចេញ</div>'
+      +'<div style="font-size:11px;color:var(--text3)">ថ្ងៃ '+_todayStr+'</div></div></div>'
+      +'<span style="background:var(--warning);color:white;font-size:11px;font-weight:800;padding:3px 10px;border-radius:20px">'+missingOut.length+' នាក់</span>'
+      +'</div>'
+      +'<div style="max-height:360px;overflow-y:auto">'
+      +(missingOut.length === 0
+        ? '<div style="padding:30px;text-align:center;color:var(--success)"><div style="font-size:32px;margin-bottom:8px">✅</div><div style="font-size:13px;font-weight:700">បុគ្គលិកទាំងអស់ស្កែនចេញហើយ!</div></div>'
+        : missingOut.map(e => {
+            const attRec = todayAtt.find(a => a.employee_id === e.id);
+            const inTime = attRec ? attRec.check_in : '—';
+            return '<div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border)">'
+              +'<div style="width:34px;height:34px;border-radius:50%;background:'+getColor(e.name)+';display:flex;align-items:center;justify-content:center;color:white;font-size:13px;font-weight:700;flex-shrink:0">'+(e.name||'?')[0]+'</div>'
+              +'<div style="flex:1;min-width:0">'
+              +'<div style="font-weight:700;font-size:13px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+e.name+'</div>'
+              +'<div style="font-size:11px;color:var(--text3)">'+(e.custom_id||'')+' '+(e.department_name?'· '+e.department_name:'')+'</div>'
+              +'</div>'
+              +'<div style="text-align:right"><div style="font-size:11px;color:var(--text3)">ចូល</div><div style="font-size:13px;font-weight:800;color:var(--success)">'+inTime+'</div></div>'
+              +'<span style="background:rgba(245,158,11,.15);color:var(--warning);font-size:10px;font-weight:700;padding:3px 8px;border-radius:10px;white-space:nowrap;margin-left:4px">មិនចេញ</span>'
+              +'</div>';
+          }).join('')
+      )
+      +'</div></div>'
+      +'</div></div>'
+
+      // ── Panel: Scan Log ──
+      +'<div id="loc-panel-log" style="display:none">'
+      +'<div class="card" style="padding:0;overflow:hidden">'
+      +'<div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">'
+      +'<div style="font-weight:800;font-size:14px;color:var(--text)">📋 កំណត់ហេតុស្កែនថ្ងៃ '+_todayStr+'</div>'
+      +'<span style="font-size:12px;color:var(--text3)">'+scanLog.length+' កំណត់ត្រា</span>'
+      +'</div>'
+      +(scanLog.length === 0
+        ? '<div style="padding:40px;text-align:center;color:var(--text3)"><div style="font-size:40px;margin-bottom:10px">📭</div><div style="font-size:13px">មិនទាន់មានការស្កែនថ្ងៃនេះ</div></div>'
+        : '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">'
+          +'<thead><tr style="background:var(--bg3)">'
+          +'<th style="padding:10px 14px;text-align:left;font-size:12px;color:var(--text3);font-weight:700">បុគ្គលិក</th>'
+          +'<th style="padding:10px 14px;text-align:center;font-size:12px;color:var(--text3);font-weight:700">⏱ ម៉ោងចូល</th>'
+          +'<th style="padding:10px 14px;text-align:center;font-size:12px;color:var(--text3);font-weight:700">🚪 ម៉ោងចេញ</th>'
+          +'<th style="padding:10px 14px;text-align:center;font-size:12px;color:var(--text3);font-weight:700">ស្ថានភាព</th>'
+          +'<th style="padding:10px 14px;text-align:left;font-size:12px;color:var(--text3);font-weight:700">📍 ទីតាំង</th>'
+          +'</tr></thead><tbody>'
+          + scanLog.map(({emp, check_in, check_out, status, notes}) => {
+              const stBadge = status === 'present'
+                ? '<span style="background:rgba(16,185,129,.12);color:var(--success);font-size:10px;font-weight:700;padding:3px 9px;border-radius:10px">✅ វត្តមាន</span>'
+                : status === 'late'
+                ? '<span style="background:rgba(245,158,11,.12);color:var(--warning);font-size:10px;font-weight:700;padding:3px 9px;border-radius:10px">⏰ យឺត</span>'
+                : status === 'absent'
+                ? '<span style="background:rgba(239,68,68,.12);color:var(--danger);font-size:10px;font-weight:700;padding:3px 9px;border-radius:10px">❌ អវត្តមាន</span>'
+                : '<span style="background:var(--bg3);color:var(--text3);font-size:10px;padding:3px 9px;border-radius:10px">—</span>';
+              const locNote = notes ? notes.replace('📍 ','') : '';
+              return '<tr style="border-bottom:1px solid var(--border)">'
+                +'<td style="padding:10px 14px"><div style="display:flex;align-items:center;gap:8px">'
+                +'<div style="width:30px;height:30px;border-radius:50%;background:'+getColor(emp.name)+';display:flex;align-items:center;justify-content:center;color:white;font-size:11px;font-weight:700;flex-shrink:0">'+(emp.name||'?')[0]+'</div>'
+                +'<div><div style="font-weight:700;font-size:13px;color:var(--text)">'+emp.name+'</div>'
+                +'<div style="font-size:11px;color:var(--text3)">'+(emp.custom_id||'')+'</div></div></div></td>'
+                +'<td style="padding:10px 14px;text-align:center">'
+                +(check_in ? '<span style="background:rgba(16,185,129,.1);color:var(--success);font-size:14px;font-weight:800;padding:4px 12px;border-radius:8px">'+check_in+'</span>' : '<span style="color:var(--text3);font-size:12px">—</span>')
+                +'</td>'
+                +'<td style="padding:10px 14px;text-align:center">'
+                +(check_out ? '<span style="background:rgba(255,107,53,.1);color:var(--primary);font-size:14px;font-weight:800;padding:4px 12px;border-radius:8px">'+check_out+'</span>' : '<span style="color:var(--warning);font-size:11px;font-weight:600">⏳ មិនទាន់</span>')
+                +'</td>'
+                +'<td style="padding:10px 14px;text-align:center">'+stBadge+'</td>'
+                +'<td style="padding:10px 14px;font-size:12px;color:var(--text3)">'
+                +(locNote ? '<span style="background:rgba(99,102,241,.08);color:#6366f1;padding:3px 10px;border-radius:8px;font-weight:600">📍 '+locNote+'</span>' : '—')
+                +'</td></tr>';
+            }).join('')
+          +'</tbody></table></div>'
+      )
+      +'</div></div>'
+
+      // ── Panel: QR Locations ──
+      +'<div id="loc-panel-qr" style="display:none">'
+      +(locs.length === 0
+        ? '<div class="card" style="padding:60px;text-align:center"><div style="font-size:48px;margin-bottom:16px">📍</div><div style="font-size:16px;font-weight:700;color:var(--text2);margin-bottom:8px">មិនទាន់មានទីតាំង</div><div style="font-size:13px;color:var(--text3);margin-bottom:20px">បន្ថែមទីតាំងដំបូងដើម្បីបង្កើត QR Code</div>'+(canEdit ? '<button class="btn btn-primary" onclick="openLocationModal()">+ បន្ថែមទីតាំង</button>' : '')+'</div>'
+        : '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:18px">'
+          + locs.map(loc =>
+              '<div class="card" style="padding:20px;display:flex;flex-direction:column;gap:14px">'
+              +'<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">'
+              +'<div style="flex:1;min-width:0"><div style="font-size:15px;font-weight:800;color:var(--text);margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">📍 '+loc.name+'</div>'
+              +'<div style="font-size:12px;color:var(--text3)">'+(loc.description || 'គ្មានការពិពណ៌នា')+'</div></div>'
+              +(canEdit ? '<div style="display:flex;gap:6px;flex-shrink:0"><button class="btn btn-outline btn-sm" onclick="openLocationModal('+loc.id+')" style="border-color:var(--info);color:var(--info)">✏️</button><button class="btn btn-danger btn-sm" onclick="deleteLocationRecord('+loc.id+')">🗑️</button></div>' : '')
+              +'</div>'
+              +'<div style="display:flex;flex-direction:column;align-items:center;background:var(--bg3);border-radius:12px;padding:16px;gap:10px">'
+              +'<div id="loc-qr-'+loc.id+'" style="width:140px;height:140px;background:#fff;border-radius:8px;padding:6px;display:flex;align-items:center;justify-content:center"></div>'
+              +'<div style="font-size:11px;color:var(--text3);text-align:center">QR Code — ស្កែន QR នេះ ដើម្បីកត់វត្តមាន</div>'
+              +'</div>'
+              +'<button class="btn btn-outline btn-sm" style="width:100%;font-size:12px" onclick="downloadLocationQR('+loc.id+',\''+loc.name.replace(/'/g,"\\'")+'\')" >⬇️ ទាញយក QR Code</button>'
+              +'</div>'
+            ).join('')
+          +'</div>'
+      )
+      +'</div>';
+
+    // Render QR codes when on QR tab
     loadQRLib(() => {
       locs.forEach(loc => {
         const el = document.getElementById('loc-qr-' + loc.id);
         if (el && window.QRCode) {
           el.innerHTML = '';
-          new QRCode(el, {
-            text: 'LOC:' + loc.id + ':' + loc.name,
-            width: 128, height: 128,
-            correctLevel: QRCode.CorrectLevel.M
-          });
+          new QRCode(el, { text: 'LOC:' + loc.id + ':' + loc.name, width: 128, height: 128, correctLevel: QRCode.CorrectLevel.M });
         }
       });
     });
 
   } catch(e) { showError(e.message); }
+}
+
+// ── Location tab switcher ──
+function switchLocTab(tab) {
+  ['missing','log','qr'].forEach(t => {
+    const btn   = document.getElementById('loc-tab-'+t);
+    const panel = document.getElementById('loc-panel-'+t);
+    if (!btn || !panel) return;
+    const active = (t === tab);
+    panel.style.display = active ? 'block' : 'none';
+    btn.style.borderBottom = active ? '3px solid var(--primary)' : '3px solid transparent';
+    btn.style.color = active ? 'var(--primary)' : 'var(--text3)';
+  });
+  // re-render QR codes when switching to QR tab
+  if (tab === 'qr') {
+    loadQRLib(() => {
+      document.querySelectorAll('[id^="loc-qr-"]').forEach(el => {
+        if (el.children.length === 0 && window.QRCode) {
+          const locId   = parseInt(el.id.replace('loc-qr-',''));
+          const locName = el.dataset.locname || '';
+          if (locName) new QRCode(el, { text: 'LOC:'+locId+':'+locName, width:128, height:128, correctLevel: QRCode.CorrectLevel.M });
+        }
+      });
+    });
+  }
 }
 
 async function openLocationModal(id = null) {
