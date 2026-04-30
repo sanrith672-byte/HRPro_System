@@ -2144,7 +2144,7 @@ async function renderAttendance(date='') {
     state.employees = empData.employees;
     const label = new Date(today+'T00:00:00').toLocaleDateString('km-KH',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
     const isQR = _isQRRole;
-    const colCount = isQR ? 5 : 6;
+    const colCount = isQR ? 6 : 7;
 
     const attRows = attData.records.length===0
       ? '<tr><td colspan="'+colCount+'"><div class="empty-state" style="padding:30px"><p>មិនទាន់មានការកត់វត្តមានសម្រាប់ថ្ងៃនេះ</p></div></td></tr>'
@@ -2156,6 +2156,7 @@ async function renderAttendance(date='') {
           return '<tr>'
             +'<td><div class="employee-cell">'+av+'<div class="emp-name">'+a.employee_name+'</div></div></td>'
             +'<td>'+(a.department||'—')+'</td>'
+            +'<td>'+(a.work_location?'<span style="font-size:12px;display:inline-flex;align-items:center;gap:3px;background:var(--bg3);padding:2px 8px;border-radius:12px;color:var(--text2)">📍 '+a.work_location+'</span>':'<span style="color:var(--text3)">—</span>')+'</td>'
             +'<td><span style="font-family:var(--mono);color:var(--success)">'+(a.check_in||'—')+'</span></td>'
             +'<td><span style="font-family:var(--mono);color:var(--text3)">'+(a.check_out||'—')+'</span></td>'
             +'<td>'+(a.status==='present'?'<span class="badge badge-green">✅ វត្តមាន</span>':a.status==='late'?'<span class="badge badge-yellow">⏰ យឺត</span>':'<span class="badge badge-red">❌ អវត្តមាន</span>')+'</td>'
@@ -2178,7 +2179,7 @@ async function renderAttendance(date='') {
         +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>'
         +' 📊 តារាងប្រចាំខែ</button>';
 
-    const theadCols = '<th>បុគ្គលិក</th><th>នាយកដ្ឋាន</th><th>ម៉ោងចូល</th><th>ម៉ោងចេញ</th><th>ស្ថានភាព</th>'
+    const theadCols = '<th>បុគ្គលិក</th><th>នាយកដ្ឋាន</th><th>📍 ទីតាំង</th><th>ម៉ោងចូល</th><th>ម៉ោងចេញ</th><th>ស្ថានភាព</th>'
       + (!isQR ? '<th>សកម្មភាព</th>' : '');
 
     contentArea().innerHTML =
@@ -2213,6 +2214,7 @@ async function renderAttendance(date='') {
             +'<td style="padding:8px 12px"><b style="color:var(--text3);font-size:12px">'+(i+1)+'</b></td>'
             +'<td style="padding:8px 12px"><div class="employee-cell">'+av+'<div class="emp-name">'+a.employee_name+'</div></div></td>'
             +'<td style="padding:8px 12px"><span style="color:var(--text3);font-size:12px">'+(a.department||'—')+'</span></td>'
+            +'<td style="padding:8px 12px">'+(a.work_location?'<span style="font-size:12px;display:inline-flex;align-items:center;gap:3px;background:var(--bg3);padding:2px 8px;border-radius:12px;color:var(--text2)">📍 '+a.work_location+'</span>':'<span style="color:var(--text3)">—</span>')+'</td>'
             +'<td style="padding:8px 12px"><span style="font-family:var(--mono);color:var(--success);font-size:13px">'+(a.check_in||'—')+'</span></td>'
             +'<td style="padding:8px 12px"><span style="font-family:var(--mono);color:var(--danger);font-size:13px">មិនទាន់ចេញ</span></td>'
             +'</tr>';
@@ -2222,7 +2224,7 @@ async function renderAttendance(date='') {
           +'<span class="card-title" style="color:var(--warning)">⚠️ បុគ្គលិកដែលមានតែ Check-In — មិនទាន់ស្កេនចេញ ('+checkinOnly.length+' នាក់)</span>'
           +'</div>'
           +'<div class="table-container"><table>'
-          +'<thead><tr><th style="width:40px">#</th><th>ឈ្មោះបុគ្គលិក</th><th>នាយកដ្ឋាន</th><th>ម៉ោងចូល</th><th>ស្ថានភាព</th></tr></thead>'
+          +'<thead><tr><th style="width:40px">#</th><th>ឈ្មោះបុគ្គលិក</th><th>នាយកដ្ឋាន</th><th>📍 ទីតាំង</th><th>ម៉ោងចូល</th><th>ស្ថានភាព</th></tr></thead>'
           +'<tbody>'+rows+'</tbody>'
           +'</table></div></div>';
       })()

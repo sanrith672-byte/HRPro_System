@@ -507,7 +507,7 @@ async function getAttendance(request, env) {
   }
 
   let query = `
-    SELECT a.*, e.name as employee_name, d.name as department
+    SELECT a.*, e.name as employee_name, d.name as department, COALESCE(e.work_location,'') as work_location
     FROM attendance a
     JOIN employees e ON a.employee_id = e.id
     LEFT JOIN departments d ON e.department_id = d.id
