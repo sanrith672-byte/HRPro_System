@@ -2858,9 +2858,36 @@ async function renderQRScanPage() {
     state.employees = d.employees || [];
   } catch(_) {}
 
+  // Reset location state when re-entering page
+  window._currentScanLocation = window._currentScanLocation || null;
+
+  const _sess = getSession();
+  const _scannerName = (_sess && _sess.name) ? _sess.name : '';
+  const _scannerRole = (_sess && _sess.role) ? _sess.role : '';
+  const _isQRScanner = _scannerRole === 'QR Scanner';
+
+  // Build scanner info bar HTML
+  const _scannerInfoBar = _scannerName
+    ? '<div style="display:flex;align-items:center;gap:10px;background:linear-gradient(135deg,rgba(99,102,241,.12),rgba(99,102,241,.06));border:1px solid rgba(99,102,241,.3);border-radius:10px;padding:10px 14px;margin-bottom:14px">'
+      +'<div style="width:32px;height:32px;border-radius:50%;background:rgba(99,102,241,.2);display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0">📷</div>'
+      +'<div style="min-width:0">'
+      +'<div style="font-size:10px;color:var(--text3);margin-bottom:1px">អ្នកស្កែន</div>'
+      +'<div style="font-size:13px;font-weight:700;color:var(--text)">'+_scannerName+'</div>'
+      +'</div>'
+      +'<div id="qr-loc-badge" style="margin-left:auto;display:flex;align-items:center;gap:6px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:5px 10px;font-size:11px;color:var(--text3);cursor:pointer" onclick="clearScanLocation()" title="ចុចដើម្បីលុបទីតាំង">'
+      +'<span style="font-size:13px">📍</span>'
+      +'<span id="qr-loc-name">ស្កែន QR ទីតាំង...</span>'
+      +'</div>'
+      +'</div>'
+    : '<div id="qr-loc-bar" style="display:flex;align-items:center;gap:8px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:8px 14px;margin-bottom:14px">'
+      +'<span style="font-size:13px">📍</span>'
+      +'<span id="qr-loc-name" style="font-size:12px;color:var(--text3)">ស្កែន QR ទីតាំង ជាមុន...</span>'
+      +'<button class="btn btn-outline btn-sm" style="margin-left:auto;font-size:11px;padding:3px 8px" onclick="clearScanLocation()">✕ លុប</button>'
+      +'</div>';
+
   contentArea().innerHTML =
     '<div class="page-header">'
-    +'<div><h2>📷 ស្កេន QR — វត្តមាន</h2><p>ស្កេន QR Code បុគ្គលិក ដើម្បីកត់វត្តមានភ្លាមៗ</p></div>'
+    +'<div><h2>📷 ស្កេន QR — វត្តមាន</h2><p>ស្កេន QR ទីតាំង → ស្កេន QR បុគ្គលិក ដើម្បីកត់វត្តមានភ្លាមៗ</p></div>'
     +'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
     +'<div style="display:flex;align-items:center;gap:8px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:8px 14px">'
     +'<span style="font-size:13px;font-weight:600;color:var(--text2)">📅 ថ្ងៃស្កេន:</span>'
@@ -2868,17 +2895,17 @@ async function renderQRScanPage() {
     +'style="border:none;background:transparent;font-size:13px;font-weight:700;color:var(--primary);cursor:pointer;outline:none" '
     +'onchange="onQRScanDateChange(this.value)" />'
     +'</div>'
-    +'<button class="btn btn-outline btn-sm" '
-    +'onclick="resetQRScanToToday()" '
-    +'style="font-size:12px">🔄 ថ្ងៃនេះ</button>'
+    +'<button class="btn btn-outline btn-sm" onclick="resetQRScanToToday()" style="font-size:12px">🔄 ថ្ងៃនេះ</button>'
     +'</div>'
     +'</div>'
     +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;max-width:900px;margin:0 auto" class="qr-scan-grid">'
 
     // Left: Camera
     +'<div class="card" style="padding:20px">'
-    +'<div style="font-weight:700;font-size:14px;margin-bottom:14px;display:flex;align-items:center;gap:8px">'
-    +'<span style="width:8px;height:8px;background:var(--success);border-radius:50%;display:inline-block"></span>កាមេរ៉ា'
+    // Scanner info + location bar
+    + _scannerInfoBar
+    +'<div style="font-weight:700;font-size:14px;margin-bottom:10px;display:flex;align-items:center;gap:8px">'
+    +'<span style="width:8px;height:8px;background:var(--success);border-radius:50%;display:inline-block;animation:qrPulse 1.5s ease-in-out infinite"></span>កាមេរ៉ា'
     +'</div>'
     +'<div style="position:relative;width:100%;border-radius:12px;overflow:hidden;background:#000;aspect-ratio:1;margin-bottom:14px">'
     +'<video id="qr-video" style="width:100%;height:100%;object-fit:cover" autoplay playsinline muted></video>'
@@ -2888,6 +2915,11 @@ async function renderQRScanPage() {
     +'<div style="position:absolute;bottom:16px;left:16px;width:44px;height:44px;border-bottom:3px solid var(--primary);border-left:3px solid var(--primary);border-radius:0 0 0 4px"></div>'
     +'<div style="position:absolute;bottom:16px;right:16px;width:44px;height:44px;border-bottom:3px solid var(--primary);border-right:3px solid var(--primary);border-radius:0 0 4px 0"></div>'
     +'<div id="qr-scan-line" style="position:absolute;left:16px;right:16px;height:2px;background:var(--primary);top:50%;animation:qrScanLine 2s ease-in-out infinite;box-shadow:0 0 8px var(--primary)"></div>'
+    // Location overlay on camera
+    +'<div id="qr-cam-loc" style="position:absolute;top:8px;left:8px;right:8px;background:rgba(0,0,0,.55);backdrop-filter:blur(4px);border-radius:8px;padding:5px 10px;display:none;align-items:center;gap:6px">'
+    +'<span style="font-size:12px">📍</span>'
+    +'<span id="qr-cam-loc-name" style="font-size:11px;font-weight:700;color:white;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></span>'
+    +'</div>'
     +'</div>'
     +'<div id="qr-scan-status" style="position:absolute;bottom:0;left:0;right:0;text-align:center;color:white;font-size:11px;background:rgba(0,0,0,.6);padding:6px">📷 កំពុងចាប់ផ្ដើម...</div>'
     +'</div>'
@@ -2896,7 +2928,7 @@ async function renderQRScanPage() {
     +'<button id="scan-type-in" class="btn btn-success btn-sm" style="flex:1;border:none" onclick="setScanType(\'in\')">🟢 ចូល</button>'
     +'<button id="scan-type-out" class="btn btn-outline btn-sm" style="flex:1;border:none" onclick="setScanType(\'out\')">🔴 ចេញ</button>'
     +'</div>'
-    // Manual input — uses getQRScanDate() so it always picks up the selected date
+    // Manual input
     +'<div style="background:var(--bg3);border-radius:10px;padding:12px">'
     +'<div style="font-size:11px;color:var(--text3);margin-bottom:8px;text-align:center">ឬវាយ ID / ឈ្មោះ / custom ID</div>'
     +'<div style="display:flex;gap:6px">'
@@ -2917,20 +2949,25 @@ async function renderQRScanPage() {
     +'</div>'
     +'<div id="qr-result-log" style="flex:1;overflow-y:auto;border-radius:8px;min-height:300px"></div>'
     +'<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">'
-    +(getSession()?.role !== 'QR Scanner' ? '<button class="btn btn-outline btn-sm" onclick="navigate(\'attendance\')">'
+    +(!_isQRScanner ? '<button class="btn btn-outline btn-sm" onclick="navigate(\'attendance\')">'
     +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/></svg>'
     +' មើលតារាងវត្តមាន</button>' : '')
     +'</div>'
     +'</div>'
 
     +'</div>'
-    +'<style>@keyframes qrScanLine{0%,100%{top:20%}50%{top:80%}}@media(max-width:700px){.qr-scan-grid{grid-template-columns:1fr!important;}}</style>';
+    +'<style>'
+    +'@keyframes qrScanLine{0%,100%{top:20%}50%{top:80%}}'
+    +'@keyframes qrPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(1.4)}}'
+    +'@media(max-width:700px){.qr-scan-grid{grid-template-columns:1fr!important;}}'
+    +'</style>';
 
   window._scanType = 'in';
   window._scanCount = 0;
 
-  // Update date picker max to today (local date) and start scanner
-  // _todayLocal already set as _today above
+  // Restore location badge if already set
+  _updateLocationUI();
+
   const _datePicker = document.getElementById('qr-scan-date');
   if (_datePicker) { _datePicker.value = _today; _datePicker.max = _today; }
   startQRScanner(_today);
@@ -2939,6 +2976,32 @@ async function renderQRScanPage() {
   const origNavigate = window._qrPageNavGuard;
   if (origNavigate) origNavigate();
   window._qrPageNavGuard = () => stopQRScanner();
+}
+
+// Update location badge + camera overlay after location changes
+function _updateLocationUI() {
+  const loc = window._currentScanLocation;
+  const locName = loc ? loc.name : null;
+
+  // Update badge text in scanner bar
+  const badge = document.getElementById('qr-loc-name');
+  if (badge) {
+    badge.textContent = locName || 'ស្កែន QR ទីតាំង...';
+    badge.style.color = locName ? 'var(--primary)' : '';
+    badge.style.fontWeight = locName ? '700' : '';
+  }
+  // Update camera location overlay
+  const camLoc = document.getElementById('qr-cam-loc');
+  const camLocName = document.getElementById('qr-cam-loc-name');
+  if (camLoc) camLoc.style.display = locName ? 'flex' : 'none';
+  if (camLocName) camLocName.textContent = locName || '';
+}
+
+// Clear current scan location
+function clearScanLocation() {
+  window._currentScanLocation = null;
+  _updateLocationUI();
+  showToast('លុបទីតាំងរួច', 'info');
 }
 
 // Get currently selected scan date from the date picker
@@ -3235,14 +3298,36 @@ async function processQRScan(raw, date) {
   // ── Handle Location QR codes (format: LOC:id:name) ──
   if (raw.startsWith('LOC:')) {
     const parts = raw.split(':');
+    const locId   = parseInt(parts[1]) || 0;
     const locName = parts.slice(2).join(':') || 'ទីតាំង';
-    showToast('📍 QR ទីតាំង: ' + locName + ' — សូមស្កែន QR បុគ្គលិក', 'info');
+    // Save location state globally
+    window._currentScanLocation = { id: locId, name: locName };
+    // Update location UI (badge + camera overlay)
+    _updateLocationUI();
+    // Flash success on camera status
     const s = document.getElementById('qr-scan-status');
-    if (s) { s.textContent = '📍 ទីតាំង: ' + locName; s.style.background = 'rgba(99,102,241,.8)'; }
+    if (s) {
+      s.textContent = '📍 ទីតាំង: ' + locName + ' — ស្កែន QR បុគ្គលិក';
+      s.style.background = 'rgba(99,102,241,.85)';
+    }
+    // Show location confirmed overlay briefly
+    const locOverlay = document.createElement('div');
+    locOverlay.style.cssText = 'position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:9998;pointer-events:none';
+    locOverlay.innerHTML =
+      '<div style="background:var(--bg2);border:2px solid rgba(99,102,241,.7);border-radius:18px;padding:22px 32px;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.5);animation:qrLocPop .3s ease">'
+      +'<div style="font-size:36px;margin-bottom:8px">📍</div>'
+      +'<div style="font-size:14px;font-weight:800;color:var(--text);margin-bottom:4px">ទីតាំងបានកំណត់</div>'
+      +'<div style="font-size:18px;font-weight:900;color:rgba(99,102,241,1)">'+locName+'</div>'
+      +'<div style="font-size:11px;color:var(--text3);margin-top:6px">ស្កែន QR បុគ្គលិក ដើម្បីចូល/ចេញ</div>'
+      +'</div>'
+      +'<style>@keyframes qrLocPop{from{opacity:0;transform:scale(.85)}to{opacity:1;transform:scale(1)}}</style>';
+    document.body.appendChild(locOverlay);
     setTimeout(() => {
+      locOverlay.remove();
       const sx = document.getElementById('qr-scan-status');
-      if (sx) { sx.textContent = '📷 កំពុងស្កេន...'; sx.style.background = 'rgba(0,0,0,.6)'; }
-    }, 2500);
+      if (sx) { sx.textContent = '📷 ស្កែន QR បុគ្គលិក...'; sx.style.background = 'rgba(0,0,0,.6)'; }
+    }, 1800);
+    showToast('📍 ទីតាំង: ' + locName + ' — ស្កែន QR បុគ្គលិក!', 'success');
     return;
   }
 
@@ -3290,9 +3375,19 @@ async function processQRScan_continue(emp, raw, date) {
   const isLate = type === 'in' && (_nowMin > _limitMin);
   const status = type === 'in' ? (isLate ? 'late' : 'present') : 'present';
 
+  // Get scanner & location info
+  const _sess = getSession();
+  const _scannerName = (_sess && _sess.name) ? _sess.name : '';
+  const _scannerRole = (_sess && _sess.role) ? _sess.role : '';
+  const _isQRScannerRole = _scannerRole === 'QR Scanner';
+  const _showScanner = !!_scannerName; // show for all roles if name exists
+  const _curLoc = window._currentScanLocation;
+  const _locName = _curLoc ? _curLoc.name : '';
+
   const payload = { employee_id: emp.id, date };
   if (type === 'in')  { payload.check_in  = time; payload.status = status; }
   else                { payload.check_out = time; }
+  if (_curLoc) payload.location_id = _curLoc.id;
 
   try {
     await api('POST', '/attendance', payload);
@@ -3309,74 +3404,83 @@ async function processQRScan_continue(emp, raw, date) {
     const bg = type === 'in' ? 'rgba(6,214,160,.8)' : 'rgba(255,107,53,.8)';
     if (sv) { sv.textContent = icon + ' ' + emp.name + ' — ' + label + time; sv.style.background = bg; }
 
-    // ── AUTO STOP + CLOSE after success ──────────────────
+    // ── SUCCESS OVERLAY ──────────────────────────────────
     setTimeout(() => {
-      stopQRScanner();
-      // Get QR Scanner (operator) name from session
-      const _sess = getSession();
-      const _scannerName = (_sess && _sess.name) ? _sess.name : '';
-      const _scannerRole = (_sess && _sess.role) ? _sess.role : '';
-      const _showScanner = _scannerName && _scannerRole === 'QR Scanner';
+      // For modal-based scanner: stop stream only if modal is open
+      const isModalMode = !!document.getElementById('modal-overlay')?.classList.contains('show') ||
+                          !!document.getElementById('modal-overlay')?.style.display?.includes('flex');
 
-      // Show brief success overlay then close
+      if (isModalMode) stopQRScanner();
+
       const overlay = document.createElement('div');
-      overlay.style.cssText = 'position:fixed;inset:0;background:rgba(6,214,160,.15);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;pointer-events:none';
+      overlay.style.cssText = 'position:fixed;inset:0;background:rgba(6,214,160,.1);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;pointer-events:none';
       const _ovPhoto = getEmpPhoto(emp.id);
       const _ovAvatar = _ovPhoto
         ? '<img src="'+_ovPhoto+'" style="width:80px;height:80px;border-radius:50%;object-fit:cover;border:3px solid var(--success);margin-bottom:10px"/>'
         : '<div style="width:80px;height:80px;border-radius:50%;background:'+getColor(emp.name)+';display:flex;align-items:center;justify-content:center;color:white;font-size:28px;font-weight:700;margin-bottom:10px;border:3px solid var(--success)">'+emp.name[0]+'</div>';
       overlay.innerHTML =
-        '<div style="background:var(--bg2);border:2px solid var(--success);border-radius:20px;padding:28px 40px;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.5);max-width:340px;width:90vw">'
+        '<div style="background:var(--bg2);border:2px solid var(--success);border-radius:20px;padding:24px 36px;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.5);max-width:340px;width:90vw;animation:qrLocPop .25s ease">'
         +'<div style="display:flex;flex-direction:column;align-items:center">'
         + _ovAvatar
-        +'<div style="font-size:32px;margin-bottom:6px">'+(type==='in'?'✅':'🚪')+'</div>'
+        +'<div style="font-size:30px;margin-bottom:4px">'+(type==='in'?'✅':'🚪')+'</div>'
         +'<div style="font-size:18px;font-weight:800;color:var(--text)">'+emp.name+'</div>'
-        // Time badge — large and prominent
+        // Time badge
         +'<div style="background:'+(type==='in'?'rgba(6,214,160,.15)':'rgba(255,107,53,.12)')+';border:1.5px solid '+(type==='in'?'var(--success)':'var(--primary)')+';border-radius:12px;padding:8px 20px;margin-top:10px;display:flex;align-items:center;gap:8px">'
-        +'<span style="font-size:22px">'+(type==='in'?'⏱️':'🕐')+'</span>'
+        +'<span style="font-size:20px">'+(type==='in'?'⏱️':'🕐')+'</span>'
         +'<div style="text-align:left">'
         +'<div style="font-size:11px;color:var(--text3);font-weight:600">'+(type==='in'?'ម៉ោងចូល':'ម៉ោងចេញ')+'</div>'
-        +'<div style="font-size:20px;font-weight:900;color:'+(type==='in'?'var(--success)':'var(--primary)')+'">'+time+(isLate?' ⏰':'')+'</div>'
+        +'<div style="font-size:22px;font-weight:900;color:'+(type==='in'?'var(--success)':'var(--primary)')+'">'+time+(isLate?' ⏰':'')+'</div>'
         +'</div></div>'
-        +'<div style="font-size:11px;color:var(--text3);margin-top:8px">'+(emp.custom_id||emp.department_name||'')+'</div>'
-        // QR Scanner operator info
+        +'<div style="font-size:11px;color:var(--text3);margin-top:6px">'+(emp.custom_id||emp.department_name||'')+'</div>'
+        // Location row
+        +(_locName
+          ? '<div style="margin-top:8px;display:flex;align-items:center;gap:5px;background:rgba(99,102,241,.1);border:1px solid rgba(99,102,241,.3);border-radius:8px;padding:5px 12px">'
+            +'<span style="font-size:14px">📍</span>'
+            +'<span style="font-size:12px;font-weight:700;color:rgba(99,102,241,1)">'+_locName+'</span>'
+            +'</div>'
+          : '')
+        // Scanner name row — shown for all logged-in users
         +(_showScanner
-          ? '<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);width:100%;text-align:center">'
+          ? '<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);width:100%;text-align:center">'
             +'<div style="font-size:10px;color:var(--text3);margin-bottom:2px">ស្កែនដោយ</div>'
-            +'<div style="font-size:12px;font-weight:700;color:var(--text2)">📷 '+_scannerName+'</div>'
+            +'<div style="font-size:13px;font-weight:800;color:var(--text2)">📷 '+_scannerName+'</div>'
             +'</div>'
           : '')
         +'</div>'
-        +'</div>';
+        +'</div>'
+        +'<style>@keyframes qrLocPop{from{opacity:0;transform:scale(.85)}to{opacity:1;transform:scale(1)}}</style>';
       document.body.appendChild(overlay);
       setTimeout(() => {
         overlay.remove();
-        closeModal();
-        renderAttendance(date);
+        if (isModalMode) { closeModal(); renderAttendance(date); }
+        // Page mode: just restart scanner
+        else { startQRScanner(date); }
       }, 1800);
     }, 300);
 
-    // Log entry
+    // ── LOG ENTRY ────────────────────────────────────────
     const log = document.getElementById('qr-result-log');
     if (log) {
       const photo = getEmpPhoto(emp.id);
       const av = photo
-        ? '<img src="'+photo+'" style="width:28px;height:28px;border-radius:50%;object-fit:cover;flex-shrink:0"/>'
-        : '<div style="width:28px;height:28px;border-radius:50%;background:'+getColor(emp.name)+';display:flex;align-items:center;justify-content:center;color:white;font-size:11px;font-weight:700;flex-shrink:0">'+emp.name[0]+'</div>';
-      const borderColor = type === 'in' ? 'rgba(6,214,160,.3)' : 'rgba(255,107,53,.3)';
+        ? '<img src="'+photo+'" style="width:32px;height:32px;border-radius:50%;object-fit:cover;flex-shrink:0"/>'
+        : '<div style="width:32px;height:32px;border-radius:50%;background:'+getColor(emp.name)+';display:flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:700;flex-shrink:0">'+emp.name[0]+'</div>';
+      const borderColor = type === 'in' ? 'rgba(6,214,160,.4)' : 'rgba(255,107,53,.4)';
       const textColor   = type === 'in' ? 'var(--success)' : 'var(--primary)';
-      // Scanner info for log
-      const _ls = getSession();
-      const _lsName = (_ls && _ls.role === 'QR Scanner' && _ls.name) ? _ls.name : '';
+      const bgColor     = type === 'in' ? 'rgba(6,214,160,.05)' : 'rgba(255,107,53,.05)';
       log.innerHTML =
-        '<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--bg3);border-radius:8px;margin-bottom:5px;border-left:3px solid '+borderColor+'">'
+        '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:'+bgColor+';border-radius:8px;margin-bottom:5px;border-left:3px solid '+borderColor+'">'
         + av
-        + '<div style="min-width:0"><div style="font-weight:700;font-size:12px">'+emp.name+'</div>'
-        + '<div style="font-size:10px;color:var(--text3)">'+(emp.custom_id||'EMP'+String(emp.id).padStart(3,'0'))+' · '+emp.department_name+'</div>'
-        + (_lsName ? '<div style="font-size:9px;color:var(--text3)">📷 '+_lsName+'</div>' : '')
+        + '<div style="min-width:0;flex:1">'
+        + '<div style="font-weight:700;font-size:12px">'+emp.name+'</div>'
+        + '<div style="font-size:10px;color:var(--text3)">'+(emp.custom_id||'EMP'+String(emp.id).padStart(3,'0'))+' · '+(emp.department_name||'')+'</div>'
+        // Location in log
+        + (_locName ? '<div style="font-size:9px;color:rgba(99,102,241,.9);font-weight:600;margin-top:1px">📍 '+_locName+'</div>' : '')
+        // Scanner name in log — always show
+        + (_scannerName ? '<div style="font-size:9px;color:var(--text3);margin-top:1px">📷 '+_scannerName+'</div>' : '')
         + '</div>'
-        + '<div style="margin-left:auto;text-align:right;flex-shrink:0">'
-        + '<div style="font-size:13px;font-weight:800;color:'+textColor+'">'+(type==='in'?'▶ ':'◀ ')+time+'</div>'
+        + '<div style="text-align:right;flex-shrink:0">'
+        + '<div style="font-size:14px;font-weight:800;color:'+textColor+'">'+(type==='in'?'▶ ':'◀ ')+time+'</div>'
         + '<div style="font-size:9px;color:var(--text3)">'+(type==='in'?(isLate?'⏰ យឺត':'✅ ទាន់'):'🚪 ចេញ')+'</div>'
         + '</div></div>'
         + log.innerHTML;
@@ -3390,8 +3494,6 @@ async function processQRScan_continue(emp, raw, date) {
 }
 
 
-
-// ===== BULK ABSENCE MODAL =====
 // ===== BULK ABSENCE / LEAVE MODAL =====
 // ===== BULK ABSENCE / LEAVE MODAL (per-employee date) =====
 function openBulkAbsenceModal(dateVal) {
