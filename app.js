@@ -2201,6 +2201,31 @@ async function renderAttendance(date='') {
       +'<div class="att-box" style="border-top:2px solid var(--danger)"><div class="att-num" style="color:var(--danger)">'+attData.stats.not_scanned+'</div><div class="att-lbl">🔴 មិនទាន់ស្កេន</div></div>'
       +'<div class="att-box" style="border-top:2px solid var(--info)"><div class="att-num" style="color:var(--info)">'+attData.stats.checked_out+'</div><div class="att-lbl">🔵 ស្កេនចេញ</div></div>'
       +'</div>'
++ (()=>{
+        const checkinOnly = attData.records.filter(a => a.check_in && !a.check_out);
+        if (checkinOnly.length === 0) return '';
+        const rows = checkinOnly.map((a,i) => {
+          const photo = getEmpPhoto(a.employee_id);
+          const av = photo
+            ? '<div class="emp-avatar" style="width:32px;height:32px;min-width:32px;background:'+getColor(a.employee_name)+';overflow:hidden;padding:0"><img src="'+photo+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/></div>'
+            : '<div class="emp-avatar" style="width:32px;height:32px;min-width:32px;font-size:13px;background:'+getColor(a.employee_name)+'">'+(a.employee_name||'?')[0]+'</div>';
+          return '<tr>'
+            +'<td style="padding:8px 12px"><b style="color:var(--text3);font-size:12px">'+(i+1)+'</b></td>'
+            +'<td style="padding:8px 12px"><div class="employee-cell">'+av+'<div class="emp-name">'+a.employee_name+'</div></div></td>'
+            +'<td style="padding:8px 12px"><span style="color:var(--text3);font-size:12px">'+(a.department||'—')+'</span></td>'
+            +'<td style="padding:8px 12px"><span style="font-family:var(--mono);color:var(--success);font-size:13px">'+(a.check_in||'—')+'</span></td>'
+            +'<td style="padding:8px 12px"><span style="font-family:var(--mono);color:var(--danger);font-size:13px">មិនទាន់ចេញ</span></td>'
+            +'</tr>';
+        }).join('');
+        return '<div class="card" style="border-left:4px solid var(--warning);margin-bottom:16px">'
+          +'<div class="card-header" style="background:rgba(234,179,8,.08)">'
+          +'<span class="card-title" style="color:var(--warning)">⚠️ បុគ្គលិកដែលមានតែ Check-In — មិនទាន់ស្កេនចេញ ('+checkinOnly.length+' នាក់)</span>'
+          +'</div>'
+          +'<div class="table-container"><table>'
+          +'<thead><tr><th style="width:40px">#</th><th>ឈ្មោះបុគ្គលិក</th><th>នាយកដ្ឋាន</th><th>ម៉ោងចូល</th><th>ស្ថានភាព</th></tr></thead>'
+          +'<tbody>'+rows+'</tbody>'
+          +'</table></div></div>';
+      })()
       +'<div class="card">'
       +'<div class="card-header"><span class="card-title">ក្បាលបញ្ជីវត្តមាន</span></div>'
       +'<div class="table-container"><table>'
