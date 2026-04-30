@@ -711,7 +711,7 @@ function getPermissions() {
       allowance_view:true, allowance_edit:true,
       reports_view:true, reports_export:true,
       leave_view:true, leave_edit:true,
-      dayswap_view:true, dayswap_edit:true,
+      dayswap_view:true, dayswap_edit:true, dayswap_approve:true,
       loans_view:true, loans_edit:false,
       expenses_view:true, expenses_edit:true,
       id_card_print:true, settings_access:false,
@@ -725,7 +725,7 @@ function getPermissions() {
       allowance_view:true, allowance_edit:false,
       reports_view:true, reports_export:true,
       leave_view:true, leave_edit:false,
-      dayswap_view:true, dayswap_edit:false,
+      dayswap_view:true, dayswap_edit:false, dayswap_approve:false,
       loans_view:true, loans_edit:true,
       expenses_view:true, expenses_edit:true,
       id_card_print:false, settings_access:false,
@@ -739,7 +739,7 @@ function getPermissions() {
       allowance_view:false, allowance_edit:false,
       reports_view:false, reports_export:false,
       leave_view:true, leave_edit:false,
-      dayswap_view:true, dayswap_edit:false,
+      dayswap_view:true, dayswap_edit:false, dayswap_approve:false,
       loans_view:false, loans_edit:false,
       expenses_view:false, expenses_edit:false,
       id_card_print:false, settings_access:false,
@@ -753,7 +753,7 @@ function getPermissions() {
       allowance_view:false, allowance_edit:false,
       reports_view:false, reports_export:false,
       leave_view:false, leave_edit:false,
-      dayswap_view:true, dayswap_edit:true,
+      dayswap_view:true, dayswap_edit:true, dayswap_approve:false,
       loans_view:false, loans_edit:false,
       expenses_view:false, expenses_edit:false,
       id_card_print:false, settings_access:false,
@@ -7177,7 +7177,7 @@ async function renderDaySwap() {
                   ? '<span class="badge badge-red">❌ បដិសេធ</span>'
                   : '<span class="badge badge-yellow">⏳ រង់ចាំ</span>'}</td>
                 <td><div class="action-btns">
-                  ${r.status==='pending' && hasPerm('dayswap_edit') ? `
+                  ${r.status==='pending' && hasPerm('dayswap_approve') ? `
                     <button class="btn btn-success btn-sm" onclick="updateDaySwap(${r.id},'approved')">✅</button>
                     <button class="btn btn-danger btn-sm" onclick="updateDaySwap(${r.id},'rejected')">❌</button>` : ''}
                   ${hasPerm('dayswap_edit') ? `<button class="btn btn-outline btn-sm" onclick="openDaySwapModal(${r.id})" style="border-color:var(--info);color:var(--info)">✏️</button>` : ''}
@@ -7409,6 +7409,10 @@ function dsNextWeekday(wd) {
 }
 
 async function updateDaySwap(id, status) {
+  if (!hasPerm('dayswap_approve')) {
+    showToast('⛔ អ្នកគ្មានសិទ្ធអនុម័ត ឬបដិសេធ ការប្តូរថ្ងៃ!', 'error');
+    return;
+  }
   try {
     await api('PUT', '/dayswap/' + id, { status });
     showToast(status === 'approved' ? '✅ អនុម័តរួចរាល់!' : '❌ បដិសេធរួចរាល់!', 'success');
@@ -8047,7 +8051,8 @@ function renderSettings() {
                 { key:'leave_view',          label:'👁️ មើលច្បាប់' },
                 { key:'leave_edit',          label:'✏️ អនុម័ត / លុប ច្បាប់' },
                 { key:'dayswap_view',        label:'👁️ មើលការប្តូរថ្ងៃ' },
-                { key:'dayswap_edit',        label:'✏️ អនុម័ត / លុប ការប្តូរថ្ងៃ' },
+                { key:'dayswap_edit',        label:'✏️ ស្នើ / កែ / លុប ការប្តូរថ្ងៃ' },
+                { key:'dayswap_approve',     label:'✅ អនុម័ត / បដិសេធ ការប្តូរថ្ងៃ' },
                 // --- Group: ប្រាក់ខ្ចី ---
                 { group: '💰 ប្រាក់ខ្ចី' },
                 { key:'loans_view',          label:'👁️ មើលប្រាក់ខ្ចី' },
