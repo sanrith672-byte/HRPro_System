@@ -530,8 +530,11 @@ async function getAttendance(request, env) {
   const present = result.results.filter(r => r.status === 'present').length;
   const late = result.results.filter(r => r.status === 'late').length;
   const absent = result.results.filter(r => r.status === 'absent').length;
+  const checked_in = result.results.filter(r => r.check_in).length;
+  const checked_out = result.results.filter(r => r.check_out).length;
+  const not_scanned = result.results.filter(r => !r.check_in).length;
 
-  return json({ records: result.results, stats: { present, late, absent, total: result.results.length } });
+  return json({ records: result.results, stats: { present, late, absent, total: result.results.length, checked_in, checked_out, not_scanned } });
 }
 
 async function updateAttendance(id, request, env) {
