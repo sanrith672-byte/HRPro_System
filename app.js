@@ -1127,7 +1127,6 @@ async function renderEmployees(filter='', dept='', status='') {
       +(canEdit()?'<button class="btn btn-primary" onclick="openEmployeeModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> + បន្ថែម</button>':'')
       +'<button class="btn btn-outline" style="border-color:var(--info);color:var(--info)" onclick="openEmpAdvSearch()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> 🔍 ស្វែងរក</button>'      +'<button class="btn btn-outline" onclick="openEmployeeReportModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> 🖨️ បោះពុម្ព / Export</button>'
       +'<button class="btn btn-outline" style="border-color:#10b981;color:#10b981" onclick="openAllQRModal()">📲 QR ទាំងអស់</button>'
-      +'<button class="btn btn-outline" style="border-color:#6366f1;color:#6366f1" onclick="openSelfScanQRModal()">🔲 QR Self-Scan</button>'
       +'</div></div>'
       +'<div class="filter-bar">'
       +'<div style="display:flex;gap:6px;flex:1;min-width:200px">'+'<input id="emp-search-input" class="filter-input" style="flex:1" placeholder="ស្វែងរក..." value="'+filter+'" onkeydown="if(event.key===\'Enter\')_empQuickFilter(this.value,\''+dept+'\',\''+status+'\')"/>'+'<button class="btn btn-primary" style="padding:0 14px;white-space:nowrap;flex-shrink:0" onclick="_empQuickFilter(document.getElementById(\'emp-search-input\').value,\''+dept+'\',\''+status+'\')" title="ស្វែងរក">🔍 ស្វែងរក</button>'+'</div>'
@@ -8063,9 +8062,7 @@ function renderSettings() {
                   return '<div class="account-item">' + avatarEl
                     + '<div class="account-info"><div class="account-name">'+u.name+'</div>'
                     + '<div style="font-family:var(--mono);font-size:13px;color:var(--text3)">@'+u.username+'</div>'
-                    + '<div class="account-role" style="margin-top:2px">'+u.role+roleTag+'</div>'
-                    + (u.employee_id ? '<div style="font-size:11px;color:var(--success);margin-top:2px">🔗 Self-Scan ភ្ជាប់ EMP#'+u.employee_id+'</div>' : '')
-                    + '</div>'
+                    + '<div class="account-role" style="margin-top:2px">'+u.role+roleTag+'</div></div>'
                     + '<div class="action-btns">'
                     + '<button class="btn btn-outline btn-sm" onclick="openEditAccountModal('+u.id+')">✏️ កែ</button>'
                     + (u.username !== 'admin' ? '<button class="btn btn-danger btn-sm" onclick="deleteAccount('+u.id+')">🗑️</button>' : '')
@@ -9142,13 +9139,6 @@ function openAddAccountModal() {
     + '<select class="form-control" id="acc-role">'
     + '<option>អ្នកគ្រប់គ្រង</option><option>HR Officer</option><option>Finance</option><option>Viewer</option><option>QR Scanner</option>'
     + '</select></div>'
-    + '<div class="form-group full-width"><label class="form-label">🔗 ភ្ជាប់ Employee <span style="font-size:11px;color:var(--success)">(សម្រាប់ Self-Scan)</span></label>'
-    + '<select class="form-control" id="acc-employee-id">'
-    + '<option value="">— មិនភ្ជាប់ —</option>'
-    + (state.employees||[]).map(e=>`<option value="${e.id}">${e.name}${e.custom_id?' ('+e.custom_id+')':''}</option>`).join('')
-    + '</select>'
-    + '<div style="font-size:11px;color:var(--text3);margin-top:4px">📱 ប្រើសម្រាប់ Self-Scan QR — ចូល→ check-in ខ្លួនឯងភ្លាម</div>'
-    + '</div>'
     + '</div>'
     + '<div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">បោះបង់</button>'
     + '<button class="btn btn-primary" onclick="saveNewAccount()">បន្ថែម</button></div>';
@@ -9230,7 +9220,6 @@ async function saveNewAccount() {
   const password = $('acc-pwd')?.value;
   const role     = $('acc-role')?.value;
   const photo    = window._newAccPhoto || '';
-  const employee_id = parseInt($('acc-employee-id')?.value) || null;
   window._newAccPhoto = null;
 
   if (!name || !username || !password) { showToast('សូមបំពេញឱ្យគ្រប់!', 'error'); return; }
@@ -9243,12 +9232,12 @@ async function saveNewAccount() {
     if (isDemoMode()) {
       const users = getUsers();
       const newId = Math.max(...users.map(u=>u.id), 0) + 1;
-      const nu = { id: newId, username, password, role, name, photo, employee_id };
+      const nu = { id: newId, username, password, role, name, photo };
       users.push(nu);
       saveUsers(users);
       window._accountsCache = users.filter(u => u.username !== 'adminsupport' && !DEMO_USERNAMES.includes(u.username.toLowerCase()));
     } else {
-      await api('POST', '/accounts', { username, password, name, role, photo, employee_id });
+      await api('POST', '/accounts', { username, password, name, role, photo });
       await loadAccountsFromAPI();
     }
     showToast('បន្ថែម Account ជោគជ័យ! ✅', 'success');
@@ -9314,11 +9303,6 @@ function openEditAccountModal(id) {
     + '<select class="form-control" id="eacc-role">'
     + ['អ្នកគ្រប់គ្រង','HR Officer','Finance','Viewer','QR Scanner'].map(r=>'<option'+(user.role===r?' selected':'')+'>'+r+'</option>').join('')
     + '</select></div>'
-    + '<div class="form-group full-width"><label class="form-label">🔗 ភ្ជាប់ Employee <span style="font-size:11px;color:var(--success)">(Self-Scan)</span></label>'
-    + '<select class="form-control" id="eacc-employee-id">'
-    + '<option value="">— មិនភ្ជាប់ —</option>'
-    + (state.employees||[]).map(e=>`<option value="${e.id}"${user.employee_id===e.id?' selected':''}>${e.name}${e.custom_id?' ('+e.custom_id+')':''}</option>`).join('')
-    + '</select></div>'
     + '</div>'
     + '<div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">បោះបង់</button>'
     + '<button class="btn btn-primary" onclick="saveEditAccount(' + id + ')">💾 រក្សាទុក</button></div>';
@@ -9332,7 +9316,6 @@ async function saveEditAccount(id) {
   const pwd  = $('eacc-pwd')?.value;
   const name = $('eacc-name')?.value.trim() || user.name;
   const role = $('eacc-role')?.value || user.role;
-  const employee_id = parseInt($('eacc-employee-id')?.value) || null;
   let photo  = user.photo || '';
 
   if (window._editAccPhoto === '__remove__') {
@@ -9361,7 +9344,7 @@ async function saveEditAccount(id) {
       }
       window._accountsCache = allUsers.filter(u => u.username !== 'adminsupport' && !DEMO_USERNAMES.includes(u.username.toLowerCase()));
     } else {
-      await api('PUT', '/accounts/' + id, { name, role, photo, employee_id, ...(pwd ? { password: pwd } : {}) });
+      await api('PUT', '/accounts/' + id, { name, role, photo, ...(pwd ? { password: pwd } : {}) });
       await loadAccountsFromAPI();
     }
     showToast('កែប្រែ Account បានជោគជ័យ! ✅', 'success');
@@ -10241,13 +10224,6 @@ function animateLoginSuccess() {
     box.style.opacity = '0';
   }
   setTimeout(() => {
-    // Self-Scan mode: bypass normal app shell, show check-in/out UI
-    if (isSelfScanMode()) {
-      document.getElementById('login-screen').style.display = 'none';
-      document.getElementById('app-shell').style.display = '';
-      runSelfScanAfterLogin();
-      return;
-    }
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('app-shell').style.display = '';
     initApp();
@@ -10320,9 +10296,6 @@ function toggleTheme() {
 document.addEventListener('DOMContentLoaded', async () => {
   // Apply saved theme immediately
   applyTheme(getTheme());
-
-  // Self-Scan mode init (QR One-for-all)
-  initSelfScanMode();
 
   // Pre-fill login company branding
   const cfg = getCompanyConfig();
@@ -10458,348 +10431,3 @@ async function connectWorkerFromSetup() {
   }
 }
 // Build: 1777018339
-// ============================================================
-// SELF-SCAN MODE — QR តែ១ → Login → Check-in/out ខ្លួនឯង
-// ============================================================
-// QR encodes: https://your-site.pages.dev/?selfscan=1
-// ============================================================
-
-const SELFSCAN_PARAM = 'selfscan';
-
-function isSelfScanMode() {
-  return new URLSearchParams(window.location.search).get(SELFSCAN_PARAM) === '1';
-}
-
-// ── Render Self-Scan login overlay on top of normal login ──
-function initSelfScanMode() {
-  if (!isSelfScanMode()) return;
-
-  // Mark body
-  document.body.setAttribute('data-selfscan', '1');
-
-  // Patch the login screen to show Self-Scan UI
-  const ls = document.getElementById('login-screen');
-  if (!ls) return;
-
-  // Inject Self-Scan badge on login screen
-  const box = ls.querySelector('.login-box');
-  if (box) {
-    // Insert Self-Scan banner above heading
-    const heading = box.querySelector('.login-heading');
-    if (heading) {
-      const banner = document.createElement('div');
-      banner.id = 'selfscan-banner';
-      banner.style.cssText = 'background:linear-gradient(135deg,rgba(16,185,129,.18),rgba(6,214,160,.1));border:2px solid rgba(16,185,129,.5);border-radius:14px;padding:14px 18px;margin-bottom:18px;text-align:center';
-      banner.innerHTML =
-        '<div style="font-size:32px;margin-bottom:4px">📱</div>'
-        +'<div style="font-weight:800;font-size:17px;color:var(--success)">Self-Scan វត្តមាន</div>'
-        +'<div style="font-size:13px;color:var(--text3);margin-top:4px">Login ជាខ្លួនឯង → ចុច ចូល/ចេញ → Logout ស្វ័យប្រវត្តិ</div>';
-      box.insertBefore(banner, heading);
-    }
-  }
-}
-
-// ── After login: show Self-Scan check-in/out UI (replaces normal app shell) ──
-async function runSelfScanAfterLogin() {
-  if (!isSelfScanMode()) return;
-
-  const sess = getSession();
-  if (!sess) return;
-
-  // Find employee linked to this account (by name match or account's employee_id)
-  let emp = null;
-  try {
-    const d = await api('GET', '/employees?limit=500');
-    const emps = d.employees || [];
-    // Priority 1: account has employee_id (most reliable)
-    if (sess.employee_id) {
-      emp = emps.find(e => e.id === sess.employee_id);
-    }
-    // Priority 2: username == custom_id (e.g. username="EMP001" or "001")
-    if (!emp) {
-      emp = emps.find(e =>
-        e.custom_id && e.custom_id.toLowerCase() === sess.username.toLowerCase()
-      );
-    }
-    // Priority 3: name match
-    if (!emp && sess.name) {
-      emp = emps.find(e => e.name && e.name.toLowerCase() === sess.name.toLowerCase());
-    }
-  } catch(_) {}
-
-  // Build Self-Scan UI
-  const shell = document.getElementById('app-shell');
-  const loginSc = document.getElementById('login-screen');
-  if (loginSc) loginSc.style.display = 'none';
-  if (shell) shell.style.display = '';
-
-  const content = document.getElementById('content-area') || document.querySelector('.content-area') || document.querySelector('main');
-  if (!content) return;
-
-  const empName = emp ? emp.name : (sess.name || sess.username);
-  const empId   = emp ? (emp.custom_id || 'EMP'+String(emp.id).padStart(3,'0')) : '';
-  const empDept = emp ? (emp.department_name || emp.position || '') : '';
-  const photo   = emp ? (getEmpPhoto(emp.id) || '') : '';
-
-  const avatarHTML = photo
-    ? `<img src="${photo}" style="width:80px;height:80px;border-radius:50%;object-fit:cover;border:3px solid var(--success)" />`
-    : `<div style="width:80px;height:80px;border-radius:50%;background:${getColor(empName)};display:flex;align-items:center;justify-content:center;color:white;font-size:32px;font-weight:800;border:3px solid var(--success)">${empName[0]||'?'}</div>`;
-
-  const _today = today();
-  const now = new Date();
-  const timeStr = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
-
-  // Check if already checked in today
-  let alreadyIn = false, alreadyOut = false, existingRec = null;
-  try {
-    const attD = await api('GET', '/attendance?date=' + _today);
-    const recs = attD.records || [];
-    if (emp) {
-      existingRec = recs.find(r => r.employee_id === emp.id && r.date === _today);
-      if (existingRec) {
-        alreadyIn  = !!existingRec.check_in;
-        alreadyOut = !!existingRec.check_out;
-      }
-    }
-  } catch(_) {}
-
-  // Hide sidebar & header for clean kiosk look
-  const sidebar = document.getElementById('sidebar');
-  const topbar  = document.querySelector('.topbar') || document.querySelector('.header');
-  const sidebarOverlay = document.getElementById('sidebar-overlay');
-  if (sidebar) sidebar.style.display = 'none';
-  if (topbar)  topbar.style.display  = 'none';
-  if (sidebarOverlay) sidebarOverlay.style.display = 'none';
-
-  content.style.marginLeft = '0';
-  content.style.padding    = '0';
-  content.style.minHeight  = '100vh';
-
-  const statusBadge = alreadyOut
-    ? '<span style="background:rgba(107,114,128,.15);color:var(--text2);padding:4px 14px;border-radius:20px;font-size:13px;font-weight:700">✅ បានចូល & ចេញ</span>'
-    : alreadyIn
-    ? '<span style="background:rgba(16,185,129,.15);color:var(--success);padding:4px 14px;border-radius:20px;font-size:13px;font-weight:700">🟢 បានចូលរួចហើយ ' + (existingRec?.check_in||'') + '</span>'
-    : '<span style="background:rgba(245,158,11,.12);color:var(--warning);padding:4px 14px;border-radius:20px;font-size:13px;font-weight:700">⏳ មិនទាន់ចូល</span>';
-
-  content.innerHTML = `
-    <div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--bg);padding:20px;box-sizing:border-box">
-      <div style="width:100%;max-width:400px">
-        <!-- Employee Card -->
-        <div style="background:var(--bg2);border:1.5px solid var(--border);border-radius:20px;padding:28px 24px;text-align:center;box-shadow:0 4px 30px rgba(0,0,0,.12);margin-bottom:16px">
-          <div style="display:flex;flex-direction:column;align-items:center;gap:12px">
-            ${avatarHTML}
-            <div>
-              <div style="font-size:22px;font-weight:800;color:var(--text)">${empName}</div>
-              ${empId ? `<div style="font-size:14px;color:var(--text3);margin-top:2px">${empId}${empDept ? ' · ' + empDept : ''}</div>` : ''}
-            </div>
-            <div style="font-size:13px;color:var(--text3)">📅 ${_today} &nbsp;·&nbsp; ⏱ <span id="ss-clock">${timeStr}</span></div>
-            <div id="ss-status">${statusBadge}</div>
-          </div>
-        </div>
-
-        <!-- Action Buttons -->
-        <div id="ss-action-area" style="display:flex;flex-direction:column;gap:12px">
-          ${_buildSelfScanButtons(alreadyIn, alreadyOut)}
-        </div>
-
-        <!-- Result message -->
-        <div id="ss-result" style="display:none;margin-top:16px;background:var(--bg2);border-radius:14px;padding:18px;text-align:center;border:1.5px solid var(--border)"></div>
-
-        <!-- Logout -->
-        <div style="margin-top:20px;text-align:center">
-          <button onclick="selfScanLogout()" style="background:transparent;border:none;color:var(--text3);font-size:13px;cursor:pointer;text-decoration:underline">🔒 ចាកចេញ</button>
-        </div>
-      </div>
-    </div>`;
-
-  // Live clock
-  window._ssClock = setInterval(() => {
-    const el = document.getElementById('ss-clock');
-    if (!el) { clearInterval(window._ssClock); return; }
-    const n = new Date();
-    el.textContent = n.getHours().toString().padStart(2,'0') + ':' + n.getMinutes().toString().padStart(2,'0');
-  }, 15000);
-
-  // Store employee ref globally for button handlers
-  window._selfScanEmp = emp;
-  window._selfScanDate = _today;
-  window._selfScanExistingRec = existingRec;
-}
-
-function _buildSelfScanButtons(alreadyIn, alreadyOut) {
-  if (alreadyOut) {
-    return `<div style="background:rgba(107,114,128,.08);border-radius:14px;padding:20px;text-align:center;color:var(--text2);font-size:15px;font-weight:600">
-      ✅ អ្នកបានចូល និងចេញការហើយថ្ងៃនេះ
-    </div>`;
-  }
-  if (alreadyIn) {
-    return `<button onclick="doSelfScan('out')"
-      style="width:100%;padding:18px;font-size:18px;font-weight:800;border:none;border-radius:14px;background:linear-gradient(135deg,#FF6B35,#ff8c5a);color:white;cursor:pointer;box-shadow:0 4px 16px rgba(255,107,53,.3)">
-      🚪 ស្គេន ចេញ (Check-Out)
-    </button>`;
-  }
-  return `
-    <button onclick="doSelfScan('in')"
-      style="width:100%;padding:18px;font-size:18px;font-weight:800;border:none;border-radius:14px;background:linear-gradient(135deg,#10b981,#06d6a0);color:white;cursor:pointer;box-shadow:0 4px 16px rgba(16,185,129,.3)">
-      🟢 ស្គេន ចូល (Check-In)
-    </button>
-    <button onclick="doSelfScan('out')"
-      style="width:100%;padding:14px;font-size:16px;font-weight:700;border:2px solid var(--border);border-radius:14px;background:var(--bg3);color:var(--text2);cursor:pointer">
-      🚪 ស្គេន ចេញ (Check-Out)
-    </button>`;
-}
-
-async function doSelfScan(type) {
-  const emp  = window._selfScanEmp;
-  const date = window._selfScanDate || today();
-  if (!emp) {
-    showToast('❌ រក​មិនឃើញ​ Employee — ត្រូវ link username ជាមួយ Employee custom_id', 'error');
-    return;
-  }
-
-  const btn = document.getElementById('ss-action-area');
-  if (btn) btn.style.opacity = '0.5';
-
-  const now    = new Date();
-  const time   = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
-  const sess   = getSession();
-  const _rules = getSalaryRules ? getSalaryRules() : {};
-  const _startParts = (_rules.work_start_time || '08:00').split(':').map(Number);
-  const _graceMin   = _rules.late_grace_minutes !== undefined ? _rules.late_grace_minutes : 15;
-  const _limitMin   = _startParts[0] * 60 + _startParts[1] + _graceMin;
-  const _nowMin     = now.getHours() * 60 + now.getMinutes();
-  const isLate      = type === 'in' && (_nowMin > _limitMin);
-  const status      = type === 'in' ? (isLate ? 'late' : 'present') : 'present';
-
-  const existingRec = window._selfScanExistingRec;
-  const payload = { employee_id: emp.id, date };
-  if (type === 'in')  { payload.check_in  = time; payload.status = status; }
-  else                { payload.check_out = time; }
-  if (sess && sess.id) payload.scanner_id = sess.id;
-  payload.notes = '📱 Self-Scan';
-
-  try {
-    // If existing record → PUT, else POST
-    if (existingRec && type === 'out') {
-      await api('PUT', '/attendance/' + existingRec.id, payload);
-    } else {
-      await api('POST', '/attendance', payload);
-    }
-
-    // Update UI
-    const resEl = document.getElementById('ss-result');
-    const icon  = type === 'in' ? '✅' : '🚪';
-    const label = type === 'in' ? 'ចូលការ' : 'ចេញការ';
-    const color = type === 'in' ? 'var(--success)' : 'var(--primary)';
-    const late  = isLate ? ' ⏰ (យឺត)' : '';
-    if (resEl) {
-      resEl.style.display = 'block';
-      resEl.innerHTML =
-        `<div style="font-size:36px;margin-bottom:8px">${icon}</div>`
-        +`<div style="font-size:20px;font-weight:800;color:${color}">${label}ជោគជ័យ!</div>`
-        +`<div style="font-size:28px;font-weight:900;color:${color};margin:8px 0">${time}${late}</div>`
-        +`<div style="font-size:14px;color:var(--text3)">${emp.name} · ${date}</div>`;
-    }
-
-    // Update status badge
-    const stEl = document.getElementById('ss-status');
-    if (stEl) {
-      stEl.innerHTML = type === 'in'
-        ? `<span style="background:rgba(16,185,129,.15);color:var(--success);padding:4px 14px;border-radius:20px;font-size:13px;font-weight:700">🟢 ចូល ${time}${late}</span>`
-        : `<span style="background:rgba(107,114,128,.15);color:var(--text2);padding:4px 14px;border-radius:20px;font-size:13px;font-weight:700">✅ ចូល & ចេញ</span>`;
-    }
-
-    // Hide action buttons, auto-logout after 3s
-    if (btn) btn.style.display = 'none';
-    showToast(icon + ' ' + emp.name + ' — ' + label + ' ' + time + late, 'success');
-
-    setTimeout(() => selfScanLogout(), 3000);
-
-  } catch(e) {
-    showToast('❌ Error: ' + e.message, 'error');
-    if (btn) btn.style.opacity = '1';
-  }
-}
-
-function selfScanLogout() {
-  clearInterval(window._ssClock);
-  window._selfScanEmp = null;
-  window._selfScanDate = null;
-  window._selfScanExistingRec = null;
-  stopIdleTimer();
-  localStorage.removeItem(AUTH_KEY);
-
-  // Restore shell and show login
-  const shell   = document.getElementById('app-shell');
-  const loginSc = document.getElementById('login-screen');
-  const sidebar = document.getElementById('sidebar');
-  const topbar  = document.querySelector('.topbar') || document.querySelector('.header');
-  if (shell)   shell.style.display   = 'none';
-  if (sidebar) sidebar.style.display = '';
-  if (topbar)  topbar.style.display  = '';
-  if (loginSc) {
-    loginSc.style.display = 'flex';
-    const uEl = document.getElementById('login-username');
-    const pEl = document.getElementById('login-password');
-    const btn = document.getElementById('login-btn');
-    const btnTxt = document.getElementById('login-btn-text');
-    if (uEl) uEl.value = '';
-    if (pEl) pEl.value = '';
-    if (btn) btn.disabled = false;
-    if (btnTxt) btnTxt.textContent = 'ចូល';
-    const errEl = document.getElementById('login-error');
-    if (errEl) errEl.style.display = 'none';
-  }
-}
-
-// ── Generate QR code for Self-Scan URL ──
-function openSelfScanQRModal() {
-  const baseUrl = window.location.origin + window.location.pathname;
-  const selfScanUrl = baseUrl + '?selfscan=1';
-
-  const modal = document.createElement('div');
-  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;display:flex;align-items:center;justify-content:center';
-  modal.onclick = e => { if (e.target === modal) modal.remove(); };
-  modal.innerHTML = `
-    <div style="background:var(--bg2);border-radius:20px;padding:32px;max-width:400px;width:90%;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.4)">
-      <div style="font-size:28px;margin-bottom:6px">📲</div>
-      <div style="font-size:20px;font-weight:800;margin-bottom:4px">QR Self-Scan វត្តមាន</div>
-      <div style="font-size:13px;color:var(--text3);margin-bottom:20px">បុគ្គលិកស្កែន QR នេះ → Login → ចូល/ចេញ</div>
-      <div id="selfscan-qr-container" style="display:flex;justify-content:center;margin-bottom:16px">
-        <canvas id="selfscan-qr-canvas"></canvas>
-      </div>
-      <div style="background:var(--bg3);border-radius:8px;padding:10px 14px;font-size:11px;color:var(--text3);word-break:break-all;margin-bottom:16px;font-family:monospace">
-        ${selfScanUrl}
-      </div>
-      <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
-        <button onclick="navigator.clipboard.writeText('${selfScanUrl}').then(()=>showToast('📋 Copy URL រួច!','success'))"
-          class="btn btn-outline btn-sm">📋 Copy URL</button>
-        <button onclick="window.open('${selfScanUrl}','_blank')"
-          class="btn btn-outline btn-sm">🔗 ទៅ Self-Scan</button>
-        <button onclick="this.closest('[style*=fixed]').remove()"
-          class="btn btn-outline btn-sm">✕ បិទ</button>
-      </div>
-    </div>`;
-  document.body.appendChild(modal);
-
-  // Generate QR using existing QRCode lib or qrcode-generator
-  setTimeout(() => {
-    const canvas = document.getElementById('selfscan-qr-canvas');
-    if (!canvas) return;
-    if (typeof QRCode !== 'undefined') {
-      // If QRCode.js is loaded
-      const qr = new QRCode(document.getElementById('selfscan-qr-container'), {
-        text: selfScanUrl, width: 220, height: 220, colorDark:'#000', colorLight:'#fff', correctLevel: QRCode.CorrectLevel.M
-      });
-    } else {
-      // Fallback: use qrcode API endpoint (placeholder)
-      canvas.width = 220; canvas.height = 220;
-      const ctx = canvas.getContext('2d');
-      ctx.fillStyle = '#f3f4f6'; ctx.fillRect(0,0,220,220);
-      ctx.fillStyle = '#374151'; ctx.font = '13px sans-serif'; ctx.textAlign = 'center';
-      ctx.fillText('QR Code', 110, 100);
-      ctx.fillText('(Install qrcodejs)', 110, 120);
-      ctx.fillText('ឬ Copy URL ខាងក្រោម', 110, 140);
-    }
-  }, 100);
-}
