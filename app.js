@@ -343,7 +343,6 @@ const PAGE_PERMS = {
   id_card:         'id_card_print',
   leave:           'leave_view',
   dayswap:         'dayswap_view',
-  locations:       'locations_view',
   settings:        'settings_access',
   dashboard:       null, // always allowed
 };
@@ -401,7 +400,6 @@ function navigate(page) {
     expenses:'ស្នើរប្រាក់ចំណាយ', general_expense:'ការចំណាយទូទៅ',
     id_card:'កាតសម្គាល់ខ្លួនបុគ្គលិក', leave:'ច្បាប់ឈប់សម្រាក',
     dayswap:'ស្នើប្តូរថ្ងៃឈប់សម្រាក',
-    locations:'ទីតាំងស្កេន',
     settings:'ការកំណត់ប្រព័ន្ធ',
   };
   $('page-title').textContent = titles[page] || page;
@@ -415,7 +413,6 @@ function navigate(page) {
     overtime:renderOvertime, allowance:renderAllowance, loans:renderLoans,
     expenses:renderExpenses, general_expense:renderGeneralExpense,
     id_card:renderIdCard, leave:renderLeave, dayswap:renderDaySwap, settings:renderSettings,
-    locations:renderLocations,
   }[page] || renderDashboard)();
 }
 
@@ -718,7 +715,6 @@ function getPermissions() {
       loans_view:true, loans_edit:false,
       expenses_view:true, expenses_edit:true,
       id_card_print:true, settings_access:false,
-      locations_view:true, locations_edit:true,
     },
     'Finance': {
       employees_view:true, employees_edit:false, employees_delete:false,
@@ -733,7 +729,6 @@ function getPermissions() {
       loans_view:true, loans_edit:true,
       expenses_view:true, expenses_edit:true,
       id_card_print:false, settings_access:false,
-      locations_view:true, locations_edit:false,
     },
     'Viewer': {
       employees_view:true, employees_edit:false, employees_delete:false,
@@ -748,7 +743,6 @@ function getPermissions() {
       loans_view:false, loans_edit:false,
       expenses_view:false, expenses_edit:false,
       id_card_print:false, settings_access:false,
-      locations_view:true, locations_edit:false,
     },
     'QR Scanner': {
       employees_view:false, employees_edit:false, employees_delete:false,
@@ -763,7 +757,6 @@ function getPermissions() {
       loans_view:false, loans_edit:false,
       expenses_view:false, expenses_edit:false,
       id_card_print:false, settings_access:false,
-      locations_view:true, locations_edit:false,
     },
   };
   try {
@@ -2862,10 +2855,9 @@ async function renderQRScanPage() {
   try {
     const [empData, locData] = await Promise.all([
       api('GET', '/employees?limit=500').catch(() => ({ employees: [] })),
-      api('GET', '/locations').catch(() => ({ records: [] }))
+      Promise.resolve({ records: [] })
     ]);
     state.employees = empData.employees || [];
-    state.scanLocations = locData.records || [];
   } catch(_) {}
 
   const _sess = getSession();
@@ -2874,17 +2866,17 @@ async function renderQRScanPage() {
     +'<div><h2>📷 ស្កេន QR — វត្តមាន</h2><p>ជ្រើសរបៀបស្កេន ហើយកត់វត្តមានភ្លាមៗ</p></div>'
     +'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
     +'<div style="display:flex;align-items:center;gap:8px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:8px 14px">'
-    +'<span style="font-size:13px;font-weight:600;color:var(--text2)">📅 ថ្ងៃស្កេន:</span>'
+    +'<span style="font-size:15px;font-weight:600;color:var(--text2)">📅 ថ្ងៃស្កេន:</span>'
     +'<input type="date" id="qr-scan-date" value="'+_today+'" max="'+_today+'" '
-    +'style="border:none;background:transparent;font-size:13px;font-weight:700;color:var(--primary);cursor:pointer;outline:none" '
+    +'style="border:none;background:transparent;font-size:15px;font-weight:700;color:var(--primary);cursor:pointer;outline:none" '
     +'onchange="onQRScanDateChange(this.value)" />'
     +'</div>'
-    +'<button class="btn btn-outline btn-sm" onclick="resetQRScanToToday()" style="font-size:12px">🔄 ថ្ងៃនេះ</button>'
+    +'<button class="btn btn-outline btn-sm" onclick="resetQRScanToToday()" style="font-size:14px">🔄 ថ្ងៃនេះ</button>'
     +'</div>'
     +'</div>'
 
     // ── Scanner Identity Banner ──
-    +((_sess && _sess.role === 'QR Scanner') ? '<div style="max-width:900px;margin:0 auto 18px;background:linear-gradient(135deg,rgba(16,185,129,.12),rgba(6,214,160,.08));border:1.5px solid rgba(16,185,129,.35);border-radius:14px;padding:12px 18px;display:flex;align-items:center;gap:12px"><div style="width:38px;height:38px;border-radius:50%;background:var(--success);display:flex;align-items:center;justify-content:center;color:white;font-size:16px;font-weight:800;flex-shrink:0">'+((_sess.name||'S')[0])+'</div><div style="flex:1"><div style="font-weight:800;font-size:14px;color:var(--text)">'+(_sess.name||'QR Scanner')+'</div><div style="font-size:11px;color:var(--text3)">📷 QR Scanner — វត្តមានដែលស្កែនដោយខ្ញុំ</div></div><span style="background:var(--success);color:white;font-size:10px;padding:3px 10px;border-radius:20px;font-weight:700">ACTIVE</span></div>' : '')
+    +((_sess && _sess.role === 'QR Scanner') ? '<div style="max-width:900px;margin:0 auto 18px;background:linear-gradient(135deg,rgba(16,185,129,.12),rgba(6,214,160,.08));border:1.5px solid rgba(16,185,129,.35);border-radius:14px;padding:12px 18px;display:flex;align-items:center;gap:12px"><div style="width:38px;height:38px;border-radius:50%;background:var(--success);display:flex;align-items:center;justify-content:center;color:white;font-size:18px;font-weight:800;flex-shrink:0">'+((_sess.name||'S')[0])+'</div><div style="flex:1"><div style="font-weight:800;font-size:16px;color:var(--text)">'+(_sess.name||'QR Scanner')+'</div><div style="font-size:13px;color:var(--text3)">📷 QR Scanner — វត្តមានដែលស្កែនដោយខ្ញុំ</div></div><span style="background:var(--success);color:white;font-size:12px;padding:3px 10px;border-radius:20px;font-weight:700">ACTIVE</span></div>' : '')
 
     // ── No mode selector — direct employee scan ──
     +'<div id="qr-mode-selector" style="display:none"></div>'
@@ -2896,18 +2888,18 @@ async function renderQRScanPage() {
     +'<div id="qr-location-banner" style="display:none;background:linear-gradient(135deg,rgba(99,102,241,.15),rgba(139,92,246,.1));border:1.5px solid rgba(99,102,241,.4);border-radius:12px;padding:10px 16px;margin-bottom:14px;display:flex;align-items:center;gap:10px">'
     +'<span style="font-size:20px">📍</span>'
     +'<div style="flex:1">'
-    +'<div style="font-size:11px;color:var(--text3)">ទីតាំងដែលបានជ្រើស</div>'
-    +'<div id="qr-location-name" style="font-weight:800;font-size:14px;color:var(--text)">—</div>'
+    +'<div style="font-size:13px;color:var(--text3)">ទីតាំងដែលបានជ្រើស</div>'
+    +'<div id="qr-location-name" style="font-weight:800;font-size:16px;color:var(--text)">—</div>'
     +'</div>'
-    +'<button class="btn btn-outline btn-sm" onclick="clearQRLocation()" style="font-size:11px;border-color:rgba(99,102,241,.5);color:var(--text2)">✕ លុប</button>'
+    +'<button class="btn btn-outline btn-sm" onclick="clearQRLocation()" style="font-size:13px;border-color:rgba(99,102,241,.5);color:var(--text2)">✕ លុប</button>'
     +'</div>'
 
     // Location step banner (shown when mode=location and no location set yet)
     +'<div id="qr-location-step" style="display:none;background:linear-gradient(135deg,rgba(245,158,11,.12),rgba(234,179,8,.08));border:1.5px solid rgba(245,158,11,.4);border-radius:12px;padding:14px 18px;margin-bottom:14px;text-align:center">'
     +'<div style="font-size:28px;margin-bottom:6px">📍</div>'
-    +'<div style="font-weight:800;font-size:14px;color:var(--text);margin-bottom:4px">ជំហានទី ១ — ស្កែន QR ទីតាំង</div>'
-    +'<div style="font-size:12px;color:var(--text3)">ចង្អុលកាមេរ៉ាទៅ QR Code ទីតាំង ដើម្បីកំណត់ទីតាំងស្កែន</div>'
-    +'<div style="margin-top:10px;font-size:11px;color:var(--text3)">ឬ ជ្រើសពីបញ្ជី ▼</div>'
+    +'<div style="font-weight:800;font-size:16px;color:var(--text);margin-bottom:4px">ជំហានទី ១ — ស្កែន QR ទីតាំង</div>'
+    +'<div style="font-size:14px;color:var(--text3)">ចង្អុលកាមេរ៉ាទៅ QR Code ទីតាំង ដើម្បីកំណត់ទីតាំងស្កែន</div>'
+    +'<div style="margin-top:10px;font-size:13px;color:var(--text3)">ឬ ជ្រើសពីបញ្ជី ▼</div>'
     +'<div id="qr-location-list" style="margin-top:10px;display:flex;flex-wrap:wrap;gap:8px;justify-content:center"></div>'
     +'</div>'
 
@@ -2915,7 +2907,7 @@ async function renderQRScanPage() {
 
     // Left: Camera
     +'<div class="card" style="padding:20px">'
-    +'<div style="font-weight:700;font-size:14px;margin-bottom:14px;display:flex;align-items:center;gap:8px">'
+    +'<div style="font-weight:700;font-size:16px;margin-bottom:14px;display:flex;align-items:center;gap:8px">'
     +'<span style="width:8px;height:8px;background:var(--success);border-radius:50%;display:inline-block;animation:qrPulse 1.5s ease-in-out infinite"></span>'
     +'<span id="qr-camera-label">កាមេរ៉ា</span>'
     +'</div>'
@@ -2928,7 +2920,7 @@ async function renderQRScanPage() {
     +'<div style="position:absolute;bottom:16px;right:16px;width:44px;height:44px;border-bottom:3px solid var(--primary);border-right:3px solid var(--primary);border-radius:0 0 4px 0"></div>'
     +'<div id="qr-scan-line" style="position:absolute;left:16px;right:16px;height:2px;background:var(--primary);top:50%;animation:qrScanLine 2s ease-in-out infinite;box-shadow:0 0 8px var(--primary)"></div>'
     +'</div>'
-    +'<div id="qr-scan-status" style="position:absolute;bottom:0;left:0;right:0;text-align:center;color:white;font-size:11px;background:rgba(0,0,0,.6);padding:6px">📷 កំពុងចាប់ផ្ដើម...</div>'
+    +'<div id="qr-scan-status" style="position:absolute;bottom:0;left:0;right:0;text-align:center;color:white;font-size:13px;background:rgba(0,0,0,.6);padding:6px">📷 កំពុងចាប់ផ្ដើម...</div>'
     +'</div>'
     // Check in/out type
     +'<div style="display:flex;gap:6px;margin-bottom:12px;background:var(--bg3);padding:4px;border-radius:8px">'
@@ -2937,7 +2929,7 @@ async function renderQRScanPage() {
     +'</div>'
     // Manual input
     +'<div style="background:var(--bg3);border-radius:10px;padding:12px">'
-    +'<div style="font-size:11px;color:var(--text3);margin-bottom:8px;text-align:center">ឬវាយ ID / ឈ្មោះ / custom ID</div>'
+    +'<div style="font-size:13px;color:var(--text3);margin-bottom:8px;text-align:center">ឬវាយ ID / ឈ្មោះ / custom ID</div>'
     +'<div style="display:flex;gap:6px">'
     +'<input class="form-control" id="qr-manual-id" placeholder="e.g. EMP-001, 4, សាន..." style="flex:1" '
     +'onkeydown="if(event.key===\'Enter\')processQRScan(this.value,getQRScanDate())" />'
@@ -2951,9 +2943,9 @@ async function renderQRScanPage() {
 
     // Right: Log
     +'<div class="card" style="padding:20px;display:flex;flex-direction:column">'
-    +'<div style="font-weight:700;font-size:14px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between">'
+    +'<div style="font-weight:700;font-size:16px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between">'
     +'<span>📋 កំណត់ហេតុស្កែន</span>'
-    +'<span id="qr-count" style="font-size:12px;color:var(--text3);font-weight:400">0 នាក់</span>'
+    +'<span id="qr-count" style="font-size:14px;color:var(--text3);font-weight:400">0 នាក់</span>'
     +'</div>'
     +'<div id="qr-result-log" style="flex:1;overflow-y:auto;border-radius:8px;min-height:300px"></div>'
     +'<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">'
@@ -2980,8 +2972,6 @@ async function renderQRScanPage() {
   const _datePicker = document.getElementById('qr-scan-date');
   if (_datePicker) { _datePicker.value = _today; _datePicker.max = _today; }
 
-  // Render quick-pick location buttons
-  _renderLocationList();
 
   const origNavigate = window._qrPageNavGuard;
   if (origNavigate) origNavigate();
@@ -2989,21 +2979,6 @@ async function renderQRScanPage() {
 
   // Auto-start employee scan mode directly
   setQRMode('employee');
-}
-
-// ── Render location quick-pick list ──
-function _renderLocationList() {
-  const locs = state.scanLocations || [];
-  const el = document.getElementById('qr-location-list');
-  if (!el) return;
-  if (!locs.length) {
-    el.innerHTML = '<span style="font-size:11px;color:var(--text3)">មិនទាន់មានទីតាំង — បន្ថែមនៅ ⚙️ ទីតាំងស្កែន</span>';
-    return;
-  }
-  el.innerHTML = locs.map(l =>
-    '<button class="btn btn-outline btn-sm" onclick="selectLocationManual('+l.id+',\''+l.name.replace(/'/g,"\\'")+'\')" '
-    +'style="font-size:11px;border-radius:20px">📍 '+l.name+'</button>'
-  ).join('');
 }
 
 // ── Set scan mode ──
@@ -3507,18 +3482,18 @@ async function processQRScan_continue(emp, raw, date) {
         +'<div style="background:'+(type==='in'?'rgba(6,214,160,.15)':'rgba(255,107,53,.12)')+';border:1.5px solid '+(type==='in'?'var(--success)':'var(--primary)')+';border-radius:12px;padding:8px 20px;margin-top:10px;display:flex;align-items:center;gap:8px">'
         +'<span style="font-size:22px">'+(type==='in'?'⏱️':'🕐')+'</span>'
         +'<div style="text-align:left">'
-        +'<div style="font-size:11px;color:var(--text3);font-weight:600">'+(type==='in'?'ម៉ោងចូល':'ម៉ោងចេញ')+'</div>'
+        +'<div style="font-size:13px;color:var(--text3);font-weight:600">'+(type==='in'?'ម៉ោងចូល':'ម៉ោងចេញ')+'</div>'
         +'<div style="font-size:20px;font-weight:900;color:'+(type==='in'?'var(--success)':'var(--primary)')+'">'+time+(isLate?' ⏰':'')+'</div>'
         +'</div></div>'
-        +'<div style="font-size:11px;color:var(--text3);margin-top:8px">'+(emp.custom_id||emp.department_name||'')+'</div>'
+        +'<div style="font-size:13px;color:var(--text3);margin-top:8px">'+(emp.custom_id||emp.department_name||'')+'</div>'
         // QR Scanner operator info
         +(_overlayLoc
-          ? '<div style="margin-top:10px;padding:6px 14px;background:rgba(99,102,241,.1);border-radius:8px;font-size:11px;color:var(--text2)">📍 '+_overlayLoc+'</div>'
+          ? '<div style="margin-top:10px;padding:6px 14px;background:rgba(99,102,241,.1);border-radius:8px;font-size:13px;color:var(--text2)">📍 '+_overlayLoc+'</div>'
           : '')
         +(_showScanner
           ? '<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);width:100%;text-align:center">'
-            +'<div style="font-size:10px;color:var(--text3);margin-bottom:2px">ស្កែនដោយ</div>'
-            +'<div style="font-size:12px;font-weight:700;color:var(--text2)">📷 '+_scannerName+'</div>'
+            +'<div style="font-size:12px;color:var(--text3);margin-bottom:2px">ស្កែនដោយ</div>'
+            +'<div style="font-size:14px;font-weight:700;color:var(--text2)">📷 '+_scannerName+'</div>'
             +'</div>'
           : '')
         +'</div>'
@@ -3537,7 +3512,7 @@ async function processQRScan_continue(emp, raw, date) {
       const photo = getEmpPhoto(emp.id);
       const av = photo
         ? '<img src="'+photo+'" style="width:28px;height:28px;border-radius:50%;object-fit:cover;flex-shrink:0"/>'
-        : '<div style="width:28px;height:28px;border-radius:50%;background:'+getColor(emp.name)+';display:flex;align-items:center;justify-content:center;color:white;font-size:11px;font-weight:700;flex-shrink:0">'+emp.name[0]+'</div>';
+        : '<div style="width:28px;height:28px;border-radius:50%;background:'+getColor(emp.name)+';display:flex;align-items:center;justify-content:center;color:white;font-size:13px;font-weight:700;flex-shrink:0">'+emp.name[0]+'</div>';
       const borderColor = type === 'in' ? 'rgba(6,214,160,.3)' : 'rgba(255,107,53,.3)';
       const textColor   = type === 'in' ? 'var(--success)' : 'var(--primary)';
       // Scanner info for log
@@ -3546,14 +3521,14 @@ async function processQRScan_continue(emp, raw, date) {
       log.innerHTML =
         '<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--bg3);border-radius:8px;margin-bottom:5px;border-left:3px solid '+borderColor+'">'
         + av
-        + '<div style="min-width:0"><div style="font-weight:700;font-size:12px">'+emp.name+'</div>'
-        + '<div style="font-size:10px;color:var(--text3)">'+(emp.custom_id||'EMP'+String(emp.id).padStart(3,'0'))+' · '+emp.department_name+'</div>'
-        + (_lsName ? '<div style="font-size:9px;color:var(--text3)">📷 '+_lsName+'</div>' : '')
-        + (window._qrActiveLocation ? '<div style="font-size:9px;color:rgba(99,102,241,.9)">📍 '+window._qrActiveLocation.name+'</div>' : '')
+        + '<div style="min-width:0"><div style="font-weight:700;font-size:14px">'+emp.name+'</div>'
+        + '<div style="font-size:12px;color:var(--text3)">'+(emp.custom_id||'EMP'+String(emp.id).padStart(3,'0'))+' · '+emp.department_name+'</div>'
+        + (_lsName ? '<div style="font-size:11px;color:var(--text3)">📷 '+_lsName+'</div>' : '')
+        + (window._qrActiveLocation ? '<div style="font-size:11px;color:rgba(99,102,241,.9)">📍 '+window._qrActiveLocation.name+'</div>' : '')
         + '</div>'
         + '<div style="margin-left:auto;text-align:right;flex-shrink:0">'
-        + '<div style="font-size:13px;font-weight:800;color:'+textColor+'">'+(type==='in'?'▶ ':'◀ ')+time+'</div>'
-        + '<div style="font-size:9px;color:var(--text3)">'+(type==='in'?(isLate?'⏰ យឺត':'✅ ទាន់'):'🚪 ចេញ')+'</div>'
+        + '<div style="font-size:15px;font-weight:800;color:'+textColor+'">'+(type==='in'?'▶ ':'◀ ')+time+'</div>'
+        + '<div style="font-size:11px;color:var(--text3)">'+(type==='in'?(isLate?'⏰ យឺត':'✅ ទាន់'):'🚪 ចេញ')+'</div>'
         + '</div></div>'
         + log.innerHTML;
     }
@@ -3580,7 +3555,7 @@ function openBulkAbsenceModal(dateVal) {
     var photo = getEmpPhoto(e.id);
     var av = photo
       ? '<img src="' + photo + '" style="width:32px;height:32px;border-radius:50%;object-fit:cover;flex-shrink:0"/>'
-      : '<div style="width:32px;height:32px;border-radius:50%;background:' + getColor(e.name) + ';display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:700;flex-shrink:0">' + (e.name||'?')[0] + '</div>';
+      : '<div style="width:32px;height:32px;border-radius:50%;background:' + getColor(e.name) + ';display:flex;align-items:center;justify-content:center;color:#fff;font-size:15px;font-weight:700;flex-shrink:0">' + (e.name||'?')[0] + '</div>';
 
     return '<div class="ba-row" id="ba-row-' + e.id + '" style="display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:8px;border:1.5px solid var(--border);margin-bottom:6px;transition:all .15s">'
       + '<input type="checkbox" class="ba-chk" data-id="' + e.id + '" style="width:16px;height:16px;cursor:pointer;flex-shrink:0"'
@@ -3593,11 +3568,11 @@ function openBulkAbsenceModal(dateVal) {
       + '"/>'
       + av
       + '<div style="flex:1;min-width:0">'
-      + '<div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + e.name + '</div>'
-      + '<div style="font-size:11px;color:var(--text3)">' + (e.position||'&nbsp;') + '</div>'
+      + '<div style="font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + e.name + '</div>'
+      + '<div style="font-size:13px;color:var(--text3)">' + (e.position||'&nbsp;') + '</div>'
       + '</div>'
       + '<input type="date" id="ba-date-' + e.id + '" value="' + d + '" disabled'
-      + ' style="font-size:12px;padding:4px 6px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);opacity:0.4;width:130px;flex-shrink:0"'
+      + ' style="font-size:14px;padding:4px 6px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);opacity:0.4;width:130px;flex-shrink:0"'
       + '/>'
       + '</div>';
   }).join('');
@@ -3619,20 +3594,20 @@ function openBulkAbsenceModal(dateVal) {
 
     // Quick date setter bar
     + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;padding:8px;background:var(--bg2);border-radius:8px;flex-wrap:wrap">'
-    + '<span style="font-size:12px;color:var(--text3);flex-shrink:0">📅 កំណត់ថ្ងៃសម្រាប់ដែលបានជ្រើស:</span>'
-    + '<input type="date" id="ba-global-date" value="' + d + '" style="font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text)"/>'
+    + '<span style="font-size:14px;color:var(--text3);flex-shrink:0">📅 កំណត់ថ្ងៃសម្រាប់ដែលបានជ្រើស:</span>'
+    + '<input type="date" id="ba-global-date" value="' + d + '" style="font-size:14px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text)"/>'
     + '<button onclick="'
     + 'var gd=document.getElementById(\'ba-global-date\').value;'
     + 'document.querySelectorAll(\'.ba-chk:checked\').forEach(function(c){'
     + 'var dp=document.getElementById(\'ba-date-\'+c.dataset.id);'
     + 'if(dp)dp.value=gd;'
     + '});'
-    + '" style="font-size:12px;padding:4px 10px;border:1px solid var(--primary);border-radius:6px;background:var(--primary);color:#fff;cursor:pointer;flex-shrink:0">✔ អនុវត្ត</button>'
+    + '" style="font-size:14px;padding:4px 10px;border:1px solid var(--primary);border-radius:6px;background:var(--primary);color:#fff;cursor:pointer;flex-shrink:0">✔ អនុវត្ត</button>'
     + '<button onclick="'
     + 'var cbs=document.querySelectorAll(\'.ba-chk\');'
     + 'var allChecked=[...cbs].every(function(c){return c.checked;});'
     + 'cbs.forEach(function(c){c.checked=!allChecked;c.dispatchEvent(new Event(\'change\'));});'
-    + '" style="font-size:12px;padding:4px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);cursor:pointer;margin-left:auto;flex-shrink:0">☑ ជ្រើសទាំងអស់</button>'
+    + '" style="font-size:14px;padding:4px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);cursor:pointer;margin-left:auto;flex-shrink:0">☑ ជ្រើសទាំងអស់</button>'
     + '</div>'
 
     // Employee list
@@ -3728,15 +3703,15 @@ function openAttModal(dateVal, mode) {
     const empCheckboxes = emps.map(e =>
       '<label style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:8px;cursor:pointer;border:1px solid var(--border);background:var(--bg1);margin-bottom:4px">'
       +'<input type="checkbox" class="att-emp-chk" value="'+e.id+'" checked style="width:16px;height:16px;accent-color:var(--primary);cursor:pointer;flex-shrink:0" />'
-      +'<span style="font-size:13px;font-weight:600">'+e.name+'</span>'
+      +'<span style="font-size:15px;font-weight:600">'+e.name+'</span>'
       +'</label>'
     ).join('');
     $('modal-body').innerHTML = topForm
       +'<div style="margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px">'
-      +'<span style="font-size:13px;font-weight:700;color:var(--text2)">👥 បុគ្គលិក ('+emps.length+' នាក់)</span>'
+      +'<span style="font-size:15px;font-weight:700;color:var(--text2)">👥 បុគ្គលិក ('+emps.length+' នាក់)</span>'
       +'<div style="display:flex;gap:6px">'
-      +'<button type="button" class="btn btn-outline btn-sm" style="font-size:11px;padding:3px 10px" onclick="document.querySelectorAll(\'.att-emp-chk\').forEach(c=>c.checked=true)">☑ ទាំងអស់</button>'
-      +'<button type="button" class="btn btn-outline btn-sm" style="font-size:11px;padding:3px 10px" onclick="document.querySelectorAll(\'.att-emp-chk\').forEach(c=>c.checked=false)">☐ លុប</button>'
+      +'<button type="button" class="btn btn-outline btn-sm" style="font-size:13px;padding:3px 10px" onclick="document.querySelectorAll(\'.att-emp-chk\').forEach(c=>c.checked=true)">☑ ទាំងអស់</button>'
+      +'<button type="button" class="btn btn-outline btn-sm" style="font-size:13px;padding:3px 10px" onclick="document.querySelectorAll(\'.att-emp-chk\').forEach(c=>c.checked=false)">☐ លុប</button>'
       +'</div></div>'
       +'<div style="max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:8px">'+empCheckboxes+'</div>'
       +'<div class="form-actions">'
@@ -3796,8 +3771,8 @@ function showQRPopup(el, empId) {
     '<div style="text-align:center;padding:10px">'
     +'<img src="'+qr+'" style="max-width:260px;width:100%;border-radius:12px;border:2px solid var(--border)" />'
     +(emp.bank ? '<div style="margin-top:12px;font-weight:700;font-size:15px">'+emp.bank+'</div>' : '')
-    +(emp.bank_account ? '<div style="font-family:var(--mono);color:var(--text3);font-size:13px;margin-top:4px">'+emp.bank_account+'</div>' : '')
-    +(emp.bank_holder ? '<div style="font-size:12px;color:var(--text3)">'+emp.bank_holder+'</div>' : '')
+    +(emp.bank_account ? '<div style="font-family:var(--mono);color:var(--text3);font-size:15px;margin-top:4px">'+emp.bank_account+'</div>' : '')
+    +(emp.bank_holder ? '<div style="font-size:14px;color:var(--text3)">'+emp.bank_holder+'</div>' : '')
     +'</div>'
     +'<div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">បិទ</button></div>';
   openModal();
@@ -3831,13 +3806,13 @@ async function renderSalary(month='') {
               +'<div onclick="showQRPopup(this,\''+r.employee_id+'\')" style="cursor:pointer;display:inline-block">'
               +'<img src="'+qrData+'" style="width:44px;height:44px;object-fit:contain;border-radius:6px;border:1px solid var(--border)" />'
               +'</div>'
-              +(bank?'<div style="font-size:9px;color:var(--text3);margin-top:2px">'+bank+'</div>':'')
+              +(bank?'<div style="font-size:11px;color:var(--text3);margin-top:2px">'+bank+'</div>':'')
               +'</td>'
             : '<td style="text-align:center">'
               +(bank
-                ? '<div style="font-size:11px;font-weight:600;color:var(--text2)">'+bank+'</div>'
-                  +(bankAcc?'<div style="font-size:10px;color:var(--text3);font-family:var(--mono)">'+bankAcc+'</div>':'')
-                : '<span style="color:var(--text3);font-size:11px">—</span>')
+                ? '<div style="font-size:13px;font-weight:600;color:var(--text2)">'+bank+'</div>'
+                  +(bankAcc?'<div style="font-size:12px;color:var(--text3);font-family:var(--mono)">'+bankAcc+'</div>':'')
+                : '<span style="color:var(--text3);font-size:13px">—</span>')
               +'</td>';
 
           return '<tr>'
@@ -3850,7 +3825,7 @@ async function renderSalary(month='') {
             +qrCell
             +'<td>'+(r.status==='paid'?'<span class="badge badge-green">✅ បានបង់</span>':'<span class="badge badge-yellow">⏳ រង់ចាំ</span>')+'</td>'
             +'<td><div class="action-btns">'
-            +(r.status!=='paid' ? '<button class="btn btn-success btn-sm" onclick="paySalary('+r.id+',\''+currentMonth+'\')">💰 បង់</button>' : '<span style="color:var(--text3);font-size:11px">✓ Done</span>')
+            +(r.status!=='paid' ? '<button class="btn btn-success btn-sm" onclick="paySalary('+r.id+',\''+currentMonth+'\')">💰 បង់</button>' : '<span style="color:var(--text3);font-size:13px">✓ Done</span>')
             +'<button class="btn btn-outline btn-sm" onclick="openEditSalaryModal('+r.id+',\''+currentMonth+'\')">✏️</button>'
             +'<button class="btn btn-danger btn-sm" onclick="deleteSalary('+r.id+',\''+currentMonth+'\')">🗑️</button>'
             +'</div></td>'
@@ -3894,7 +3869,7 @@ async function openEditSalaryModal(id, month) {
       +'<div class="form-group"><label class="form-label">កាត់ (USD)</label><input class="form-control" id="es-deduct" type="number" value="'+r.deduction+'" /></div>'
       +'<div class="form-group"><label class="form-label">ចំណាំ</label><input class="form-control" id="es-note" value="'+(r.notes||'')+'" /></div>'
       +'</div>'
-      +'<div id="es-preview" style="margin:12px 0;padding:12px;background:var(--bg3);border-radius:8px;font-family:var(--mono);text-align:center;font-size:14px;font-weight:700;color:var(--success)">Net: $'+r.net_salary+'</div>'
+      +'<div id="es-preview" style="margin:12px 0;padding:12px;background:var(--bg3);border-radius:8px;font-family:var(--mono);text-align:center;font-size:16px;font-weight:700;color:var(--success)">Net: $'+r.net_salary+'</div>'
       +'<div class="form-actions">'
       +'<button class="btn btn-outline" onclick="closeModal()">បោះបង់</button>'
       +'<button class="btn btn-primary" onclick="saveEditSalary('+id+',\''+month+'\')">💾 រក្សាទុក</button>'
@@ -3964,21 +3939,21 @@ async function openSalaryModal(month) {
     // All employees tab
     +'<div id="sal-panel-all" style="display:none">'
     +'<div style="margin-bottom:12px;padding:12px;background:var(--bg3);border-radius:8px">'
-    +'<div style="font-size:12px;font-weight:700;margin-bottom:10px">⚙️ ការកំណត់ Default</div>'
+    +'<div style="font-size:14px;font-weight:700;margin-bottom:10px">⚙️ ការកំណត់ Default</div>'
     +'<div class="form-grid">'
     +'<div class="form-group"><label class="form-label">រង្វាន់ Default ($)</label><input class="form-control" id="bulk-bonus" type="number" value="0" /></div>'
     +'<div class="form-group"><label class="form-label">កាត់ Default ($)</label><input class="form-control" id="bulk-deduct" type="number" value="0" /></div>'
     +'</div>'
-    +'<div style="font-size:11px;color:var(--text3)">💡 មូលដ្ឋានយកពី salary profile បុគ្គលិកម្នាក់ៗ</div>'
+    +'<div style="font-size:13px;color:var(--text3)">💡 មូលដ្ឋានយកពី salary profile បុគ្គលិកម្នាក់ៗ</div>'
     +'</div>'
     +'<div style="max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:8px">'
     +state.employees.map(e=>'<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid var(--border)">'
       +'<input type="checkbox" id="bulk-emp-'+e.id+'" value="'+e.id+'" data-salary="'+(e.salary||0)+'" checked style="accent-color:var(--primary);width:16px;height:16px"/>'
       +'<div style="flex:1">'
-      +'<div style="font-weight:600;font-size:13px">'+e.name+'</div>'
-      +'<div style="font-size:11px;color:var(--text3)">'+(e.position||'—')+' · <span style="color:var(--success);font-family:var(--mono)">$'+(e.salary||0)+'</span></div>'
+      +'<div style="font-weight:600;font-size:15px">'+e.name+'</div>'
+      +'<div style="font-size:13px;color:var(--text3)">'+(e.position||'—')+' · <span style="color:var(--success);font-family:var(--mono)">$'+(e.salary||0)+'</span></div>'
       +'</div>'
-      +'<input type="number" id="bulk-base-'+e.id+'" value="'+(e.salary||0)+'" style="width:80px;font-size:12px;padding:4px 6px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);text-align:right"/>'
+      +'<input type="number" id="bulk-base-'+e.id+'" value="'+(e.salary||0)+'" style="width:80px;font-size:14px;padding:4px 6px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);text-align:right"/>'
       +'</div>'
     ).join('')
     +'</div>'
@@ -4119,7 +4094,7 @@ async function renderReports() {
         previewRows += '<tr>'
           + '<td style="font-family:var(--mono);color:var(--text3)">' + (i+1) + '</td>'
           + '<td><div class="employee-cell">'
-          + '<div class="emp-avatar" style="background:'+getColor(r.employee_name)+';width:26px;height:26px;font-size:10px">' + (r.employee_name||'?')[0] + '</div>'
+          + '<div class="emp-avatar" style="background:'+getColor(r.employee_name)+';width:26px;height:26px;font-size:12px">' + (r.employee_name||'?')[0] + '</div>'
           + '<span style="font-weight:500">' + (r.employee_name||'') + '</span></div></td>'
           + '<td>' + (r.department||'—') + '</td>'
           + '<td style="font-family:var(--mono)">' + sym + (r.base_salary||0) + '</td>'
@@ -4143,7 +4118,7 @@ async function renderReports() {
       + '<div style="display:flex;align-items:center;gap:10px">'
       + '<div style="width:36px;height:36px;background:rgba(6,214,160,.15);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px">📊</div>'
       + '<div><div class="card-title">របាយការណ៍ Payroll — Excel</div>'
-      + '<div style="font-size:12px;color:var(--text3)">Export ទិន្នន័យប្រាក់ខែជា .xlsx</div></div>'
+      + '<div style="font-size:14px;color:var(--text3)">Export ទិន្នន័យប្រាក់ខែជា .xlsx</div></div>'
       + '</div>'
       + '<div style="display:flex;gap:10px;align-items:center">'
       + '<input class="filter-input" type="month" id="rpt-month" value="' + month + '" />'
@@ -4156,10 +4131,10 @@ async function renderReports() {
       + '</div></div>'
       + '<div class="card-body" style="padding:0">'
       + '<div style="padding:16px 20px 8px;display:flex;gap:20px;flex-wrap:wrap">'
-      + '<div style="font-size:13px"><span style="color:var(--text3)">ខែ: </span><span style="font-weight:700;font-family:var(--mono)">' + month + '</span></div>'
-      + '<div style="font-size:13px"><span style="color:var(--text3)">បុគ្គលិក: </span><span style="font-weight:700;color:var(--primary)">' + salData.records.length + '</span></div>'
-      + '<div style="font-size:13px"><span style="color:var(--text3)">Net សរុប: </span><span style="font-weight:700;color:var(--success);font-family:var(--mono)">' + sym + (salData.summary.total_net||0).toLocaleString() + '</span></div>'
-      + '<div style="font-size:13px"><span style="color:var(--text3)">បង់រួច: </span><span style="font-weight:700;color:var(--info)">' + (salData.summary.paid||0) + '/' + salData.records.length + '</span></div>'
+      + '<div style="font-size:15px"><span style="color:var(--text3)">ខែ: </span><span style="font-weight:700;font-family:var(--mono)">' + month + '</span></div>'
+      + '<div style="font-size:15px"><span style="color:var(--text3)">បុគ្គលិក: </span><span style="font-weight:700;color:var(--primary)">' + salData.records.length + '</span></div>'
+      + '<div style="font-size:15px"><span style="color:var(--text3)">Net សរុប: </span><span style="font-weight:700;color:var(--success);font-family:var(--mono)">' + sym + (salData.summary.total_net||0).toLocaleString() + '</span></div>'
+      + '<div style="font-size:15px"><span style="color:var(--text3)">បង់រួច: </span><span style="font-weight:700;color:var(--info)">' + (salData.summary.paid||0) + '/' + salData.records.length + '</span></div>'
       + '</div>'
       + '<div class="table-container" style="max-height:340px;overflow-y:auto">'
       + '<table>'
@@ -4502,12 +4477,12 @@ async function renderOvertime() {
       const isToday = (thisMonth()===currentMonth && new Date().getDate()===d);
       const isWeekend = (wd===0||wd===6);
       const bg = isToday ? 'background:var(--primary);color:white;' : isWeekend ? 'background:var(--bg2);color:var(--text3);' : '';
-      return '<th style="padding:2px 1px;font-size:11px;font-weight:600;text-align:center;min-width:26px;'+bg+'">' + d + '</th>';
+      return '<th style="padding:2px 1px;font-size:13px;font-weight:600;text-align:center;min-width:26px;'+bg+'">' + d + '</th>';
     }).join('');
 
     const wdThs = allDays.map(({wd}) => {
       const isWeekend = (wd===0||wd===6);
-      return '<th style="padding:1px 0;font-size:9px;text-align:center;font-weight:400;'+(isWeekend?'color:var(--danger);':'color:var(--text3);')+'">'+wdNames[wd]+'</th>';
+      return '<th style="padding:1px 0;font-size:11px;text-align:center;font-weight:400;'+(isWeekend?'color:var(--danger);':'color:var(--text3);')+'">'+wdNames[wd]+'</th>';
     }).join('');
 
     // Per-employee rows — only show employees with OT this month, or all
@@ -4522,7 +4497,7 @@ async function renderOvertime() {
         const isWeekend = (wd===0||wd===6);
         const bgWknd = isWeekend ? 'background:var(--bg2);' : '';
         if (!dayRecs.length) {
-          return '<td style="text-align:center;font-size:10px;color:var(--text3);padding:2px 0;'+bgWknd+'">—</td>';
+          return '<td style="text-align:center;font-size:12px;color:var(--text3);padding:2px 0;'+bgWknd+'">—</td>';
         }
         const hrs = dayRecs.reduce((s,r)=>s+(r.hours||0),0);
         const allApproved = dayRecs.every(r=>r.status==='approved');
@@ -4530,33 +4505,33 @@ async function renderOvertime() {
         const color = anyRejected ? 'var(--danger)' : allApproved ? 'var(--success)' : 'var(--warning)';
         const title = dayRecs.map(r=>(r.reason||'')+(r.hours?'('+r.hours+'h)':'')).join(' | ');
         return '<td style="text-align:center;padding:2px 1px;'+bgWknd+'" title="'+title+'">'
-          +'<span style="font-size:11px;font-weight:700;color:'+color+'">'+hrs+'h</span>'
+          +'<span style="font-size:13px;font-weight:700;color:'+color+'">'+hrs+'h</span>'
           +'</td>';
       }).join('');
 
       const photo = getEmpPhoto(emp.id);
       const av = photo
         ? '<img src="'+photo+'" style="width:22px;height:22px;border-radius:50%;object-fit:cover;flex-shrink:0"/>'
-        : '<div style="width:22px;height:22px;border-radius:50%;background:'+getColor(emp.name)+';display:flex;align-items:center;justify-content:center;color:white;font-size:10px;font-weight:700;flex-shrink:0">'+emp.name[0]+'</div>';
+        : '<div style="width:22px;height:22px;border-radius:50%;background:'+getColor(emp.name)+';display:flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:700;flex-shrink:0">'+emp.name[0]+'</div>';
 
       const mob = window.innerWidth < 700;
       if (mob) {
         return '<tr>'
           +'<td style="padding:3px 5px;white-space:nowrap;position:sticky;left:0;z-index:2;background:var(--bg1);box-shadow:2px 0 4px rgba(0,0,0,.15);min-width:72px;max-width:72px">'
-          +'<div style="display:flex;align-items:center;gap:3px">'+av+'<span style="font-size:9px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:44px">'+emp.name.split(' ').pop()+'</span></div></td>'
-          +'<td style="text-align:center;font-weight:700;color:var(--primary);font-size:10px;min-width:26px;padding:2px 2px;white-space:nowrap">'+empTotal+'h</td>'
-          +'<td style="text-align:center;font-weight:700;color:var(--success);font-size:10px;min-width:30px;padding:2px 2px;white-space:nowrap">$'+empPay.toFixed(0)+'</td>'
+          +'<div style="display:flex;align-items:center;gap:3px">'+av+'<span style="font-size:11px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:44px">'+emp.name.split(' ').pop()+'</span></div></td>'
+          +'<td style="text-align:center;font-weight:700;color:var(--primary);font-size:12px;min-width:26px;padding:2px 2px;white-space:nowrap">'+empTotal+'h</td>'
+          +'<td style="text-align:center;font-weight:700;color:var(--success);font-size:12px;min-width:30px;padding:2px 2px;white-space:nowrap">$'+empPay.toFixed(0)+'</td>'
           +cells
           +'</tr>';
       }
       return '<tr>'
         +'<td style="padding:5px 8px;white-space:nowrap;position:sticky;left:0;z-index:1;background:var(--bg1);box-shadow:2px 0 5px rgba(0,0,0,.12)">'
-        +'<div style="display:flex;align-items:center;gap:6px">'+av+'<span style="font-size:12px;font-weight:600">'+emp.name+'</span></div></td>'
-        +'<td style="text-align:center;font-weight:700;color:var(--primary);font-size:13px;position:sticky;left:160px;z-index:1;background:var(--bg1);padding:3px 4px;white-space:nowrap">'+empTotal+'h</td>'
-        +'<td style="text-align:center;font-weight:700;color:var(--success);font-size:12px;position:sticky;left:196px;z-index:1;background:var(--bg1);box-shadow:3px 0 6px rgba(0,0,0,.1);padding:3px 4px;white-space:nowrap">$'+empPay.toFixed(0)+'</td>'
+        +'<div style="display:flex;align-items:center;gap:6px">'+av+'<span style="font-size:14px;font-weight:600">'+emp.name+'</span></div></td>'
+        +'<td style="text-align:center;font-weight:700;color:var(--primary);font-size:15px;position:sticky;left:160px;z-index:1;background:var(--bg1);padding:3px 4px;white-space:nowrap">'+empTotal+'h</td>'
+        +'<td style="text-align:center;font-weight:700;color:var(--success);font-size:14px;position:sticky;left:196px;z-index:1;background:var(--bg1);box-shadow:3px 0 6px rgba(0,0,0,.1);padding:3px 4px;white-space:nowrap">$'+empPay.toFixed(0)+'</td>'
         +cells
         +'<td style="text-align:center;padding:3px 6px">'
-        +'<button class="btn btn-outline btn-sm" style="font-size:10px;padding:2px 7px" onclick="renderOTDetailList('+emp.id+',\''+emp.name+'\',\''+currentMonth+'\')">📋</button>'
+        +'<button class="btn btn-outline btn-sm" style="font-size:12px;padding:2px 7px" onclick="renderOTDetailList('+emp.id+',\''+emp.name+'\',\''+currentMonth+'\')">📋</button>'
         +'</td>'
         +'</tr>';
     }).filter(Boolean).join('');
@@ -4594,17 +4569,17 @@ async function renderOvertime() {
       +'<thead>'
       +(window.innerWidth<700
         ? '<tr style="position:sticky;top:0;z-index:4;background:var(--bg2)">'
-          +'<th style="min-width:72px;text-align:left;position:sticky;left:0;z-index:5;background:var(--bg2);box-shadow:2px 0 4px rgba(0,0,0,.2);padding:4px 5px;font-size:10px" rowspan="2">បុគ្គលិក</th>'
-          +'<th style="min-width:26px;text-align:center;color:var(--primary);font-size:10px;padding:2px 0" rowspan="2">⏱️h</th>'
-          +'<th style="min-width:30px;text-align:center;color:var(--success);font-size:10px;padding:2px 0" rowspan="2">💵</th>'
+          +'<th style="min-width:72px;text-align:left;position:sticky;left:0;z-index:5;background:var(--bg2);box-shadow:2px 0 4px rgba(0,0,0,.2);padding:4px 5px;font-size:12px" rowspan="2">បុគ្គលិក</th>'
+          +'<th style="min-width:26px;text-align:center;color:var(--primary);font-size:12px;padding:2px 0" rowspan="2">⏱️h</th>'
+          +'<th style="min-width:30px;text-align:center;color:var(--success);font-size:12px;padding:2px 0" rowspan="2">💵</th>'
           +dayThs+'</tr>'
           +'<tr style="position:sticky;top:22px;z-index:4;background:var(--bg2)">'+wdThs+'</tr>'
         : '<tr style="position:sticky;top:0;z-index:4;background:var(--bg2);height:28px">'
           +'<th style="text-align:left;position:sticky;left:0;z-index:5;background:var(--bg2);box-shadow:2px 0 5px rgba(0,0,0,.2);padding:6px 8px" rowspan="2">បុគ្គលិក</th>'
-          +'<th style="text-align:center;color:var(--primary);position:sticky;left:160px;z-index:5;background:var(--bg2);padding:3px 0;font-size:11px" rowspan="2" title="ម៉ោងសរុប">⏱️h</th>'
-          +'<th style="text-align:center;color:var(--success);position:sticky;left:196px;z-index:5;background:var(--bg2);box-shadow:3px 0 5px rgba(0,0,0,.15);padding:3px 0;font-size:11px" rowspan="2" title="ប្រាក់">💵</th>'
+          +'<th style="text-align:center;color:var(--primary);position:sticky;left:160px;z-index:5;background:var(--bg2);padding:3px 0;font-size:13px" rowspan="2" title="ម៉ោងសរុប">⏱️h</th>'
+          +'<th style="text-align:center;color:var(--success);position:sticky;left:196px;z-index:5;background:var(--bg2);box-shadow:3px 0 5px rgba(0,0,0,.15);padding:3px 0;font-size:13px" rowspan="2" title="ប្រាក់">💵</th>'
           +dayThs
-          +'<th style="text-align:center;background:var(--bg2);padding:3px 0;font-size:10px" rowspan="2">...</th>'
+          +'<th style="text-align:center;background:var(--bg2);padding:3px 0;font-size:12px" rowspan="2">...</th>'
           +'</tr>'
           +'<tr style="position:sticky;top:28px;z-index:4;background:var(--bg2)">'+wdThs+'</tr>'
       )
@@ -4656,24 +4631,24 @@ async function printOTReport(month) {
         const dayRecs = empOT[String(d)] || [];
         const isWeekend = (wd===0||wd===6);
         const bg = isWeekend ? 'background:#f5f5f5;' : '';
-        if (!dayRecs.length) return '<td style="text-align:center;font-size:9px;color:#bbb;'+bg+'">—</td>';
+        if (!dayRecs.length) return '<td style="text-align:center;font-size:11px;color:#bbb;'+bg+'">—</td>';
         const hrs = dayRecs.reduce((s,r)=>s+(r.hours||0),0);
         const allApproved = dayRecs.every(r=>r.status==='approved');
         const anyRejected = dayRecs.some(r=>r.status==='rejected');
         const color = anyRejected ? '#e53e3e' : allApproved ? '#38a169' : '#d97706';
-        return '<td style="text-align:center;'+bg+'"><span style="font-size:10px;font-weight:700;color:'+color+'">'+hrs+'h</span></td>';
+        return '<td style="text-align:center;'+bg+'"><span style="font-size:12px;font-weight:700;color:'+color+'">'+hrs+'h</span></td>';
       }).join('');
       return '<tr>'
-        +'<td style="padding:4px 6px;white-space:nowrap;font-weight:600;font-size:11px">'+emp.name+'</td>'
-        +'<td style="text-align:center;font-weight:700;color:#2b6cb0;font-size:12px">'+empTotal+'h</td>'
-        +'<td style="text-align:center;font-weight:700;color:#276749;font-size:11px">$'+empPay.toFixed(2)+'</td>'
+        +'<td style="padding:4px 6px;white-space:nowrap;font-weight:600;font-size:13px">'+emp.name+'</td>'
+        +'<td style="text-align:center;font-weight:700;color:#2b6cb0;font-size:14px">'+empTotal+'h</td>'
+        +'<td style="text-align:center;font-weight:700;color:#276749;font-size:13px">$'+empPay.toFixed(2)+'</td>'
         +cells
         +'</tr>';
     }).filter(Boolean).join('');
 
     const dayThsHtml = allDays.map(({d,wd})=>{
       const isWknd = (wd===0||wd===6);
-      return '<th style="padding:2px 1px;font-size:10px;font-weight:700;text-align:center;min-width:22px;'+(isWknd?'background:#dbeafe;color:#1e40af;':'')+'">'+d+'</th>';
+      return '<th style="padding:2px 1px;font-size:12px;font-weight:700;text-align:center;min-width:22px;'+(isWknd?'background:#dbeafe;color:#1e40af;':'')+'">'+d+'</th>';
     }).join('');
     const wdThsHtml = allDays.map(({wd})=>{
       const isWknd=(wd===0||wd===6);
@@ -4689,27 +4664,27 @@ async function printOTReport(month) {
       +'<title>OT Report '+month+'</title>'
       +'<style>'
       +'*{box-sizing:border-box;margin:0;padding:0;font-family:"Noto Sans Khmer",sans-serif}'
-      +'body{padding:14px;color:#1a202c;background:white;font-size:11px}'
+      +'body{padding:14px;color:#1a202c;background:white;font-size:13px}'
       +'.hdr{display:flex;align-items:center;gap:14px;margin-bottom:14px;padding-bottom:12px;border-bottom:3px solid #1a3a8f}'
       +'.hdr-info{flex:1}'
       +'.co-name{font-size:18px;font-weight:800;color:#1a3a8f;letter-spacing:.5px}'
-      +'.rpt-title{font-size:13px;font-weight:700;color:#2d3748;margin-top:2px}'
-      +'.rpt-sub{font-size:10px;color:#718096;margin-top:1px}'
+      +'.rpt-title{font-size:15px;font-weight:700;color:#2d3748;margin-top:2px}'
+      +'.rpt-sub{font-size:12px;color:#718096;margin-top:1px}'
       +'.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}'
       +'.stat-box{background:linear-gradient(135deg,#ebf4ff,#dbeafe);border:1px solid #bee3f8;border-radius:10px;padding:10px 14px;text-align:center}'
       +'.stat-num{font-size:18px;font-weight:800;color:#1a3a8f}'
-      +'.stat-lbl{font-size:9px;color:#4a5568;margin-top:2px;font-weight:600}'
-      +'table{width:100%;border-collapse:collapse;font-size:10px}'
+      +'.stat-lbl{font-size:11px;color:#4a5568;margin-top:2px;font-weight:600}'
+      +'table{width:100%;border-collapse:collapse;font-size:12px}'
       +'th{background:#1a3a8f;color:white;padding:5px 4px;text-align:left;font-weight:700}'
       +'thead tr:first-child th{border-bottom:1px solid rgba(255,255,255,.2)}'
       +'td{padding:4px 5px;border-bottom:1px solid #e2e8f0;vertical-align:middle}'
       +'tr:nth-child(even) td{background:#f7fafc}'
       +'tr:last-child td{font-weight:700;background:#ebf4ff!important;border-top:2px solid #1a3a8f}'
-      +'.legend{display:flex;gap:14px;margin-top:10px;font-size:9px;color:#4a5568}'
+      +'.legend{display:flex;gap:14px;margin-top:10px;font-size:11px;color:#4a5568}'
       +'.leg-item{display:flex;align-items:center;gap:4px}'
       +'.dot{width:10px;height:10px;border-radius:50%;display:inline-block}'
       +'.footer{margin-top:16px;display:grid;grid-template-columns:repeat(3,1fr);gap:20px}'
-      +'.sign{border-top:1px dashed #a0aec0;padding-top:6px;text-align:center;font-size:9px;color:#718096}'
+      +'.sign{border-top:1px dashed #a0aec0;padding-top:6px;text-align:center;font-size:11px;color:#718096}'
       +'@media print{@page{size:A4 landscape;margin:8mm}body{padding:0}}'
       +'</style></head><body>'
       +'<div class="hdr">'+logoHtml
@@ -4727,8 +4702,8 @@ async function printOTReport(month) {
       +allDays.map(()=>'<col style="min-width:22px"/>').join('')+'</colgroup>'
       +'<thead>'
       +'<tr><th rowspan="2" style="text-align:left;padding:5px 8px">បុគ្គលិក</th>'
-      +'<th rowspan="2" style="text-align:center;font-size:10px">ម៉ោង</th>'
-      +'<th rowspan="2" style="text-align:center;font-size:10px">ប្រាក់</th>'
+      +'<th rowspan="2" style="text-align:center;font-size:12px">ម៉ោង</th>'
+      +'<th rowspan="2" style="text-align:center;font-size:12px">ប្រាក់</th>'
       +dayThsHtml+'</tr>'
       +'<tr>'+wdThsHtml+'</tr>'
       +'</thead>'
@@ -4765,10 +4740,10 @@ async function printOTListReport(month) {
     const monthName = new Date(...month.split('-').map((v,i)=>i===1?+v-1:+v)).toLocaleDateString('km-KH',{year:'numeric',month:'long'});
 
     const statusBadge = s => s==='approved'
-      ? '<span style="background:#c6f6d5;color:#276749;border-radius:4px;padding:1px 6px;font-size:9px;font-weight:700">✅ អនុម័ត</span>'
+      ? '<span style="background:#c6f6d5;color:#276749;border-radius:4px;padding:1px 6px;font-size:11px;font-weight:700">✅ អនុម័ត</span>'
       : s==='rejected'
-      ? '<span style="background:#fed7d7;color:#c53030;border-radius:4px;padding:1px 6px;font-size:9px;font-weight:700">❌ បដិសេធ</span>'
-      : '<span style="background:#fefcbf;color:#744210;border-radius:4px;padding:1px 6px;font-size:9px;font-weight:700">⏳ រង់ចាំ</span>';
+      ? '<span style="background:#fed7d7;color:#c53030;border-radius:4px;padding:1px 6px;font-size:11px;font-weight:700">❌ បដិសេធ</span>'
+      : '<span style="background:#fefcbf;color:#744210;border-radius:4px;padding:1px 6px;font-size:11px;font-weight:700">⏳ រង់ចាំ</span>';
 
     const rowsHtml = records.map((r,i)=>'<tr>'
       +'<td style="text-align:center;color:#718096">'+(i+1)+'</td>'
@@ -4777,7 +4752,7 @@ async function printOTListReport(month) {
       +'<td style="text-align:center;font-weight:700;color:#2b6cb0">'+r.hours+'h</td>'
       +'<td style="text-align:center;font-family:monospace">$'+r.rate+'/h</td>'
       +'<td style="text-align:center;font-weight:700;color:#276749">$'+Number(r.pay).toFixed(2)+'</td>'
-      +'<td style="color:#4a5568;font-size:10px">'+(r.reason||'—')+'</td>'
+      +'<td style="color:#4a5568;font-size:12px">'+(r.reason||'—')+'</td>'
       +'<td>'+statusBadge(r.status)+'</td>'
       +'</tr>').join('');
 
@@ -4790,22 +4765,22 @@ async function printOTListReport(month) {
       +'<title>OT List '+month+'</title>'
       +'<style>'
       +'*{box-sizing:border-box;margin:0;padding:0;font-family:"Noto Sans Khmer",sans-serif}'
-      +'body{padding:14px;color:#1a202c;background:white;font-size:11px}'
+      +'body{padding:14px;color:#1a202c;background:white;font-size:13px}'
       +'.hdr{display:flex;align-items:center;gap:14px;margin-bottom:14px;padding-bottom:12px;border-bottom:3px solid #1a3a8f}'
       +'.co-name{font-size:18px;font-weight:800;color:#1a3a8f}'
-      +'.rpt-title{font-size:13px;font-weight:700;color:#2d3748;margin-top:2px}'
-      +'.rpt-sub{font-size:10px;color:#718096;margin-top:1px}'
+      +'.rpt-title{font-size:15px;font-weight:700;color:#2d3748;margin-top:2px}'
+      +'.rpt-sub{font-size:12px;color:#718096;margin-top:1px}'
       +'.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}'
       +'.stat-box{background:linear-gradient(135deg,#ebf4ff,#dbeafe);border:1px solid #bee3f8;border-radius:10px;padding:10px 14px;text-align:center}'
       +'.stat-num{font-size:18px;font-weight:800;color:#1a3a8f}'
-      +'.stat-lbl{font-size:9px;color:#4a5568;margin-top:2px;font-weight:600}'
-      +'table{width:100%;border-collapse:collapse;font-size:11px}'
+      +'.stat-lbl{font-size:11px;color:#4a5568;margin-top:2px;font-weight:600}'
+      +'table{width:100%;border-collapse:collapse;font-size:13px}'
       +'th{background:#1a3a8f;color:white;padding:7px 8px;text-align:left;font-weight:700}'
       +'td{padding:5px 8px;border-bottom:1px solid #e2e8f0;vertical-align:middle}'
       +'tr:nth-child(even) td{background:#f7fafc}'
       +'.tot-row td{font-weight:800;background:#ebf4ff!important;border-top:2px solid #1a3a8f}'
       +'.footer{margin-top:16px;display:grid;grid-template-columns:repeat(3,1fr);gap:20px}'
-      +'.sign{border-top:1px dashed #a0aec0;padding-top:6px;text-align:center;font-size:9px;color:#718096}'
+      +'.sign{border-top:1px dashed #a0aec0;padding-top:6px;text-align:center;font-size:11px;color:#718096}'
       +'@media print{@page{size:A4;margin:8mm}body{padding:0}}'
       +'</style></head><body>'
       +'<div class="hdr">'+logoHtml
@@ -4949,10 +4924,10 @@ async function renderOTDetailList(empId, empName, month) {
   $('modal-title').textContent = '📋 OT — '+empName+' ('+month+')';
   const rows = recs.length===0
     ? '<p style="color:var(--text3);text-align:center;padding:20px">គ្មានទិន្នន័យ</p>'
-    : '<table style="width:100%;border-collapse:collapse;font-size:12px">'
+    : '<table style="width:100%;border-collapse:collapse;font-size:14px">'
       +'<thead><tr style="background:var(--bg3)"><th style="padding:6px;text-align:left">ថ្ងៃខែ</th><th style="text-align:center">ម៉ោង</th><th style="text-align:right">ប្រាក់</th><th style="text-align:center">ស្ថានភាព</th><th></th></tr></thead>'
       +'<tbody>'+recs.map(r=>'<tr style="border-bottom:1px solid var(--border)">'
-        +'<td style="padding:5px 6px;font-family:var(--mono);font-size:11px">'+r.date+'<br><span style="color:var(--text3);font-size:10px">'+(r.reason||'')+'</span></td>'
+        +'<td style="padding:5px 6px;font-family:var(--mono);font-size:13px">'+r.date+'<br><span style="color:var(--text3);font-size:12px">'+(r.reason||'')+'</span></td>'
         +'<td style="text-align:center;font-weight:700;color:var(--primary)">'+r.hours+'h</td>'
         +'<td style="text-align:right;font-weight:700;color:var(--success)">$'+r.pay+'</td>'
         +'<td style="text-align:center">'+(r.status==='approved'?'<span class="badge badge-green">✅</span>':r.status==='rejected'?'<span class="badge badge-red">❌</span>':'<span class="badge badge-yellow">⏳</span>')+'</td>'
@@ -4982,11 +4957,11 @@ async function renderOTListView(month) {
             : '<div class="emp-avatar" style="background:'+getColor(r.employee_name)+';">'+(r.employee_name||'?')[0]+'</div>';
           return '<tr>'
             +'<td><div class="employee-cell">'+av+'<div class="emp-name">'+r.employee_name+'</div></div></td>'
-            +'<td style="font-family:var(--mono);font-size:12px">'+r.date+'</td>'
+            +'<td style="font-family:var(--mono);font-size:14px">'+r.date+'</td>'
             +'<td><span style="font-weight:700;color:var(--primary)">'+r.hours+'h</span></td>'
             +'<td style="font-family:var(--mono)">$'+r.rate+'/h</td>'
             +'<td style="font-family:var(--mono);color:var(--success);font-weight:600">$'+r.pay+'</td>'
-            +'<td style="color:var(--text3);font-size:12px">'+(r.reason||'—')+'</td>'
+            +'<td style="color:var(--text3);font-size:14px">'+(r.reason||'—')+'</td>'
             +'<td>'+(r.status==='approved'?'<span class="badge badge-green">✅ អនុម័ត</span>':r.status==='rejected'?'<span class="badge badge-red">❌ បដិសេធ</span>':'<span class="badge badge-yellow">⏳ រង់ចាំ</span>')+'</td>'
             +'<td><div class="action-btns">'
             +(r.status==='pending'?'<button class="btn btn-success btn-sm" onclick="approveOvertime('+r.id+')">✅</button><button class="btn btn-danger btn-sm" onclick="rejectOvertime('+r.id+')">❌</button>':'')
@@ -5256,11 +5231,11 @@ async function renderLoans() {
             return '<tr>'
               +'<td><div class="employee-cell">'+av+'<div class="emp-name">'+r.employee_name+'</div></div></td>'
               +'<td style="font-family:var(--mono);font-weight:700">$'+r.amount+'</td>'
-              +'<td><span style="font-size:11px;color:var(--primary);font-weight:700">'+installAmt+'</span><span style="font-size:10px;color:var(--text3)"> '+installMonths+'</span></td>'
+              +'<td><span style="font-size:13px;color:var(--primary);font-weight:700">'+installAmt+'</span><span style="font-size:12px;color:var(--text3)"> '+installMonths+'</span></td>'
               +'<td style="font-family:var(--mono);color:var(--success)">$'+(r.paid_amount||0)+'</td>'
               +'<td style="font-family:var(--mono);color:'+(left>0?'var(--danger)':'var(--success)')+';font-weight:700">$'+left.toFixed(0)+'</td>'
-              +'<td style="font-family:var(--mono);font-size:11px">'+(r.loan_date||'—')+'</td>'
-              +'<td style="font-family:var(--mono);font-size:11px">'+(r.due_date||'—')+'</td>'
+              +'<td style="font-family:var(--mono);font-size:13px">'+(r.loan_date||'—')+'</td>'
+              +'<td style="font-family:var(--mono);font-size:13px">'+(r.due_date||'—')+'</td>'
               +'<td>'+(status==='paid'?'<span class="badge badge-green">✅ សងរួច</span>':'<span class="badge badge-yellow">⏳ កំពុងសង</span>')+'</td>'
               +'<td><div class="action-btns">'
               +(left>0?'<button class="btn btn-success btn-sm" onclick="openRepayModal('+r.id+',\''+r.employee_name+'\','+left+','+(r.installment_amount||0)+')">💰 សង/កាត់</button>':'')
@@ -5285,7 +5260,7 @@ async function openLoanModal() {
     +'<div class="form-group"><label class="form-label">ចំនួនដំណាក់កាល (ខែ)</label><input class="form-control" id="ln-months" type="number" placeholder="6" value="6" min="1" max="60" oninput="calcLoanInstall()" /></div>'
     +'<div class="form-group"><label class="form-label">ថ្ងៃផុតកំណត់</label><input class="form-control" id="ln-due" type="date" /></div>'
     +'<div class="form-group full-width">'
-    +'<div id="ln-install-preview" style="padding:12px;background:var(--bg3);border-radius:8px;border:1px solid var(--border);font-size:13px;color:var(--text3)">បំពេញចំនួន និងដំណាក់កាលដើម្បីមើល...</div>'
+    +'<div id="ln-install-preview" style="padding:12px;background:var(--bg3);border-radius:8px;border:1px solid var(--border);font-size:15px;color:var(--text3)">បំពេញចំនួន និងដំណាក់កាលដើម្បីមើល...</div>'
     +'</div>'
     +'<div class="form-group full-width"><label class="form-label">ចំណាំ</label><input class="form-control" id="ln-note" placeholder="មូលហេតុខ្ចីប្រាក់..." /></div>'
     +'</div>'
@@ -5304,7 +5279,7 @@ function calcLoanInstall() {
   if (!amount) { prev.textContent = 'បំពេញចំនួន...'; return; }
   const perMonth = (amount / months).toFixed(2);
   prev.innerHTML = '<span style="color:var(--primary);font-weight:700">💡 កាត់ប្រាក់ខែ: $'+perMonth+'/ខែ × '+months+' ខែ</span>'
-    + ' <span style="color:var(--text3);font-size:11px">(សរុប $'+amount.toFixed(2)+')</span>';
+    + ' <span style="color:var(--text3);font-size:13px">(សរុប $'+amount.toFixed(2)+')</span>';
   // Auto-set due date
   const dueEl = document.getElementById('ln-due');
   if (dueEl) {
@@ -5348,17 +5323,17 @@ async function openRepayModal(id, name, left, installAmt) {
   if (pmts && pmts.length > 0) {
     const rows = pmts.map((p,i) =>
       '<tr>'
-      +'<td style="padding:4px 8px;font-size:11px;color:var(--text3)">'+(i+1)+'</td>'
-      +'<td style="padding:4px 8px;font-size:11px;font-family:var(--mono)">'+p.date+'</td>'
+      +'<td style="padding:4px 8px;font-size:13px;color:var(--text3)">'+(i+1)+'</td>'
+      +'<td style="padding:4px 8px;font-size:13px;font-family:var(--mono)">'+p.date+'</td>'
       +'<td style="padding:4px 8px;font-weight:700;color:var(--success);font-family:var(--mono)">-$'+parseFloat(p.amount||0).toFixed(2)+'</td>'
       +'<td style="padding:4px 8px;font-weight:700;color:var(--danger);font-family:var(--mono)">$'+parseFloat(p.remaining||0).toFixed(2)+'</td>'
-      +'<td style="padding:4px 8px;font-size:10px;color:var(--text3)">'+(p.note||'—')+'</td>'
+      +'<td style="padding:4px 8px;font-size:12px;color:var(--text3)">'+(p.note||'—')+'</td>'
       +'</tr>'
     ).join('');
     histHTML = '<div style="margin-bottom:14px">'
-      +'<div style="font-size:12px;color:var(--text3);margin-bottom:6px;font-weight:600">📋 ប្រវត្តិការសង/កាត់</div>'
+      +'<div style="font-size:14px;color:var(--text3);margin-bottom:6px;font-weight:600">📋 ប្រវត្តិការសង/កាត់</div>'
       +'<div style="max-height:140px;overflow-y:auto;border:1px solid var(--border);border-radius:8px">'
-      +'<table style="width:100%;font-size:11px;border-collapse:collapse">'
+      +'<table style="width:100%;font-size:13px;border-collapse:collapse">'
       +'<thead><tr style="background:var(--bg2)">'
       +'<th style="padding:5px 8px;text-align:left">#</th>'
       +'<th style="padding:5px 8px;text-align:left">កាលបរិច្ឆេទ</th>'
@@ -5372,13 +5347,13 @@ async function openRepayModal(id, name, left, installAmt) {
 
   $('modal-body').innerHTML =
     '<div style="margin-bottom:14px;padding:12px;background:var(--bg3);border-radius:10px;display:flex;gap:20px;flex-wrap:wrap;align-items:center">'
-    +'<div><div style="font-size:11px;color:var(--text3)">នៅសល់ត្រូវសង</div>'
+    +'<div><div style="font-size:13px;color:var(--text3)">នៅសល់ត្រូវសង</div>'
     +'<div style="font-size:22px;font-weight:800;font-family:var(--mono);color:var(--danger)">$'+left.toFixed(2)+'</div></div>'
-    +(installAmt>0?'<div><div style="font-size:11px;color:var(--text3)">ត្រូវតាម fix/ខែ</div><div style="font-size:14px;font-weight:700;color:var(--primary)">$'+installAmt+'/ខែ</div></div>':'')
+    +(installAmt>0?'<div><div style="font-size:13px;color:var(--text3)">ត្រូវតាម fix/ខែ</div><div style="font-size:16px;font-weight:700;color:var(--primary)">$'+installAmt+'/ខែ</div></div>':'')
     +'</div>'
     + histHTML
     +'<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px">'
-    +'<div style="font-size:13px;font-weight:700;color:var(--primary);margin-bottom:12px">✏️ កាត់/សង តាមសាច់ប្រាក់ (ដោយដៃ)</div>'
+    +'<div style="font-size:15px;font-weight:700;color:var(--primary);margin-bottom:12px">✏️ កាត់/សង តាមសាច់ប្រាក់ (ដោយដៃ)</div>'
     +'<div class="form-grid">'
     +'<div class="form-group"><label class="form-label">ចំនួនកាត់ (USD) *</label>'
     +'<input class="form-control" id="rp-amount" type="number" value="'+suggested.toFixed(2)+'" max="'+left.toFixed(2)+'" step="0.01" placeholder="0.00" oninput="calcRepayRemain('+left+')" /></div>'
@@ -5391,7 +5366,7 @@ async function openRepayModal(id, name, left, installAmt) {
     +(installAmt>0?'<button class="btn btn-outline btn-sm" onclick="document.getElementById(\'rp-amount\').value=\''+Math.min(installAmt,left).toFixed(2)+'\';calcRepayRemain('+left+')">💡 ដំណាក់ $'+installAmt+'</button>':'')
     +'<button class="btn btn-outline btn-sm" onclick="document.getElementById(\'rp-amount\').value=\''+left.toFixed(2)+'\';calcRepayRemain('+left+')">🔚 សងទាំងអស់ $'+left.toFixed(2)+'</button>'
     +'</div>'
-    +'<div id="rp-preview" style="margin-top:10px;padding:10px;background:var(--bg3);border-radius:8px;font-size:12px;display:none">'
+    +'<div id="rp-preview" style="margin-top:10px;padding:10px;background:var(--bg3);border-radius:8px;font-size:14px;display:none">'
     +'<span style="color:var(--text3)">នៅសល់ក្រោយកាត់: </span>'
     +'<span id="rp-remain-val" style="font-weight:800;font-family:var(--mono);color:var(--warning)"></span>'
     +'</div>'
@@ -5515,7 +5490,7 @@ async function openExpenseModal() {
     '<div class="form-grid">'
     +'<div class="form-group full-width"><label class="form-label">បុគ្គលិក *</label>'
     +'<select class="form-control" id="ex-emp">'+state.employees.map(e=>'<option value="'+e.id+'">'+e.name+'</option>').join('')+'</select></div>'
-    +'<div class="form-group"><label class="form-label">ប្រភេទ * <span style="font-size:10px;color:var(--text3)">(ចំណាយទូទៅ)</span></label>'
+    +'<div class="form-group"><label class="form-label">ប្រភេទ * <span style="font-size:12px;color:var(--text3)">(ចំណាយទូទៅ)</span></label>'
     +'<select class="form-control" id="ex-cat">'+genCats.map(c=>'<option>'+c+'</option>').join('')+'</select></div>'
     +'<div class="form-group"><label class="form-label">ចំនួន (USD) *</label><input class="form-control" id="ex-amount" type="number" placeholder="100" /></div>'
     +'<div class="form-group"><label class="form-label">កាលបរិច្ឆេទ</label><input class="form-control" id="ex-date" type="date" value="'+today()+'" /></div>'
@@ -5561,8 +5536,8 @@ async function renderGeneralExpense() {
           +'<td style="font-weight:600">'+r.title+'</td>'
           +'<td><span class="badge badge-blue">'+r.category+'</span></td>'
           +'<td style="font-family:var(--mono);font-weight:700;color:var(--danger)">$'+r.amount+'</td>'
-          +'<td style="font-family:var(--mono);font-size:12px">'+r.expense_date+'</td>'
-          +'<td style="color:var(--text3);font-size:12px">'+(r.responsible||'—')+'</td>'
+          +'<td style="font-family:var(--mono);font-size:14px">'+r.expense_date+'</td>'
+          +'<td style="color:var(--text3);font-size:14px">'+(r.responsible||'—')+'</td>'
           +'<td>'+(r.status==='paid'?'<span class="badge badge-green">✅ បានបង់</span>':'<span class="badge badge-yellow">⏳ រង់ចាំ</span>')+'</td>'
           +'<td><div class="action-btns">'
           +(r.status!=='paid'?'<button class="btn btn-success btn-sm" onclick="payGenExp('+r.id+')">💰</button>':'')
@@ -5609,7 +5584,7 @@ async function openGenExpModal(editData) {
     +'<select class="form-control" id="ge-cat" style="flex:1">'+GEN_CATS.map(c=>'<option'+(d.category===c?' selected':'')+'>'+c+'</option>').join('')+'</select>'
     +'<input class="form-control" id="ge-cat-custom" placeholder="ផ្សេង..." style="width:100px" value="'+(GEN_CATS.includes(d.category)?'':(d.category||''))+'" title="ប្រភេទផ្ទាល់ខ្លួន"/>'
     +'</div>'
-    +'<div style="font-size:10px;color:var(--text3);margin-top:3px">ឬ វាយប្រភេទថ្មី ក្នុង input ខាងស្តាំ</div></div>'
+    +'<div style="font-size:12px;color:var(--text3);margin-top:3px">ឬ វាយប្រភេទថ្មី ក្នុង input ខាងស្តាំ</div></div>'
     +'<div class="form-group"><label class="form-label">ចំនួន (USD) *</label><input class="form-control" id="ge-amount" type="number" placeholder="200" value="'+(d.amount||'')+'" /></div>'
     +'<div class="form-group"><label class="form-label">កាលបរិច្ឆេទ</label><input class="form-control" id="ge-date" type="date" value="'+(d.expense_date||today())+'" /></div>'
     +'<div class="form-group"><label class="form-label">អ្នកទទួលខុសត្រូវ</label><input class="form-control" id="ge-resp" placeholder="ឈ្មោះ..." value="'+(d.responsible||'')+'" /></div>'
@@ -5980,7 +5955,7 @@ function idCardHTML(e, style, cfg) {
     idColor = idColor || '#1d4ed8';
     return '<div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0">'
       + qr
-      + '<div style="font-family:monospace;font-size:10px;font-weight:800;color:'+idColor
+      + '<div style="font-family:monospace;font-size:12px;font-weight:800;color:'+idColor
       + ';letter-spacing:.5px;text-align:center;line-height:1">'+empId+'</div>'
       +'</div>';
   }
@@ -6025,7 +6000,7 @@ function idCardHTML(e, style, cfg) {
   // Logo
   const logoImg = cfg.logo_url
     ? '<img src="'+cfg.logo_url+'" style="height:18px;object-fit:contain" />'
-    : '<span style="font-size:11px;font-weight:800;color:white">'+company+'</span>';
+    : '<span style="font-size:13px;font-weight:800;color:white">'+company+'</span>';
 
   // ── ROYAL ─────────────────────────────────────────────────
   if (style === 'royal') {
@@ -6039,8 +6014,8 @@ function idCardHTML(e, style, cfg) {
       +'<div><div style="color:rgba(255,255,255,.65);font-size:8px;font-weight:600;text-transform:uppercase;letter-spacing:.5px">'+( e.position||'—')+'</div>'
       +'<div style="color:white;font-size:17px;font-weight:800;line-height:1.1;margin:2px 0">'+e.name+'</div>'
       +'<div style="display:flex;gap:8px">'
-      +'<div style="background:rgba(255,255,255,.15);border-radius:6px;padding:3px 10px;text-align:center"><div style="color:rgba(255,255,255,.55);font-size:7px;font-weight:700">EMP ID</div><div style="color:white;font-size:12px;font-weight:800;font-family:monospace">'+empId+'</div></div>'
-      +'<div style="background:rgba(255,255,255,.15);border-radius:6px;padding:3px 10px;text-align:center"><div style="color:rgba(255,255,255,.55);font-size:7px;font-weight:700">ចូលធ្វើ</div><div style="color:white;font-size:10px;font-weight:700;font-family:monospace">'+hireDate+'</div></div>'
+      +'<div style="background:rgba(255,255,255,.15);border-radius:6px;padding:3px 10px;text-align:center"><div style="color:rgba(255,255,255,.55);font-size:7px;font-weight:700">EMP ID</div><div style="color:white;font-size:14px;font-weight:800;font-family:monospace">'+empId+'</div></div>'
+      +'<div style="background:rgba(255,255,255,.15);border-radius:6px;padding:3px 10px;text-align:center"><div style="color:rgba(255,255,255,.55);font-size:7px;font-weight:700">ចូលធ្វើ</div><div style="color:white;font-size:12px;font-weight:700;font-family:monospace">'+hireDate+'</div></div>'
       +'</div></div></div>'
       +'<div style="padding:4px 14px;display:flex;justify-content:space-between;align-items:center">'
       +'<div style="font-size:7px;color:rgba(255,255,255,.4)">OFFICIAL ID</div>'
@@ -6049,7 +6024,7 @@ function idCardHTML(e, style, cfg) {
     const back =
       '<div style="height:100%;border-radius:14px;overflow:hidden;background:white;display:flex;flex-direction:column">'
       +'<div style="background:linear-gradient(90deg,#0f2c6e,#1d4ed8);padding:8px 14px;display:flex;justify-content:space-between;align-items:center">'
-      +'<div style="color:white;font-size:11px;font-weight:800">'+(e.position||'—')+'</div>'
+      +'<div style="color:white;font-size:13px;font-weight:800">'+(e.position||'—')+'</div>'
       +'<div style="color:rgba(255,255,255,.75);font-size:8px;letter-spacing:1px">EMPLOYEE CARD</div></div>'
       +'<div style="display:flex;gap:10px;padding:8px 14px;flex:1">'
       + qrLabel(qrBlock,'#1d4ed8')
@@ -6067,13 +6042,13 @@ function idCardHTML(e, style, cfg) {
       '<div style="height:100%;border-radius:14px;overflow:hidden;background:linear-gradient(145deg,#0a0e1a,#141824,#0d1220);border:1px solid rgba(212,175,55,.25);position:relative">'
       +'<div style="height:4px;background:linear-gradient(90deg,'+gold+',#f0d060,'+gold+')"></div>'
       +'<div style="padding:8px 14px;display:flex;justify-content:space-between;align-items:center">'
-      +(cfg.logo_url?'<img src="'+cfg.logo_url+'" style="height:16px;object-fit:contain">':'<span style="color:'+gold+';font-size:11px;font-weight:800">'+company+'</span>')
+      +(cfg.logo_url?'<img src="'+cfg.logo_url+'" style="height:16px;object-fit:contain">':'<span style="color:'+gold+';font-size:13px;font-weight:800">'+company+'</span>')
       +'<div style="border:1px solid rgba(212,175,55,.4);color:'+gold+';font-size:8px;font-weight:700;padding:2px 8px;border-radius:3px">'+dept+'</div></div>'
       +'<div style="display:flex;gap:12px;align-items:center;padding:4px 14px 8px">'
       +avatar(68,'2.5px','rgba(212,175,55,.5)','50%','0 0 20px rgba(212,175,55,.2)')
-      +'<div><div style="color:'+gold+';font-size:9px;font-weight:600;letter-spacing:.5px">'+( e.position||'—')+'</div>'
-      +'<div style="color:#f8f8f0;font-size:16px;font-weight:800;margin:2px 0">'+e.name+'</div>'
-      +'<div style="background:rgba(212,175,55,.1);border:1px solid rgba(212,175,55,.3);border-radius:4px;padding:2px 10px;display:inline-block;font-family:monospace;color:'+gold+';font-size:11px;font-weight:800">'+empId+'</div></div>'
+      +'<div><div style="color:'+gold+';font-size:11px;font-weight:600;letter-spacing:.5px">'+( e.position||'—')+'</div>'
+      +'<div style="color:#f8f8f0;font-size:18px;font-weight:800;margin:2px 0">'+e.name+'</div>'
+      +'<div style="background:rgba(212,175,55,.1);border:1px solid rgba(212,175,55,.3);border-radius:4px;padding:2px 10px;display:inline-block;font-family:monospace;color:'+gold+';font-size:13px;font-weight:800">'+empId+'</div></div>'
       +'<div style="margin-left:auto;flex-shrink:0;width:28px;height:18px;background:linear-gradient(135deg,'+gold+',#f5e070);border-radius:3px;opacity:.7"></div></div>'
       +'<div style="padding:4px 14px 8px;display:flex;gap:1.5px;align-items:flex-end">'+Array.from({length:28},(_,i)=>'<div style="width:2px;height:'+Math.round(4+Math.sin(i*1.2+e.id)*7)+'px;background:rgba(212,175,55,.25);border-radius:1px"></div>').join('')+'</div></div>';
     const back =
@@ -6099,8 +6074,8 @@ function idCardHTML(e, style, cfg) {
       +'<div><div style="color:rgba(255,255,255,.7);font-size:8px;font-weight:600;letter-spacing:.5px">'+( e.position||'—')+'</div>'
       +'<div style="color:white;font-size:17px;font-weight:800;line-height:1.1;margin:2px 0">'+e.name+'</div>'
       +'<div style="display:flex;gap:8px">'
-      +'<div style="background:rgba(255,255,255,.18);border-radius:6px;padding:3px 10px;text-align:center"><div style="color:rgba(255,255,255,.6);font-size:7px;font-weight:700">EMP ID</div><div style="color:white;font-size:12px;font-weight:800;font-family:monospace">'+empId+'</div></div>'
-      +'<div style="background:rgba(255,255,255,.18);border-radius:6px;padding:3px 10px;text-align:center"><div style="color:rgba(255,255,255,.6);font-size:7px;font-weight:700">ចូលធ្វើ</div><div style="color:white;font-size:10px;font-weight:700;font-family:monospace">'+hireDate+'</div></div>'
+      +'<div style="background:rgba(255,255,255,.18);border-radius:6px;padding:3px 10px;text-align:center"><div style="color:rgba(255,255,255,.6);font-size:7px;font-weight:700">EMP ID</div><div style="color:white;font-size:14px;font-weight:800;font-family:monospace">'+empId+'</div></div>'
+      +'<div style="background:rgba(255,255,255,.18);border-radius:6px;padding:3px 10px;text-align:center"><div style="color:rgba(255,255,255,.6);font-size:7px;font-weight:700">ចូលធ្វើ</div><div style="color:white;font-size:12px;font-weight:700;font-family:monospace">'+hireDate+'</div></div>'
       +'</div></div></div>'
       +'<div style="padding:4px 14px;display:flex;justify-content:space-between"><span style="font-size:7px;color:rgba(255,255,255,.4)">HR ID CARD</span>'
       +'<div style="display:flex;gap:1.5px;align-items:flex-end;height:14px">'+Array.from({length:22},(_,i)=>'<div style="width:2px;height:'+Math.round(4+Math.sin(i*.9+e.id)*6)+'px;background:rgba(255,255,255,.3);border-radius:1px"></div>').join('')+'</div>'
@@ -6108,7 +6083,7 @@ function idCardHTML(e, style, cfg) {
     const back =
       '<div style="height:100%;border-radius:14px;overflow:hidden;background:white;display:flex;flex-direction:column">'
       +'<div style="background:linear-gradient(90deg,'+g1+','+g2+');padding:8px 14px;display:flex;justify-content:space-between;align-items:center">'
-      +'<div style="color:white;font-size:11px;font-weight:800">'+(e.position||'—')+'</div>'
+      +'<div style="color:white;font-size:13px;font-weight:800">'+(e.position||'—')+'</div>'
       +'<div style="color:rgba(255,255,255,.75);font-size:8px;letter-spacing:1px">EMPLOYEE CARD</div></div>'
       +'<div style="display:flex;gap:10px;padding:8px 14px;flex:1">'
       + qrLabel(qrBlock,g2)
@@ -6132,8 +6107,8 @@ function idCardHTML(e, style, cfg) {
       +'<div><div style="color:rgba(255,255,255,.7);font-size:8px;font-weight:600;letter-spacing:.5px">'+( e.position||'—')+'</div>'
       +'<div style="color:white;font-size:17px;font-weight:800;line-height:1.1;margin:2px 0">'+e.name+'</div>'
       +'<div style="display:flex;gap:8px">'
-      +'<div style="background:rgba(255,255,255,.2);border-radius:6px;padding:3px 10px;text-align:center"><div style="color:rgba(255,255,255,.65);font-size:7px;font-weight:700">EMP ID</div><div style="color:white;font-size:12px;font-weight:800;font-family:monospace">'+empId+'</div></div>'
-      +'<div style="background:rgba(255,255,255,.2);border-radius:6px;padding:3px 10px;text-align:center"><div style="color:rgba(255,255,255,.65);font-size:7px;font-weight:700">ចូលធ្វើ</div><div style="color:white;font-size:10px;font-weight:700;font-family:monospace">'+hireDate+'</div></div>'
+      +'<div style="background:rgba(255,255,255,.2);border-radius:6px;padding:3px 10px;text-align:center"><div style="color:rgba(255,255,255,.65);font-size:7px;font-weight:700">EMP ID</div><div style="color:white;font-size:14px;font-weight:800;font-family:monospace">'+empId+'</div></div>'
+      +'<div style="background:rgba(255,255,255,.2);border-radius:6px;padding:3px 10px;text-align:center"><div style="color:rgba(255,255,255,.65);font-size:7px;font-weight:700">ចូលធ្វើ</div><div style="color:white;font-size:12px;font-weight:700;font-family:monospace">'+hireDate+'</div></div>'
       +'</div></div></div>'
       +'<div style="padding:4px 14px;display:flex;justify-content:space-between"><span style="font-size:7px;color:rgba(255,255,255,.4)">HR ID CARD</span>'
       +'<div style="display:flex;gap:1.5px;align-items:flex-end;height:14px">'+Array.from({length:22},(_,i)=>'<div style="width:2px;height:'+Math.round(4+Math.sin(i*.9+e.id)*6)+'px;background:rgba(255,255,255,.3);border-radius:1px"></div>').join('')+'</div>'
@@ -6141,7 +6116,7 @@ function idCardHTML(e, style, cfg) {
     const back =
       '<div style="height:100%;border-radius:14px;overflow:hidden;background:white;display:flex;flex-direction:column">'
       +'<div style="background:linear-gradient(90deg,'+p1+','+p2+');padding:8px 14px;display:flex;justify-content:space-between;align-items:center">'
-      +'<div style="color:white;font-size:11px;font-weight:800">'+(e.position||'—')+'</div>'
+      +'<div style="color:white;font-size:13px;font-weight:800">'+(e.position||'—')+'</div>'
       +'<div style="color:rgba(255,255,255,.75);font-size:8px;letter-spacing:1px">EMPLOYEE CARD</div></div>'
       +'<div style="display:flex;gap:10px;padding:8px 14px;flex:1">'
       + qrLabel(qrBlock,p2)
@@ -6161,12 +6136,12 @@ function idCardHTML(e, style, cfg) {
       +'<div>'+(cfg.logo_url?'<img src="'+cfg.logo_url+'" style="height:16px;object-fit:contain;margin-bottom:2px"><br>':'')
       +'<div style="color:#9ca3af;font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase">'+company+'</div></div>'
       +'<div style="text-align:right"><div style="color:#6b7280;font-size:7px;font-weight:700;letter-spacing:1px;text-transform:uppercase">Employee Card</div>'
-      +'<div style="color:'+ac+';font-size:10px;font-weight:800;font-family:monospace">'+empId+'</div></div></div>'
+      +'<div style="color:'+ac+';font-size:12px;font-weight:800;font-family:monospace">'+empId+'</div></div></div>'
       +'<div style="display:flex;align-items:center;gap:14px;padding:4px 14px 8px">'
       +avatar(68,'2px',ac+'88','12px','0 4px 16px rgba(0,0,0,.5)')
       +'<div><div style="color:#9ca3af;font-size:8px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;margin-bottom:2px">'+( e.position||'—')+'</div>'
       +'<div style="color:#f9fafb;font-size:17px;font-weight:800;line-height:1.1;margin-bottom:4px">'+e.name+'</div>'
-      +'<div style="color:'+ac+';font-size:9px;font-weight:700">'+dept+'</div></div></div>'
+      +'<div style="color:'+ac+';font-size:11px;font-weight:700">'+dept+'</div></div></div>'
       +'<div style="margin:0 14px;border-top:1px solid #374151;padding-top:6px;display:flex;justify-content:space-between;align-items:center">'
       +'<div style="font-size:8px;color:#4b5563;font-family:monospace">'+hireDate+'</div>'
       +'<div style="display:flex;gap:1px;align-items:flex-end;height:14px">'+Array.from({length:24},(_,i)=>'<div style="width:1.5px;height:'+Math.round(4+Math.sin(i+e.id)*6)+'px;background:'+ac+'44;border-radius:1px"></div>').join('')+'</div>'
@@ -6198,8 +6173,8 @@ function idCardHTML(e, style, cfg) {
       +'<div><div style="color:rgba(255,255,255,.7);font-size:8px;font-weight:600;letter-spacing:.5px">'+( e.position||'—')+'</div>'
       +'<div style="color:white;font-size:17px;font-weight:800;line-height:1.1;margin:2px 0">'+e.name+'</div>'
       +'<div style="display:flex;gap:8px">'
-      +'<div style="background:rgba(255,255,255,.18);border-radius:6px;padding:3px 10px;text-align:center"><div style="color:rgba(255,255,255,.6);font-size:7px;font-weight:700">EMP ID</div><div style="color:white;font-size:12px;font-weight:800;font-family:monospace">'+empId+'</div></div>'
-      +'<div style="background:rgba(255,255,255,.18);border-radius:6px;padding:3px 10px;text-align:center"><div style="color:rgba(255,255,255,.6);font-size:7px;font-weight:700">ចូលធ្វើ</div><div style="color:white;font-size:10px;font-weight:700;font-family:monospace">'+hireDate+'</div></div>'
+      +'<div style="background:rgba(255,255,255,.18);border-radius:6px;padding:3px 10px;text-align:center"><div style="color:rgba(255,255,255,.6);font-size:7px;font-weight:700">EMP ID</div><div style="color:white;font-size:14px;font-weight:800;font-family:monospace">'+empId+'</div></div>'
+      +'<div style="background:rgba(255,255,255,.18);border-radius:6px;padding:3px 10px;text-align:center"><div style="color:rgba(255,255,255,.6);font-size:7px;font-weight:700">ចូលធ្វើ</div><div style="color:white;font-size:12px;font-weight:700;font-family:monospace">'+hireDate+'</div></div>'
       +'</div></div></div>'
       +'<div style="padding:4px 14px;display:flex;justify-content:space-between"><span style="font-size:7px;color:rgba(255,255,255,.4)">OCEAN ID</span>'
       +'<div style="display:flex;gap:1.5px;align-items:flex-end;height:14px">'+Array.from({length:22},(_,i)=>'<div style="width:2px;height:'+Math.round(3+Math.sin(i*.7+e.id)*7)+'px;background:rgba(255,255,255,.3);border-radius:1px"></div>').join('')+'</div>'
@@ -6207,7 +6182,7 @@ function idCardHTML(e, style, cfg) {
     const back =
       '<div style="height:100%;border-radius:14px;overflow:hidden;background:white;display:flex;flex-direction:column">'
       +'<div style="background:linear-gradient(90deg,'+o1+','+o2+');padding:8px 14px;display:flex;justify-content:space-between;align-items:center">'
-      +'<div style="color:white;font-size:11px;font-weight:800">'+(e.position||'—')+'</div>'
+      +'<div style="color:white;font-size:13px;font-weight:800">'+(e.position||'—')+'</div>'
       +'<div style="color:rgba(255,255,255,.75);font-size:8px;letter-spacing:1px">EMPLOYEE CARD</div></div>'
       +'<div style="display:flex;gap:10px;padding:8px 14px;flex:1">'
       + qrLabel(qrBlock,o2)
@@ -6231,8 +6206,8 @@ function idCardHTML(e, style, cfg) {
       +'<div><div style="color:rgba(255,255,255,.7);font-size:8px;font-weight:600;letter-spacing:.5px">'+( e.position||'—')+'</div>'
       +'<div style="color:white;font-size:17px;font-weight:800;line-height:1.1;margin:2px 0">'+e.name+'</div>'
       +'<div style="display:flex;gap:8px">'
-      +'<div style="background:rgba(255,255,255,.2);border-radius:6px;padding:3px 10px;text-align:center"><div style="color:rgba(255,255,255,.65);font-size:7px;font-weight:700">EMP ID</div><div style="color:white;font-size:12px;font-weight:800;font-family:monospace">'+empId+'</div></div>'
-      +'<div style="background:rgba(255,255,255,.2);border-radius:6px;padding:3px 10px;text-align:center"><div style="color:rgba(255,255,255,.65);font-size:7px;font-weight:700">ចូលធ្វើ</div><div style="color:white;font-size:10px;font-weight:700;font-family:monospace">'+hireDate+'</div></div>'
+      +'<div style="background:rgba(255,255,255,.2);border-radius:6px;padding:3px 10px;text-align:center"><div style="color:rgba(255,255,255,.65);font-size:7px;font-weight:700">EMP ID</div><div style="color:white;font-size:14px;font-weight:800;font-family:monospace">'+empId+'</div></div>'
+      +'<div style="background:rgba(255,255,255,.2);border-radius:6px;padding:3px 10px;text-align:center"><div style="color:rgba(255,255,255,.65);font-size:7px;font-weight:700">ចូលធ្វើ</div><div style="color:white;font-size:12px;font-weight:700;font-family:monospace">'+hireDate+'</div></div>'
       +'</div></div></div>'
       +'<div style="padding:4px 14px;display:flex;justify-content:space-between"><span style="font-size:7px;color:rgba(255,255,255,.4)">SUNSET ID</span>'
       +'<div style="display:flex;gap:1.5px;align-items:flex-end;height:14px">'+Array.from({length:22},(_,i)=>'<div style="width:2px;height:'+Math.round(4+Math.sin(i*.9+e.id)*6)+'px;background:rgba(255,255,255,.3);border-radius:1px"></div>').join('')+'</div>'
@@ -6240,7 +6215,7 @@ function idCardHTML(e, style, cfg) {
     const back =
       '<div style="height:100%;border-radius:14px;overflow:hidden;background:white;display:flex;flex-direction:column">'
       +'<div style="background:linear-gradient(90deg,'+s1+','+s2+');padding:8px 14px;display:flex;justify-content:space-between;align-items:center">'
-      +'<div style="color:white;font-size:11px;font-weight:800">'+(e.position||'—')+'</div>'
+      +'<div style="color:white;font-size:13px;font-weight:800">'+(e.position||'—')+'</div>'
       +'<div style="color:rgba(255,255,255,.75);font-size:8px;letter-spacing:1px">EMPLOYEE CARD</div></div>'
       +'<div style="display:flex;gap:10px;padding:8px 14px;flex:1">'
       + qrLabel(qrBlock,s2)
@@ -6258,13 +6233,13 @@ function idCardHTML(e, style, cfg) {
     +'<div style="height:3px;background:'+ac+'"></div>'
     +'<div style="position:absolute;top:3px;right:0;bottom:0;width:3px;background:'+ac+'44"></div>'
     +'<div style="padding:8px 14px 6px;display:flex;justify-content:space-between;align-items:center">'
-    +(cfg.logo_url?'<img src="'+cfg.logo_url+'" style="height:18px;object-fit:contain">':'<span style="color:white;font-size:11px;font-weight:800">'+company+'</span>')
+    +(cfg.logo_url?'<img src="'+cfg.logo_url+'" style="height:18px;object-fit:contain">':'<span style="color:white;font-size:13px;font-weight:800">'+company+'</span>')
     +'<div style="border:1px solid '+ac+'66;color:'+ac+';font-size:8px;font-weight:700;padding:2px 8px;border-radius:3px;background:'+ac+'11">'+dept+'</div></div>'
     +'<div style="display:flex;align-items:center;gap:12px;padding:4px 14px 8px">'
     +avatar(68,'2px',ac,'12px','0 4px 12px rgba(0,0,0,.4)')
     +'<div><div style="color:#9ca3af;font-size:8px;font-weight:600;text-transform:uppercase;letter-spacing:.5px">'+( e.position||'—')+'</div>'
-    +'<div style="color:white;font-size:16px;font-weight:800;line-height:1.1;margin:2px 0">'+e.name+'</div>'
-    +'<div style="background:'+ac+'22;border:1px solid '+ac+'44;border-radius:4px;padding:2px 10px;display:inline-block;font-family:monospace;color:'+ac+';font-size:11px;font-weight:800">'+empId+'</div></div></div>'
+    +'<div style="color:white;font-size:18px;font-weight:800;line-height:1.1;margin:2px 0">'+e.name+'</div>'
+    +'<div style="background:'+ac+'22;border:1px solid '+ac+'44;border-radius:4px;padding:2px 10px;display:inline-block;font-family:monospace;color:'+ac+';font-size:13px;font-weight:800">'+empId+'</div></div></div>'
     +'<div style="margin:0 14px;border-top:1px solid #4b5563;padding-top:5px;display:flex;justify-content:space-between">'
     +'<div style="font-size:8px;color:#6b7280;font-family:monospace">'+hireDate+'</div>'
     +'<div style="display:flex;gap:1.5px;align-items:flex-end;height:14px">'+Array.from({length:26},(_,i)=>'<div style="width:2px;height:'+Math.round(4+Math.sin(i*1.1+e.id)*6)+'px;background:'+ac+'44;border-radius:1px"></div>').join('')+'</div>'
@@ -6286,12 +6261,12 @@ function idCardHTML(e, style, cfg) {
   function premiumBack(headerBg, headerBorderBottom, bodyBg, rowBorder, qrBg, idColor, footerBg, footerBorder) {
     return '<div style="height:100%;border-radius:14px;overflow:hidden;background:'+bodyBg+';display:flex;flex-direction:column;border:1px solid '+footerBorder+'">'
       +'<div style="background:'+headerBg+';padding:8px 14px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid '+headerBorderBottom+'">'
-      +'<div style="font-size:11px;font-weight:800;color:white">'+(e.position||'—')+'</div>'
+      +'<div style="font-size:13px;font-weight:800;color:white">'+(e.position||'—')+'</div>'
       +'<div style="color:rgba(255,255,255,.7);font-size:8px;letter-spacing:1px">EMPLOYEE CARD</div></div>'
       +'<div style="display:flex;gap:10px;padding:8px 14px;flex:1">'
       +'<div style="flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:3px">'
       +'<div style="padding:3px;background:white;border-radius:4px;border:1px solid '+footerBorder+'">'+makeQRSvg(empIdRaw,qrInner,qrBg,'#fff')+'</div>'
-      +'<div style="font-family:monospace;font-size:9px;font-weight:800;color:'+idColor+';letter-spacing:.5px">'+empId+'</div></div>'
+      +'<div style="font-family:monospace;font-size:11px;font-weight:800;color:'+idColor+';letter-spacing:.5px">'+empId+'</div></div>'
       +'<div style="flex:1;min-width:0">'+rows(infoData,'#94a3b8','#1e293b',rowBorder)+'</div></div>'
       +'<div style="background:'+footerBg+';border-top:1px solid '+footerBorder+';padding:4px 14px;display:flex;justify-content:space-between">'
       +'<div style="font-size:8px;color:#94a3b8;font-style:italic">'+( cfg.lost_card_text||'ករណីបាត់ — If found, please return')+'</div>'
@@ -6350,8 +6325,8 @@ idCardHTML = function(e, style, cfg) {
   function rows(pairs, keyC, valC, borderC) {
     return pairs.map(([k,v])=>
       '<div style="display:flex;gap:4px;padding:2.5px 0;border-bottom:1px solid '+(borderC||'#f0f4ff')+'">'
-      +'<span style="color:'+(keyC||'#94a3b8')+';font-weight:600;min-width:58px;font-size:9px">'+k+'</span>'
-      +'<span style="color:'+(valC||'#1e293b')+';font-weight:700;font-size:9px">'+v+'</span>'
+      +'<span style="color:'+(keyC||'#94a3b8')+';font-weight:600;min-width:58px;font-size:11px">'+k+'</span>'
+      +'<span style="color:'+(valC||'#1e293b')+';font-weight:700;font-size:11px">'+v+'</span>'
       +'</div>'
     ).join('');
   }
@@ -6362,7 +6337,7 @@ idCardHTML = function(e, style, cfg) {
   function logoImg(filter) {
     return cfg.logo_url
       ? '<img src="'+cfg.logo_url+'" style="height:18px;object-fit:contain" />'
-      : '<span style="font-size:11px;font-weight:800;color:white">'+company+'</span>';
+      : '<span style="font-size:13px;font-weight:800;color:white">'+company+'</span>';
   }
 
   function wrap(front, back) {
@@ -6378,7 +6353,7 @@ idCardHTML = function(e, style, cfg) {
   function premBack(gradBg, rowBorderC, qrDarkC, qrLightC, idColor, footBg, footBorderC) {
     return '<div style="height:100%;border-radius:14px;overflow:hidden;background:white;display:flex;flex-direction:column">'
       +'<div style="background:'+gradBg+';padding:8px 14px;display:flex;justify-content:space-between;align-items:center">'
-      +'<div style="color:white;font-size:11px;font-weight:800">'+(e.position||'—')+'</div>'
+      +'<div style="color:white;font-size:13px;font-weight:800">'+(e.position||'—')+'</div>'
       +'<div style="color:rgba(255,255,255,.7);font-size:8px;letter-spacing:1px">EMPLOYEE CARD</div></div>'
       +'<div style="display:flex;gap:10px;padding:8px 14px;flex:1">'
       +qrLabel(qrAuto(qrDarkC,qrLightC),idColor)
@@ -6406,10 +6381,10 @@ idCardHTML = function(e, style, cfg) {
       +'<div style="display:flex;gap:6px">'
       +'<div style="background:rgba(96,165,250,.15);border:1px solid rgba(96,165,250,.3);border-radius:6px;padding:3px 10px;text-align:center">'
       +'<div style="color:'+d3+';font-size:7px;font-weight:700">EMP ID</div>'
-      +'<div style="color:white;font-size:12px;font-weight:800;font-family:monospace">'+empId+'</div></div>'
+      +'<div style="color:white;font-size:14px;font-weight:800;font-family:monospace">'+empId+'</div></div>'
       +'<div style="background:rgba(96,165,250,.15);border:1px solid rgba(96,165,250,.3);border-radius:6px;padding:3px 10px;text-align:center">'
       +'<div style="color:'+d3+';font-size:7px;font-weight:700">ចូលធ្វើ</div>'
-      +'<div style="color:white;font-size:10px;font-weight:700;font-family:monospace">'+hireDate+'</div></div>'
+      +'<div style="color:white;font-size:12px;font-weight:700;font-family:monospace">'+hireDate+'</div></div>'
       +'</div></div></div>'
       +'<div style="padding:4px 14px;display:flex;justify-content:space-between;align-items:center">'
       +'<div style="font-size:7px;color:rgba(191,219,254,.4)">DIAMOND SERIES</div>'
@@ -6433,10 +6408,10 @@ idCardHTML = function(e, style, cfg) {
       +'<div style="display:flex;gap:6px">'
       +'<div style="background:rgba(251,113,133,.15);border:1px solid rgba(251,113,133,.3);border-radius:6px;padding:3px 10px;text-align:center">'
       +'<div style="color:'+r3+';font-size:7px;font-weight:700">EMP ID</div>'
-      +'<div style="color:white;font-size:12px;font-weight:800;font-family:monospace">'+empId+'</div></div>'
+      +'<div style="color:white;font-size:14px;font-weight:800;font-family:monospace">'+empId+'</div></div>'
       +'<div style="background:rgba(251,113,133,.15);border:1px solid rgba(251,113,133,.3);border-radius:6px;padding:3px 10px;text-align:center">'
       +'<div style="color:'+r3+';font-size:7px;font-weight:700">ចូលធ្វើ</div>'
-      +'<div style="color:white;font-size:10px;font-weight:700;font-family:monospace">'+hireDate+'</div></div>'
+      +'<div style="color:white;font-size:12px;font-weight:700;font-family:monospace">'+hireDate+'</div></div>'
       +'</div></div></div>'
       +'<div style="padding:4px 14px;display:flex;justify-content:space-between;align-items:center">'
       +'<div style="font-size:7px;color:rgba(254,205,211,.4)">RUBY SERIES</div>'
@@ -6460,10 +6435,10 @@ idCardHTML = function(e, style, cfg) {
       +'<div style="display:flex;gap:6px">'
       +'<div style="background:rgba(52,211,153,.12);border:1px solid rgba(52,211,153,.3);border-radius:6px;padding:3px 10px;text-align:center">'
       +'<div style="color:'+e3+';font-size:7px;font-weight:700">EMP ID</div>'
-      +'<div style="color:white;font-size:12px;font-weight:800;font-family:monospace">'+empId+'</div></div>'
+      +'<div style="color:white;font-size:14px;font-weight:800;font-family:monospace">'+empId+'</div></div>'
       +'<div style="background:rgba(52,211,153,.12);border:1px solid rgba(52,211,153,.3);border-radius:6px;padding:3px 10px;text-align:center">'
       +'<div style="color:'+e3+';font-size:7px;font-weight:700">ចូលធ្វើ</div>'
-      +'<div style="color:white;font-size:10px;font-weight:700;font-family:monospace">'+hireDate+'</div></div>'
+      +'<div style="color:white;font-size:12px;font-weight:700;font-family:monospace">'+hireDate+'</div></div>'
       +'</div></div></div>'
       +'<div style="padding:4px 14px;display:flex;justify-content:space-between;align-items:center">'
       +'<div style="font-size:7px;color:rgba(167,243,208,.4)">EMERALD SERIES</div>'
@@ -6487,10 +6462,10 @@ idCardHTML = function(e, style, cfg) {
       +'<div style="display:flex;gap:6px">'
       +'<div style="background:rgba(0,200,255,.1);border:1px solid rgba(0,200,255,.3);border-radius:6px;padding:3px 10px;text-align:center">'
       +'<div style="color:#00c8ff;font-size:7px;font-weight:700">EMP ID</div>'
-      +'<div style="color:white;font-size:12px;font-weight:800;font-family:monospace">'+empId+'</div></div>'
+      +'<div style="color:white;font-size:14px;font-weight:800;font-family:monospace">'+empId+'</div></div>'
       +'<div style="background:rgba(0,255,136,.1);border:1px solid rgba(0,255,136,.3);border-radius:6px;padding:3px 10px;text-align:center">'
       +'<div style="color:#00ff88;font-size:7px;font-weight:700">ចូលធ្វើ</div>'
-      +'<div style="color:white;font-size:10px;font-weight:700;font-family:monospace">'+hireDate+'</div></div>'
+      +'<div style="color:white;font-size:12px;font-weight:700;font-family:monospace">'+hireDate+'</div></div>'
       +'</div></div></div>'
       +'<div style="padding:4px 14px;display:flex;justify-content:space-between;align-items:center">'
       +'<div style="font-size:7px;color:rgba(0,200,255,.4)">AURORA SERIES</div>'
@@ -6499,7 +6474,7 @@ idCardHTML = function(e, style, cfg) {
     const back =
       '<div style="height:100%;border-radius:14px;overflow:hidden;background:#0d1117;border:1px solid rgba(0,200,255,.2);display:flex;flex-direction:column">'
       +'<div style="background:linear-gradient(90deg,#0d1117,#1a1a2e);padding:8px 14px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(0,200,255,.15)">'
-      +'<div style="color:#00c8ff;font-size:11px;font-weight:800">'+(e.position||'—')+'</div>'
+      +'<div style="color:#00c8ff;font-size:13px;font-weight:800">'+(e.position||'—')+'</div>'
       +'<div style="color:rgba(0,200,255,.6);font-size:8px;letter-spacing:1px">EMPLOYEE CARD</div></div>'
       +'<div style="display:flex;gap:10px;padding:8px 14px;flex:1">'
       +qrLabel(qrAuto('#00c8ff','#0d1117'),'#00ff88')
@@ -6520,7 +6495,7 @@ idCardHTML = function(e, style, cfg) {
       +avatar(68,'2px',ac,'12px','0 4px 20px rgba(0,0,0,.8)')
       +'<div><div style="color:#888;font-size:8px;font-weight:600;letter-spacing:.5px;text-transform:uppercase">'+(e.position||'—')+'</div>'
       +'<div style="color:#f5f5f5;font-size:17px;font-weight:800;line-height:1.1;margin:2px 0">'+e.name+'</div>'
-      +'<div style="background:'+ac+'22;border:1px solid '+ac+'55;border-radius:4px;padding:3px 10px;display:inline-block;font-family:monospace;color:'+ac+';font-size:12px;font-weight:800">'+empId+'</div></div></div>'
+      +'<div style="background:'+ac+'22;border:1px solid '+ac+'55;border-radius:4px;padding:3px 10px;display:inline-block;font-family:monospace;color:'+ac+';font-size:14px;font-weight:800">'+empId+'</div></div></div>'
       +'<div style="margin:0 14px;border-top:1px solid #1f1f1f;padding:5px 0;display:flex;justify-content:space-between;align-items:center">'
       +'<div style="font-size:8px;color:#333;font-family:monospace">'+hireDate+'</div>'
       +'<div style="display:flex;gap:1.5px;align-items:flex-end;height:14px">'+bars(26,ac+'44')+'</div>'
@@ -6557,10 +6532,10 @@ idCardHTML = function(e, style, cfg) {
       +'<div style="display:flex;gap:6px">'
       +'<div style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:6px;padding:3px 10px;text-align:center">'
       +'<div style="color:#9ca3af;font-size:7px;font-weight:700">EMP ID</div>'
-      +'<div style="color:#f9fafb;font-size:12px;font-weight:800;font-family:monospace">'+empId+'</div></div>'
+      +'<div style="color:#f9fafb;font-size:14px;font-weight:800;font-family:monospace">'+empId+'</div></div>'
       +'<div style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:6px;padding:3px 10px;text-align:center">'
       +'<div style="color:#9ca3af;font-size:7px;font-weight:700">ចូលធ្វើ</div>'
-      +'<div style="color:#f9fafb;font-size:10px;font-weight:700;font-family:monospace">'+hireDate+'</div></div>'
+      +'<div style="color:#f9fafb;font-size:12px;font-weight:700;font-family:monospace">'+hireDate+'</div></div>'
       +'</div></div></div>'
       +'<div style="padding:4px 14px;display:flex;justify-content:space-between;align-items:center">'
       +'<div style="font-size:7px;color:rgba(229,231,235,.3)">TITANIUM SERIES</div>'
@@ -6576,10 +6551,10 @@ idCardHTML = function(e, style, cfg) {
       '<div style="height:100%;border-radius:14px;overflow:hidden;background:linear-gradient(135deg,#fff1f2 0%,#ffe4e6 40%,#fce7f3 100%);position:relative;border:1px solid #fecdd3">'
       // Petal decorations
       +'<div style="position:absolute;top:5px;right:10px;font-size:22px;opacity:.15;transform:rotate(15deg)">🌸</div>'
-      +'<div style="position:absolute;bottom:8px;left:8px;font-size:16px;opacity:.12;transform:rotate(-20deg)">🌸</div>'
+      +'<div style="position:absolute;bottom:8px;left:8px;font-size:18px;opacity:.12;transform:rotate(-20deg)">🌸</div>'
       +'<div style="position:absolute;top:0;left:0;right:0;height:4px;background:linear-gradient(90deg,'+sk1+','+sk2+','+sk3+','+sk2+','+sk1+')"></div>'
       +'<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px 6px">'
-      +(cfg.logo_url?'<img src="'+cfg.logo_url+'" style="height:18px;object-fit:contain">':'<span style="color:'+sk2+';font-size:11px;font-weight:800">'+company+'</span>')
+      +(cfg.logo_url?'<img src="'+cfg.logo_url+'" style="height:18px;object-fit:contain">':'<span style="color:'+sk2+';font-size:13px;font-weight:800">'+company+'</span>')
       +'<div style="font-size:8px;font-weight:700;color:'+sk2+';background:'+sk4+';border:1px solid #fecdd3;padding:2px 8px;border-radius:20px">🌸 '+dept+'</div></div>'
       +'<div style="display:flex;align-items:center;gap:12px;padding:4px 14px 8px">'
       +avatar(70,'3px','rgba(159,18,57,.3)','50%','0 4px 16px rgba(159,18,57,.15)')
@@ -6588,10 +6563,10 @@ idCardHTML = function(e, style, cfg) {
       +'<div style="display:flex;gap:6px">'
       +'<div style="background:'+sk4+';border:1px solid #fecdd3;border-radius:6px;padding:3px 10px;text-align:center">'
       +'<div style="color:'+sk2+';font-size:7px;font-weight:700">EMP ID</div>'
-      +'<div style="color:'+sk1+';font-size:12px;font-weight:800;font-family:monospace">'+empId+'</div></div>'
+      +'<div style="color:'+sk1+';font-size:14px;font-weight:800;font-family:monospace">'+empId+'</div></div>'
       +'<div style="background:'+sk4+';border:1px solid #fecdd3;border-radius:6px;padding:3px 10px;text-align:center">'
       +'<div style="color:'+sk2+';font-size:7px;font-weight:700">ចូលធ្វើ</div>'
-      +'<div style="color:'+sk1+';font-size:10px;font-weight:700;font-family:monospace">'+hireDate+'</div></div>'
+      +'<div style="color:'+sk1+';font-size:12px;font-weight:700;font-family:monospace">'+hireDate+'</div></div>'
       +'</div></div></div>'
       +'<div style="padding:4px 14px;display:flex;justify-content:space-between;align-items:center">'
       +'<div style="font-size:7px;color:'+sk3+'">SAKURA SERIES</div>'
@@ -6600,7 +6575,7 @@ idCardHTML = function(e, style, cfg) {
     const back =
       '<div style="height:100%;border-radius:14px;overflow:hidden;background:white;border:1px solid #fecdd3;display:flex;flex-direction:column">'
       +'<div style="background:linear-gradient(90deg,'+sk1+','+sk2+');padding:8px 14px;display:flex;justify-content:space-between;align-items:center">'
-      +'<div style="color:white;font-size:11px;font-weight:800">'+(e.position||'—')+'</div>'
+      +'<div style="color:white;font-size:13px;font-weight:800">'+(e.position||'—')+'</div>'
       +'<div style="color:rgba(255,255,255,.7);font-size:8px;letter-spacing:1px">🌸 EMPLOYEE CARD</div></div>'
       +'<div style="display:flex;gap:10px;padding:8px 14px;flex:1">'
       +qrLabel(qrAuto(sk1,'#fff1f2'),sk2)
@@ -6629,10 +6604,10 @@ idCardHTML = function(e, style, cfg) {
     +'<div style="display:flex;gap:6px">'
     +'<div style="background:rgba(139,92,246,.15);border:1px solid rgba(139,92,246,.3);border-radius:6px;padding:3px 10px;text-align:center">'
     +'<div style="color:#a78bfa;font-size:7px;font-weight:700">EMP ID</div>'
-    +'<div style="color:white;font-size:12px;font-weight:800;font-family:monospace">'+empId+'</div></div>'
+    +'<div style="color:white;font-size:14px;font-weight:800;font-family:monospace">'+empId+'</div></div>'
     +'<div style="background:rgba(139,92,246,.15);border:1px solid rgba(139,92,246,.3);border-radius:6px;padding:3px 10px;text-align:center">'
     +'<div style="color:#a78bfa;font-size:7px;font-weight:700">ចូលធ្វើ</div>'
-    +'<div style="color:white;font-size:10px;font-weight:700;font-family:monospace">'+hireDate+'</div></div>'
+    +'<div style="color:white;font-size:12px;font-weight:700;font-family:monospace">'+hireDate+'</div></div>'
     +'</div></div></div>'
     +'<div style="padding:4px 14px;display:flex;justify-content:space-between;align-items:center">'
     +'<div style="font-size:7px;color:rgba(196,181,253,.3)">GALAXY SERIES</div>'
@@ -6641,7 +6616,7 @@ idCardHTML = function(e, style, cfg) {
   const back =
     '<div style="height:100%;border-radius:14px;overflow:hidden;background:'+g1+';border:1px solid rgba(139,92,246,.2);display:flex;flex-direction:column">'
     +'<div style="background:linear-gradient(90deg,'+g1+','+g2+');padding:8px 14px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(139,92,246,.2)">'
-    +'<div style="color:#a78bfa;font-size:11px;font-weight:800">'+(e.position||'—')+'</div>'
+    +'<div style="color:#a78bfa;font-size:13px;font-weight:800">'+(e.position||'—')+'</div>'
     +'<div style="color:rgba(196,181,253,.6);font-size:8px;letter-spacing:1px">EMPLOYEE CARD</div></div>'
     +'<div style="display:flex;gap:10px;padding:8px 14px;flex:1">'
     +qrLabel(qrAuto('#a78bfa',g1),'#c4b5fd')
@@ -6690,7 +6665,7 @@ function idCardPortraitHTML(e, style, cfg) {
 
   const logoEl = cfg.logo_url
     ? '<img src="'+cfg.logo_url+'" style="height:20px;object-fit:contain" />'
-    : '<span style="font-size:10px;font-weight:800;color:white">'+company+'</span>';
+    : '<span style="font-size:12px;font-weight:800;color:white">'+company+'</span>';
 
   // Portrait card wrapper — 204px wide × 323px tall (54mm×86mm at 96dpi)
   function wrapP(front, back) {
@@ -6719,13 +6694,13 @@ function idCardPortraitHTML(e, style, cfg) {
       +'<div style="display:flex;justify-content:center;padding:8px 0">'+av(90,'rgba(255,255,255,.6)','0 6px 20px rgba(0,0,0,.5)')+'</div>'
       // Name
       +'<div style="text-align:center;padding:8px 12px 4px">'
-      +'<div style="color:rgba(255,255,255,.65);font-size:9px;font-weight:600;letter-spacing:.5px;text-transform:uppercase">'+(e.position||'—')+'</div>'
-      +'<div style="color:white;font-size:16px;font-weight:800;margin:4px 0;line-height:1.2">'+e.name+'</div>'
+      +'<div style="color:rgba(255,255,255,.65);font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase">'+(e.position||'—')+'</div>'
+      +'<div style="color:white;font-size:18px;font-weight:800;margin:4px 0;line-height:1.2">'+e.name+'</div>'
       +'</div>'
       // ID + hire
       +'<div style="display:flex;gap:8px;justify-content:center;padding:0 12px 10px">'
-      +'<div style="background:rgba(255,255,255,.15);border-radius:8px;padding:4px 12px;text-align:center"><div style="color:rgba(255,255,255,.55);font-size:7px;font-weight:700">EMP ID</div><div style="color:white;font-size:13px;font-weight:800;font-family:monospace">'+empId+'</div></div>'
-      +'<div style="background:rgba(255,255,255,.15);border-radius:8px;padding:4px 12px;text-align:center"><div style="color:rgba(255,255,255,.55);font-size:7px;font-weight:700">ចូលធ្វើ</div><div style="color:white;font-size:11px;font-weight:700;font-family:monospace">'+hireDate+'</div></div>'
+      +'<div style="background:rgba(255,255,255,.15);border-radius:8px;padding:4px 12px;text-align:center"><div style="color:rgba(255,255,255,.55);font-size:7px;font-weight:700">EMP ID</div><div style="color:white;font-size:15px;font-weight:800;font-family:monospace">'+empId+'</div></div>'
+      +'<div style="background:rgba(255,255,255,.15);border-radius:8px;padding:4px 12px;text-align:center"><div style="color:rgba(255,255,255,.55);font-size:7px;font-weight:700">ចូលធ្វើ</div><div style="color:white;font-size:13px;font-weight:700;font-family:monospace">'+hireDate+'</div></div>'
       +'</div>'
       // Bottom bar with QR
       +'<div style="margin-top:auto;padding:6px 10px;background:rgba(0,0,0,.2);display:flex;justify-content:space-between;align-items:center">'
@@ -6736,17 +6711,17 @@ function idCardPortraitHTML(e, style, cfg) {
     const back =
       '<div style="width:100%;height:100%;border-radius:14px;overflow:hidden;background:white;display:flex;flex-direction:column">'
       +'<div style="background:linear-gradient(90deg,#0f2c6e,#1d4ed8);padding:10px 14px;display:flex;justify-content:space-between;align-items:center">'
-      +'<div style="color:white;font-size:12px;font-weight:800">'+e.name+'</div>'
+      +'<div style="color:white;font-size:14px;font-weight:800">'+e.name+'</div>'
       +'<div style="color:rgba(255,255,255,.7);font-size:8px">EMPLOYEE</div></div>'
       +'<div style="display:flex;flex-direction:column;align-items:center;padding:14px;gap:10px;flex:1">'
       +qrBlock
-      +'<div style="font-family:monospace;font-size:12px;font-weight:800;color:#1d4ed8">'+empId+'</div>'
+      +'<div style="font-family:monospace;font-size:14px;font-weight:800;color:#1d4ed8">'+empId+'</div>'
       +'</div>'
       +'<div style="padding:0 14px 10px">'
       +[['ឈ្មោះ',e.name||'—'],['តំណែង',e.position||'—'],['នាយកដ្ឋាន',dept],['ទូរស័ព្ទ',e.phone||'—']].map(([k,v])=>
         '<div style="display:flex;gap:6px;padding:3px 0;border-bottom:1px solid #e2eaff">'
-        +'<span style="color:#94a3b8;font-weight:600;min-width:60px;font-size:9px">'+k+'</span>'
-        +'<span style="color:#1e293b;font-weight:700;font-size:9px">'+v+'</span></div>'
+        +'<span style="color:#94a3b8;font-weight:600;min-width:60px;font-size:11px">'+k+'</span>'
+        +'<span style="color:#1e293b;font-weight:700;font-size:11px">'+v+'</span></div>'
       ).join('')
       +'</div>'
       +'<div style="background:#f8faff;border-top:1px solid #e2eaff;padding:5px 14px;text-align:center;font-size:8px;color:#94a3b8">'+( cfg.lost_card_text||'ករណីបាត់ — If found, please return')+'</div>'
@@ -6761,32 +6736,32 @@ function idCardPortraitHTML(e, style, cfg) {
       '<div style="width:100%;height:100%;border-radius:14px;overflow:hidden;background:linear-gradient(175deg,#0a0e1a,#141824,#0d1220);border:1px solid rgba(212,175,55,.2);display:flex;flex-direction:column;position:relative">'
       +'<div style="height:3px;background:linear-gradient(90deg,'+gold+',#f0d060,'+gold+')"></div>'
       +'<div style="padding:10px 14px;display:flex;justify-content:space-between;align-items:center">'
-      +(cfg.logo_url?'<img src="'+cfg.logo_url+'" style="height:16px;object-fit:contain">':'<span style="color:'+gold+';font-size:10px;font-weight:800">'+company+'</span>')
+      +(cfg.logo_url?'<img src="'+cfg.logo_url+'" style="height:16px;object-fit:contain">':'<span style="color:'+gold+';font-size:12px;font-weight:800">'+company+'</span>')
       +'<div style="border:1px solid rgba(212,175,55,.4);color:'+gold+';font-size:8px;padding:2px 8px;border-radius:3px">'+dept+'</div></div>'
       +'<div style="display:flex;justify-content:center;padding:6px 0">'+av(88,'rgba(212,175,55,.5)','0 0 24px rgba(212,175,55,.25)')+'</div>'
       +'<div style="text-align:center;padding:8px 12px 4px">'
-      +'<div style="color:'+gold+';font-size:9px;font-weight:600;letter-spacing:.5px">'+(e.position||'—')+'</div>'
-      +'<div style="color:#f8f8f0;font-size:16px;font-weight:800;margin:4px 0">'+e.name+'</div>'
+      +'<div style="color:'+gold+';font-size:11px;font-weight:600;letter-spacing:.5px">'+(e.position||'—')+'</div>'
+      +'<div style="color:#f8f8f0;font-size:18px;font-weight:800;margin:4px 0">'+e.name+'</div>'
       +'</div>'
       +'<div style="display:flex;justify-content:center;padding:0 12px 10px">'
       +'<div style="background:rgba(212,175,55,.1);border:1px solid rgba(212,175,55,.3);border-radius:6px;padding:4px 16px;text-align:center">'
       +'<div style="color:rgba(212,175,55,.6);font-size:7px">EMP ID</div>'
-      +'<div style="color:'+gold+';font-size:14px;font-weight:800;font-family:monospace">'+empId+'</div></div></div>'
+      +'<div style="color:'+gold+';font-size:16px;font-weight:800;font-family:monospace">'+empId+'</div></div></div>'
       +'<div style="margin-top:auto;padding:6px 10px;background:rgba(0,0,0,.2);display:flex;justify-content:space-between;align-items:center"><div style="font-size:7px;color:rgba(212,175,55,.4)">OFFICIAL ID</div>'+qrSmall+'<div style="font-size:7px;color:rgba(212,175,55,.4)">'+company+'</div></div>'
       +'</div>';
     const back =
       '<div style="width:100%;height:100%;border-radius:14px;overflow:hidden;background:#0d1220;border:1px solid rgba(212,175,55,.2);display:flex;flex-direction:column">'
       +'<div style="height:3px;background:linear-gradient(90deg,'+gold+',#f0d060,'+gold+')"></div>'
-      +'<div style="padding:10px 14px"><div style="color:'+gold+';font-size:13px;font-weight:800">'+e.name+'</div></div>'
+      +'<div style="padding:10px 14px"><div style="color:'+gold+';font-size:15px;font-weight:800">'+e.name+'</div></div>'
       +'<div style="display:flex;flex-direction:column;align-items:center;padding:10px;gap:8px;flex:1">'
       +'<div style="background:rgba(212,175,55,.05);border:1px solid rgba(212,175,55,.2);border-radius:10px;padding:8px">'+qrBlock+'</div>'
-      +'<div style="color:'+gold+';font-family:monospace;font-size:12px;font-weight:800">'+empId+'</div>'
+      +'<div style="color:'+gold+';font-family:monospace;font-size:14px;font-weight:800">'+empId+'</div>'
       +'</div>'
       +'<div style="padding:0 14px 12px">'
       +[['ឈ្មោះ',e.name||'—'],['តំណែង',e.position||'—'],[' នាយកដ្ឋាន',dept],['ទូរស័ព្ទ',e.phone||'—']].map(([k,v])=>
         '<div style="display:flex;gap:6px;padding:3px 0;border-bottom:1px solid rgba(212,175,55,.1)">'
-        +'<span style="color:rgba(212,175,55,.5);font-weight:600;min-width:60px;font-size:9px">'+k+'</span>'
-        +'<span style="color:#f8f8f0;font-weight:700;font-size:9px">'+v+'</span></div>'
+        +'<span style="color:rgba(212,175,55,.5);font-weight:600;min-width:60px;font-size:11px">'+k+'</span>'
+        +'<span style="color:#f8f8f0;font-weight:700;font-size:11px">'+v+'</span></div>'
       ).join('')+'</div>'
       +'<div style="padding:5px 14px;text-align:center;font-size:8px;color:rgba(212,175,55,.3)">'+company+'</div>'
       +'</div>';
@@ -6799,34 +6774,34 @@ function idCardPortraitHTML(e, style, cfg) {
       '<div style="width:100%;height:100%;border-radius:14px;overflow:hidden;background:linear-gradient(175deg,#064e3b,#059669,#34d399);display:flex;flex-direction:column;position:relative">'
       +'<div style="position:absolute;bottom:-20px;left:-20px;width:100px;height:100px;border-radius:50%;background:rgba(255,255,255,.06)"></div>'
       +'<div style="padding:10px 14px;display:flex;justify-content:space-between;align-items:center">'
-      +(cfg.logo_url?'<img src="'+cfg.logo_url+'" style="height:18px;object-fit:contain">':'<span style="color:white;font-size:10px;font-weight:800">'+company+'</span>')
+      +(cfg.logo_url?'<img src="'+cfg.logo_url+'" style="height:18px;object-fit:contain">':'<span style="color:white;font-size:12px;font-weight:800">'+company+'</span>')
       +'<div style="background:rgba(255,255,255,.2);color:white;font-size:8px;font-weight:700;padding:2px 8px;border-radius:20px">'+dept+'</div></div>'
       +'<div style="display:flex;justify-content:center;padding:6px 0">'+av(88,'rgba(255,255,255,.6)','0 6px 20px rgba(0,0,0,.4)')+'</div>'
       +'<div style="text-align:center;padding:8px 12px 4px">'
-      +'<div style="color:rgba(255,255,255,.7);font-size:9px;font-weight:600">'+(e.position||'—')+'</div>'
-      +'<div style="color:white;font-size:16px;font-weight:800;margin:4px 0">'+e.name+'</div>'
+      +'<div style="color:rgba(255,255,255,.7);font-size:11px;font-weight:600">'+(e.position||'—')+'</div>'
+      +'<div style="color:white;font-size:18px;font-weight:800;margin:4px 0">'+e.name+'</div>'
       +'</div>'
       +'<div style="display:flex;justify-content:center;padding:0 12px 10px">'
       +'<div style="background:rgba(255,255,255,.15);border-radius:8px;padding:4px 14px;text-align:center">'
       +'<div style="color:rgba(255,255,255,.6);font-size:7px">EMP ID</div>'
-      +'<div style="color:white;font-size:14px;font-weight:800;font-family:monospace">'+empId+'</div></div></div>'
+      +'<div style="color:white;font-size:16px;font-weight:800;font-family:monospace">'+empId+'</div></div></div>'
       +'<div style="margin-top:auto;padding:6px 14px;background:rgba(0,0,0,.15);display:flex;justify-content:space-between;font-size:7px;color:rgba(255,255,255,.4)">'
       +'<span>OFFICIAL ID</span><span>'+company+'</span></div>'
       +'</div>';
     const back =
       '<div style="width:100%;height:100%;border-radius:14px;overflow:hidden;background:white;display:flex;flex-direction:column">'
       +'<div style="background:linear-gradient(90deg,#064e3b,#059669);padding:10px 14px;display:flex;justify-content:space-between;align-items:center">'
-      +'<div style="color:white;font-size:12px;font-weight:800">'+e.name+'</div>'
+      +'<div style="color:white;font-size:14px;font-weight:800">'+e.name+'</div>'
       +'<div style="color:rgba(255,255,255,.7);font-size:8px">NATURE</div></div>'
       +'<div style="display:flex;flex-direction:column;align-items:center;padding:12px;gap:8px;flex:1">'
       +qrBlock
-      +'<div style="font-family:monospace;font-size:12px;font-weight:800;color:#059669">'+empId+'</div>'
+      +'<div style="font-family:monospace;font-size:14px;font-weight:800;color:#059669">'+empId+'</div>'
       +'</div>'
       +'<div style="padding:0 14px 10px">'
       +[['ឈ្មោះ',e.name||'—'],['តំណែង',e.position||'—'],['នាយកដ្ឋាន',dept],['ទូរស័ព្ទ',e.phone||'—']].map(([k,v])=>
         '<div style="display:flex;gap:6px;padding:3px 0;border-bottom:1px solid #e8faf3">'
-        +'<span style="color:#6ee7b7;font-weight:600;min-width:60px;font-size:9px">'+k+'</span>'
-        +'<span style="color:#1e293b;font-weight:700;font-size:9px">'+v+'</span></div>'
+        +'<span style="color:#6ee7b7;font-weight:600;min-width:60px;font-size:11px">'+k+'</span>'
+        +'<span style="color:#1e293b;font-weight:700;font-size:11px">'+v+'</span></div>'
       ).join('')+'</div>'
       +'<div style="background:#f0fdf4;border-top:1px solid #d1fae5;padding:5px 14px;text-align:center;font-size:8px;color:#6ee7b7">'+company+'</div>'
       +'</div>';
@@ -6838,31 +6813,31 @@ function idCardPortraitHTML(e, style, cfg) {
     const front =
       '<div style="width:100%;height:100%;border-radius:14px;overflow:hidden;background:linear-gradient(175deg,#831843,#db2777,#f9a8d4);display:flex;flex-direction:column">'
       +'<div style="padding:10px 14px;display:flex;justify-content:space-between;align-items:center">'
-      +(cfg.logo_url?'<img src="'+cfg.logo_url+'" style="height:18px;object-fit:contain">':'<span style="color:white;font-size:10px;font-weight:800">'+company+'</span>')
+      +(cfg.logo_url?'<img src="'+cfg.logo_url+'" style="height:18px;object-fit:contain">':'<span style="color:white;font-size:12px;font-weight:800">'+company+'</span>')
       +'<div style="background:rgba(255,255,255,.2);color:white;font-size:8px;padding:2px 8px;border-radius:20px">'+dept+'</div></div>'
       +'<div style="display:flex;justify-content:center;padding:6px 0">'+av(88,'rgba(255,255,255,.6)','0 6px 20px rgba(0,0,0,.35)')+'</div>'
       +'<div style="text-align:center;padding:8px 12px 4px">'
-      +'<div style="color:rgba(255,255,255,.75);font-size:9px;font-weight:600">'+(e.position||'—')+'</div>'
-      +'<div style="color:white;font-size:16px;font-weight:800;margin:4px 0">'+e.name+'</div>'
+      +'<div style="color:rgba(255,255,255,.75);font-size:11px;font-weight:600">'+(e.position||'—')+'</div>'
+      +'<div style="color:white;font-size:18px;font-weight:800;margin:4px 0">'+e.name+'</div>'
       +'</div>'
       +'<div style="display:flex;justify-content:center;padding:0 12px 10px">'
       +'<div style="background:rgba(255,255,255,.15);border-radius:8px;padding:4px 14px;text-align:center">'
       +'<div style="color:rgba(255,255,255,.6);font-size:7px">EMP ID</div>'
-      +'<div style="color:white;font-size:14px;font-weight:800;font-family:monospace">'+empId+'</div></div></div>'
+      +'<div style="color:white;font-size:16px;font-weight:800;font-family:monospace">'+empId+'</div></div></div>'
       +'<div style="margin-top:auto;padding:6px 14px;background:rgba(0,0,0,.15);display:flex;justify-content:space-between;font-size:7px;color:rgba(255,255,255,.4)">'
       +'<span>OFFICIAL ID</span><span>'+company+'</span></div></div>';
     const back =
       '<div style="width:100%;height:100%;border-radius:14px;overflow:hidden;background:white;display:flex;flex-direction:column">'
       +'<div style="background:linear-gradient(90deg,#831843,#db2777);padding:10px 14px;display:flex;justify-content:space-between;align-items:center">'
-      +'<div style="color:white;font-size:12px;font-weight:800">'+e.name+'</div>'
+      +'<div style="color:white;font-size:14px;font-weight:800">'+e.name+'</div>'
       +'<div style="color:rgba(255,255,255,.7);font-size:8px">ROSE</div></div>'
       +'<div style="display:flex;flex-direction:column;align-items:center;padding:12px;gap:8px;flex:1">'+qrBlock
-      +'<div style="font-family:monospace;font-size:12px;font-weight:800;color:#db2777">'+empId+'</div></div>'
+      +'<div style="font-family:monospace;font-size:14px;font-weight:800;color:#db2777">'+empId+'</div></div>'
       +'<div style="padding:0 14px 10px">'
       +[['ឈ្មោះ',e.name||'—'],['តំណែង',e.position||'—'],['នាយកដ្ឋាន',dept],['ទូរស័ព្ទ',e.phone||'—']].map(([k,v])=>
         '<div style="display:flex;gap:6px;padding:3px 0;border-bottom:1px solid #fce7f3">'
-        +'<span style="color:#f9a8d4;font-weight:600;min-width:60px;font-size:9px">'+k+'</span>'
-        +'<span style="color:#1e293b;font-weight:700;font-size:9px">'+v+'</span></div>'
+        +'<span style="color:#f9a8d4;font-weight:600;min-width:60px;font-size:11px">'+k+'</span>'
+        +'<span style="color:#1e293b;font-weight:700;font-size:11px">'+v+'</span></div>'
       ).join('')+'</div>'
       +'<div style="background:#fff1f2;border-top:1px solid #fce7f3;padding:5px 14px;text-align:center;font-size:8px;color:#f9a8d4">'+company+'</div></div>';
     return wrapP(front, back);
@@ -6873,29 +6848,29 @@ function idCardPortraitHTML(e, style, cfg) {
     const front =
       '<div style="width:100%;height:100%;border-radius:14px;overflow:hidden;background:white;border:2px solid #1e293b;display:flex;flex-direction:column">'
       +'<div style="background:#1e293b;padding:10px 14px;display:flex;justify-content:space-between;align-items:center">'
-      +(cfg.logo_url?'<img src="'+cfg.logo_url+'" style="height:18px;object-fit:contain">':'<span style="color:white;font-size:10px;font-weight:800">'+company+'</span>')
+      +(cfg.logo_url?'<img src="'+cfg.logo_url+'" style="height:18px;object-fit:contain">':'<span style="color:white;font-size:12px;font-weight:800">'+company+'</span>')
       +'<div style="color:rgba(255,255,255,.7);font-size:8px;border:1px solid rgba(255,255,255,.3);padding:2px 8px;border-radius:3px">'+dept+'</div></div>'
       +'<div style="display:flex;justify-content:center;padding:14px 0 8px">'+av(88,'#1e293b','0 4px 12px rgba(0,0,0,.2)')+'</div>'
       +'<div style="text-align:center;padding:0 12px 8px;flex:1">'
-      +'<div style="color:#64748b;font-size:9px;font-weight:600;letter-spacing:.5px;text-transform:uppercase">'+(e.position||'—')+'</div>'
-      +'<div style="color:#1e293b;font-size:16px;font-weight:800;margin:4px 0;border-bottom:2px solid #e2e8f0;padding-bottom:8px">'+e.name+'</div>'
+      +'<div style="color:#64748b;font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase">'+(e.position||'—')+'</div>'
+      +'<div style="color:#1e293b;font-size:18px;font-weight:800;margin:4px 0;border-bottom:2px solid #e2e8f0;padding-bottom:8px">'+e.name+'</div>'
       +'<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:4px 14px;display:inline-block;margin-top:6px">'
       +'<div style="color:#94a3b8;font-size:7px">EMP ID</div>'
-      +'<div style="color:#1e293b;font-size:14px;font-weight:800;font-family:monospace">'+empId+'</div></div></div>'
+      +'<div style="color:#1e293b;font-size:16px;font-weight:800;font-family:monospace">'+empId+'</div></div></div>'
       +'<div style="background:#f8fafc;border-top:2px solid #e2e8f0;padding:5px 14px;display:flex;justify-content:space-between;font-size:7px;color:#94a3b8">'
       +'<span>OFFICIAL ID</span><span>'+hireDate+'</span></div></div>';
     const back =
       '<div style="width:100%;height:100%;border-radius:14px;overflow:hidden;background:white;border:2px solid #1e293b;display:flex;flex-direction:column">'
-      +'<div style="background:#1e293b;padding:10px 14px"><div style="color:white;font-size:12px;font-weight:800">'+e.name+'</div></div>'
+      +'<div style="background:#1e293b;padding:10px 14px"><div style="color:white;font-size:14px;font-weight:800">'+e.name+'</div></div>'
       +'<div style="display:flex;flex-direction:column;align-items:center;padding:12px;gap:8px;flex:1">'
       +'<div style="border:2px solid #e2e8f0;border-radius:10px;padding:6px">'+qrBlock+'</div>'
-      +'<div style="font-family:monospace;font-size:12px;font-weight:800;color:#1e293b">'+empId+'</div>'
+      +'<div style="font-family:monospace;font-size:14px;font-weight:800;color:#1e293b">'+empId+'</div>'
       +'</div>'
       +'<div style="padding:0 14px 10px">'
       +[['ឈ្មោះ',e.name||'—'],['តំណែង',e.position||'—'],['នាយកដ្ឋាន',dept],['ទូរស័ព្ទ',e.phone||'—']].map(([k,v])=>
         '<div style="display:flex;gap:6px;padding:3px 0;border-bottom:1px solid #f1f5f9">'
-        +'<span style="color:#94a3b8;font-weight:600;min-width:60px;font-size:9px">'+k+'</span>'
-        +'<span style="color:#1e293b;font-weight:700;font-size:9px">'+v+'</span></div>'
+        +'<span style="color:#94a3b8;font-weight:600;min-width:60px;font-size:11px">'+k+'</span>'
+        +'<span style="color:#1e293b;font-weight:700;font-size:11px">'+v+'</span></div>'
       ).join('')+'</div>'
       +'<div style="background:#f8fafc;border-top:2px solid #e2e8f0;padding:5px 14px;text-align:center;font-size:8px;color:#94a3b8">'+company+'</div></div>';
     return wrapP(front, back);
@@ -6906,30 +6881,30 @@ function idCardPortraitHTML(e, style, cfg) {
     const front =
       '<div style="width:100%;height:100%;border-radius:14px;overflow:hidden;background:linear-gradient(175deg,#0c4a6e,#0369a1,#0ea5e9,#22d3ee);display:flex;flex-direction:column">'
       +'<div style="padding:10px 14px;display:flex;justify-content:space-between;align-items:center">'
-      +(cfg.logo_url?'<img src="'+cfg.logo_url+'" style="height:18px;object-fit:contain">':'<span style="color:white;font-size:10px;font-weight:800">'+company+'</span>')
+      +(cfg.logo_url?'<img src="'+cfg.logo_url+'" style="height:18px;object-fit:contain">':'<span style="color:white;font-size:12px;font-weight:800">'+company+'</span>')
       +'<div style="background:rgba(255,255,255,.2);color:white;font-size:8px;padding:2px 8px;border-radius:20px">'+dept+'</div></div>'
       +'<div style="display:flex;justify-content:center;padding:6px 0">'+av(88,'rgba(255,255,255,.6)','0 6px 20px rgba(0,0,0,.4)')+'</div>'
       +'<div style="text-align:center;padding:8px 12px 4px">'
-      +'<div style="color:rgba(255,255,255,.7);font-size:9px;font-weight:600">'+(e.position||'—')+'</div>'
-      +'<div style="color:white;font-size:16px;font-weight:800;margin:4px 0">'+e.name+'</div></div>'
+      +'<div style="color:rgba(255,255,255,.7);font-size:11px;font-weight:600">'+(e.position||'—')+'</div>'
+      +'<div style="color:white;font-size:18px;font-weight:800;margin:4px 0">'+e.name+'</div></div>'
       +'<div style="display:flex;justify-content:center;padding:0 12px 10px">'
       +'<div style="background:rgba(255,255,255,.15);border-radius:8px;padding:4px 14px;text-align:center">'
       +'<div style="color:rgba(255,255,255,.6);font-size:7px">EMP ID</div>'
-      +'<div style="color:white;font-size:14px;font-weight:800;font-family:monospace">'+empId+'</div></div></div>'
+      +'<div style="color:white;font-size:16px;font-weight:800;font-family:monospace">'+empId+'</div></div></div>'
       +'<div style="margin-top:auto;padding:6px 14px;background:rgba(0,0,0,.15);display:flex;justify-content:space-between;font-size:7px;color:rgba(255,255,255,.4)">'
       +'<span>OFFICIAL ID</span><span>'+company+'</span></div></div>';
     const back =
       '<div style="width:100%;height:100%;border-radius:14px;overflow:hidden;background:white;display:flex;flex-direction:column">'
       +'<div style="background:linear-gradient(90deg,#0c4a6e,#0369a1);padding:10px 14px;display:flex;justify-content:space-between;align-items:center">'
-      +'<div style="color:white;font-size:12px;font-weight:800">'+e.name+'</div>'
+      +'<div style="color:white;font-size:14px;font-weight:800">'+e.name+'</div>'
       +'<div style="color:rgba(255,255,255,.7);font-size:8px">OCEAN</div></div>'
       +'<div style="display:flex;flex-direction:column;align-items:center;padding:12px;gap:8px;flex:1">'+qrBlock
-      +'<div style="font-family:monospace;font-size:12px;font-weight:800;color:#0369a1">'+empId+'</div></div>'
+      +'<div style="font-family:monospace;font-size:14px;font-weight:800;color:#0369a1">'+empId+'</div></div>'
       +'<div style="padding:0 14px 10px">'
       +[['ឈ្មោះ',e.name||'—'],['តំណែង',e.position||'—'],['នាយកដ្ឋាន',dept],['ទូរស័ព្ទ',e.phone||'—']].map(([k,v])=>
         '<div style="display:flex;gap:6px;padding:3px 0;border-bottom:1px solid #e0f2fe">'
-        +'<span style="color:#7dd3fc;font-weight:600;min-width:60px;font-size:9px">'+k+'</span>'
-        +'<span style="color:#1e293b;font-weight:700;font-size:9px">'+v+'</span></div>'
+        +'<span style="color:#7dd3fc;font-weight:600;min-width:60px;font-size:11px">'+k+'</span>'
+        +'<span style="color:#1e293b;font-weight:700;font-size:11px">'+v+'</span></div>'
       ).join('')+'</div>'
       +'<div style="background:#f0f9ff;border-top:1px solid #e0f2fe;padding:5px 14px;text-align:center;font-size:8px;color:#7dd3fc">'+company+'</div></div>';
     return wrapP(front, back);
@@ -7145,10 +7120,10 @@ async function printGenExpWithBalance() {
       '<tr style="background:'+(i%2===0?'white':'#f8faff')+'">'
       +'<td style="text-align:center;color:#666">'+(i+1)+'</td>'
       +'<td style="font-weight:600">'+r.title+'</td>'
-      +'<td><span style="background:#dbeafe;color:#1d4ed8;padding:2px 6px;border-radius:4px;font-size:9px">'+r.category+'</span></td>'
+      +'<td><span style="background:#dbeafe;color:#1d4ed8;padding:2px 6px;border-radius:4px;font-size:11px">'+r.category+'</span></td>'
       +'<td style="font-weight:700;color:#ef4444">$'+r.amount+'</td>'
-      +'<td style="font-size:10px">'+r.expense_date+'</td>'
-      +'<td style="font-size:10px;color:#64748b">'+(r.responsible||'—')+'</td>'
+      +'<td style="font-size:12px">'+r.expense_date+'</td>'
+      +'<td style="font-size:12px;color:#64748b">'+(r.responsible||'—')+'</td>'
       +'<td>'+(r.status==='paid'?'✅ បានបង់':'⏳ រង់ចាំ')+'</td>'
       +'</tr>'
     ).join('');
@@ -7157,18 +7132,18 @@ async function printGenExpWithBalance() {
       +'<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Khmer:wght@400;600;700&display=swap" rel="stylesheet">'
       +'<title>ការចំណាយទូទៅ</title>'
       +'<style>*{box-sizing:border-box;margin:0;padding:0;font-family:"Noto Sans Khmer",sans-serif}'
-      +'body{padding:12px;color:#1a1f2e;background:white;font-size:10px}'
+      +'body{padding:12px;color:#1a1f2e;background:white;font-size:12px}'
       +'.hdr{display:flex;align-items:center;gap:10px;margin-bottom:10px;padding-bottom:8px;border-bottom:2px solid #1a3a8f}'
-      +'.co{font-size:14px;font-weight:800;color:#1a3a8f}.rpt{font-size:11px;font-weight:700}.sub{font-size:9px;color:#666}'
+      +'.co{font-size:16px;font-weight:800;color:#1a3a8f}.rpt{font-size:13px;font-weight:700}.sub{font-size:11px;color:#666}'
       // Compact inline balance bar
       +'.balance-bar{display:flex;gap:8px;margin-bottom:10px;padding:8px 10px;background:#f8faff;border:1px solid #e2eaff;border-radius:6px;align-items:center}'
       +'.bal-item{display:flex;align-items:center;gap:6px}'
       +'.bal-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}'
       +'.bal-lbl{font-size:8px;color:#64748b;font-weight:600;white-space:nowrap}'
-      +'.bal-val{font-size:12px;font-weight:800;white-space:nowrap}'
-      +'.bal-sep{color:#e2e8f0;font-size:14px}'
-      +'table{width:100%;border-collapse:collapse;font-size:9px}'
-      +'th{background:#1a3a8f;color:white;padding:5px 4px;text-align:left;font-size:9px}'
+      +'.bal-val{font-size:14px;font-weight:800;white-space:nowrap}'
+      +'.bal-sep{color:#e2e8f0;font-size:16px}'
+      +'table{width:100%;border-collapse:collapse;font-size:11px}'
+      +'th{background:#1a3a8f;color:white;padding:5px 4px;text-align:left;font-size:11px}'
       +'td{padding:4px 4px;border-bottom:1px solid #e5e7eb}'
       +'tr:nth-child(even){background:#f8faff}'
       +'.footer{margin-top:12px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}'
@@ -7176,7 +7151,7 @@ async function printGenExpWithBalance() {
       +'@media print{@page{size:A4;margin:8mm}body{padding:0}}'
       +'</style></head><body>'
       +'<div class="hdr">'
-      +(cfg.logo_url?'<img src="'+cfg.logo_url+'" style="width:36px;height:36px;object-fit:contain;border-radius:6px">':'<div style="width:36px;height:36px;background:#1a3a8f;border-radius:6px;display:flex;align-items:center;justify-content:center;color:white;font-weight:800;font-size:14px">HR</div>')
+      +(cfg.logo_url?'<img src="'+cfg.logo_url+'" style="width:36px;height:36px;object-fit:contain;border-radius:6px">':'<div style="width:36px;height:36px;background:#1a3a8f;border-radius:6px;display:flex;align-items:center;justify-content:center;color:white;font-weight:800;font-size:16px">HR</div>')
       +'<div><div class="co">'+(cfg.company_name||'HR Pro')+'</div><div class="rpt">ការចំណាយទូទៅ — General Expenses</div><div class="sub">'+new Date().toLocaleDateString('km-KH')+'</div></div>'
       +'</div>'
       // Compact inline balance bar instead of large cards
@@ -7221,13 +7196,13 @@ function printTableData(title) {
     +'<style>*{box-sizing:border-box;margin:0;padding:0;font-family:"Noto Sans Khmer",sans-serif}'
     +'body{padding:16px;color:#1a1f2e;background:white}'
     +'.hdr{display:flex;align-items:center;gap:12px;margin-bottom:14px;padding-bottom:10px;border-bottom:2px solid #1a3a8f}'
-    +'.co{font-size:15px;font-weight:800;color:#1a3a8f}.rpt{font-size:12px;font-weight:700}.sub{font-size:10px;color:#666}'
-    +'table{width:100%;border-collapse:collapse;font-size:10px}'
+    +'.co{font-size:15px;font-weight:800;color:#1a3a8f}.rpt{font-size:14px;font-weight:700}.sub{font-size:12px;color:#666}'
+    +'table{width:100%;border-collapse:collapse;font-size:12px}'
     +'th{background:#1a3a8f;color:white;padding:7px 5px;text-align:left}'
     +'td{padding:6px 5px;border-bottom:1px solid #e5e7eb}'
     +'tr:nth-child(even){background:#f8faff}'
     +'.footer{margin-top:16px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}'
-    +'.sign{border-top:1px dashed #999;padding-top:4px;text-align:center;font-size:9px;color:#666}'
+    +'.sign{border-top:1px dashed #999;padding-top:4px;text-align:center;font-size:11px;color:#666}'
     +'@media print{@page{size:A4 landscape;margin:8mm}body{padding:0}}'
     +'</style></head><body>'
     +'<div class="hdr">'
@@ -7330,306 +7305,6 @@ function applyCompanyBranding() {
 
 // ============================================================
 // ============================================================
-// SCAN LOCATIONS — ទីតាំងស្កេន
-// ============================================================
-async function renderLocations() {
-  showLoading();
-  try {
-    const [data, empData, attData] = await Promise.all([
-      api('GET', '/locations').catch(() => ({ records: [] })),
-      api('GET', '/employees?limit=500').catch(() => ({ employees: [] })),
-      api('GET', '/attendance?limit=5000').catch(() => ({ records: [] }))
-    ]);
-    const locs     = data.records || [];
-    const allEmps  = (empData.employees || []).filter(e => e.status === 'active');
-    const allAtt   = attData.records || [];
-    const canEdit  = hasPerm('locations_edit');
-
-    // ── Missing Scan helpers ──
-    const _todayStr = today();
-    const todayAtt      = allAtt.filter(a => a.date === _todayStr);
-    const scannedInIds  = new Set(todayAtt.filter(a => a.check_in  && a.check_in  !== '').map(a => a.employee_id));
-    const scannedOutIds = new Set(todayAtt.filter(a => a.check_out && a.check_out !== '').map(a => a.employee_id));
-    const missingIn     = allEmps.filter(e => !scannedInIds.has(e.id));
-    const missingOut    = allEmps.filter(e => scannedInIds.has(e.id) && !scannedOutIds.has(e.id));
-    const scanLog       = todayAtt.map(a => {
-      const emp = allEmps.find(e => e.id === a.employee_id) || { name: a.employee_name || '—', custom_id: '', department_name: '' };
-      return { emp, check_in: a.check_in || '', check_out: a.check_out || '', status: a.status || '', notes: a.notes || '' };
-    }).sort((a, b) => (a.check_in || '99:99').localeCompare(b.check_in || '99:99'));
-
-    contentArea().innerHTML =
-      // ── Page Header ──
-      '<div class="page-header">'
-      +'<div><h2>📍 ទីតាំងស្កេន</h2><p>គ្រប់គ្រងទីតាំង, QR Code និងតាមដានការស្កែន</p></div>'
-      +(canEdit ? '<button class="btn btn-primary" onclick="openLocationModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> បន្ថែមទីតាំង</button>' : '')
-      +'</div>'
-
-      // ── Stat Cards ──
-      +'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;margin-bottom:24px">'
-
-      // Scanned In
-      +'<div class="card" style="padding:18px;display:flex;align-items:center;gap:16px;background:linear-gradient(135deg,rgba(16,185,129,.08),rgba(6,214,160,.05));border:1.5px solid rgba(16,185,129,.25)">'
-      +'<div style="width:50px;height:50px;border-radius:14px;background:rgba(16,185,129,.15);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">✅</div>'
-      +'<div><div style="font-size:11px;color:var(--text3);font-weight:600">ស្កែនចូលថ្ងៃនេះ</div>'
-      +'<div style="font-size:28px;font-weight:900;color:var(--success)">'+scannedInIds.size+'</div>'
-      +'<div style="font-size:11px;color:var(--text3)">ក្នុង '+allEmps.length+' នាក់</div></div></div>'
-
-      // Missing In
-      +'<div class="card" style="padding:18px;display:flex;align-items:center;gap:16px;background:linear-gradient(135deg,rgba(239,68,68,.08),rgba(220,38,38,.05));border:1.5px solid rgba(239,68,68,.25)">'
-      +'<div style="width:50px;height:50px;border-radius:14px;background:rgba(239,68,68,.15);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">⚠️</div>'
-      +'<div><div style="font-size:11px;color:var(--text3);font-weight:600">ខ្វះស្កែនចូល</div>'
-      +'<div style="font-size:28px;font-weight:900;color:var(--danger)">'+missingIn.length+'</div>'
-      +'<div style="font-size:11px;color:var(--text3)">នាក់មិនបានចូល</div></div></div>'
-
-      // Missing Out
-      +'<div class="card" style="padding:18px;display:flex;align-items:center;gap:16px;background:linear-gradient(135deg,rgba(245,158,11,.08),rgba(234,179,8,.05));border:1.5px solid rgba(245,158,11,.25)">'
-      +'<div style="width:50px;height:50px;border-radius:14px;background:rgba(245,158,11,.15);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">🚪</div>'
-      +'<div><div style="font-size:11px;color:var(--text3);font-weight:600">ខ្វះស្កែនចេញ</div>'
-      +'<div style="font-size:28px;font-weight:900;color:var(--warning)">'+missingOut.length+'</div>'
-      +'<div style="font-size:11px;color:var(--text3)">នាក់ចូលហើយ​មិនចេញ</div></div></div>'
-
-      +'</div>'
-
-      // ── Tabs ──
-      +'<div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:20px">'
-      +'<button id="loc-tab-missing" onclick="switchLocTab(\'missing\')" style="padding:10px 20px;font-size:13px;font-weight:700;border:none;background:none;cursor:pointer;border-bottom:3px solid var(--primary);color:var(--primary);margin-bottom:-2px;transition:all .2s">🔍 ខ្វះស្កែន</button>'
-      +'<button id="loc-tab-log" onclick="switchLocTab(\'log\')" style="padding:10px 20px;font-size:13px;font-weight:700;border:none;background:none;cursor:pointer;border-bottom:3px solid transparent;color:var(--text3);margin-bottom:-2px;transition:all .2s">📋 កំណត់ហេតុស្កែន</button>'
-      +'<button id="loc-tab-qr" onclick="switchLocTab(\'qr\')" style="padding:10px 20px;font-size:13px;font-weight:700;border:none;background:none;cursor:pointer;border-bottom:3px solid transparent;color:var(--text3);margin-bottom:-2px;transition:all .2s">📍 QR ទីតាំង</button>'
-      +'</div>'
-
-      // ── Panel: Missing Scan ──
-      +'<div id="loc-panel-missing">'
-      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">'
-
-      // Missing Check-In card
-      +'<div class="card" style="padding:0;overflow:hidden">'
-      +'<div style="padding:14px 18px;background:linear-gradient(135deg,rgba(239,68,68,.1),rgba(220,38,38,.05));border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">'
-      +'<div style="display:flex;align-items:center;gap:8px"><span style="font-size:18px">🔴</span>'
-      +'<div><div style="font-weight:800;font-size:13px;color:var(--text)">ខ្វះស្កែនចូល</div>'
-      +'<div style="font-size:11px;color:var(--text3)">ថ្ងៃ '+_todayStr+'</div></div></div>'
-      +'<span style="background:var(--danger);color:white;font-size:11px;font-weight:800;padding:3px 10px;border-radius:20px">'+missingIn.length+' នាក់</span>'
-      +'</div>'
-      +'<div style="max-height:360px;overflow-y:auto">'
-      +(missingIn.length === 0
-        ? '<div style="padding:30px;text-align:center;color:var(--success)"><div style="font-size:32px;margin-bottom:8px">✅</div><div style="font-size:13px;font-weight:700">បុគ្គលិកទាំងអស់ស្កែនចូលហើយ!</div></div>'
-        : missingIn.map(e =>
-            '<div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border)">'
-            +'<div style="width:34px;height:34px;border-radius:50%;background:'+getColor(e.name)+';display:flex;align-items:center;justify-content:center;color:white;font-size:13px;font-weight:700;flex-shrink:0">'+(e.name||'?')[0]+'</div>'
-            +'<div style="flex:1;min-width:0">'
-            +'<div style="font-weight:700;font-size:13px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+e.name+'</div>'
-            +'<div style="font-size:11px;color:var(--text3)">'+(e.custom_id||'')+' '+(e.department_name?'· '+e.department_name:'')+'</div>'
-            +'</div>'
-            +'<span style="background:rgba(239,68,68,.12);color:var(--danger);font-size:10px;font-weight:700;padding:3px 8px;border-radius:10px;white-space:nowrap">មិនចូល</span>'
-            +'</div>'
-          ).join('')
-      )
-      +'</div></div>'
-
-      // Missing Check-Out card
-      +'<div class="card" style="padding:0;overflow:hidden">'
-      +'<div style="padding:14px 18px;background:linear-gradient(135deg,rgba(245,158,11,.1),rgba(234,179,8,.05));border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">'
-      +'<div style="display:flex;align-items:center;gap:8px"><span style="font-size:18px">🟡</span>'
-      +'<div><div style="font-weight:800;font-size:13px;color:var(--text)">ខ្វះស្កែនចេញ</div>'
-      +'<div style="font-size:11px;color:var(--text3)">ថ្ងៃ '+_todayStr+'</div></div></div>'
-      +'<span style="background:var(--warning);color:white;font-size:11px;font-weight:800;padding:3px 10px;border-radius:20px">'+missingOut.length+' នាក់</span>'
-      +'</div>'
-      +'<div style="max-height:360px;overflow-y:auto">'
-      +(missingOut.length === 0
-        ? '<div style="padding:30px;text-align:center;color:var(--success)"><div style="font-size:32px;margin-bottom:8px">✅</div><div style="font-size:13px;font-weight:700">បុគ្គលិកទាំងអស់ស្កែនចេញហើយ!</div></div>'
-        : missingOut.map(e => {
-            const attRec = todayAtt.find(a => a.employee_id === e.id);
-            const inTime = attRec ? attRec.check_in : '—';
-            return '<div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border)">'
-              +'<div style="width:34px;height:34px;border-radius:50%;background:'+getColor(e.name)+';display:flex;align-items:center;justify-content:center;color:white;font-size:13px;font-weight:700;flex-shrink:0">'+(e.name||'?')[0]+'</div>'
-              +'<div style="flex:1;min-width:0">'
-              +'<div style="font-weight:700;font-size:13px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+e.name+'</div>'
-              +'<div style="font-size:11px;color:var(--text3)">'+(e.custom_id||'')+' '+(e.department_name?'· '+e.department_name:'')+'</div>'
-              +'</div>'
-              +'<div style="text-align:right"><div style="font-size:11px;color:var(--text3)">ចូល</div><div style="font-size:13px;font-weight:800;color:var(--success)">'+inTime+'</div></div>'
-              +'<span style="background:rgba(245,158,11,.15);color:var(--warning);font-size:10px;font-weight:700;padding:3px 8px;border-radius:10px;white-space:nowrap;margin-left:4px">មិនចេញ</span>'
-              +'</div>';
-          }).join('')
-      )
-      +'</div></div>'
-      +'</div></div>'
-
-      // ── Panel: Scan Log ──
-      +'<div id="loc-panel-log" style="display:none">'
-      +'<div class="card" style="padding:0;overflow:hidden">'
-      +'<div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">'
-      +'<div style="font-weight:800;font-size:14px;color:var(--text)">📋 កំណត់ហេតុស្កែនថ្ងៃ '+_todayStr+'</div>'
-      +'<span style="font-size:12px;color:var(--text3)">'+scanLog.length+' កំណត់ត្រា</span>'
-      +'</div>'
-      +(scanLog.length === 0
-        ? '<div style="padding:40px;text-align:center;color:var(--text3)"><div style="font-size:40px;margin-bottom:10px">📭</div><div style="font-size:13px">មិនទាន់មានការស្កែនថ្ងៃនេះ</div></div>'
-        : '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">'
-          +'<thead><tr style="background:var(--bg3)">'
-          +'<th style="padding:10px 14px;text-align:left;font-size:12px;color:var(--text3);font-weight:700">បុគ្គលិក</th>'
-          +'<th style="padding:10px 14px;text-align:center;font-size:12px;color:var(--text3);font-weight:700">⏱ ម៉ោងចូល</th>'
-          +'<th style="padding:10px 14px;text-align:center;font-size:12px;color:var(--text3);font-weight:700">🚪 ម៉ោងចេញ</th>'
-          +'<th style="padding:10px 14px;text-align:center;font-size:12px;color:var(--text3);font-weight:700">ស្ថានភាព</th>'
-          +'<th style="padding:10px 14px;text-align:left;font-size:12px;color:var(--text3);font-weight:700">📍 ទីតាំង</th>'
-          +'</tr></thead><tbody>'
-          + scanLog.map(({emp, check_in, check_out, status, notes}) => {
-              const stBadge = status === 'present'
-                ? '<span style="background:rgba(16,185,129,.12);color:var(--success);font-size:10px;font-weight:700;padding:3px 9px;border-radius:10px">✅ វត្តមាន</span>'
-                : status === 'late'
-                ? '<span style="background:rgba(245,158,11,.12);color:var(--warning);font-size:10px;font-weight:700;padding:3px 9px;border-radius:10px">⏰ យឺត</span>'
-                : status === 'absent'
-                ? '<span style="background:rgba(239,68,68,.12);color:var(--danger);font-size:10px;font-weight:700;padding:3px 9px;border-radius:10px">❌ អវត្តមាន</span>'
-                : '<span style="background:var(--bg3);color:var(--text3);font-size:10px;padding:3px 9px;border-radius:10px">—</span>';
-              const locNote = notes ? notes.replace('📍 ','') : '';
-              return '<tr style="border-bottom:1px solid var(--border)">'
-                +'<td style="padding:10px 14px"><div style="display:flex;align-items:center;gap:8px">'
-                +'<div style="width:30px;height:30px;border-radius:50%;background:'+getColor(emp.name)+';display:flex;align-items:center;justify-content:center;color:white;font-size:11px;font-weight:700;flex-shrink:0">'+(emp.name||'?')[0]+'</div>'
-                +'<div><div style="font-weight:700;font-size:13px;color:var(--text)">'+emp.name+'</div>'
-                +'<div style="font-size:11px;color:var(--text3)">'+(emp.custom_id||'')+'</div></div></div></td>'
-                +'<td style="padding:10px 14px;text-align:center">'
-                +(check_in ? '<span style="background:rgba(16,185,129,.1);color:var(--success);font-size:14px;font-weight:800;padding:4px 12px;border-radius:8px">'+check_in+'</span>' : '<span style="color:var(--text3);font-size:12px">—</span>')
-                +'</td>'
-                +'<td style="padding:10px 14px;text-align:center">'
-                +(check_out ? '<span style="background:rgba(255,107,53,.1);color:var(--primary);font-size:14px;font-weight:800;padding:4px 12px;border-radius:8px">'+check_out+'</span>' : '<span style="color:var(--warning);font-size:11px;font-weight:600">⏳ មិនទាន់</span>')
-                +'</td>'
-                +'<td style="padding:10px 14px;text-align:center">'+stBadge+'</td>'
-                +'<td style="padding:10px 14px;font-size:12px;color:var(--text3)">'
-                +(locNote ? '<span style="background:rgba(99,102,241,.08);color:#6366f1;padding:3px 10px;border-radius:8px;font-weight:600">📍 '+locNote+'</span>' : '—')
-                +'</td></tr>';
-            }).join('')
-          +'</tbody></table></div>'
-      )
-      +'</div></div>'
-
-      // ── Panel: QR Locations ──
-      +'<div id="loc-panel-qr" style="display:none">'
-      +(locs.length === 0
-        ? '<div class="card" style="padding:60px;text-align:center"><div style="font-size:48px;margin-bottom:16px">📍</div><div style="font-size:16px;font-weight:700;color:var(--text2);margin-bottom:8px">មិនទាន់មានទីតាំង</div><div style="font-size:13px;color:var(--text3);margin-bottom:20px">បន្ថែមទីតាំងដំបូងដើម្បីបង្កើត QR Code</div>'+(canEdit ? '<button class="btn btn-primary" onclick="openLocationModal()">+ បន្ថែមទីតាំង</button>' : '')+'</div>'
-        : '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:18px">'
-          + locs.map(loc =>
-              '<div class="card" style="padding:20px;display:flex;flex-direction:column;gap:14px">'
-              +'<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">'
-              +'<div style="flex:1;min-width:0"><div style="font-size:15px;font-weight:800;color:var(--text);margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">📍 '+loc.name+'</div>'
-              +'<div style="font-size:12px;color:var(--text3)">'+(loc.description || 'គ្មានការពិពណ៌នា')+'</div></div>'
-              +(canEdit ? '<div style="display:flex;gap:6px;flex-shrink:0"><button class="btn btn-outline btn-sm" onclick="openLocationModal('+loc.id+')" style="border-color:var(--info);color:var(--info)">✏️</button><button class="btn btn-danger btn-sm" onclick="deleteLocationRecord('+loc.id+')">🗑️</button></div>' : '')
-              +'</div>'
-              +'<div style="display:flex;flex-direction:column;align-items:center;background:var(--bg3);border-radius:12px;padding:16px;gap:10px">'
-              +'<div id="loc-qr-'+loc.id+'" style="width:140px;height:140px;background:#fff;border-radius:8px;padding:6px;display:flex;align-items:center;justify-content:center"></div>'
-              +'<div style="font-size:11px;color:var(--text3);text-align:center">QR Code — ស្កែន QR នេះ ដើម្បីកត់វត្តមាន</div>'
-              +'</div>'
-              +'<button class="btn btn-outline btn-sm" style="width:100%;font-size:12px" onclick="downloadLocationQR('+loc.id+',\''+loc.name.replace(/'/g,"\\'")+'\')" >⬇️ ទាញយក QR Code</button>'
-              +'</div>'
-            ).join('')
-          +'</div>'
-      )
-      +'</div>';
-
-    // Render QR codes when on QR tab
-    loadQRLib(() => {
-      locs.forEach(loc => {
-        const el = document.getElementById('loc-qr-' + loc.id);
-        if (el && window.QRCode) {
-          el.innerHTML = '';
-          new QRCode(el, { text: 'LOC:' + loc.id + ':' + loc.name, width: 128, height: 128, correctLevel: QRCode.CorrectLevel.M });
-        }
-      });
-    });
-
-  } catch(e) { showError(e.message); }
-}
-
-// ── Location tab switcher ──
-function switchLocTab(tab) {
-  ['missing','log','qr'].forEach(t => {
-    const btn   = document.getElementById('loc-tab-'+t);
-    const panel = document.getElementById('loc-panel-'+t);
-    if (!btn || !panel) return;
-    const active = (t === tab);
-    panel.style.display = active ? 'block' : 'none';
-    btn.style.borderBottom = active ? '3px solid var(--primary)' : '3px solid transparent';
-    btn.style.color = active ? 'var(--primary)' : 'var(--text3)';
-  });
-  // re-render QR codes when switching to QR tab
-  if (tab === 'qr') {
-    loadQRLib(() => {
-      document.querySelectorAll('[id^="loc-qr-"]').forEach(el => {
-        if (el.children.length === 0 && window.QRCode) {
-          const locId   = parseInt(el.id.replace('loc-qr-',''));
-          const locName = el.dataset.locname || '';
-          if (locName) new QRCode(el, { text: 'LOC:'+locId+':'+locName, width:128, height:128, correctLevel: QRCode.CorrectLevel.M });
-        }
-      });
-    });
-  }
-}
-
-async function openLocationModal(id = null) {
-  let rec = null;
-  if (id) {
-    try { rec = (await api('GET', '/locations')).records?.find(r => r.id === id); } catch(_) {}
-  }
-  $('modal-title').textContent = id ? '✏️ កែទីតាំង' : '📍 បន្ថែមទីតាំងថ្មី';
-  $('modal-body').innerHTML = `
-    <div style="display:flex;flex-direction:column;gap:14px;padding:4px 0">
-      <div class="form-group">
-        <label class="form-label">ឈ្មោះទីតាំង *</label>
-        <input class="form-control" id="loc-name" placeholder="ឧ. ច្រកចូលមុខ, ការិយាល័យ A, ជាន់ ២..." value="${rec?.name || ''}" />
-      </div>
-      <div class="form-group">
-        <label class="form-label">ការពិពណ៌នា</label>
-        <input class="form-control" id="loc-desc" placeholder="ការពិពណ៌នា (ស្រេចចិត្ត)..." value="${rec?.description || ''}" />
-      </div>
-      <div style="display:flex;gap:10px;margin-top:4px">
-        <button class="btn btn-outline" style="flex:1" onclick="closeModal()">បោះបង់</button>
-        <button class="btn btn-primary" style="flex:1" onclick="saveLocation(${id || 'null'})">
-          ${id ? '💾 រក្សាទុក' : '➕ បន្ថែម'}
-        </button>
-      </div>
-    </div>
-  `;
-  openModal();
-  setTimeout(() => document.getElementById('loc-name')?.focus(), 100);
-}
-
-async function saveLocation(id) {
-  const name = document.getElementById('loc-name')?.value.trim();
-  if (!name) { showToast('សូមបញ្ចូលឈ្មោះទីតាំង!', 'error'); return; }
-  const desc = document.getElementById('loc-desc')?.value.trim() || '';
-  try {
-    if (id) {
-      await api('PUT', '/locations/' + id, { name, description: desc });
-      showToast('កែទីតាំងបានជោគជ័យ! 📍', 'success');
-    } else {
-      await api('POST', '/locations', { name, description: desc });
-      showToast('បន្ថែមទីតាំងបានជោគជ័យ! 📍', 'success');
-    }
-    closeModal();
-    renderLocations();
-  } catch(e) { showToast('Error: ' + e.message, 'error'); }
-}
-
-async function deleteLocationRecord(id) {
-  if (!confirm('តើអ្នកចង់លុបទីតាំងនេះ?')) return;
-  try {
-    await api('DELETE', '/locations/' + id);
-    showToast('លុបទីតាំងបានជោគជ័យ!', 'success');
-    renderLocations();
-  } catch(e) { showToast('Error: ' + e.message, 'error'); }
-}
-
-function downloadLocationQR(id, name) {
-  const el = document.getElementById('loc-qr-' + id);
-  if (!el) return;
-  const canvas = el.querySelector('canvas');
-  const img = el.querySelector('img');
-  let src = null;
-  if (canvas) src = canvas.toDataURL('image/png');
-  else if (img) src = img.src;
-  if (!src) { showToast('QR មិនទាន់ generate!', 'error'); return; }
-  const a = document.createElement('a');
-  a.href = src;
-  a.download = 'QR-' + name + '.png';
-  a.click();
-}
-
 // ============================================================
 // DAY SWAP — ប្តូរថ្ងៃឈប់សម្រាក
 // ============================================================
@@ -7683,17 +7358,17 @@ async function renderDaySwap() {
                   <div class="emp-name">${r.employee_name||'—'}</div>
                 </div></td>
                 <td>
-                  <span style="background:rgba(239,71,111,.12);color:var(--danger);padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600">OFF → ${workDay}</span>
-                  ${r.swap_date ? `<div style="font-family:var(--mono);font-size:11px;color:var(--text3);margin-top:3px;padding-left:2px">📅 ${r.swap_date}</div>` : ''}
+                  <span style="background:rgba(239,71,111,.12);color:var(--danger);padding:3px 10px;border-radius:20px;font-size:14px;font-weight:600">OFF → ${workDay}</span>
+                  ${r.swap_date ? `<div style="font-family:var(--mono);font-size:13px;color:var(--text3);margin-top:3px;padding-left:2px">📅 ${r.swap_date}</div>` : ''}
                 </td>
                 <td>
-                  <span style="background:rgba(6,214,160,.12);color:var(--success);padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600">✔ ${offDay}</span>
+                  <span style="background:rgba(6,214,160,.12);color:var(--success);padding:3px 10px;border-radius:20px;font-size:14px;font-weight:600">✔ ${offDay}</span>
                   ${r.off_date
-                    ? `<div style="font-family:var(--mono);font-size:11px;color:var(--text3);margin-top:3px;padding-left:2px">📅 ${r.off_date}</div>`
-                    : `<div style="font-size:10px;color:var(--warning);margin-top:3px;padding-left:2px">⚠️ មិនមានថ្ងៃទី</div>`}
+                    ? `<div style="font-family:var(--mono);font-size:13px;color:var(--text3);margin-top:3px;padding-left:2px">📅 ${r.off_date}</div>`
+                    : `<div style="font-size:12px;color:var(--warning);margin-top:3px;padding-left:2px">⚠️ មិនមានថ្ងៃទី</div>`}
                 </td>
-                <td style="font-family:var(--mono);font-size:12px">${r.swap_date||'—'}</td>
-                <td style="color:var(--text3);font-size:12px">${r.reason||'—'}</td>
+                <td style="font-family:var(--mono);font-size:14px">${r.swap_date||'—'}</td>
+                <td style="color:var(--text3);font-size:14px">${r.reason||'—'}</td>
                 <td>${r.status==='approved'
                   ? '<span class="badge badge-green">✅ អនុម័ត</span>'
                   : r.status==='rejected'
@@ -7742,7 +7417,7 @@ async function openDaySwapModal(id = null) {
 
     $('modal-title').textContent = id ? 'កែការស្នើប្តូរថ្ងៃ' : '🔄 ស្នើប្តូរថ្ងៃឈប់សម្រាក';
     $('modal-body').innerHTML = `
-      <div style="background:var(--bg3);border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:12px;color:var(--text3)">
+      <div style="background:var(--bg3);border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:14px;color:var(--text3)">
         💡 <b>ឧទាហរណ៍:</b> OFF ថ្ងៃអាទិត្យ → ចូលធ្វើការថ្ងៃអាទិត្យ ហើយ OFF ថ្ងៃច័ន្ទ ជំនួស
       </div>
       <div class="form-grid">
@@ -7761,12 +7436,12 @@ async function openDaySwapModal(id = null) {
             </select>
             <input class="form-control" type="date" id="ds-work-date" style="flex:1" value="${initWorkDate}" onchange="dsOnWorkDateChange(this.value)"/>
           </div>
-          <div style="font-size:11px;color:var(--text3);margin-top:4px" id="ds-work-hint">Auto ពី Day Off របស់បុគ្គលិក — ជ្រើសថ្ងៃទីជាក់លាក់</div>
+          <div style="font-size:13px;color:var(--text3);margin-top:4px" id="ds-work-hint">Auto ពី Day Off របស់បុគ្គលិក — ជ្រើសថ្ងៃទីជាក់លាក់</div>
         </div>
 
         <!-- ===== ថ្ងៃធ្វើការ ដែលត្រូវ OFF ===== -->
         <div class="form-group full-width">
-          <label class="form-label" style="color:var(--success);font-weight:700">✅ ថ្ងៃធ្វើការ ដែលត្រូវ OFF ជំនួស * <span style="color:var(--danger);font-size:10px">(ចាំបាច់)</span></label>
+          <label class="form-label" style="color:var(--success);font-weight:700">✅ ថ្ងៃធ្វើការ ដែលត្រូវ OFF ជំនួស * <span style="color:var(--danger);font-size:12px">(ចាំបាច់)</span></label>
           <div style="display:flex;gap:8px;align-items:center">
             <select class="form-control" id="ds-off-day" style="flex:0 0 140px" onchange="dsFilterOffDate()">
               <option value="" disabled ${initOffDay===-1?'selected':''}>-- ថ្ងៃ --</option>
@@ -7774,7 +7449,7 @@ async function openDaySwapModal(id = null) {
             </select>
             <input class="form-control" type="date" id="ds-off-date" style="flex:1" value="${initOffDate}" onchange="dsOnOffDateChange(this.value)"/>
           </div>
-          <div style="font-size:11px;color:var(--text3);margin-top:4px" id="ds-off-hint">ជ្រើសថ្ងៃធ្វើការ ដែលត្រូវឈប់ជំនួស</div>
+          <div style="font-size:13px;color:var(--text3);margin-top:4px" id="ds-off-hint">ជ្រើសថ្ងៃធ្វើការ ដែលត្រូវឈប់ជំនួស</div>
         </div>
 
         <div class="form-group full-width">
@@ -8054,7 +7729,7 @@ function renderSettings() {
               <div class="form-group full-width">
                 <label class="form-label">🪪 អត្ថបទការ​ត​បាត់ (ID Card Footer)</label>
                 <input class="form-control" id="cfg-lost-card" placeholder="ករណីបាត់ — If found, please return" value="${cfg.lost_card_text||'ករណីបាត់ — If found, please return'}" />
-                <div style="font-size:11px;color:var(--text3);margin-top:4px">នឹងបង្ហាញនៅខាងក្រោម ID Card រាល់ style</div>
+                <div style="font-size:13px;color:var(--text3);margin-top:4px">នឹងបង្ហាញនៅខាងក្រោម ID Card រាល់ style</div>
               </div>
             </div>
 
@@ -8084,7 +7759,7 @@ function renderSettings() {
 
             <!-- Payroll schedule -->
             <div style="margin-bottom:24px">
-              <div style="font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:12px">📅 កំណត់ការណ៍បើកប្រាក់</div>
+              <div style="font-size:14px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:12px">📅 កំណត់ការណ៍បើកប្រាក់</div>
               <div class="salary-rules-grid">
                 <div class="salary-rule-card">
                   <div class="rule-label">ថ្ងៃបើកប្រាក់ប្រចាំខែ</div>
@@ -8107,7 +7782,7 @@ function renderSettings() {
 
             <!-- Tax & deductions -->
             <div style="margin-bottom:24px">
-              <div style="font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:12px">🏦 ពន្ធ & កាត់ (Deductions)</div>
+              <div style="font-size:14px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:12px">🏦 ពន្ធ & កាត់ (Deductions)</div>
               <div class="salary-rules-grid">
                 <div class="salary-rule-card">
                   <div class="rule-label">អាករលើប្រាក់ចំណូល (Tax)</div>
@@ -8142,8 +7817,8 @@ function renderSettings() {
 
             <!-- Absence Deduction Rules -->
             <div style="margin-bottom:24px">
-              <div style="font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:12px">❌ ច្បាប់កាត់ប្រាក់អវត្តមាន</div>
-              <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:var(--text3)">
+              <div style="font-size:14px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:12px">❌ ច្បាប់កាត់ប្រាក់អវត្តមាន</div>
+              <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:14px;color:var(--text3)">
                 💡 ប្រើក្នុងផ្ទាំង "តារាងប្រចាំខែ" ដើម្បីកាត់ប្រាក់ដោយស្វ័យប្រវត្តិ ពេលអវត្តមានលើសថ្ងៃ
               </div>
               <div class="salary-rules-grid">
@@ -8156,7 +7831,7 @@ function renderSettings() {
                 </div>
                 <div class="salary-rule-card" style="border-color:var(--danger);background:rgba(239,71,111,.04)">
                   <div class="rule-label">រូបមន្តកាត់ប្រាក់អវត្តមាន</div>
-                  <div style="font-size:11px;color:var(--text3);padding:6px 0;line-height:1.6">
+                  <div style="font-size:13px;color:var(--text3);padding:6px 0;line-height:1.6">
                     ប្រាក់ខែ ÷ ថ្ងៃធ្វើការ × ថ្ងៃលើស<br/>
                     <span style="color:var(--danger);font-weight:600">ស្វ័យប្រវត្តិតាមបុគ្គលិកម្នាក់ៗ</span>
                   </div>
@@ -8166,24 +7841,24 @@ function renderSettings() {
 
             <!-- Work Schedule -->
             <div style="margin-bottom:24px">
-              <div style="font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:12px">🕐 កំណត់ម៉ោងធ្វើការ</div>
-              <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:var(--text3)">
+              <div style="font-size:14px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:12px">🕐 កំណត់ម៉ោងធ្វើការ</div>
+              <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:14px;color:var(--text3)">
                 💡 ម៉ោងចូលត្រូវបានប្រើដើម្បីកំណត់ថា បុគ្គលិកចូលយឺតឬអត់ នៅពេល Scan QR ឬ Check-in
               </div>
               <div class="salary-rules-grid">
                 <div class="salary-rule-card" style="border-color:var(--primary);background:rgba(99,102,241,.04)">
                   <div class="rule-label">⏰ ម៉ោងចូលធ្វើការ</div>
                   <div class="rule-input-wrap">
-                    <input type="time" id="sr-work-start" value="${rules.work_start_time || '08:00'}" style="font-family:var(--mono);font-weight:700;font-size:14px" oninput="updateLatePreview()" />
+                    <input type="time" id="sr-work-start" value="${rules.work_start_time || '08:00'}" style="font-family:var(--mono);font-weight:700;font-size:16px" oninput="updateLatePreview()" />
                   </div>
-                  <div style="font-size:10px;color:var(--text3);margin-top:4px">ម៉ោងដែលត្រូវចូលធ្វើការ</div>
+                  <div style="font-size:12px;color:var(--text3);margin-top:4px">ម៉ោងដែលត្រូវចូលធ្វើការ</div>
                 </div>
                 <div class="salary-rule-card" style="border-color:var(--success);background:rgba(16,185,129,.04)">
                   <div class="rule-label">🏁 ម៉ោងចេញធ្វើការ</div>
                   <div class="rule-input-wrap">
-                    <input type="time" id="sr-work-end" value="${rules.work_end_time || '17:00'}" style="font-family:var(--mono);font-weight:700;font-size:14px" />
+                    <input type="time" id="sr-work-end" value="${rules.work_end_time || '17:00'}" style="font-family:var(--mono);font-weight:700;font-size:16px" />
                   </div>
-                  <div style="font-size:10px;color:var(--text3);margin-top:4px">ម៉ោងដែលត្រូវចេញធ្វើការ</div>
+                  <div style="font-size:12px;color:var(--text3);margin-top:4px">ម៉ោងដែលត្រូវចេញធ្វើការ</div>
                 </div>
                 <div class="salary-rule-card" style="border-color:var(--warning);background:rgba(255,190,11,.04)">
                   <div class="rule-label">⏳ ផ្តល់ grace period (នាទី)</div>
@@ -8191,14 +7866,14 @@ function renderSettings() {
                     <input type="number" id="sr-late-grace" value="${rules.late_grace_minutes !== undefined ? rules.late_grace_minutes : 15}" min="0" max="60" oninput="updateLatePreview()" />
                     <span class="rule-unit">នាទី</span>
                   </div>
-                  <div style="font-size:10px;color:var(--text3);margin-top:4px">ចូលយឺតក្រោយ: <span id="late-preview" style="color:var(--warning);font-weight:700">${(()=>{const p=(rules.work_start_time||'08:00').split(':').map(Number);const g=rules.late_grace_minutes!==undefined?rules.late_grace_minutes:15;const t=p[0]*60+p[1]+g;return String(Math.floor(t/60)).padStart(2,'0')+':'+String(t%60).padStart(2,'0');})()} </span></div>
+                  <div style="font-size:12px;color:var(--text3);margin-top:4px">ចូលយឺតក្រោយ: <span id="late-preview" style="color:var(--warning);font-weight:700">${(()=>{const p=(rules.work_start_time||'08:00').split(':').map(Number);const g=rules.late_grace_minutes!==undefined?rules.late_grace_minutes:15;const t=p[0]*60+p[1]+g;return String(Math.floor(t/60)).padStart(2,'0')+':'+String(t%60).padStart(2,'0');})()} </span></div>
                 </div>
               </div>
             </div>
 
             <!-- OT & Allowances -->
             <div style="margin-bottom:24px">
-              <div style="font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:12px">⏰ ថែមម៉ោង & ឧបត្ថម្ភ Default</div>
+              <div style="font-size:14px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:12px">⏰ ថែមម៉ោង & ឧបត្ថម្ភ Default</div>
               <div class="salary-rules-grid">
                 <div class="salary-rule-card">
                   <div class="rule-label">OT Rate Multiplier</div>
@@ -8213,7 +7888,7 @@ function renderSettings() {
                     <input type="number" id="sr-ot-hourly" value="${rules.default_ot_hourly_rate || 5}" min="0" step="0.5" />
                     <span class="rule-unit">USD/ម៉ោង</span>
                   </div>
-                  <div style="font-size:10px;color:var(--text3);margin-top:4px">តម្លៃ​លំ​នាំ​ដើម​ក្នុង​ form ថែម​ម៉ោង</div>
+                  <div style="font-size:12px;color:var(--text3);margin-top:4px">តម្លៃ​លំ​នាំ​ដើម​ក្នុង​ form ថែម​ម៉ោង</div>
                 </div>
                 <div class="salary-rule-card">
                   <div class="rule-label">ឧបត្ថម្ភចំណីអាហារ Default</div>
@@ -8246,7 +7921,7 @@ function renderSettings() {
 
             <!-- Auto Payroll config panel — show only when ON -->
             <div id="auto-payroll-panel" style="display:${rules.payroll_auto?'block':'none'};margin-top:12px;padding:14px 16px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm)">
-              <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:12px">⚙️ Auto Payroll Configuration</div>
+              <div style="font-size:14px;font-weight:700;color:var(--text2);margin-bottom:12px">⚙️ Auto Payroll Configuration</div>
               <div class="salary-rules-grid">
                 <div class="salary-rule-card">
                   <div class="rule-label">ថ្ងៃបើកប្រាក់ខែ (Day of Month)</div>
@@ -8254,17 +7929,17 @@ function renderSettings() {
                     <input type="number" id="sr-payday-auto" value="${rules.payroll_day||25}" min="1" max="31" />
                     <span class="rule-unit">ថ្ងៃ</span>
                   </div>
-                  <div style="font-size:10px;color:var(--text3);margin-top:4px">ប្រព័ន្ធនឹងបង្កើត payroll ដោយស្វ័យប្រវត្តិនៅថ្ងៃនេះ</div>
+                  <div style="font-size:12px;color:var(--text3);margin-top:4px">ប្រព័ន្ធនឹងបង្កើត payroll ដោយស្វ័យប្រវត្តិនៅថ្ងៃនេះ</div>
                 </div>
                 <div class="salary-rule-card">
                   <div class="rule-label">ស្ថានភាព Auto Payroll</div>
                   <div style="margin-top:8px">
                     <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
                       <div class="status-dot online"></div>
-                      <span style="font-size:12px;color:var(--success);font-weight:600">បើកដំណើរការ</span>
+                      <span style="font-size:14px;color:var(--success);font-weight:600">បើកដំណើរការ</span>
                     </div>
-                    <div style="font-size:11px;color:var(--text3)">ថ្ងៃបើក: ថ្ងៃទី ${rules.payroll_day||25} រៀងរាល់ខែ</div>
-                    <div style="font-size:11px;color:var(--text3)">ខែបន្ទាប់: ${(()=>{ const d=new Date(); d.setDate(rules.payroll_day||25); if(d<=new Date()) d.setMonth(d.getMonth()+1); return d.toLocaleDateString('km-KH',{month:'long',day:'numeric',year:'numeric'}); })()}</div>
+                    <div style="font-size:13px;color:var(--text3)">ថ្ងៃបើក: ថ្ងៃទី ${rules.payroll_day||25} រៀងរាល់ខែ</div>
+                    <div style="font-size:13px;color:var(--text3)">ខែបន្ទាប់: ${(()=>{ const d=new Date(); d.setDate(rules.payroll_day||25); if(d<=new Date()) d.setMonth(d.getMonth()+1); return d.toLocaleDateString('km-KH',{month:'long',day:'numeric',year:'numeric'}); })()}</div>
                   </div>
                 </div>
               </div>
@@ -8276,15 +7951,15 @@ function renderSettings() {
                   📋 ពិនិត្យស្ថានភាព
                 </button>
               </div>
-              <div id="auto-payroll-result" style="margin-top:10px;font-size:12px"></div>
+              <div id="auto-payroll-result" style="margin-top:10px;font-size:14px"></div>
             </div>
 
             <!-- Salary formula preview -->
             <div style="margin-top:20px;padding:16px;background:var(--bg3);border-radius:var(--radius-sm);border:1px solid var(--border)">
-              <div style="font-size:12px;color:var(--text3);margin-bottom:8px;font-weight:600">📐 រូបមន្តប្រាក់ខែ Net</div>
-              <div style="font-family:var(--mono);font-size:13px;color:var(--text2);line-height:2">
+              <div style="font-size:14px;color:var(--text3);margin-bottom:8px;font-weight:600">📐 រូបមន្តប្រាក់ខែ Net</div>
+              <div style="font-family:var(--mono);font-size:15px;color:var(--text2);line-height:2">
                 <span style="color:var(--success)">Net</span> = Base + OT + Allowances − Tax − NSSF<br>
-                <span style="color:var(--text3);font-size:11px">OT = Hours × (Base/Month_Hours × <span id="preview-ot">${rules.ot_rate_multiplier}</span>x) | Tax = <span id="preview-tax">${rules.tax_rate}</span>% (threshold $<span id="preview-threshold">${rules.income_tax_threshold}</span>)</span>
+                <span style="color:var(--text3);font-size:13px">OT = Hours × (Base/Month_Hours × <span id="preview-ot">${rules.ot_rate_multiplier}</span>x) | Tax = <span id="preview-tax">${rules.tax_rate}</span>% (threshold $<span id="preview-threshold">${rules.income_tax_threshold}</span>)</span>
               </div>
             </div>
 
@@ -8316,15 +7991,15 @@ function renderSettings() {
             <div style="margin-bottom:16px;padding:12px 16px;border-radius:8px;border:1px solid var(--border);background:var(--bg3);display:flex;align-items:center;gap:10px">
               <div class="status-dot ${!demoMd&&apiBase?'online':''}"></div>
               <div style="flex:1">
-                <div style="font-weight:600;font-size:13px">${demoMd?'🟡 Demo Mode':apiBase?'🟢 Worker ភ្ជាប់':'🔴 មិនទាន់ Setting'}</div>
-                <div style="font-size:11px;color:var(--text3);word-break:break-all">${apiBase||'ដាក់ Worker URL ខាងក្រោម'}</div>
+                <div style="font-weight:600;font-size:15px">${demoMd?'🟡 Demo Mode':apiBase?'🟢 Worker ភ្ជាប់':'🔴 មិនទាន់ Setting'}</div>
+                <div style="font-size:13px;color:var(--text3);word-break:break-all">${apiBase||'ដាក់ Worker URL ខាងក្រោម'}</div>
               </div>
             </div>
 
             <!-- Info box: shared DB -->
             <div style="margin-bottom:16px;padding:12px 14px;border-radius:8px;background:rgba(6,214,160,.08);border:1px solid rgba(6,214,160,.25)">
-              <div style="font-size:12px;font-weight:700;color:var(--success);margin-bottom:4px">🌐 Database រួម (Shared)</div>
-              <div style="font-size:11px;color:var(--text3);line-height:1.6">
+              <div style="font-size:14px;font-weight:700;color:var(--success);margin-bottom:4px">🌐 Database រួម (Shared)</div>
+              <div style="font-size:13px;color:var(--text3);line-height:1.6">
                 Worker URL តែមួយ → គ្រប់គ្នាប្រើ Database D1 តែមួយ<br>
                 ទិន្នន័យ sync real-time រវាង Admin, HR, Finance
               </div>
@@ -8334,7 +8009,7 @@ function renderSettings() {
             <div class="form-group" style="margin-bottom:14px">
               <label class="form-label">Worker URL</label>
               <input class="form-control" id="cfg-url-2" placeholder="https://my-worker.username.workers.dev" value="${apiBase}" />
-              <div style="font-size:11px;color:var(--text3);margin-top:5px">Worker URL នេះ share ទៅ user ផ្សេង ដើម្បីប្រើ Database តែមួយ</div>
+              <div style="font-size:13px;color:var(--text3);margin-top:5px">Worker URL នេះ share ទៅ user ផ្សេង ដើម្បីប្រើ Database តែមួយ</div>
             </div>
 
             <div style="display:flex;gap:10px;margin-bottom:16px">
@@ -8347,7 +8022,7 @@ function renderSettings() {
             <div id="conn-result"></div>
 
             <div style="border-top:1px solid var(--border);padding-top:16px;margin-top:4px">
-              <div style="font-size:12px;color:var(--text3);margin-bottom:10px">ឬប្រើ Demo Mode (In-Memory, គ្មាន API)</div>
+              <div style="font-size:14px;color:var(--text3);margin-bottom:10px">ឬប្រើ Demo Mode (In-Memory, គ្មាន API)</div>
               <button class="btn ${demoMd?'btn-primary':'btn-outline'}" style="width:100%" onclick="enableDemo()">
                 🎮 ${demoMd?'✅ Demo Mode កំពុងដំណើរការ':'ប្រើ Demo Mode'}
               </button>
@@ -8355,7 +8030,7 @@ function renderSettings() {
 
             ${apiBase?`
             <div style="border-top:1px solid var(--border);padding-top:16px;margin-top:16px">
-              <div style="font-size:12px;color:var(--text3);margin-bottom:10px">Initialize Database (បង្កើត Tables ដំបូង)</div>
+              <div style="font-size:14px;color:var(--text3);margin-bottom:10px">Initialize Database (បង្កើត Tables ដំបូង)</div>
               <button class="btn btn-outline" style="width:100%" onclick="initWorkerDB()">🗃️ Initialize D1 Database</button>
             </div>`:''}
           </div>
@@ -8383,10 +8058,10 @@ function renderSettings() {
                   const avatarEl = uPhoto
                     ? '<div class="account-avatar" style="overflow:hidden;padding:0"><img src="'+uPhoto+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%" /></div>'
                     : '<div class="account-avatar">' + (u.name||'?')[0].toUpperCase() + '</div>';
-                  const roleTag = u.role === 'QR Scanner' ? ' <span style="background:var(--success);color:white;font-size:9px;padding:2px 7px;border-radius:20px;vertical-align:middle;margin-left:4px">📷 QR</span>' : '';
+                  const roleTag = u.role === 'QR Scanner' ? ' <span style="background:var(--success);color:white;font-size:11px;padding:2px 7px;border-radius:20px;vertical-align:middle;margin-left:4px">📷 QR</span>' : '';
                   return '<div class="account-item">' + avatarEl
                     + '<div class="account-info"><div class="account-name">'+u.name+'</div>'
-                    + '<div style="font-family:var(--mono);font-size:11px;color:var(--text3)">@'+u.username+'</div>'
+                    + '<div style="font-family:var(--mono);font-size:13px;color:var(--text3)">@'+u.username+'</div>'
                     + '<div class="account-role" style="margin-top:2px">'+u.role+roleTag+'</div></div>'
                     + '<div class="action-btns">'
                     + '<button class="btn btn-outline btn-sm" onclick="openEditAccountModal('+u.id+')">✏️ កែ</button>'
@@ -8396,9 +8071,9 @@ function renderSettings() {
                 const grpHdr = (lbl,icon,color,cnt) =>
                   '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px 8px">'
                   +'<div style="width:30px;height:30px;border-radius:8px;background:'+color+';display:flex;align-items:center;justify-content:center;font-size:15px">'+icon+'</div>'
-                  +'<div style="flex:1"><div style="font-size:12px;font-weight:700;color:var(--text1)">'+lbl+'</div>'
-                  +'<div style="font-size:10px;color:var(--text3)">'+cnt+' Account'+(cnt!==1?'s':'')+'</div></div>'
-                  +'<div style="font-size:11px;font-weight:600;padding:2px 10px;border-radius:20px;background:'+color+';color:var(--text2)">'+cnt+'</div>'
+                  +'<div style="flex:1"><div style="font-size:14px;font-weight:700;color:var(--text1)">'+lbl+'</div>'
+                  +'<div style="font-size:12px;color:var(--text3)">'+cnt+' Account'+(cnt!==1?'s':'')+'</div></div>'
+                  +'<div style="font-size:13px;font-weight:600;padding:2px 10px;border-radius:20px;background:'+color+';color:var(--text2)">'+cnt+'</div>'
                   +'</div><div style="height:1px;background:var(--border);margin:0 14px 6px"></div>';
                 let out = '';
                 if (staffUsers.length) {
@@ -8416,8 +8091,8 @@ function renderSettings() {
                 } else {
                   out += '<div style="background:var(--bg3);border:2px dashed rgba(16,185,129,.4);border-radius:12px;margin-bottom:14px;padding:20px;text-align:center">';
                   out += '<div style="font-size:32px;margin-bottom:8px">📷</div>';
-                  out += '<div style="font-size:13px;font-weight:700;color:var(--text2);margin-bottom:4px">គ្មាន QR Scanner ទេ</div>';
-                  out += '<div style="font-size:11px;color:var(--text3);margin-bottom:12px">បង្កើត Account ដាច់ដោយឡែកសម្រាប់ QR Scanner</div>';
+                  out += '<div style="font-size:15px;font-weight:700;color:var(--text2);margin-bottom:4px">គ្មាន QR Scanner ទេ</div>';
+                  out += '<div style="font-size:13px;color:var(--text3);margin-bottom:12px">បង្កើត Account ដាច់ដោយឡែកសម្រាប់ QR Scanner</div>';
                   out += '<button class="btn btn-outline btn-sm" style="border-color:var(--success);color:var(--success)" onclick="openAddQRScannerModal()">＋ បន្ថែម QR Scanner</button>';
                   out += '</div>';
                 }
@@ -8507,14 +8182,14 @@ function renderSettings() {
             </div>
 
             <div style="margin-top:20px">
-              <div style="font-size:12px;color:var(--text3);margin-bottom:12px;font-weight:600">Preview</div>
+              <div style="font-size:14px;color:var(--text3);margin-bottom:12px;font-weight:600">Preview</div>
               <div style="display:flex;align-items:center;gap:12px;padding:16px;background:var(--bg3);border-radius:10px;border:1px solid var(--border)">
-                <div style="width:40px;height:40px;border-radius:10px;background:var(--primary);display:flex;align-items:center;justify-content:center;color:white;font-weight:800;font-size:16px" id="preview-icon">
+                <div style="width:40px;height:40px;border-radius:10px;background:var(--primary);display:flex;align-items:center;justify-content:center;color:white;font-weight:800;font-size:18px" id="preview-icon">
                   ${(cfg.company_name||'HR')[0]}
                 </div>
                 <div>
                   <div style="font-weight:700;font-size:15px" id="preview-name">${cfg.company_name||'HR Pro'}</div>
-                  <div style="font-size:11px;color:var(--text3)">ប្រព័ន្ធ HR</div>
+                  <div style="font-size:13px;color:var(--text3)">ប្រព័ន្ធ HR</div>
                 </div>
               </div>
             </div>
@@ -8576,10 +8251,6 @@ function renderSettings() {
                 { key:'dayswap_view',        label:'👁️ មើលការប្តូរថ្ងៃ' },
                 { key:'dayswap_edit',        label:'✏️ ស្នើ / កែ / លុប ការប្តូរថ្ងៃ' },
                 { key:'dayswap_approve',     label:'✅ អនុម័ត / បដិសេធ ការប្តូរថ្ងៃ' },
-                // --- Group: ទីតាំង ---
-                { group: '📍 ទីតាំងស្កេន' },
-                { key:'locations_view',      label:'👁️ មើល / ប្រើ QR ទីតាំង' },
-                { key:'locations_edit',      label:'✏️ បន្ថែម / កែ / លុប ទីតាំង' },
                 // --- Group: ប្រាក់ខ្ចី ---
                 { group: '💰 ប្រាក់ខ្ចី' },
                 { key:'loans_view',          label:'👁️ មើលប្រាក់ខ្ចី' },
@@ -8600,11 +8271,11 @@ function renderSettings() {
                   <div style="display:none" id="perm-scroll-hint" class="perm-scroll-hint">
                     ← អូសទៅឆ្វេង/ស្តាំ →
                   </div>
-                  <table style="width:max-content;min-width:100%;border-collapse:collapse;font-size:12px">
+                  <table style="width:max-content;min-width:100%;border-collapse:collapse;font-size:14px">
                     <thead>
                       <tr style="background:var(--bg4)">
                         <th style="padding:10px 12px;text-align:left;border-bottom:2px solid var(--border);min-width:160px;position:sticky;left:0;z-index:2;background:var(--bg4)">មុខងារ</th>
-                        ${regularRoles.map(r=>`<th style="padding:10px 14px;text-align:center;border-bottom:2px solid var(--border);min-width:90px;font-size:11px;white-space:nowrap;${r==='QR Scanner'?'color:var(--success);background:rgba(34,197,94,.06)':'color:var(--primary)'}">${r==='QR Scanner'?'📷 ':''} ${r}</th>`).join('')}
+                        ${regularRoles.map(r=>`<th style="padding:10px 14px;text-align:center;border-bottom:2px solid var(--border);min-width:90px;font-size:13px;white-space:nowrap;${r==='QR Scanner'?'color:var(--success);background:rgba(34,197,94,.06)':'color:var(--primary)'}">${r==='QR Scanner'?'📷 ':''} ${r}</th>`).join('')}
                       </tr>
                     </thead>
                     <tbody>
@@ -8612,7 +8283,7 @@ function renderSettings() {
                         let rowIdx=0;
                         return features.map(f=>{
                           if(f.group){
-                            return `<tr><td colspan="${regularRoles.length+1}" style="padding:8px 12px 5px;font-size:11px;font-weight:700;color:var(--primary);background:var(--bg4);border-bottom:1px solid var(--border);border-top:2px solid var(--border);letter-spacing:.3px;position:sticky;left:0">${f.group}</td></tr>`;
+                            return `<tr><td colspan="${regularRoles.length+1}" style="padding:8px 12px 5px;font-size:13px;font-weight:700;color:var(--primary);background:var(--bg4);border-bottom:1px solid var(--border);border-top:2px solid var(--border);letter-spacing:.3px;position:sticky;left:0">${f.group}</td></tr>`;
                           }
                           const bg = rowIdx++%2===0?'var(--bg3)':'var(--bg)';
                           return `
@@ -8650,15 +8321,15 @@ function renderSettings() {
 
                 <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap">
                   <div style="flex:1;min-width:220px;padding:12px 14px;background:rgba(34,197,94,.07);border:1px solid rgba(34,197,94,.25);border-radius:8px">
-                    <div style="font-size:12px;color:var(--success);font-weight:700;margin-bottom:4px">📷 QR Scanner — Admin កំណត់បាន</div>
-                    <div style="font-size:11px;color:var(--text3)">
+                    <div style="font-size:14px;color:var(--success);font-weight:700;margin-bottom:4px">📷 QR Scanner — Admin កំណត់បាន</div>
+                    <div style="font-size:13px;color:var(--text3)">
                       Admin អាចដោះសោ ឬបន្ថែមសិទ្ធ QR Scanner បានដោយផ្ទាល់ក្នុងតារាងខាងលើ។<br>
                       Default: <strong>មើល + កត់វត្តមាន</strong> ប៉ុណ្ណោះ — Admin ផ្លាស់ប្ដូរបាន។
                     </div>
                   </div>
                   <div style="flex:1;min-width:220px;padding:12px 14px;background:rgba(255,183,3,.08);border:1px solid rgba(255,183,3,.25);border-radius:8px">
-                    <div style="font-size:12px;color:var(--warning);font-weight:700;margin-bottom:4px">⚠️ ចំណាំ</div>
-                    <div style="font-size:11px;color:var(--text3)">
+                    <div style="font-size:14px;color:var(--warning);font-weight:700;margin-bottom:4px">⚠️ ចំណាំ</div>
+                    <div style="font-size:13px;color:var(--text3)">
                       • <strong>អ្នកគ្រប់គ្រង</strong> — មានសិទ្ធពេញលេញ មិនអាចកំណត់<br>
                       • ផ្លាស់ប្ដូរ apply ភ្លាម — user ត្រូវ logout/login
                     </div>
@@ -8687,14 +8358,14 @@ function renderSettings() {
             </div>
           </div>
           <div class="settings-section-body">
-            <div style="font-size:13px;color:var(--text3);margin-bottom:14px">
+            <div style="font-size:15px;color:var(--text3);margin-bottom:14px">
               Backup រួមមាន: បុគ្គលិក, វត្តមាន, បៀវត្ស, ច្បាប់, ប្រាក់ខ្ចី, ចំណាយ, នាយកដ្ឋាន, Config, Accounts
             </div>
             <button class="btn btn-primary" style="width:100%" onclick="backupAllData()">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
               📥 Download Backup (.json)
             </button>
-            <div id="backup-status" style="margin-top:10px;font-size:12px"></div>
+            <div id="backup-status" style="margin-top:10px;font-size:14px"></div>
           </div>
         </div>
 
@@ -8708,8 +8379,8 @@ function renderSettings() {
           </div>
           <div class="settings-section-body">
             <div style="padding:12px;background:rgba(255,183,3,.08);border:1px solid rgba(255,183,3,.25);border-radius:8px;margin-bottom:14px">
-              <div style="font-size:12px;color:var(--warning);font-weight:600">⚠️ ប្រុងប្រយ័ត្ន</div>
-              <div style="font-size:11px;color:var(--text3);margin-top:4px">Restore នឹង overwrite ទិន្នន័យបច្ចុប្បន្នទាំងអស់!</div>
+              <div style="font-size:14px;color:var(--warning);font-weight:600">⚠️ ប្រុងប្រយ័ត្ន</div>
+              <div style="font-size:13px;color:var(--text3);margin-top:4px">Restore នឹង overwrite ទិន្នន័យបច្ចុប្បន្នទាំងអស់!</div>
             </div>
             <div style="display:flex;gap:10px">
               <input type="file" id="restore-file-input" accept=".json" style="display:none" onchange="restoreAllData(this)" />
@@ -8718,7 +8389,7 @@ function renderSettings() {
                 📤 ជ្រើស Backup File
               </button>
             </div>
-            <div id="restore-status" style="margin-top:10px;font-size:12px"></div>
+            <div id="restore-status" style="margin-top:10px;font-size:14px"></div>
           </div>
         </div>
 
@@ -8732,8 +8403,8 @@ function renderSettings() {
           </div>
           <div class="settings-section-body">
             <div style="padding:12px;background:rgba(239,71,111,.08);border:1px solid rgba(239,71,111,.25);border-radius:8px;margin-bottom:14px">
-              <div style="font-size:12px;color:var(--danger);font-weight:600">🚨 គ្រោះថ្នាក់ខ្លាំង</div>
-              <div style="font-size:11px;color:var(--text3);margin-top:4px">ជ្រើសរើស table ដែលចង់លុប ឬ លុបទាំងអស់</div>
+              <div style="font-size:14px;color:var(--danger);font-weight:600">🚨 គ្រោះថ្នាក់ខ្លាំង</div>
+              <div style="font-size:13px;color:var(--text3);margin-top:4px">ជ្រើសរើស table ដែលចង់លុប ឬ លុបទាំងអស់</div>
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
               ${[
@@ -8748,7 +8419,7 @@ function renderSettings() {
               ].map(([key,label])=>`
                 <label style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg3);border-radius:8px;cursor:pointer;border:1px solid var(--border)">
                   <input type="checkbox" class="delete-cb" value="${key}" style="width:16px;height:16px;accent-color:var(--danger)">
-                  <span style="font-size:12px">${label}</span>
+                  <span style="font-size:14px">${label}</span>
                 </label>
               `).join('')}
             </div>
@@ -8759,7 +8430,7 @@ function renderSettings() {
             <button class="btn btn-danger" style="width:100%;margin-top:12px" onclick="deleteSelectedData()">
               🗑️ លុប Data ដែលបានជ្រើស
             </button>
-            <div id="delete-status" style="margin-top:10px;font-size:12px"></div>
+            <div id="delete-status" style="margin-top:10px;font-size:14px"></div>
           </div>
         </div>
       <!-- PWA Install Section -->
@@ -8773,8 +8444,8 @@ function renderSettings() {
           </div>
           <div class="settings-section-body">
             <div style="padding:14px;background:rgba(255,107,53,.07);border:1px solid rgba(255,107,53,.25);border-radius:10px;margin-bottom:14px">
-              <div style="font-size:12px;font-weight:700;color:var(--primary);margin-bottom:8px">📌 របៀប Install នៅលើ Windows (Chrome / Edge):</div>
-              <div style="font-size:12px;color:var(--text2);line-height:1.8">
+              <div style="font-size:14px;font-weight:700;color:var(--primary);margin-bottom:8px">📌 របៀប Install នៅលើ Windows (Chrome / Edge):</div>
+              <div style="font-size:14px;color:var(--text2);line-height:1.8">
                 <b>Chrome:</b> រូបភាព ⊕ នៅ Address Bar → «Install HR Pro»<br/>
                 <b>Edge:</b> ⋯ Menu → Apps → Install this site as an app<br/>
                 <b>ឬ</b> ចុចប៊ូតុង Install ខាងក្រោម 👇
@@ -8784,10 +8455,10 @@ function renderSettings() {
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
               📲 Install HR Pro App
             </button>
-            <div id="pwa-status" style="margin-top:10px;font-size:12px;color:var(--text3)"></div>
+            <div id="pwa-status" style="margin-top:10px;font-size:14px;color:var(--text3)"></div>
             <div style="margin-top:12px;padding:10px 12px;background:var(--bg3);border-radius:8px">
-              <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:6px">📱 Android / iOS:</div>
-              <div style="font-size:11px;color:var(--text3);line-height:1.7">
+              <div style="font-size:13px;font-weight:700;color:var(--text2);margin-bottom:6px">📱 Android / iOS:</div>
+              <div style="font-size:13px;color:var(--text3);line-height:1.7">
                 <b>Android Chrome:</b> ⋮ Menu → «Add to Home screen»<br/>
                 <b>iPhone Safari:</b> □↑ Share → «Add to Home Screen»
               </div>
@@ -8842,13 +8513,13 @@ function _buildAccountItemHTML(u) {
     : '<div class="account-avatar" style="flex-shrink:0;font-size:18px;font-weight:800">' + (u.name || '?')[0].toUpperCase() + '</div>';
   const isQR = u.role === 'QR Scanner';
   const roleTag = isQR
-    ? '<span style="background:var(--success);color:white;font-size:9px;padding:2px 7px;border-radius:20px;vertical-align:middle;margin-left:4px">📷 QR</span>'
+    ? '<span style="background:var(--success);color:white;font-size:11px;padding:2px 7px;border-radius:20px;vertical-align:middle;margin-left:4px">📷 QR</span>'
     : '';
   return '<div class="account-item" style="flex-wrap:wrap;gap:10px">'
     + avatarEl
     + '<div class="account-info" style="flex:1;min-width:120px">'
-    + '<div class="account-name" style="font-size:14px">' + u.name + '</div>'
-    + '<div style="font-family:var(--mono);font-size:11px;color:var(--text3)">@' + u.username + '</div>'
+    + '<div class="account-name" style="font-size:16px">' + u.name + '</div>'
+    + '<div style="font-family:var(--mono);font-size:13px;color:var(--text3)">@' + u.username + '</div>'
     + '<div class="account-role" style="margin-top:2px">' + u.role + roleTag + '</div>'
     + '</div>'
     + '<div class="action-btns" style="flex-shrink:0">'
@@ -8861,10 +8532,10 @@ function _buildGroupHeader(label, icon, color, count) {
   return '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px 8px;margin-top:4px">'
     + '<div style="width:30px;height:30px;border-radius:8px;background:' + color + ';display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0">' + icon + '</div>'
     + '<div style="flex:1">'
-    + '<div style="font-size:12px;font-weight:700;color:var(--text1)">' + label + '</div>'
-    + '<div style="font-size:10px;color:var(--text3)">' + count + ' Account' + (count !== 1 ? 's' : '') + '</div>'
+    + '<div style="font-size:14px;font-weight:700;color:var(--text1)">' + label + '</div>'
+    + '<div style="font-size:12px;color:var(--text3)">' + count + ' Account' + (count !== 1 ? 's' : '') + '</div>'
     + '</div>'
-    + '<div style="font-size:11px;font-weight:600;padding:2px 10px;border-radius:20px;background:' + color + ';color:var(--text2)">' + count + '</div>'
+    + '<div style="font-size:13px;font-weight:600;padding:2px 10px;border-radius:20px;background:' + color + ';color:var(--text2)">' + count + '</div>'
     + '</div>'
     + '<div style="height:1px;background:var(--border);margin:0 14px 6px"></div>';
 }
@@ -8907,8 +8578,8 @@ function refreshAccountList() {
     // Empty state — prompt to add first QR Scanner
     html += '<div style="background:var(--bg3);border:2px dashed rgba(16,185,129,.4);border-radius:12px;margin-bottom:14px;padding:20px;text-align:center">';
     html += '<div style="font-size:32px;margin-bottom:8px">📷</div>';
-    html += '<div style="font-size:13px;font-weight:700;color:var(--text2);margin-bottom:4px">គ្មាន QR Scanner ទេ</div>';
-    html += '<div style="font-size:11px;color:var(--text3);margin-bottom:12px">បង្កើត Account ដាច់ដោយឡែកសម្រាប់ QR Scanner</div>';
+    html += '<div style="font-size:15px;font-weight:700;color:var(--text2);margin-bottom:4px">គ្មាន QR Scanner ទេ</div>';
+    html += '<div style="font-size:13px;color:var(--text3);margin-bottom:12px">បង្កើត Account ដាច់ដោយឡែកសម្រាប់ QR Scanner</div>';
     html += '<button class="btn btn-outline btn-sm" style="border-color:var(--success);color:var(--success)" onclick="openAddQRScannerModal()">＋ បន្ថែម QR Scanner</button>';
     html += '</div>';
   }
@@ -8944,12 +8615,12 @@ async function openAddQRScannerModal() {
     return '<div class="qr-emp-row" id="qr-row-'+emp.id+'" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;border:1.5px solid '+(alreadyHas?'rgba(16,185,129,.4)':'var(--border)')+';margin-bottom:6px;background:'+(alreadyHas?'rgba(16,185,129,.06)':'var(--bg)')+';">'
       + av
       + '<div style="flex:1;min-width:0">'
-      + '<div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+emp.name+'</div>'
-      + '<div style="font-size:10px;color:var(--text3)">'+displayId+' · '+(emp.position||'—')+'</div>'
+      + '<div style="font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+emp.name+'</div>'
+      + '<div style="font-size:12px;color:var(--text3)">'+displayId+' · '+(emp.position||'—')+'</div>'
       + '</div>'
       + (alreadyHas
-          ? '<span style="font-size:11px;background:rgba(16,185,129,.15);color:var(--success);padding:3px 10px;border-radius:20px;white-space:nowrap;flex-shrink:0">✅ មានហើយ</span>'
-          : '<button class="btn btn-sm" style="background:var(--success);color:#fff;border:none;flex-shrink:0;white-space:nowrap;font-size:11px;padding:4px 12px" onclick="generateQRUserForEmp('+emp.id+',\''+emp.name.replace(/'/g,"\\'")+'\',' + '\'' + autoUser + '\',' + '\'' + autoPass + '\')">+ បង្កើត</button>'
+          ? '<span style="font-size:13px;background:rgba(16,185,129,.15);color:var(--success);padding:3px 10px;border-radius:20px;white-space:nowrap;flex-shrink:0">✅ មានហើយ</span>'
+          : '<button class="btn btn-sm" style="background:var(--success);color:#fff;border:none;flex-shrink:0;white-space:nowrap;font-size:13px;padding:4px 12px" onclick="generateQRUserForEmp('+emp.id+',\''+emp.name.replace(/'/g,"\\'")+'\',' + '\'' + autoUser + '\',' + '\'' + autoPass + '\')">+ បង្កើត</button>'
         )
       + '</div>';
   }).join('');
@@ -8959,8 +8630,8 @@ async function openAddQRScannerModal() {
   $('modal-body').innerHTML =
     '<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.3);border-radius:10px;margin-bottom:14px">'
     + '<span style="font-size:24px">📷</span>'
-    + '<div style="flex:1"><div style="font-weight:700;font-size:13px;color:var(--success)">QR Scanner — បុគ្គលិកម្នាក់ = Account មួយ</div>'
-    + '<div style="font-size:11px;color:var(--text3)">Password default = EMP ID · Username = EMP ID (អ្នកអាចកែបន្ទាប់)</div></div>'
+    + '<div style="flex:1"><div style="font-weight:700;font-size:15px;color:var(--success)">QR Scanner — បុគ្គលិកម្នាក់ = Account មួយ</div>'
+    + '<div style="font-size:13px;color:var(--text3)">Password default = EMP ID · Username = EMP ID (អ្នកអាចកែបន្ទាប់)</div></div>'
     + '</div>'
     + (notYet > 0
         ? '<button class="btn btn-success" style="width:100%;margin-bottom:12px" onclick="generateAllQRUsers()">⚡ បង្កើត QR Account ទាំងអស់ (' + notYet + ' នាក់) ភ្លាមៗ</button>'
@@ -8969,7 +8640,7 @@ async function openAddQRScannerModal() {
     + '<input class="filter-input" style="width:100%;margin-bottom:10px" placeholder="🔍 ស្វែងរកបុគ្គលិក..." oninput="filterQREmpRows(this.value)"/>'
     + '<div id="qr-emp-list" style="max-height:350px;overflow-y:auto">' + (emps.length ? empRows : '<div style="text-align:center;padding:30px;color:var(--text3)">មិនទាន់មានបុគ្គលិក</div>') + '</div>'
     + '<div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">'
-    + '<div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:10px">✏️ ឬបន្ថែម Manual</div>'
+    + '<div style="font-size:14px;font-weight:700;color:var(--text2);margin-bottom:10px">✏️ ឬបន្ថែម Manual</div>'
     + '<div class="form-grid">'
     + '<div class="form-group"><label class="form-label">ឈ្មោះ *</label><input class="form-control" id="qracc-name" placeholder="ឈ្មោះ..." /></div>'
     + '<div class="form-group"><label class="form-label">Username *</label><input class="form-control" id="qracc-user" placeholder="qr01" /></div>'
@@ -9011,7 +8682,7 @@ async function generateQRUserForEmp(empId, empName, username, password) {
       row.style.border = '1.5px solid rgba(16,185,129,.4)';
       row.style.background = 'rgba(16,185,129,.06)';
       if (btn) btn.replaceWith(Object.assign(document.createElement('span'), {
-        style: 'font-size:11px;background:rgba(16,185,129,.15);color:var(--success);padding:3px 10px;border-radius:20px;white-space:nowrap;flex-shrink:0',
+        style: 'font-size:13px;background:rgba(16,185,129,.15);color:var(--success);padding:3px 10px;border-radius:20px;white-space:nowrap;flex-shrink:0',
         textContent: '✅ មានហើយ'
       }));
     }
@@ -9053,7 +8724,7 @@ async function generateAllQRUsers() {
         row.style.background = 'rgba(16,185,129,.06)';
         const rowBtn = row.querySelector('button');
         if (rowBtn) rowBtn.replaceWith(Object.assign(document.createElement('span'), {
-          style: 'font-size:11px;background:rgba(16,185,129,.15);color:var(--success);padding:3px 10px;border-radius:20px;white-space:nowrap;flex-shrink:0',
+          style: 'font-size:13px;background:rgba(16,185,129,.15);color:var(--success);padding:3px 10px;border-radius:20px;white-space:nowrap;flex-shrink:0',
           textContent: '✅ មានហើយ'
         }));
       }
@@ -9374,7 +9045,7 @@ function openUserPhotoModal(userId, userName) {
     +'<div><button class="btn btn-outline btn-sm" onclick="$(\'user-photo-input\').click()">📂 ជ្រើសរូបថត</button>'
     +(existing?'<button class="btn btn-danger btn-sm" style="margin-left:8px" onclick="removeUserPhoto('+userId+')">🗑️ លុប</button>':'')
     +'</div>'
-    +'<div style="font-size:11px;color:var(--text3);margin-top:6px">JPG, PNG — max 2MB</div>'
+    +'<div style="font-size:13px;color:var(--text3);margin-top:6px">JPG, PNG — max 2MB</div>'
     +'</div>'
     +'<input type="file" id="user-photo-input" accept="image/*" style="display:none" onchange="handleUserPhotoUpload(this,'+userId+')" />'
     +'<div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">បិទ</button></div>';
@@ -9454,8 +9125,8 @@ function openAddAccountModal() {
     +'<svg viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="1.5" style="width:28px;height:28px"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>'
     +'</div>'
     +'<div>'
-    +'<div style="font-weight:700;font-size:13px;margin-bottom:4px">រូបថត Account</div>'
-    +'<div style="font-size:11px;color:var(--text3);margin-bottom:8px">JPG, PNG — អតិបរមា 2MB</div>'
+    +'<div style="font-weight:700;font-size:15px;margin-bottom:4px">រូបថត Account</div>'
+    +'<div style="font-size:13px;color:var(--text3);margin-bottom:8px">JPG, PNG — អតិបរមា 2MB</div>'
     +'<button class="btn btn-outline btn-sm" onclick="$(\'new-acc-photo-input\').click()">📂 ជ្រើស</button>'
     +'</div>'
     +'<input type="file" id="new-acc-photo-input" accept="image/*" style="display:none" onchange="handleNewAccPhoto(this)" />'
@@ -9615,8 +9286,8 @@ function openEditAccountModal(id) {
       : '<span style="font-size:24px;font-weight:800;color:var(--text2)">'+(user.name||'?')[0].toUpperCase()+'</span>')
     +'</div>'
     +'<div>'
-    +'<div style="font-weight:700;font-size:13px;margin-bottom:4px">រូបថត Account</div>'
-    +'<div style="font-size:11px;color:var(--text3);margin-bottom:8px">JPG, PNG — max 2MB</div>'
+    +'<div style="font-weight:700;font-size:15px;margin-bottom:4px">រូបថត Account</div>'
+    +'<div style="font-size:13px;color:var(--text3);margin-bottom:8px">JPG, PNG — max 2MB</div>'
     +'<div style="display:flex;gap:6px">'
     +'<button class="btn btn-outline btn-sm" onclick="$(\'edit-acc-photo-input\').click()">📂 ជ្រើស</button>'
     +(existingPhoto ? '<button class="btn btn-danger btn-sm" onclick="removeEditAccPhoto()">🗑️</button>' : '')
@@ -9795,7 +9466,7 @@ async function printPayroll() {
     return '<tr style="background:'+(i%2===0?'white':'#f8faff')+'">'
       +'<td style="text-align:center;color:#666">'+(i+1)+'</td>'
       +'<td style="font-weight:600">'+(r.employee_name||'—')+'</td>'
-      +'<td style="font-size:10px;color:#64748b">'+(r.department||'—')+'</td>'
+      +'<td style="font-size:12px;color:#64748b">'+(r.department||'—')+'</td>'
       +'<td style="font-family:monospace">'+sym+(r.base_salary||0)+'</td>'
       +'<td style="font-family:monospace;color:#16a34a">+'+sym+(r.bonus||0)+'</td>'
       +'<td style="font-family:monospace;color:#dc2626">-'+sym+(r.deduction||0)+'</td>'
@@ -9821,13 +9492,13 @@ async function printPayroll() {
     +'body{padding:16px;color:#1a1f2e;background:white}'
     +'.header{display:flex;align-items:center;margin-bottom:14px;padding-bottom:10px;border-bottom:2px solid #1a3a8f}'
     +'.co-name{font-size:18px;font-weight:800;color:#1a3a8f}'
-    +'.rpt-title{font-size:13px;font-weight:700;margin:2px 0}'
-    +'.rpt-sub{font-size:10px;color:#666}'
-    +'table{width:100%;border-collapse:collapse;font-size:10px}'
+    +'.rpt-title{font-size:15px;font-weight:700;margin:2px 0}'
+    +'.rpt-sub{font-size:12px;color:#666}'
+    +'table{width:100%;border-collapse:collapse;font-size:12px}'
     +'th{background:#1a3a8f;color:white;padding:7px 5px;text-align:left}'
     +'td{padding:5px;border-bottom:1px solid #e2e8f0;vertical-align:middle}'
     +'.footer{margin-top:16px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}'
-    +'.sign{border-top:1px dashed #999;padding-top:4px;font-size:9px;color:#666;text-align:center;margin-top:20px}'
+    +'.sign{border-top:1px dashed #999;padding-top:4px;font-size:11px;color:#666;text-align:center;margin-top:20px}'
     +'@media print{@page{size:A4 landscape;margin:8mm}body{padding:0}}'
     +'</style></head><body>'
     +'<div class="header">'+logoHtml
@@ -10216,10 +9887,10 @@ function resetIdleTimer() {
         'position:fixed','bottom:80px','left:50%','transform:translateX(-50%)',
         'background:#f59e0b','color:#1a1a1a','font-weight:700',
         'padding:12px 24px','border-radius:12px','z-index:99999',
-        'box-shadow:0 4px 20px rgba(0,0,0,0.3)','font-size:14px',
+        'box-shadow:0 4px 20px rgba(0,0,0,0.3)','font-size:16px',
         'display:flex','align-items:center','gap:10px','white-space:nowrap',
       ].join(';');
-      banner.innerHTML = '⚠️ ប្រព័ន្ធនឹងចាក់ចេញស្វ័យប្រវត្តិក្នុង <span id="idle-countdown">60</span> វិនាទី — <button onclick="resetIdleTimer()" style="background:#1a1a1a;color:#f59e0b;border:none;padding:4px 12px;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px">ស្នើ​ থাকতে</button>';
+      banner.innerHTML = '⚠️ ប្រព័ន្ធនឹងចាក់ចេញស្វ័យប្រវត្តិក្នុង <span id="idle-countdown">60</span> វិនាទី — <button onclick="resetIdleTimer()" style="background:#1a1a1a;color:#f59e0b;border:none;padding:4px 12px;border-radius:8px;font-weight:700;cursor:pointer;font-size:15px">ស្នើ​ থাকতে</button>';
       document.body.appendChild(banner);
       // Countdown
       let secs = 60;
@@ -10377,7 +10048,7 @@ async function openAllQRModal() {
       <span style="font-size:20px">📲</span>
       <div style="flex:1">
         <div style="font-weight:700;font-size:15px">QR Cards បុគ្គលិកទាំងអស់</div>
-        <div style="font-size:12px;color:var(--text3)">${emps.length} នាក់ — បុគ្គលិកម្នាក់អាចស្កេន QR ខ្លួនឯង</div>
+        <div style="font-size:14px;color:var(--text3)">${emps.length} នាក់ — បុគ្គលិកម្នាក់អាចស្កេន QR ខ្លួនឯង</div>
       </div>
       <button onclick="window.printAllQR()" class="btn btn-primary" style="gap:6px">🖨️ Print ទាំងអស់</button>
       <button onclick="document.getElementById('all-qr-modal').remove()" class="btn btn-outline">✕ បិទ</button>
@@ -10413,12 +10084,12 @@ async function openAllQRModal() {
         ${avatarInner}
       </div>
       <div style="text-align:center;width:100%">
-        <div style="font-weight:700;font-size:13px;color:var(--text1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${emp.name}</div>
-        <div style="font-size:11px;color:var(--text3);margin-top:2px">${displayId}</div>
-        <div style="font-size:10px;color:var(--info);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${emp.position||''}</div>
+        <div style="font-weight:700;font-size:15px;color:var(--text1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${emp.name}</div>
+        <div style="font-size:13px;color:var(--text3);margin-top:2px">${displayId}</div>
+        <div style="font-size:12px;color:var(--info);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${emp.position||''}</div>
       </div>
       <canvas id="qr-canvas-${emp.id}" width="130" height="130" style="border-radius:8px;border:1px solid var(--border);background:#fff"></canvas>
-      <div style="font-size:9px;color:var(--text3);text-align:center;line-height:1.4">${emp.department_name||''}</div>
+      <div style="font-size:11px;color:var(--text3);text-align:center;line-height:1.4">${emp.department_name||''}</div>
     `;
     cards.push({ card, emp, qrText, displayId });
     grid.innerHTML = '';
@@ -10710,19 +10381,19 @@ function showFirstRunSetup() {
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
           <div style="font-size:24px">☁️</div>
           <div>
-            <div style="font-weight:700;font-size:14px">ភ្ជាប់ Cloudflare Worker</div>
-            <div style="font-size:12px;color:var(--text3)">ប្រើ D1 Database ពិតប្រាកដ — sync គ្រប់គ្នា</div>
+            <div style="font-weight:700;font-size:16px">ភ្ជាប់ Cloudflare Worker</div>
+            <div style="font-size:14px;color:var(--text3)">ប្រើ D1 Database ពិតប្រាកដ — sync គ្រប់គ្នា</div>
           </div>
         </div>
         <div style="display:flex;gap:8px">
           <input class="form-control" id="setup-worker-url" placeholder="https://my-worker.username.workers.dev"
-            style="flex:1;font-size:12px"
+            style="flex:1;font-size:14px"
             onkeydown="if(event.key==='Enter') connectWorkerFromSetup()" />
           <button class="btn btn-success" onclick="connectWorkerFromSetup()">
             ✅ ភ្ជាប់
           </button>
         </div>
-        <div id="setup-conn-result" style="margin-top:8px;font-size:12px"></div>
+        <div id="setup-conn-result" style="margin-top:8px;font-size:14px"></div>
       </div>
 
       <!-- Option 2: Demo Mode -->
@@ -10730,8 +10401,8 @@ function showFirstRunSetup() {
         <div style="display:flex;align-items:center;gap:10px">
           <div style="font-size:24px">🎮</div>
           <div>
-            <div style="font-weight:700;font-size:14px">Demo Mode</div>
-            <div style="font-size:12px;color:var(--text3)">ដំណើរការភ្លាមៗ គ្មាន API — ទិន្នន័យក្នុង memory</div>
+            <div style="font-weight:700;font-size:16px">Demo Mode</div>
+            <div style="font-size:14px;color:var(--text3)">ដំណើរការភ្លាមៗ គ្មាន API — ទិន្នន័យក្នុង memory</div>
           </div>
           <div style="margin-left:auto;color:var(--text3);font-size:18px">›</div>
         </div>
