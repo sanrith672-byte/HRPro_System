@@ -3445,6 +3445,46 @@ async function processQRScan(raw, date) {
   return processQRScan_continue(emp, raw, date);
 }
 async function processQRScan_continue(emp, raw, date) {
+  // ── QR Scanner self-scan restriction ──────────────────────────────────
+  // If logged-in user is a QR Scanner, they must NOT scan their own QR (ក).
+  // They are only allowed to scan other employees' QR codes (ខ).
+  const _scanSess = getSession();
+  if (_scanSess && _scanSess.role === 'QR Scanner') {
+    const _scannerName = (_scanSess.name || '').trim().toLowerCase();
+    const _empName     = (emp.name       || '').trim().toLowerCase();
+    // Also compare by scanner account id vs emp id (when scanner account id matches emp id)
+    const _scannerEmpId = _scanSess.employee_id || null;
+    const _selfByName   = _scannerName && _empName && _scannerName === _empName;
+    const _selfById     = _scannerEmpId && emp.id && parseInt(_scannerEmpId) === parseInt(emp.id);
+    if (_selfByName || _selfById) {
+      showToast('🚫 ' + (emp.name || '') + ' — QR Scanner មិនអាចស្កែន QR ខ្លួនឯងបាន!', 'error');
+      const sv = document.getElementById('qr-scan-status');
+      if (sv) {
+        sv.textContent = '🚫 មិនអនុញ្ញាត — ស្កែន QR ខ្លួនឯង';
+        sv.style.background = 'rgba(239,71,111,.85)';
+        setTimeout(() => {
+          const sx = document.getElementById('qr-scan-status');
+          if (sx) { sx.textContent = '📷 កំពុងស្កែន...'; sx.style.background = 'rgba(0,0,0,.6)'; }
+        }, 3000);
+      }
+      // Log the blocked attempt in result log
+      const _logEl2 = document.getElementById('qr-result-log');
+      if (_logEl2) {
+        const _nb = new Date();
+        const _tb = _nb.getHours().toString().padStart(2,'0') + ':' + _nb.getMinutes().toString().padStart(2,'0');
+        const _eb = document.createElement('div');
+        _eb.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;margin-bottom:6px;background:rgba(239,71,111,.08);border:1px solid rgba(239,71,111,.25)';
+        _eb.innerHTML = '<span style="font-size:18px">🚫</span>'
+          + '<div style="flex:1"><div style="font-weight:700;font-size:14px;color:var(--danger)">' + (emp.name||'') + '</div>'
+          + '<div style="font-size:12px;color:var(--text3)">មិនអនុញ្ញាត — ស្កែន QR ខ្លួនឯង</div></div>'
+          + '<div style="font-size:13px;font-weight:700;color:var(--text3)">' + _tb + '</div>';
+        _logEl2.prepend(_eb);
+      }
+      return;
+    }
+  }
+  // ─────────────────────────────────────────────────────────────────────
+
   const now   = new Date();
   const time  = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
   const type  = window._scanType || 'in';
