@@ -544,7 +544,7 @@ async function createAttendance(request, env) {
   let body;
   try { body = await request.json(); } catch(_) { return error('Invalid JSON body'); }
 
-  const { employee_id, date, check_in, check_out, status, notes } = body || {};
+  const { employee_id, date, check_in, check_out, status, notes, location_name, scanned_by } = body || {};
 
   if (!employee_id) return error('employee_id is required');
 
@@ -561,15 +561,15 @@ async function createAttendance(request, env) {
     const newCheckOut = check_out || '';
     const newStatus = status || 'present';
     await env.DB.prepare(
-      'UPDATE attendance SET check_in=?, check_out=?, status=?, notes=? WHERE id=?'
-    ).bind(newCheckIn, newCheckOut, newStatus, notes||'', existing.id).run();
+      'UPDATE attendance SET check_in=?, check_out=?, status=?, notes=?, location_name=CASE WHEN ?!=\'\'\' THEN ? ELSE location_name END, scanned_by=CASE WHEN ?!=\'\'\' THEN ? ELSE scanned_by END WHERE id=?'
+    ).bind(newCheckIn, newCheckOut, newStatus, notes||'', location_name||'', location_name||'', scanned_by||'', scanned_by||'', existing.id).run();
     return json({ message: 'Attendance updated', id: existing.id });
   }
 
   // Insert new record
   const result = await env.DB.prepare(
-    'INSERT INTO attendance (employee_id, date, check_in, check_out, status, notes, created_at) VALUES (?,?,?,?,?,?,datetime(\'now\'))'
-  ).bind(parseInt(employee_id), attDate, check_in||'', check_out||'', status||'present', notes||'').run();
+    'INSERT INTO attendance (employee_id, date, check_in, check_out, status, notes, location_name, scanned_by, created_at) VALUES (?,?,?,?,?,?,?,?,datetime(\'now\'))'
+  ).bind(parseInt(employee_id), attDate, check_in||'', check_out||'', status||'present', notes||'', location_name||'', scanned_by||'').run();
 
   return json({ message: 'Attendance recorded', id: result.meta.last_row_id }, 201);
 }
@@ -1039,6 +1039,9 @@ async function initDatabase(env) {
     // employees — off_days (personal weekly day off)
     `ALTER TABLE employees ADD COLUMN off_days TEXT DEFAULT '[]'`,
     `ALTER TABLE employees ADD COLUMN work_location TEXT DEFAULT ''`,
+    // attendance — scan location + scanner name
+    `ALTER TABLE attendance ADD COLUMN location_name TEXT DEFAULT ''`,
+    `ALTER TABLE attendance ADD COLUMN scanned_by TEXT DEFAULT ''`,
   ];
   for (const m of migrations) {
     try { await env.DB.prepare(m).run(); } catch(_) { /* column already exists — OK */ }

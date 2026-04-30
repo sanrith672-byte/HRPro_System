@@ -2147,7 +2147,7 @@ async function renderAttendance(date='') {
     state.employees = empData.employees;
     const label = new Date(today+'T00:00:00').toLocaleDateString('km-KH',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
     const isQR = getSession()?.role === 'QR Scanner';
-    const colCount = isQR ? 5 : 6;
+    const colCount = isQR ? 6 : 7;
 
     const attRows = attData.records.length===0
       ? '<tr><td colspan="'+colCount+'"><div class="empty-state" style="padding:30px"><p>មិនទាន់មានការកត់វត្តមានសម្រាប់ថ្ងៃនេះ</p></div></td></tr>'
@@ -2156,12 +2156,20 @@ async function renderAttendance(date='') {
           const av = photo
             ? '<div class="emp-avatar" style="background:'+getColor(a.employee_name)+';overflow:hidden;padding:0"><img src="'+photo+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/></div>'
             : '<div class="emp-avatar" style="background:'+getColor(a.employee_name)+'">'+(a.employee_name||'?')[0]+'</div>';
+          // Location + scanner cell
+          const locCell = (a.location_name || a.scanned_by)
+            ? '<div style="display:flex;flex-direction:column;gap:3px">'
+              +(a.location_name ? '<span style="font-size:11px;display:inline-flex;align-items:center;gap:3px;background:rgba(99,102,241,.12);color:rgba(99,102,241,1);border:1px solid rgba(99,102,241,.25);padding:2px 8px;border-radius:20px;font-weight:600;white-space:nowrap">📍 '+a.location_name+'</span>' : '')
+              +(a.scanned_by ? '<span style="font-size:10px;color:var(--text3);display:flex;align-items:center;gap:3px">📷 '+a.scanned_by+'</span>' : '')
+              +'</div>'
+            : '<span style="color:var(--text3);font-size:12px">—</span>';
           return '<tr>'
             +'<td><div class="employee-cell">'+av+'<div class="emp-name">'+a.employee_name+'</div></div></td>'
             +'<td>'+(a.department||'—')+'</td>'
             +'<td><span style="font-family:var(--mono);color:var(--success)">'+(a.check_in||'—')+'</span></td>'
             +'<td><span style="font-family:var(--mono);color:var(--text3)">'+(a.check_out||'—')+'</span></td>'
             +'<td>'+(a.status==='present'?'<span class="badge badge-green">✅ វត្តមាន</span>':a.status==='late'?'<span class="badge badge-yellow">⏰ យឺត</span>':'<span class="badge badge-red">❌ អវត្តមាន</span>')+'</td>'
+            +'<td>'+locCell+'</td>'
             +(!isQR
               ? '<td><div class="action-btns">'
                 +'<button class="btn btn-outline btn-sm" onclick="openEditAttModal('+a.id+',\''+a.employee_name+'\')">✏️</button>'
@@ -2181,7 +2189,7 @@ async function renderAttendance(date='') {
         +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>'
         +' 📊 តារាងប្រចាំខែ</button>';
 
-    const theadCols = '<th>បុគ្គលិក</th><th>នាយកដ្ឋាន</th><th>ម៉ោងចូល</th><th>ម៉ោងចេញ</th><th>ស្ថានភាព</th>'
+    const theadCols = '<th>បុគ្គលិក</th><th>នាយកដ្ឋាន</th><th>ម៉ោងចូល</th><th>ម៉ោងចេញ</th><th>ស្ថានភាព</th><th>📍 ទីតាំង / ស្កែន</th>'
       + (!isQR ? '<th>សកម្មភាព</th>' : '');
 
     contentArea().innerHTML =
@@ -3387,7 +3395,8 @@ async function processQRScan_continue(emp, raw, date) {
   const payload = { employee_id: emp.id, date };
   if (type === 'in')  { payload.check_in  = time; payload.status = status; }
   else                { payload.check_out = time; }
-  if (_curLoc) payload.location_id = _curLoc.id;
+  if (_locName)      payload.location_name = _locName;
+  if (_scannerName)  payload.scanned_by    = _scannerName;
 
   try {
     await api('POST', '/attendance', payload);
