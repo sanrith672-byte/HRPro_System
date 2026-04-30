@@ -795,16 +795,19 @@ async function ensureAccountsTable(env) {
     name TEXT NOT NULL,
     role TEXT DEFAULT 'Viewer',
     photo TEXT DEFAULT '',
+    employee_id INTEGER DEFAULT NULL,
     created_at TEXT,
     updated_at TEXT
   )`).run();
+  // Migration: add employee_id if not exists
+  try { await env.DB.prepare("ALTER TABLE user_accounts ADD COLUMN employee_id INTEGER DEFAULT NULL").run(); } catch(_) {}
 }
 
 async function getAccounts(env) {
   try {
     await ensureAccountsTable(env);
     const rows = await env.DB.prepare(
-      "SELECT id,username,name,role,photo,created_at,updated_at FROM user_accounts ORDER BY id ASC"
+      "SELECT id,username,name,role,photo,employee_id,created_at,updated_at FROM user_accounts ORDER BY id ASC"
     ).all();
     return json({ accounts: rows.results || [] });
   } catch(e) { return error(e.message); }
@@ -814,12 +817,12 @@ async function createAccount(request, env) {
   try {
     await ensureAccountsTable(env);
     const body = await request.json();
-    const { username, password, name, role = 'Viewer', photo = '' } = body;
+    const { username, password, name, role = 'Viewer', photo = '', employee_id = null } = body;
     if (!username || !password || !name) return error('username, password, name required');
     const now = new Date().toISOString();
     const result = await env.DB.prepare(
-      "INSERT INTO user_accounts(username,password,name,role,photo,created_at,updated_at) VALUES(?,?,?,?,?,?,?)"
-    ).bind(username, password, name, role, photo, now, now).run();
+      "INSERT INTO user_accounts(username,password,name,role,photo,employee_id,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?)"
+    ).bind(username, password, name, role, photo, employee_id, now, now).run();
     return json({ id: result.meta.last_row_id, username, name, role, message: 'created' }, 201);
   } catch(e) {
     if (e.message && e.message.includes('UNIQUE')) return error('Username នេះមានរួចហើយ!', 409);
@@ -831,18 +834,19 @@ async function updateAccount(id, request, env) {
   try {
     await ensureAccountsTable(env);
     const body = await request.json();
-    const { password, name, role, photo } = body;
+    const { password, name, role, photo, employee_id } = body;
     const now = new Date().toISOString();
     const existing = await env.DB.prepare("SELECT * FROM user_accounts WHERE id=?").bind(id).first();
     if (!existing) return error('Account not found', 404);
     await env.DB.prepare(
-      "UPDATE user_accounts SET name=?,role=?,photo=?,updated_at=?" +
+      "UPDATE user_accounts SET name=?,role=?,photo=?,employee_id=?,updated_at=?" +
       (password ? ",password=?" : "") +
       " WHERE id=?"
     ).bind(
       name || existing.name,
       role || existing.role,
       photo !== undefined ? photo : existing.photo,
+      employee_id !== undefined ? employee_id : existing.employee_id,
       now,
       ...(password ? [password] : []),
       id
@@ -1074,10 +1078,10 @@ async function handleLogin(request, env) {
     }
     // Check DB first
     const user = await env.DB.prepare(
-      "SELECT id, username, name, role, photo FROM user_accounts WHERE username=? AND password=?"
+      "SELECT id, username, name, role, photo, employee_id FROM user_accounts WHERE username=? AND password=?"
     ).bind(username, password).first();
     if (user) {
-      return json({ success: true, user: { id: user.id, username: user.username, name: user.name, role: user.role, photo: user.photo || '' } });
+      return json({ success: true, user: { id: user.id, username: user.username, name: user.name, role: user.role, photo: user.photo || '', employee_id: user.employee_id || null } });
     }
     // Check hardcoded adminsupport
     if (username === 'adminsupport' && password === 'admin') {
