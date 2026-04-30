@@ -3456,11 +3456,13 @@ async function processQRScan_continue(emp, raw, date) {
     const _scannerEmpId = _scanSess.employee_id || null;
     const _selfByName   = _scannerName && _empName && _scannerName === _empName;
     const _selfById     = _scannerEmpId && emp.id && parseInt(_scannerEmpId) === parseInt(emp.id);
-    if (_selfByName || _selfById) {
-      showToast('🚫 ' + (emp.name || '') + ' — QR Scanner មិនអាចស្កែន QR ខ្លួនឯងបាន!', 'error');
+    const _isSelf       = _selfByName || _selfById;
+    // QR Scanner can ONLY scan their own QR — block scanning others
+    if (!_isSelf) {
+      showToast('🚫 ' + (emp.name || '') + ' — QR Scanner អាចស្កែន QR តែខ្លួនឯងប៉ុណ្ណោះ!', 'error');
       const sv = document.getElementById('qr-scan-status');
       if (sv) {
-        sv.textContent = '🚫 មិនអនុញ្ញាត — ស្កែន QR ខ្លួនឯង';
+        sv.textContent = '🚫 មិនអនុញ្ញាត — ស្កែន QR អ្នកដទៃ';
         sv.style.background = 'rgba(239,71,111,.85)';
         setTimeout(() => {
           const sx = document.getElementById('qr-scan-status');
@@ -3476,7 +3478,7 @@ async function processQRScan_continue(emp, raw, date) {
         _eb.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;margin-bottom:6px;background:rgba(239,71,111,.08);border:1px solid rgba(239,71,111,.25)';
         _eb.innerHTML = '<span style="font-size:18px">🚫</span>'
           + '<div style="flex:1"><div style="font-weight:700;font-size:14px;color:var(--danger)">' + (emp.name||'') + '</div>'
-          + '<div style="font-size:12px;color:var(--text3)">មិនអនុញ្ញាត — ស្កែន QR ខ្លួនឯង</div></div>'
+          + '<div style="font-size:12px;color:var(--text3)">មិនអនុញ្ញាត — ស្កែន QR អ្នកដទៃ</div></div>'
           + '<div style="font-size:13px;font-weight:700;color:var(--text3)">' + _tb + '</div>';
         _logEl2.prepend(_eb);
       }
