@@ -216,6 +216,25 @@ async function handleRequest(request, env) {
     }
 
 
+    // ===== SCAN LOCATIONS =====
+    if (path === '/locations' || path.match(/^\/locations\/\d+$/)) {
+      await env.DB.prepare(`CREATE TABLE IF NOT EXISTS scan_locations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        description TEXT DEFAULT '',
+        created_at TEXT, updated_at TEXT
+      )`).run();
+    }
+    if (path === '/locations') {
+      if (method === 'GET') return getAll(env, 'scan_locations', '*', 'scan_locations', 'created_at DESC');
+      if (method === 'POST') return insertRecord(request, env, 'scan_locations', ['name','description']);
+    }
+    if (path.match(/^\/locations\/\d+$/)) {
+      const id = parseInt(path.split('/')[2]);
+      if (method === 'PUT') return updateRecord(id, request, env, 'scan_locations');
+      if (method === 'DELETE') return deleteRecord(id, env, 'scan_locations');
+    }
+
     if (path === '/stats' && method === 'GET') return getStats(env);
 
     // ===== INIT DB =====
