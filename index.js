@@ -282,6 +282,7 @@ async function getEmployees(request, env) {
     `ALTER TABLE employees ADD COLUMN bank_holder TEXT DEFAULT ''`,
     `ALTER TABLE employees ADD COLUMN photo_data TEXT DEFAULT ''`,
     `ALTER TABLE employees ADD COLUMN qr_data TEXT DEFAULT ''`,
+    `ALTER TABLE attendance ADD COLUMN scanner_id INTEGER DEFAULT NULL`,
     `ALTER TABLE employees ADD COLUMN termination_date TEXT DEFAULT ''`,
     `ALTER TABLE employees ADD COLUMN work_history TEXT DEFAULT ''`,
     `ALTER TABLE employees ADD COLUMN off_days TEXT DEFAULT '[]'`,
@@ -514,7 +515,9 @@ async function getAttendance(request, env) {
   `;
   const params = [];
 
+  const scannerId = url.searchParams.get('scanner_id');
   if (empId) { query += ' AND a.employee_id = ?'; params.push(empId); }
+  if (scannerId) { query += ' AND a.scanner_id = ?'; params.push(parseInt(scannerId)); }
   if (month) { query += " AND strftime('%Y-%m', a.date) = ?"; params.push(month); }
   else { query += ' AND a.date = ?'; params.push(date); }
 
@@ -544,7 +547,7 @@ async function createAttendance(request, env) {
   let body;
   try { body = await request.json(); } catch(_) { return error('Invalid JSON body'); }
 
-  const { employee_id, date, check_in, check_out, status, notes, location_name, scanned_by } = body || {};
+  const { employee_id, date, check_in, check_out, status, notes, scanner_id } = body || {};
 
   if (!employee_id) return error('employee_id is required');
 
@@ -561,15 +564,15 @@ async function createAttendance(request, env) {
     const newCheckOut = check_out || '';
     const newStatus = status || 'present';
     await env.DB.prepare(
-      'UPDATE attendance SET check_in=?, check_out=?, status=?, notes=?, location_name=CASE WHEN ?!=\'\'\' THEN ? ELSE location_name END, scanned_by=CASE WHEN ?!=\'\'\' THEN ? ELSE scanned_by END WHERE id=?'
-    ).bind(newCheckIn, newCheckOut, newStatus, notes||'', location_name||'', location_name||'', scanned_by||'', scanned_by||'', existing.id).run();
+      'UPDATE attendance SET check_in=?, check_out=?, status=?, notes=?, scanner_id=COALESCE(?,scanner_id) WHERE id=?'
+    ).bind(newCheckIn, newCheckOut, newStatus, notes||'', scanner_id||null, existing.id).run();
     return json({ message: 'Attendance updated', id: existing.id });
   }
 
   // Insert new record
   const result = await env.DB.prepare(
-    'INSERT INTO attendance (employee_id, date, check_in, check_out, status, notes, location_name, scanned_by, created_at) VALUES (?,?,?,?,?,?,?,?,datetime(\'now\'))'
-  ).bind(parseInt(employee_id), attDate, check_in||'', check_out||'', status||'present', notes||'', location_name||'', scanned_by||'').run();
+    'INSERT INTO attendance (employee_id, date, check_in, check_out, status, notes, scanner_id, created_at) VALUES (?,?,?,?,?,?,?,datetime(\'now\'))'
+  ).bind(parseInt(employee_id), attDate, check_in||'', check_out||'', status||'present', notes||'', scanner_id||null).run();
 
   return json({ message: 'Attendance recorded', id: result.meta.last_row_id }, 201);
 }
@@ -901,6 +904,7 @@ async function initDatabase(env) {
       check_out TEXT DEFAULT '',
       status TEXT DEFAULT 'present',
       notes TEXT DEFAULT '',
+      scanner_id INTEGER DEFAULT NULL,
       created_at TEXT,
       UNIQUE(employee_id, date)
     )`,
@@ -1039,9 +1043,6 @@ async function initDatabase(env) {
     // employees — off_days (personal weekly day off)
     `ALTER TABLE employees ADD COLUMN off_days TEXT DEFAULT '[]'`,
     `ALTER TABLE employees ADD COLUMN work_location TEXT DEFAULT ''`,
-    // attendance — scan location + scanner name
-    `ALTER TABLE attendance ADD COLUMN location_name TEXT DEFAULT ''`,
-    `ALTER TABLE attendance ADD COLUMN scanned_by TEXT DEFAULT ''`,
   ];
   for (const m of migrations) {
     try { await env.DB.prepare(m).run(); } catch(_) { /* column already exists — OK */ }
