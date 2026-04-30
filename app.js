@@ -343,6 +343,7 @@ const PAGE_PERMS = {
   id_card:         'id_card_print',
   leave:           'leave_view',
   dayswap:         'dayswap_view',
+  locations:       'locations_view',
   settings:        'settings_access',
   dashboard:       null, // always allowed
 };
@@ -400,6 +401,7 @@ function navigate(page) {
     expenses:'ស្នើរប្រាក់ចំណាយ', general_expense:'ការចំណាយទូទៅ',
     id_card:'កាតសម្គាល់ខ្លួនបុគ្គលិក', leave:'ច្បាប់ឈប់សម្រាក',
     dayswap:'ស្នើប្តូរថ្ងៃឈប់សម្រាក',
+    locations:'ទីតាំងស្កេន',
     settings:'ការកំណត់ប្រព័ន្ធ',
   };
   $('page-title').textContent = titles[page] || page;
@@ -413,6 +415,7 @@ function navigate(page) {
     overtime:renderOvertime, allowance:renderAllowance, loans:renderLoans,
     expenses:renderExpenses, general_expense:renderGeneralExpense,
     id_card:renderIdCard, leave:renderLeave, dayswap:renderDaySwap, settings:renderSettings,
+    locations:renderLocations,
   }[page] || renderDashboard)();
 }
 
@@ -715,6 +718,7 @@ function getPermissions() {
       loans_view:true, loans_edit:false,
       expenses_view:true, expenses_edit:true,
       id_card_print:true, settings_access:false,
+      locations_view:true, locations_edit:true,
     },
     'Finance': {
       employees_view:true, employees_edit:false, employees_delete:false,
@@ -729,6 +733,7 @@ function getPermissions() {
       loans_view:true, loans_edit:true,
       expenses_view:true, expenses_edit:true,
       id_card_print:false, settings_access:false,
+      locations_view:true, locations_edit:false,
     },
     'Viewer': {
       employees_view:true, employees_edit:false, employees_delete:false,
@@ -743,6 +748,7 @@ function getPermissions() {
       loans_view:false, loans_edit:false,
       expenses_view:false, expenses_edit:false,
       id_card_print:false, settings_access:false,
+      locations_view:true, locations_edit:false,
     },
     'QR Scanner': {
       employees_view:false, employees_edit:false, employees_delete:false,
@@ -757,6 +763,7 @@ function getPermissions() {
       loans_view:false, loans_edit:false,
       expenses_view:false, expenses_edit:false,
       id_card_print:false, settings_access:false,
+      locations_view:true, locations_edit:false,
     },
   };
   try {
@@ -3225,6 +3232,20 @@ function findEmployeeByQR(raw) {
 async function processQRScan(raw, date) {
   if (!raw || !raw.trim()) { showToast('សូមបញ្ចូល ID!', 'error'); return; }
 
+  // ── Handle Location QR codes (format: LOC:id:name) ──
+  if (raw.startsWith('LOC:')) {
+    const parts = raw.split(':');
+    const locName = parts.slice(2).join(':') || 'ទីតាំង';
+    showToast('📍 QR ទីតាំង: ' + locName + ' — សូមស្កែន QR បុគ្គលិក', 'info');
+    const s = document.getElementById('qr-scan-status');
+    if (s) { s.textContent = '📍 ទីតាំង: ' + locName; s.style.background = 'rgba(99,102,241,.8)'; }
+    setTimeout(() => {
+      const sx = document.getElementById('qr-scan-status');
+      if (sx) { sx.textContent = '📷 កំពុងស្កេន...'; sx.style.background = 'rgba(0,0,0,.6)'; }
+    }, 2500);
+    return;
+  }
+
   // ── Ensure employees loaded (always refresh for QR scan accuracy) ──
   if (!state.employees || state.employees.length === 0) {
     try {
@@ -3291,6 +3312,12 @@ async function processQRScan_continue(emp, raw, date) {
     // ── AUTO STOP + CLOSE after success ──────────────────
     setTimeout(() => {
       stopQRScanner();
+      // Get QR Scanner (operator) name from session
+      const _sess = getSession();
+      const _scannerName = (_sess && _sess.name) ? _sess.name : '';
+      const _scannerRole = (_sess && _sess.role) ? _sess.role : '';
+      const _showScanner = _scannerName && _scannerRole === 'QR Scanner';
+
       // Show brief success overlay then close
       const overlay = document.createElement('div');
       overlay.style.cssText = 'position:fixed;inset:0;background:rgba(6,214,160,.15);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;pointer-events:none';
@@ -3299,13 +3326,26 @@ async function processQRScan_continue(emp, raw, date) {
         ? '<img src="'+_ovPhoto+'" style="width:80px;height:80px;border-radius:50%;object-fit:cover;border:3px solid var(--success);margin-bottom:10px"/>'
         : '<div style="width:80px;height:80px;border-radius:50%;background:'+getColor(emp.name)+';display:flex;align-items:center;justify-content:center;color:white;font-size:28px;font-weight:700;margin-bottom:10px;border:3px solid var(--success)">'+emp.name[0]+'</div>';
       overlay.innerHTML =
-        '<div style="background:var(--bg2);border:2px solid var(--success);border-radius:20px;padding:28px 40px;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.5);max-width:320px;width:90vw">'
+        '<div style="background:var(--bg2);border:2px solid var(--success);border-radius:20px;padding:28px 40px;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.5);max-width:340px;width:90vw">'
         +'<div style="display:flex;flex-direction:column;align-items:center">'
         + _ovAvatar
         +'<div style="font-size:32px;margin-bottom:6px">'+(type==='in'?'✅':'🚪')+'</div>'
         +'<div style="font-size:18px;font-weight:800;color:var(--text)">'+emp.name+'</div>'
-        +'<div style="font-size:13px;color:var(--success);font-weight:700;margin-top:4px">'+(type==='in'?'ចូល ':'ចេញ ')+time+(isLate?' ⏰ យឺត':'')+'</div>'
+        // Time badge — large and prominent
+        +'<div style="background:'+(type==='in'?'rgba(6,214,160,.15)':'rgba(255,107,53,.12)')+';border:1.5px solid '+(type==='in'?'var(--success)':'var(--primary)')+';border-radius:12px;padding:8px 20px;margin-top:10px;display:flex;align-items:center;gap:8px">'
+        +'<span style="font-size:22px">'+(type==='in'?'⏱️':'🕐')+'</span>'
+        +'<div style="text-align:left">'
+        +'<div style="font-size:11px;color:var(--text3);font-weight:600">'+(type==='in'?'ម៉ោងចូល':'ម៉ោងចេញ')+'</div>'
+        +'<div style="font-size:20px;font-weight:900;color:'+(type==='in'?'var(--success)':'var(--primary)')+'">'+time+(isLate?' ⏰':'')+'</div>'
+        +'</div></div>'
         +'<div style="font-size:11px;color:var(--text3);margin-top:8px">'+(emp.custom_id||emp.department_name||'')+'</div>'
+        // QR Scanner operator info
+        +(_showScanner
+          ? '<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);width:100%;text-align:center">'
+            +'<div style="font-size:10px;color:var(--text3);margin-bottom:2px">ស្កែនដោយ</div>'
+            +'<div style="font-size:12px;font-weight:700;color:var(--text2)">📷 '+_scannerName+'</div>'
+            +'</div>'
+          : '')
         +'</div>'
         +'</div>';
       document.body.appendChild(overlay);
@@ -3313,7 +3353,7 @@ async function processQRScan_continue(emp, raw, date) {
         overlay.remove();
         closeModal();
         renderAttendance(date);
-      }, 1400);
+      }, 1800);
     }, 300);
 
     // Log entry
@@ -3325,13 +3365,18 @@ async function processQRScan_continue(emp, raw, date) {
         : '<div style="width:28px;height:28px;border-radius:50%;background:'+getColor(emp.name)+';display:flex;align-items:center;justify-content:center;color:white;font-size:11px;font-weight:700;flex-shrink:0">'+emp.name[0]+'</div>';
       const borderColor = type === 'in' ? 'rgba(6,214,160,.3)' : 'rgba(255,107,53,.3)';
       const textColor   = type === 'in' ? 'var(--success)' : 'var(--primary)';
+      // Scanner info for log
+      const _ls = getSession();
+      const _lsName = (_ls && _ls.role === 'QR Scanner' && _ls.name) ? _ls.name : '';
       log.innerHTML =
         '<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--bg3);border-radius:8px;margin-bottom:5px;border-left:3px solid '+borderColor+'">'
         + av
         + '<div style="min-width:0"><div style="font-weight:700;font-size:12px">'+emp.name+'</div>'
-        + '<div style="font-size:10px;color:var(--text3)">'+(emp.custom_id||'EMP'+String(emp.id).padStart(3,'0'))+' · '+emp.department_name+'</div></div>'
+        + '<div style="font-size:10px;color:var(--text3)">'+(emp.custom_id||'EMP'+String(emp.id).padStart(3,'0'))+' · '+emp.department_name+'</div>'
+        + (_lsName ? '<div style="font-size:9px;color:var(--text3)">📷 '+_lsName+'</div>' : '')
+        + '</div>'
         + '<div style="margin-left:auto;text-align:right;flex-shrink:0">'
-        + '<div style="font-size:11px;font-weight:700;color:'+textColor+'">'+(type==='in'?'▶ ':'◀ ')+time+'</div>'
+        + '<div style="font-size:13px;font-weight:800;color:'+textColor+'">'+(type==='in'?'▶ ':'◀ ')+time+'</div>'
         + '<div style="font-size:9px;color:var(--text3)">'+(type==='in'?(isLate?'⏰ យឺត':'✅ ទាន់'):'🚪 ចេញ')+'</div>'
         + '</div></div>'
         + log.innerHTML;
@@ -7108,6 +7153,155 @@ function applyCompanyBranding() {
 }
 
 // ============================================================
+// ============================================================
+// SCAN LOCATIONS — ទីតាំងស្កេន
+// ============================================================
+async function renderLocations() {
+  showLoading();
+  try {
+    const data = await api('GET', '/locations').catch(() => ({ records: [] }));
+    const locs = data.records || [];
+    const canEdit = hasPerm('locations_edit');
+
+    contentArea().innerHTML = `
+      <div class="page-header">
+        <div>
+          <h2>📍 ទីតាំងស្កេន</h2>
+          <p>គ្រប់គ្រងទីតាំង និង QR Code សម្រាប់ស្កេន</p>
+        </div>
+        ${canEdit ? `<button class="btn btn-primary" onclick="openLocationModal()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          បន្ថែមទីតាំង
+        </button>` : ''}
+      </div>
+
+      ${locs.length === 0 ? `
+        <div class="card" style="padding:60px;text-align:center">
+          <div style="font-size:48px;margin-bottom:16px">📍</div>
+          <div style="font-size:16px;font-weight:700;color:var(--text2);margin-bottom:8px">មិនទាន់មានទីតាំង</div>
+          <div style="font-size:13px;color:var(--text3);margin-bottom:20px">បន្ថែមទីតាំងដំបូងដើម្បីបង្កើត QR Code</div>
+          ${canEdit ? `<button class="btn btn-primary" onclick="openLocationModal()">+ បន្ថែមទីតាំង</button>` : ''}
+        </div>
+      ` : `
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:18px">
+          ${locs.map(loc => `
+            <div class="card" style="padding:20px;display:flex;flex-direction:column;gap:14px">
+              <!-- Header -->
+              <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:15px;font-weight:800;color:var(--text);margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+                    📍 ${loc.name}
+                  </div>
+                  <div style="font-size:12px;color:var(--text3)">${loc.description || 'គ្មានការពិពណ៌នា'}</div>
+                </div>
+                ${canEdit ? `<div style="display:flex;gap:6px;flex-shrink:0">
+                  <button class="btn btn-outline btn-sm" onclick="openLocationModal(${loc.id})" style="border-color:var(--info);color:var(--info)">✏️</button>
+                  <button class="btn btn-danger btn-sm" onclick="deleteLocationRecord(${loc.id})">🗑️</button>
+                </div>` : ''}
+              </div>
+              <!-- QR Code -->
+              <div style="display:flex;flex-direction:column;align-items:center;background:var(--bg3);border-radius:12px;padding:16px;gap:10px">
+                <div id="loc-qr-${loc.id}" style="width:140px;height:140px;background:#fff;border-radius:8px;padding:6px;display:flex;align-items:center;justify-content:center" data-qrtext="${encodeURIComponent('LOC:'+loc.id+':'+loc.name)}" data-qrsize="128"></div>
+                <div style="font-size:11px;color:var(--text3);text-align:center">QR Code — ស្កែន QR នេះ ដើម្បីកត់វត្តមាន</div>
+              </div>
+              <!-- Download button -->
+              <button class="btn btn-outline btn-sm" style="width:100%;font-size:12px" onclick="downloadLocationQR(${loc.id},'${loc.name.replace(/'/g,"\\'")}')">
+                ⬇️ ទាញយក QR Code
+              </button>
+            </div>
+          `).join('')}
+        </div>
+      `}
+    `;
+
+    // Render QR codes
+    loadQRLib(() => {
+      locs.forEach(loc => {
+        const el = document.getElementById('loc-qr-' + loc.id);
+        if (el && window.QRCode) {
+          el.innerHTML = '';
+          new QRCode(el, {
+            text: 'LOC:' + loc.id + ':' + loc.name,
+            width: 128, height: 128,
+            correctLevel: QRCode.CorrectLevel.M
+          });
+        }
+      });
+    });
+
+  } catch(e) { showError(e.message); }
+}
+
+async function openLocationModal(id = null) {
+  let rec = null;
+  if (id) {
+    try { rec = (await api('GET', '/locations')).records?.find(r => r.id === id); } catch(_) {}
+  }
+  $('modal-title').textContent = id ? '✏️ កែទីតាំង' : '📍 បន្ថែមទីតាំងថ្មី';
+  $('modal-body').innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:14px;padding:4px 0">
+      <div class="form-group">
+        <label class="form-label">ឈ្មោះទីតាំង *</label>
+        <input class="form-control" id="loc-name" placeholder="ឧ. ច្រកចូលមុខ, ការិយាល័យ A, ជាន់ ២..." value="${rec?.name || ''}" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">ការពិពណ៌នា</label>
+        <input class="form-control" id="loc-desc" placeholder="ការពិពណ៌នា (ស្រេចចិត្ត)..." value="${rec?.description || ''}" />
+      </div>
+      <div style="display:flex;gap:10px;margin-top:4px">
+        <button class="btn btn-outline" style="flex:1" onclick="closeModal()">បោះបង់</button>
+        <button class="btn btn-primary" style="flex:1" onclick="saveLocation(${id || 'null'})">
+          ${id ? '💾 រក្សាទុក' : '➕ បន្ថែម'}
+        </button>
+      </div>
+    </div>
+  `;
+  openModal();
+  setTimeout(() => document.getElementById('loc-name')?.focus(), 100);
+}
+
+async function saveLocation(id) {
+  const name = document.getElementById('loc-name')?.value.trim();
+  if (!name) { showToast('សូមបញ្ចូលឈ្មោះទីតាំង!', 'error'); return; }
+  const desc = document.getElementById('loc-desc')?.value.trim() || '';
+  try {
+    if (id) {
+      await api('PUT', '/locations/' + id, { name, description: desc });
+      showToast('កែទីតាំងបានជោគជ័យ! 📍', 'success');
+    } else {
+      await api('POST', '/locations', { name, description: desc });
+      showToast('បន្ថែមទីតាំងបានជោគជ័យ! 📍', 'success');
+    }
+    closeModal();
+    renderLocations();
+  } catch(e) { showToast('Error: ' + e.message, 'error'); }
+}
+
+async function deleteLocationRecord(id) {
+  if (!confirm('តើអ្នកចង់លុបទីតាំងនេះ?')) return;
+  try {
+    await api('DELETE', '/locations/' + id);
+    showToast('លុបទីតាំងបានជោគជ័យ!', 'success');
+    renderLocations();
+  } catch(e) { showToast('Error: ' + e.message, 'error'); }
+}
+
+function downloadLocationQR(id, name) {
+  const el = document.getElementById('loc-qr-' + id);
+  if (!el) return;
+  const canvas = el.querySelector('canvas');
+  const img = el.querySelector('img');
+  let src = null;
+  if (canvas) src = canvas.toDataURL('image/png');
+  else if (img) src = img.src;
+  if (!src) { showToast('QR មិនទាន់ generate!', 'error'); return; }
+  const a = document.createElement('a');
+  a.href = src;
+  a.download = 'QR-' + name + '.png';
+  a.click();
+}
+
+// ============================================================
 // DAY SWAP — ប្តូរថ្ងៃឈប់សម្រាក
 // ============================================================
 async function renderDaySwap() {
@@ -8053,6 +8247,10 @@ function renderSettings() {
                 { key:'dayswap_view',        label:'👁️ មើលការប្តូរថ្ងៃ' },
                 { key:'dayswap_edit',        label:'✏️ ស្នើ / កែ / លុប ការប្តូរថ្ងៃ' },
                 { key:'dayswap_approve',     label:'✅ អនុម័ត / បដិសេធ ការប្តូរថ្ងៃ' },
+                // --- Group: ទីតាំង ---
+                { group: '📍 ទីតាំងស្កេន' },
+                { key:'locations_view',      label:'👁️ មើល / ប្រើ QR ទីតាំង' },
+                { key:'locations_edit',      label:'✏️ បន្ថែម / កែ / លុប ទីតាំង' },
                 // --- Group: ប្រាក់ខ្ចី ---
                 { group: '💰 ប្រាក់ខ្ចី' },
                 { key:'loans_view',          label:'👁️ មើលប្រាក់ខ្ចី' },
