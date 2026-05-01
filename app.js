@@ -354,8 +354,8 @@ function updateNavVisibility() {
   // Sidebar nav
   document.querySelectorAll('.nav-item[data-page]').forEach(el => {
     const page = el.dataset.page;
-    // Hide dashboard & attendance for QR Scanner
-    if (isQRScanner && (page === 'dashboard' || page === 'attendance')) {
+    // Hide dashboard, attendance & dayswap for QR Scanner
+    if (isQRScanner && (page === 'dashboard' || page === 'attendance' || page === 'dayswap')) {
       el.style.display = 'none'; return;
     }
     const permKey = PAGE_PERMS[page];
@@ -367,8 +367,8 @@ function updateNavVisibility() {
   document.querySelectorAll('.mob-nav-btn[data-mob-page]').forEach(el => {
     const page = el.dataset.mobPage;
     if (page === 'more') return;
-    // Hide dashboard & attendance for QR Scanner
-    if (isQRScanner && (page === 'dashboard' || page === 'attendance')) {
+    // Hide dashboard, attendance & dayswap for QR Scanner
+    if (isQRScanner && (page === 'dashboard' || page === 'attendance' || page === 'dayswap')) {
       el.style.display = 'none'; return;
     }
     const permKey = PAGE_PERMS[page];
@@ -753,7 +753,7 @@ function getPermissions() {
       allowance_view:false, allowance_edit:false,
       reports_view:false, reports_export:false,
       leave_view:true, leave_edit:true, leave_approve:false,
-      dayswap_view:true, dayswap_edit:true, dayswap_approve:false,
+      dayswap_view:false, dayswap_edit:false, dayswap_approve:false,
       loans_view:false, loans_edit:false,
       expenses_view:false, expenses_edit:false,
       id_card_print:false, settings_access:false,
@@ -1923,6 +1923,7 @@ function openQuickLeaveModal(empId, empName) {
     +'<div class="form-group"><label class="form-label">ប្រភេទ *</label>'
     +'<select class="form-control" id="ql-type" onchange="calcQLDays()">'
     +'<option>ច្បាប់ប្រចាំឆ្នាំ</option>'
+    +'<option>ច្បាប់ប្រចាំខែ</option>'
     +'<option>ច្បាប់ជំងឺ</option>'
     +'<option>ច្បាប់សម្ភព</option>'
     +'<option>ច្បាប់អាពាហ៍ពិពាហ៍</option>'
@@ -7095,9 +7096,10 @@ async function openLeaveModal() {
       </div>
       <div class="form-group"><label class="form-label">ប្រភេទ *</label>
         <select class="form-control" id="lv-type" onchange="calcLeaveDays()">
-          <option>ច្បាប់ប្រចាំឆ្នាំ</option><option>ច្បាប់ជំងឺ</option>
-          <option>ច្បាប់សម្ភព</option><option>ច្បាប់អាពាហ៍ពិពាហ៍</option>
-          <option>ច្បាប់ស្ដីអំពីការស្លាប់</option><option>ច្បាប់គ្មានប្រាក់</option>
+          <option>ច្បាប់ប្រចាំឆ្នាំ</option><option>ច្បាប់ប្រចាំខែ</option>
+          <option>ច្បាប់ជំងឺ</option><option>ច្បាប់សម្ភព</option>
+          <option>ច្បាប់អាពាហ៍ពិពាហ៍</option><option>ច្បាប់ស្ដីអំពីការស្លាប់</option>
+          <option>ច្បាប់គ្មានប្រាក់</option>
         </select></div>
       <div class="form-group"><label class="form-label">ថ្ងៃចាប់ផ្តើម *</label><input class="form-control" id="lv-start" type="date" value="${today()}" onchange="calcLeaveDays()" /></div>
       <div class="form-group"><label class="form-label">ថ្ងៃបញ្ចប់ *</label><input class="form-control" id="lv-end" type="date" value="${today()}" onchange="calcLeaveDays()" /></div>
