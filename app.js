@@ -354,8 +354,8 @@ function updateNavVisibility() {
   // Sidebar nav
   document.querySelectorAll('.nav-item[data-page]').forEach(el => {
     const page = el.dataset.page;
-    // Hide dashboard, attendance & dayswap for QR Scanner
-    if (isQRScanner && (page === 'dashboard' || page === 'attendance' || page === 'dayswap')) {
+    // Hide dashboard & attendance for QR Scanner
+    if (isQRScanner && (page === 'dashboard' || page === 'attendance')) {
       el.style.display = 'none'; return;
     }
     const permKey = PAGE_PERMS[page];
@@ -367,8 +367,8 @@ function updateNavVisibility() {
   document.querySelectorAll('.mob-nav-btn[data-mob-page]').forEach(el => {
     const page = el.dataset.mobPage;
     if (page === 'more') return;
-    // Hide dashboard, attendance & dayswap for QR Scanner
-    if (isQRScanner && (page === 'dashboard' || page === 'attendance' || page === 'dayswap')) {
+    // Hide dashboard & attendance for QR Scanner
+    if (isQRScanner && (page === 'dashboard' || page === 'attendance')) {
       el.style.display = 'none'; return;
     }
     const permKey = PAGE_PERMS[page];
@@ -753,7 +753,7 @@ function getPermissions() {
       allowance_view:false, allowance_edit:false,
       reports_view:false, reports_export:false,
       leave_view:true, leave_edit:true, leave_approve:false,
-      dayswap_view:false, dayswap_edit:false, dayswap_approve:false,
+      dayswap_view:true, dayswap_edit:false, dayswap_approve:false,
       loans_view:false, loans_edit:false,
       expenses_view:false, expenses_edit:false,
       id_card_print:false, settings_access:false,
