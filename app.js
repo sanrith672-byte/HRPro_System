@@ -1922,8 +1922,8 @@ function openQuickLeaveModal(empId, empName) {
     +'<div class="form-grid">'
     +'<div class="form-group"><label class="form-label">ប្រភេទ *</label>'
     +'<select class="form-control" id="ql-type" onchange="calcQLDays()">'
-    +'<option>ច្បាប់ប្រចាំឆ្នាំ</option>'
     +'<option>ច្បាប់ប្រចាំខែ</option>'
+    +'<option>ច្បាប់ប្រចាំឆ្នាំ</option>'
     +'<option>ច្បាប់ជំងឺ</option>'
     +'<option>ច្បាប់សម្ភព</option>'
     +'<option>ច្បាប់អាពាហ៍ពិពាហ៍</option>'
@@ -7096,7 +7096,7 @@ async function openLeaveModal() {
       </div>
       <div class="form-group"><label class="form-label">ប្រភេទ *</label>
         <select class="form-control" id="lv-type" onchange="calcLeaveDays()">
-          <option>ច្បាប់ប្រចាំឆ្នាំ</option><option>ច្បាប់ប្រចាំខែ</option>
+          <option>ច្បាប់ប្រចាំខែ</option><option>ច្បាប់ប្រចាំឆ្នាំ</option>
           <option>ច្បាប់ជំងឺ</option><option>ច្បាប់សម្ភព</option>
           <option>ច្បាប់អាពាហ៍ពិពាហ៍</option><option>ច្បាប់ស្ដីអំពីការស្លាប់</option>
           <option>ច្បាប់គ្មានប្រាក់</option>
