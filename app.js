@@ -710,7 +710,7 @@ function getPermissions() {
       overtime_view:true, overtime_edit:true,
       allowance_view:true, allowance_edit:true,
       reports_view:true, reports_export:true,
-      leave_view:true, leave_edit:true,
+      leave_view:true, leave_edit:true, leave_approve:true,
       dayswap_view:true, dayswap_edit:true, dayswap_approve:true,
       loans_view:true, loans_edit:false,
       expenses_view:true, expenses_edit:true,
@@ -752,7 +752,7 @@ function getPermissions() {
       overtime_view:false, overtime_edit:false,
       allowance_view:false, allowance_edit:false,
       reports_view:false, reports_export:false,
-      leave_view:false, leave_edit:false,
+      leave_view:true, leave_edit:true, leave_approve:false,
       dayswap_view:true, dayswap_edit:true, dayswap_approve:false,
       loans_view:false, loans_edit:false,
       expenses_view:false, expenses_edit:false,
@@ -6997,14 +6997,32 @@ function idCardPortraitHTML(e, style, cfg) {
 async function renderLeave() {
   showLoading();
   try {
+    const session = getSession();
+    const isAdminRole = session && (
+      session.role === 'អ្នកគ្រប់គ្រង' ||
+      session.role?.toLowerCase() === 'admin' ||
+      session.username === 'admin' ||
+      session.username === 'adminsupport'
+    );
+    const isQRScanner = session?.role === 'QR Scanner';
+    // Non-admin, non-HR roles only see their own records
+    const selfOnly = isQRScanner && !isAdminRole;
+
     const data = await api('GET','/leave');
-    const records = data.records || [];
+    let records = data.records || [];
+
+    // QR Scanner → show only own records (match by name)
+    if (selfOnly) {
+      const myName = (session?.name || '').trim().toLowerCase();
+      records = records.filter(r => (r.employee_name||'').trim().toLowerCase() === myName);
+    }
+
     const pending = records.filter(r=>r.status==='pending').length;
     const approved = records.filter(r=>r.status==='approved').length;
     const totalDays = records.filter(r=>r.status==='approved').reduce((s,r)=>s+(r.days||0),0);
     contentArea().innerHTML = `
       <div class="page-header">
-        <div><h2>ច្បាប់ឈប់សម្រាក</h2><p>គ្រប់គ្រងការឈប់សម្រាក</p></div>
+        <div><h2>ច្បាប់ឈប់សម្រាក</h2><p>${selfOnly ? 'ការស្នើរច្បាប់របស់ '+session.name : 'គ្រប់គ្រងការឈប់សម្រាក'}</p></div>
         <button class="btn btn-primary" onclick="openLeaveModal()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           ស្នើរច្បាប់
@@ -7033,10 +7051,11 @@ async function renderLeave() {
             <td style="color:var(--text3)">${r.reason||'—'}</td>
             <td>${r.status==='approved'?'<span class="badge badge-green">✅ អនុម័ត</span>':r.status==='rejected'?'<span class="badge badge-red">❌ បដិសេធ</span>':'<span class="badge badge-yellow">⏳ រង់ចាំ</span>'}</td>
             <td><div class="action-btns">
-              ${r.status==='pending'?`
+              ${!selfOnly && r.status==='pending' && hasPerm('leave_approve') ? `
                 <button class="btn btn-success btn-sm" onclick="updateLeave(${r.id},'approved')">✅</button>
-                <button class="btn btn-danger btn-sm" onclick="updateLeave(${r.id},'rejected')">❌</button>`:''}
-              <button class="btn btn-danger btn-sm" onclick="deleteRecord('leave',${r.id},renderLeave)">🗑️</button>
+                <button class="btn btn-danger btn-sm" onclick="updateLeave(${r.id},'rejected')">❌</button>` : ''}
+              ${!selfOnly && hasPerm('leave_edit') ? `<button class="btn btn-danger btn-sm" onclick="deleteRecord('leave',${r.id},renderLeave)">🗑️</button>` : ''}
+              ${selfOnly && r.status==='pending' ? `<button class="btn btn-danger btn-sm" onclick="deleteRecord('leave',${r.id},renderLeave)" title="លុបការស្នើ">🗑️</button>` : ''}
             </div></td>
           </tr>`).join('')}
         </tbody>
@@ -7046,11 +7065,34 @@ async function renderLeave() {
 
 async function openLeaveModal() {
   await ensureEmployees();
+  const session = getSession();
+  const isAdminRole = session && (
+    session.role === 'អ្នកគ្រប់គ្រង' ||
+    session.role?.toLowerCase() === 'admin' ||
+    session.username === 'admin' ||
+    session.username === 'adminsupport'
+  );
+  const isQRScanner = session?.role === 'QR Scanner';
+  const selfOnly = isQRScanner && !isAdminRole;
+
+  // Find matched employee by session name
+  const sessionName = (session?.name || '').trim().toLowerCase();
+  const matchedEmp = state.employees.find(e => (e.name||'').trim().toLowerCase() === sessionName);
+
   $('modal-title').textContent = 'ស្នើរច្បាប់ឈប់សម្រាក';
   $('modal-body').innerHTML = `
     <div class="form-grid">
       <div class="form-group full-width"><label class="form-label">បុគ្គលិក *</label>
-        <select class="form-control" id="lv-emp">${state.employees.map(e=>`<option value="${e.id}">${e.name}</option>`).join('')}</select></div>
+        ${selfOnly && matchedEmp
+          ? `<div style="display:flex;align-items:center;gap:10px;background:var(--bg3);border:1.5px solid var(--border);border-radius:8px;padding:10px 14px">
+              <div class="emp-avatar" style="background:${getColor(matchedEmp.name)};width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:15px;flex-shrink:0">${matchedEmp.name[0]}</div>
+              <span style="font-weight:600;font-size:15px">${matchedEmp.name}</span>
+              <span style="margin-left:auto;font-size:12px;color:var(--text3);background:var(--bg2);padding:2px 8px;border-radius:12px">🔒 Auto</span>
+              <input type="hidden" id="lv-emp" value="${matchedEmp.id}"/>
+            </div>`
+          : `<select class="form-control" id="lv-emp">${state.employees.map(e=>`<option value="${e.id}">${e.name}</option>`).join('')}</select>`
+        }
+      </div>
       <div class="form-group"><label class="form-label">ប្រភេទ *</label>
         <select class="form-control" id="lv-type" onchange="calcLeaveDays()">
           <option>ច្បាប់ប្រចាំឆ្នាំ</option><option>ច្បាប់ជំងឺ</option>
@@ -8362,7 +8404,8 @@ function renderSettings() {
                 // --- Group: ច្បាប់ & ប្តូរថ្ងៃ ---
                 { group: '🌴 ច្បាប់ & ប្តូរថ្ងៃ' },
                 { key:'leave_view',          label:'👁️ មើលច្បាប់' },
-                { key:'leave_edit',          label:'✏️ អនុម័ត / លុប ច្បាប់' },
+                { key:'leave_edit',          label:'✏️ ស្នើ / លុប ច្បាប់' },
+                { key:'leave_approve',       label:'✅ អនុម័ត / បដិសេធ ច្បាប់' },
                 { key:'dayswap_view',        label:'👁️ មើលការប្តូរថ្ងៃ' },
                 { key:'dayswap_edit',        label:'✏️ ស្នើ / កែ / លុប ការប្តូរថ្ងៃ' },
                 { key:'dayswap_approve',     label:'✅ អនុម័ត / បដិសេធ ការប្តូរថ្ងៃ' },
