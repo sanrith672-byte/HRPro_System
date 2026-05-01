@@ -753,7 +753,7 @@ function getPermissions() {
       allowance_view:false, allowance_edit:false,
       reports_view:false, reports_export:false,
       leave_view:true, leave_edit:true, leave_approve:false,
-      dayswap_view:true, dayswap_edit:false, dayswap_approve:false,
+      dayswap_view:true, dayswap_edit:true, dayswap_approve:false,
       loans_view:false, loans_edit:false,
       expenses_view:false, expenses_edit:false,
       id_card_print:false, settings_access:false,
