@@ -7474,13 +7474,35 @@ async function openDaySwapModal(id = null) {
     window._dsEmps = empMap;
     window._dsWdNames = wdNames;
 
+    // ── AUTO-FILL: match current session name to employee list ──
+    const session = getSession();
+    const isAdminRole = session && (
+      session.role === 'អ្នកគ្រប់គ្រង' ||
+      session.role?.toLowerCase() === 'admin' ||
+      session.username === 'admin' ||
+      session.username === 'adminsupport'
+    );
+
+    // Find employee whose name matches the logged-in user (case-insensitive trim)
+    const sessionName = (session?.name || '').trim().toLowerCase();
+    const matchedEmp = emps.find(e => (e.name||'').trim().toLowerCase() === sessionName);
+
+    // When editing an existing record, always show the stored employee
+    // When creating new: default to matched employee (if found), else first emp
+    const defaultEmpId = rec
+      ? rec.employee_id
+      : (matchedEmp ? matchedEmp.id : (emps[0]?.id ?? null));
+
     const empOptions = emps.map(e => {
       const offDays = parseOffDays(e);
-      return `<option value="${e.id}" data-offdays="${JSON.stringify(offDays)}" ${rec?.employee_id===e.id?'selected':''}>${e.name}</option>`;
+      return `<option value="${e.id}" data-offdays="${JSON.stringify(offDays)}" ${e.id===defaultEmpId?'selected':''}>${e.name}</option>`;
     }).join('');
 
+    // Lock the dropdown for non-admin users who have a matched employee
+    const lockEmpSelect = !id && !isAdminRole && matchedEmp;
+
     // Determine initial employee & their off days
-    const initEmp = rec ? emps.find(e=>e.id===rec.employee_id) : emps[0];
+    const initEmp = emps.find(e => e.id === defaultEmpId) || emps[0];
     const initOffDays = initEmp ? parseOffDays(initEmp) : [0];
     const initWorkDay = rec?.work_day ?? (initOffDays.length ? initOffDays[0] : 0);
     const initOffDay  = rec?.off_day  ?? -1;
@@ -7495,7 +7517,15 @@ async function openDaySwapModal(id = null) {
       <div class="form-grid">
         <div class="form-group full-width">
           <label class="form-label">បុគ្គលិក *</label>
-          <select class="form-control" id="ds-emp" onchange="dsAutoFillOffDay(this)">${empOptions}</select>
+          ${lockEmpSelect
+            ? `<div style="display:flex;align-items:center;gap:10px;background:var(--bg3);border:1.5px solid var(--border);border-radius:8px;padding:10px 14px">
+                <div class="emp-avatar" style="background:${getColor(matchedEmp.name)};width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:15px;flex-shrink:0">${matchedEmp.name[0]}</div>
+                <span style="font-weight:600;font-size:15px">${matchedEmp.name}</span>
+                <span style="margin-left:auto;font-size:12px;color:var(--text3);background:var(--bg2);padding:2px 8px;border-radius:12px">🔒 Auto</span>
+                <input type="hidden" id="ds-emp" value="${matchedEmp.id}"/>
+              </div>`
+            : `<select class="form-control" id="ds-emp" onchange="dsAutoFillOffDay(this)">${empOptions}</select>`
+          }
         </div>
 
         <!-- ===== ថ្ងៃ OFF ដែលត្រូវធ្វើការ ===== -->
@@ -7537,6 +7567,19 @@ async function openDaySwapModal(id = null) {
         </button>
       </div>`;
     openModal();
+    // Auto-fill work_day from locked employee off_days if needed
+    const dsEmpEl = $('ds-emp');
+    if (dsEmpEl && dsEmpEl.tagName === 'SELECT') {
+      dsAutoFillOffDay(dsEmpEl);
+    } else if (dsEmpEl && !id) {
+      const lockedId = parseInt(dsEmpEl.value);
+      const lockedEmp = emps.find(e => e.id === lockedId);
+      if (lockedEmp) {
+        const offDays = parseOffDays(lockedEmp);
+        const wdSel = $('ds-work-day');
+        if (wdSel && offDays.length) wdSel.value = String(offDays[0]);
+      }
+    }
     // Trigger hint update after render
     dsFilterWorkDate();
     dsFilterOffDate();
