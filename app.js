@@ -46,16 +46,16 @@ const $ = (id) => document.getElementById(id);
 
 // ===== PARSE off_days from DB (stored as JSON string "[0,6]" or already array) =====
 function parseOffDays(emp) {
-  if (!emp) return [0]; // default Sunday
+  if (!emp) return []; // no default — no off_days means work every day
   var od = emp.off_days;
-  if (Array.isArray(od)) return od.length ? od : [0];
+  if (Array.isArray(od)) return od; // return as-is including empty []
   if (typeof od === 'string' && od.trim().startsWith('[')) {
     try {
       var parsed = JSON.parse(od);
-      return Array.isArray(parsed) && parsed.length ? parsed : [0];
-    } catch(_) { return [0]; }
+      return Array.isArray(parsed) ? parsed : [];
+    } catch(_) { return []; }
   }
-  return [0]; // fallback Sunday
+  return []; // fallback: no off day (work every day)
 }
 const contentArea = () => $('content-area');
 
@@ -2315,12 +2315,12 @@ async function renderMonthlyAttendance(month='') {
       const wd = dt.getDay();
       allDays.push({ d, dd: String(d).padStart(2,'0'), wd });
     }
-    // Use allDays minus Sunday for header (Sunday=0 excluded by default if no emp off_days set)
-    const days = allDays.filter(({wd}) => wd !== 0);
+    // Show all days in header — OFF is per-employee based on their off_days
+    const days = allDays;
 
     // Helper: get working days for a specific employee (exclude their personal off_days)
     function getEmpWorkDays(emp) {
-      var offDays = parseOffDays(emp); // default: skip Sunday
+      var offDays = parseOffDays(emp); // empty = work every day
       return allDays.filter(function({wd}) { return offDays.indexOf(wd) === -1; });
     }
 
@@ -2367,15 +2367,15 @@ async function renderMonthlyAttendance(month='') {
     // Table header row 1: day numbers
     const dayThs = allDays.map(({d,wd}) => {
       const isToday = (thisMonth()===currentMonth && new Date().getDate()===d);
-      const isWeekend = (wd === 0 || wd === 6);
-      const bg = isToday ? 'background:var(--primary);color:white;' : isWeekend ? 'background:var(--bg2);color:var(--text3);' : '';
+      const isCommonOff = allOffWds.has(wd);
+      const bg = isToday ? 'background:var(--primary);color:white;' : isCommonOff ? 'background:var(--bg2);color:var(--text3);' : '';
       return '<th style="padding:2px 1px;font-size:11px;font-weight:600;text-align:center;'+bg+'">' + d + '</th>';
     }).join('');
 
     // Table header row 2: weekday names
     const wdThs = allDays.map(({wd}) => {
-      const isWeekend = (wd === 0 || wd === 6);
-      const color = isWeekend ? 'color:var(--danger);' : 'color:var(--text3);';
+      const isCommonOff = allOffWds.has(wd);
+      const color = isCommonOff ? 'color:var(--danger);' : 'color:var(--text3);';
       return '<th style="padding:1px 0;font-size:9px;text-align:center;font-weight:400;'+color+'">' + wdNames[wd] + '</th>';
     }).join('');
 
@@ -2391,8 +2391,8 @@ async function renderMonthlyAttendance(month='') {
           return '<td style="text-align:center;font-size:9px;padding:1px 0" title="ថ្ងៃឈប់សម្រាក">🎉</td>';
         }
 
-        // This day is employee's day off
-        if (empOff.indexOf(wd) !== -1) {
+        // This day is employee's day off (only if off_days is set and includes this weekday)
+        if (empOff.length > 0 && empOff.indexOf(wd) !== -1) {
           if (swapRec) {
             // Employee came to work on their OFF day (swap approved)
             return '<td style="text-align:center;font-size:8px;padding:1px 0;color:var(--primary)" title="ប្តូរ">🔄</td>';
@@ -2672,13 +2672,13 @@ async function exportMonthlyAttendanceExcel() {
 
     summaries.forEach(({emp, present, late, absent, swap, overAbsent, deduction}, i) => {
       const attMap = d._attMap || {};
-      const empOffDays = typeof parseOffDays === 'function' ? parseOffDays(emp) : [0]; // default: Sunday off
+      const empOffDays = typeof parseOffDays === 'function' ? parseOffDays(emp) : [];
 
       const dayCells = allDays.map(({dd, wd}) => {
         const swapRec   = (swapMap[emp.id]||{})[dd];
         const compSwap  = (offDateMap[emp.id]||{})[dd];
         const a         = (attMap[emp.id]||{})[dd];
-        const isEmpOff  = empOffDays.indexOf(wd) !== -1;
+        const isEmpOff  = empOffDays.length > 0 && empOffDays.indexOf(wd) !== -1;
 
         // Holiday
         if (a && a.status === 'holiday') return '🎉';
