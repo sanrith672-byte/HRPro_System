@@ -2577,40 +2577,36 @@ function printMonthlyAttendance() {
       const isOff    = empOff.length > 0 && empOff.indexOf(wd) !== -1;
       const offBg    = isOff ? 'background:#f3f4f6;' : '';
       // Holiday overrides everything
-      if (a && a.status === 'holiday') return `<td style="text-align:center;font-size:9px;color:#9333ea;${offBg}">🎉</td>`;
+      if (a && a.status === 'holiday') return `<td style="text-align:center;font-size:9px;color:#9333ea;background:#f5f3ff;">🎉</td>`;
       // Employee OFF day
       if (isOff) {
-        if (swapRec) return `<td style="text-align:center;font-size:9px;color:#6366f1;background:#ede9fe;">🔄</td>`;
-        return `<td style="text-align:center;font-size:8px;color:#9ca3af;background:#f3f4f6;">OFF</td>`;
+        if (swapRec) return `<td style="text-align:center;font-size:9px;color:#4338ca;background:#ede9fe;font-weight:700;">🔄</td>`;
+        return `<td style="text-align:center;font-size:8px;color:#374151;background:#e5e7eb;font-weight:600;">OFF</td>`;
       }
       // Compensation OFF day (OFF+)
-      if (compSwap) return `<td style="text-align:center;font-size:8px;font-weight:700;color:#b45309;background:#fef3c7;">OFF+</td>`;
+      if (compSwap) return `<td style="text-align:center;font-size:8px;font-weight:700;color:#92400e;background:#fde68a;">OFF+</td>`;
       // Leave
       if (lv) {
         const isPending = lv.status === 'pending';
-        const lbg = isPending ? 'background:#ede9fe;color:#6366f1;' : 'background:#dcfce7;color:#16a34a;';
-        return `<td style="text-align:center;font-size:9px;${lbg}">🌴</td>`;
+        const lbg = isPending ? 'background:#ddd6fe;color:#5b21b6;' : 'background:#bbf7d0;color:#15803d;';
+        return `<td style="text-align:center;font-size:9px;font-weight:700;${lbg}">🌴</td>`;
       }
-      if (!a) return `<td style="text-align:center;font-size:9px;color:#ef4444;">—</td>`;
-      if (a.status==='present') return `<td style="text-align:center;font-size:10px;color:#16a34a;">✔</td>`;
-      if (a.status==='late')    return `<td style="text-align:center;font-size:10px;color:#f59e0b;">⏰</td>`;
-      return `<td style="text-align:center;font-size:10px;color:#ef4444;">✗</td>`;
+      if (!a) return `<td style="text-align:center;font-size:10px;color:#dc2626;font-weight:600;">—</td>`;
+      if (a.status==='present') return `<td style="text-align:center;font-size:10px;color:#16a34a;font-weight:700;">✔</td>`;
+      if (a.status==='late')    return `<td style="text-align:center;font-size:10px;color:#d97706;font-weight:700;">⏰</td>`;
+      return `<td style="text-align:center;font-size:10px;color:#dc2626;font-weight:700;">✗</td>`;
     }).join('');
     const rowBg = idx % 2 === 0 ? '' : 'background:#f9fafb;';
     const dept = emp.department || '';
-    const deductCell = overAbsent > 0
-      ? `<td style="text-align:center;font-weight:700;color:#ef4444;font-size:11px">-$${deduction.toFixed(0)}</td>`
-      : `<td style="text-align:center;color:#16a34a;font-size:11px">—</td>`;
     return `<tr style="${rowBg}">
       <td style="padding:4px 6px;font-size:11px;font-weight:600;white-space:nowrap">${idx+1}. ${emp.name}</td>
-      <td style="padding:3px 4px;font-size:10px;color:#6b7280;white-space:nowrap">${dept}</td>
+      <td style="padding:3px 4px;font-size:10px;color:#374151;white-space:nowrap">${dept}</td>
       <td style="text-align:center;font-weight:700;color:#16a34a;font-size:11px">${present}</td>
-      <td style="text-align:center;font-weight:700;color:#f59e0b;font-size:11px">${late}</td>
-      <td style="text-align:center;font-weight:700;color:#ef4444;font-size:11px">${absent}</td>
-      <td style="text-align:center;font-weight:700;color:#6366f1;font-size:11px">${swap||0}</td>
+      <td style="text-align:center;font-weight:700;color:#d97706;font-size:11px">${late}</td>
+      <td style="text-align:center;font-weight:700;color:#dc2626;font-size:11px">${absent}</td>
+      <td style="text-align:center;font-weight:700;color:#4f46e5;font-size:11px">${swap||0}</td>
       <td style="text-align:center;font-weight:700;color:#15803d;font-size:11px">${onLeave||0}</td>
-      <td style="text-align:center;font-weight:700;color:${overAbsent>0?'#ef4444':'#9ca3af'};font-size:11px">${overAbsent}</td>
-      ${deductCell}
+      <td style="text-align:center;font-weight:700;color:${overAbsent>0?'#dc2626':'#9ca3af'};font-size:11px">${overAbsent}</td>
       ${cells}
     </tr>`;
   }).join('');
@@ -2623,7 +2619,7 @@ function printMonthlyAttendance() {
   <title>Monthly Attendance ${monthLabel}</title>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:'Hanuman',Arial,sans-serif;font-size:11px;color:#111;padding:8px;background:#fff}
+    body{font-family:'Hanuman',Arial,sans-serif;font-size:11px;color:#111;padding:8px;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
     @media print{@page{size:A4 landscape;margin:5mm}body{padding:0}.no-print{display:none!important}}
     .header{text-align:center;margin-bottom:8px}
     .company{font-size:15px;font-weight:700;color:#1e3a5f}
@@ -2681,7 +2677,6 @@ function printMonthlyAttendance() {
         <th style="min-width:26px;color:#c4b5fd" rowspan="2" title="ជំនួស">🔄</th>
         <th style="min-width:26px;color:#86efac" rowspan="2" title="ច្បាប់">🌴</th>
         <th style="min-width:26px;color:#fca5a5;font-size:9px" rowspan="2" title="លើសថ្ងៃ">លើស</th>
-        <th style="min-width:36px;color:#fca5a5;font-size:9px" rowspan="2" title="កាត់ប្រាក់">កាត់$</th>
         ${thDays}
       </tr>
       <tr>${thWds}</tr>
@@ -2696,7 +2691,6 @@ function printMonthlyAttendance() {
         <td style="text-align:center;color:#6366f1">${totals.sw}</td>
         <td style="text-align:center;color:#15803d">${totals.lv}</td>
         <td style="text-align:center;color:#ef4444">${totalOver}</td>
-        <td style="text-align:center;color:#ef4444">${totals.d>0?'-$'+totals.d.toFixed(0):'—'}</td>
         ${allDays.map(()=>'<td></td>').join('')}
       </tr>
     </tfoot>
