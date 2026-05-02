@@ -10898,7 +10898,7 @@ async function loadNotifications() {
       const offLabel  = off  ? `${off}${_offDay  ? ' ('+_offDay+')'  : ''}` : '—';
       const _rid = r.id || '';
       html += `
-        <div class="notif-item" onclick="toggleNotifPanel();setTimeout(()=>openDaySwapModal(${_rid}),100);">
+        <div class="notif-item" onclick="toggleNotifPanel();navigate('dayswap');">
           <div class="notif-icon">🔄</div>
           <div class="notif-body">
             <div class="notif-title">${emp}</div>
@@ -10934,7 +10934,7 @@ async function loadNotifications() {
         const tagClass = isSwapToday ? 'notif-tag-today-work' : isOffToday ? 'notif-tag-today-off' : 'notif-tag-upcoming';
         const _arid = r.id || '';
         html += `
-          <div class="notif-item" onclick="toggleNotifPanel();setTimeout(()=>openDaySwapModal(${_arid}),100);">
+          <div class="notif-item" onclick="toggleNotifPanel();navigate('dayswap');">
             <div class="notif-icon">🔄</div>
             <div class="notif-body">
               <div class="notif-title">${emp}</div>
