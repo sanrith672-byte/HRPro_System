@@ -10800,6 +10800,128 @@ function applyTheme(t) {
   });
 }
 
+// ============================================================
+// NOTIFICATION BELL — pending leave & dayswap requests
+// ============================================================
+let _notifOpen = false;
+
+function toggleNotifPanel() {
+  _notifOpen = !_notifOpen;
+  const panel = document.getElementById('notif-panel');
+  if (!panel) return;
+  if (_notifOpen) {
+    panel.style.display = 'block';
+    loadNotifications();
+    // Close when clicking outside
+    setTimeout(() => {
+      document.addEventListener('click', _closeNotifOutside, { once: true });
+    }, 50);
+  } else {
+    panel.style.display = 'none';
+  }
+}
+
+function _closeNotifOutside(e) {
+  const wrapper = document.getElementById('notif-wrapper');
+  if (wrapper && !wrapper.contains(e.target)) {
+    const panel = document.getElementById('notif-panel');
+    if (panel) panel.style.display = 'none';
+    _notifOpen = false;
+  }
+}
+
+async function loadNotifications() {
+  const list = document.getElementById('notif-list');
+  if (!list) return;
+
+  try {
+    const [leaveRes, swapRes] = await Promise.all([
+      api('GET', '/leave').catch(() => ({ records: [] })),
+      api('GET', '/dayswap').catch(() => ({ records: [] }))
+    ]);
+
+    const pendingLeaves = (leaveRes.records || []).filter(r => r.status === 'pending');
+    const pendingSwaps  = (swapRes.records  || []).filter(r => r.status === 'pending');
+    const total = pendingLeaves.length + pendingSwaps.length;
+
+    // Update badge
+    const badge = document.getElementById('notif-badge');
+    if (badge) {
+      if (total > 0) {
+        badge.textContent = total > 99 ? '99+' : total;
+        badge.style.display = 'flex';
+      } else {
+        badge.style.display = 'none';
+      }
+    }
+
+    if (total === 0) {
+      list.innerHTML = '<div class="notif-empty">🎉 គ្មានការជូនដំណឹងថ្មី</div>';
+      return;
+    }
+
+    let html = '';
+
+    pendingLeaves.forEach(r => {
+      const emp = r.employee_name || r.employee || '—';
+      const type = r.leave_type || 'ច្បាប់';
+      const days = r.days || '';
+      const from = r.start_date ? r.start_date.slice(0,10) : '';
+      const to   = r.end_date   ? r.end_date.slice(0,10)   : '';
+      const dateStr = from === to ? from : (from + ' → ' + to);
+      html += `
+        <div class="notif-item" onclick="navigate('leave');toggleNotifPanel();">
+          <div class="notif-icon">🌴</div>
+          <div class="notif-body">
+            <div class="notif-title">${emp}</div>
+            <div class="notif-sub">${type}${days ? ' · ' + days + ' ថ្ងៃ' : ''} · ${dateStr}</div>
+          </div>
+          <span class="notif-tag notif-tag-leave">ច្បាប់</span>
+        </div>`;
+    });
+
+    pendingSwaps.forEach(r => {
+      const emp  = r.employee_name || r.employee || '—';
+      const swap = r.swap_date  ? r.swap_date.slice(0,10)  : '';
+      const off  = r.off_date   ? r.off_date.slice(0,10)   : '';
+      html += `
+        <div class="notif-item" onclick="navigate('dayswap');toggleNotifPanel();">
+          <div class="notif-icon">🔄</div>
+          <div class="notif-body">
+            <div class="notif-title">${emp}</div>
+            <div class="notif-sub">ធ្វើការ: ${swap} → ឈប់: ${off}</div>
+          </div>
+          <span class="notif-tag notif-tag-swap">ប្ដូរថ្ងៃ</span>
+        </div>`;
+    });
+
+    list.innerHTML = html;
+
+  } catch (e) {
+    list.innerHTML = '<div class="notif-empty">⚠️ មានបញ្ហា: ' + e.message + '</div>';
+  }
+}
+
+async function refreshNotifBadge() {
+  try {
+    const [leaveRes, swapRes] = await Promise.all([
+      api('GET', '/leave').catch(() => ({ records: [] })),
+      api('GET', '/dayswap').catch(() => ({ records: [] }))
+    ]);
+    const total = (leaveRes.records || []).filter(r => r.status === 'pending').length
+                + (swapRes.records  || []).filter(r => r.status === 'pending').length;
+    const badge = document.getElementById('notif-badge');
+    if (badge) {
+      if (total > 0) {
+        badge.textContent = total > 99 ? '99+' : total;
+        badge.style.display = 'flex';
+      } else {
+        badge.style.display = 'none';
+      }
+    }
+  } catch (_) {}
+}
+
 function toggleTheme() {
   const cur = getTheme();
   applyTheme(cur === 'dark' ? 'light' : 'dark');
@@ -10871,6 +10993,9 @@ async function initApp() {
     $('global-search').addEventListener('input', e => { if (state.currentPage === 'employees') renderEmployees(e.target.value); });
     $('btn-settings').addEventListener('click', () => navigate('settings'));
     updateApiStatus();
+    // Load notification badge on startup + refresh every 60s
+    setTimeout(refreshNotifBadge, 1500);
+    setInterval(refreshNotifBadge, 60000);
     if (!getApiBase() && localStorage.getItem(DEMO_MODE_KEY) !== '1') {
       showFirstRunSetup();
     } else {
