@@ -2473,7 +2473,7 @@ async function renderMonthlyAttendance(month='') {
     const totals = summaries.reduce((t,s)=>({ p:t.p+s.present, l:t.l+s.late, a:t.a+s.absent, sw:t.sw+s.swap, lv:t.lv+s.onLeave, d:t.d+s.deduction }),{p:0,l:0,a:0,sw:0,lv:0,d:0});
 
     // Store data globally for print/export buttons
-    window._monthlyAttData = { summaries, allDays, currentMonth, emps, totals, maxAbsent, rules, _attMap: attMap, _leaveMap: leaveMap };
+    window._monthlyAttData = { summaries, allDays, currentMonth, emps, totals, maxAbsent, rules, _attMap: attMap, _leaveMap: leaveMap, _swapMap: swapMap, _offDateMap: offDateMap };
 
     contentArea().innerHTML =
       '<div class="page-header">'
@@ -2565,25 +2565,36 @@ function printMonthlyAttendance() {
 
   const bodyRows = summaries.map(({emp, present, late, absent, swap, onLeave, overAbsent, deduction}, idx) => {
     const empOff = parseOffDays(emp);
-    const attMapData = window._monthlyAttData._attMap || {};
-    const lvMapData  = window._monthlyAttData._leaveMap || {};
+    const attMapData  = window._monthlyAttData._attMap     || {};
+    const lvMapData   = window._monthlyAttData._leaveMap   || {};
+    const swapMapData = window._monthlyAttData._swapMap    || {};
+    const offDateData = window._monthlyAttData._offDateMap || {};
     const cells = allDays.map(({dd, wd}) => {
-      const a  = (attMapData[emp.id]||{})[dd];
-      const lv = (lvMapData[emp.id]||{})[dd];
-      const isOff = empOff.length > 0 && empOff.indexOf(wd) !== -1;
-      const isWeekend = wd === 0 || wd === 6;
-      const offBg = (isOff || (isWeekend && allOffWds.has(wd))) ? 'background:#f3f4f6;' : '';
+      const a        = (attMapData[emp.id] ||{})[dd];
+      const lv       = (lvMapData[emp.id]  ||{})[dd];
+      const swapRec  = (swapMapData[emp.id]||{})[dd];   // employee worked on OFF day
+      const compSwap = (offDateData[emp.id]||{})[dd];   // compensation OFF day
+      const isOff    = empOff.length > 0 && empOff.indexOf(wd) !== -1;
+      const offBg    = isOff ? 'background:#f3f4f6;' : '';
+      // Holiday overrides everything
       if (a && a.status === 'holiday') return `<td style="text-align:center;font-size:9px;color:#9333ea;${offBg}">🎉</td>`;
-      if (isOff) return `<td style="text-align:center;font-size:8px;color:#9ca3af;background:#f3f4f6;">OFF</td>`;
+      // Employee OFF day
+      if (isOff) {
+        if (swapRec) return `<td style="text-align:center;font-size:9px;color:#6366f1;background:#ede9fe;">🔄</td>`;
+        return `<td style="text-align:center;font-size:8px;color:#9ca3af;background:#f3f4f6;">OFF</td>`;
+      }
+      // Compensation OFF day (OFF+)
+      if (compSwap) return `<td style="text-align:center;font-size:8px;font-weight:700;color:#b45309;background:#fef3c7;">OFF+</td>`;
+      // Leave
       if (lv) {
         const isPending = lv.status === 'pending';
         const lbg = isPending ? 'background:#ede9fe;color:#6366f1;' : 'background:#dcfce7;color:#16a34a;';
         return `<td style="text-align:center;font-size:9px;${lbg}">🌴</td>`;
       }
-      if (!a) return `<td style="text-align:center;font-size:9px;color:#ef4444;${offBg}">—</td>`;
-      if (a.status==='present') return `<td style="text-align:center;font-size:10px;color:#16a34a;${offBg}">✔</td>`;
-      if (a.status==='late')    return `<td style="text-align:center;font-size:10px;color:#f59e0b;${offBg}">⏰</td>`;
-      return `<td style="text-align:center;font-size:10px;color:#ef4444;${offBg}">✗</td>`;
+      if (!a) return `<td style="text-align:center;font-size:9px;color:#ef4444;">—</td>`;
+      if (a.status==='present') return `<td style="text-align:center;font-size:10px;color:#16a34a;">✔</td>`;
+      if (a.status==='late')    return `<td style="text-align:center;font-size:10px;color:#f59e0b;">⏰</td>`;
+      return `<td style="text-align:center;font-size:10px;color:#ef4444;">✗</td>`;
     }).join('');
     const rowBg = idx % 2 === 0 ? '' : 'background:#f9fafb;';
     const dept = emp.department || '';
@@ -2708,30 +2719,12 @@ async function exportMonthlyAttendanceExcel() {
   const wdNames = ['អា','ច','អ','ព','ព្រ','សុ','ស'];
   showToast('កំពុង Export Excel...', 'info');
 
-  // Re-fetch swapData to rebuild offDateMap (same as renderMonthlyAttendance)
-  let offDateMap = {};
-  let swapMap = {};
-  try {
-    const swapDataRaw = await api('GET','/dayswap').catch(()=>({records:[]}));
-    (swapDataRaw.records||[]).forEach(s => {
-      if (s.status !== 'approved') return;
-      if (s.swap_date && s.swap_date.startsWith(currentMonth)) {
-        if (!swapMap[s.employee_id]) swapMap[s.employee_id] = {};
-        const dd = s.swap_date.slice(-2);
-        swapMap[s.employee_id][dd] = s;
-      }
-      if (s.off_date && s.off_date.startsWith(currentMonth)) {
-        if (!offDateMap[s.employee_id]) offDateMap[s.employee_id] = {};
-        const dd = s.off_date.slice(-2);
-        offDateMap[s.employee_id][dd] = s;
-      }
-    });
-  } catch(_) {}
+  // Use cached swap data from _monthlyAttData (already fetched during render)
+  const swapMap    = d._swapMap    || {};
+  const offDateMap = d._offDateMap || {};
 
   try {
     // ── Sheet 1: Matrix (ដូច PDF) ────────────────────────────────
-    // Headers: #| ឈ្មោះ | នាយកដ្ឋាន | ✅ | ⏰ | ❌ | 🔄 | 🌴 | លើស | កាត់ | 1 | 2 | ... | 31
-    const dayNums   = allDays.map(({d}) => d);
     const dayLabels = allDays.map(({d, wd}) => d + '(' + wdNames[wd] + ')');
 
     const matrixHeaders = ['#', 'ឈ្មោះបុគ្គលិក', 'នាយកដ្ឋាន', '✅ វត្តមាន', '⏰ យឺត', '❌ អវត្តមាន', '🔄 ជំនួស', '🌴 ច្បាប់', 'លើសថ្ងៃ', 'កាត់ ($)', ...dayLabels];
@@ -2741,25 +2734,29 @@ async function exportMonthlyAttendanceExcel() {
 
     const matrixRows = [subHeaderRow];
 
-    summaries.forEach(({emp, present, late, absent, swap, overAbsent, deduction}, i) => {
-      const attMap = d._attMap || {};
+    summaries.forEach(({emp, present, late, absent, swap, onLeave, overAbsent, deduction}, i) => {
+      const attMap     = d._attMap   || {};
+      const lvMap      = d._leaveMap || {};
       const empOffDays = typeof parseOffDays === 'function' ? parseOffDays(emp) : [];
 
       const dayCells = allDays.map(({dd, wd}) => {
-        const swapRec   = (swapMap[emp.id]||{})[dd];
-        const compSwap  = (offDateMap[emp.id]||{})[dd];
-        const a         = (attMap[emp.id]||{})[dd];
-        const isEmpOff  = empOffDays.length > 0 && empOffDays.indexOf(wd) !== -1;
+        const swapRec  = (swapMap[emp.id]   ||{})[dd];   // worked on OFF day
+        const compSwap = (offDateMap[emp.id] ||{})[dd];   // compensation OFF day
+        const a        = (attMap[emp.id]     ||{})[dd];
+        const lv       = (lvMap[emp.id]      ||{})[dd];
+        const isEmpOff = empOffDays.length > 0 && empOffDays.indexOf(wd) !== -1;
 
         // Holiday
         if (a && a.status === 'holiday') return '🎉';
         // Employee OFF day
         if (isEmpOff) {
-          if (swapRec) return '🔄';   // came to work on off day
+          if (swapRec) return '🔄';   // came to work on OFF day
           return 'OFF';
         }
         // Compensation OFF day (off_date)
         if (compSwap) return 'OFF+';
+        // Leave
+        if (lv) return '🌴';
         // No record = absent
         if (!a) return '—';
         if (a.status === 'present') return '✔';
