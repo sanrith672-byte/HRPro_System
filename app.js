@@ -10896,8 +10896,9 @@ async function loadNotifications() {
       const _offDay  = (r.off_day  !== undefined && r.off_day  !== null) ? (_wdNames[r.off_day]  || '') : '';
       const swapLabel = swap ? `${swap}${_workDay ? ' ('+_workDay+')' : ''}` : '—';
       const offLabel  = off  ? `${off}${_offDay  ? ' ('+_offDay+')'  : ''}` : '—';
+      const _rid = r.id || '';
       html += `
-        <div class="notif-item" onclick="navigate('dayswap');toggleNotifPanel();">
+        <div class="notif-item" onclick="toggleNotifPanel();navigate('dayswap');setTimeout(()=>openDaySwapModal(${_rid}),350);">
           <div class="notif-icon">🔄</div>
           <div class="notif-body">
             <div class="notif-title">${emp}</div>
@@ -10931,8 +10932,9 @@ async function loadNotifications() {
         const isOffToday  = off  === _todayStr;
         const tagLabel = isSwapToday ? '🔴 ថ្ងៃនេះ' : isOffToday ? '🟢 OFF ថ្ងៃនេះ' : '📅 ខាងមុខ';
         const tagClass = isSwapToday ? 'notif-tag-today-work' : isOffToday ? 'notif-tag-today-off' : 'notif-tag-upcoming';
+        const _arid = r.id || '';
         html += `
-          <div class="notif-item" onclick="navigate('qr_scan');toggleNotifPanel();">
+          <div class="notif-item" onclick="toggleNotifPanel();navigate('dayswap');setTimeout(()=>openDaySwapModal(${_arid}),350);">
             <div class="notif-icon">🔄</div>
             <div class="notif-body">
               <div class="notif-title">${emp}</div>
