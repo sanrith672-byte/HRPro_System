@@ -2396,16 +2396,18 @@ async function renderMonthlyAttendance(month='') {
     // Table header row 1: day numbers
     const dayThs = allDays.map(({d,wd}) => {
       const isToday = (thisMonth()===currentMonth && new Date().getDate()===d);
+      const isSat = wd === 6; const isSun = wd === 0;
       const isCommonOff = allOffWds.has(wd);
-      const bg = isToday ? 'background:var(--primary);color:white;' : isCommonOff ? 'background:var(--bg2);color:var(--text3);' : '';
-      return '<th style="padding:2px 1px;font-size:11px;font-weight:600;text-align:center;'+bg+'">' + d + '</th>';
+      let bg = isToday ? 'background:var(--primary);color:white;' : isSun ? 'background:#fee2e2;color:#dc2626;' : isSat ? 'background:#fef3c7;color:#b45309;' : isCommonOff ? 'background:var(--bg2);color:var(--text3);' : '';
+      return '<th style="padding:2px 1px;font-size:13px;font-weight:700;text-align:center;'+bg+'">' + d + '</th>';
     }).join('');
 
     // Table header row 2: weekday names
     const wdThs = allDays.map(({wd}) => {
+      const isSat = wd === 6; const isSun = wd === 0;
       const isCommonOff = allOffWds.has(wd);
-      const color = isCommonOff ? 'color:var(--danger);' : 'color:var(--text3);';
-      return '<th style="padding:1px 0;font-size:9px;text-align:center;font-weight:400;'+color+'">' + wdNames[wd] + '</th>';
+      const color = isSun ? 'color:#dc2626;' : isSat ? 'color:#b45309;' : isCommonOff ? 'color:var(--danger);' : 'color:var(--text2);';
+      return '<th style="padding:1px 0;font-size:11px;text-align:center;font-weight:600;'+color+'">' + wdNames[wd] + '</th>';
     }).join('');
 
     const dayRows = filteredSummaries.map(({emp, present, late, absent, swap, overAbsent, deduction}) => {
@@ -2564,15 +2566,16 @@ function printMonthlyAttendance() {
   summaries.forEach(function(s){ (parseOffDays(s.emp)||[]).forEach(function(w){ allOffWds.add(w); }); });
 
   const thDays = allDays.map(({d, wd}) => {
-    const isWeekend = wd === 0 || wd === 6;
+    const isSun = wd === 0; const isSat = wd === 6;
     const isCommonOff = allOffWds.has(wd);
-    const bg = isWeekend || isCommonOff ? 'background:#f3f4f6;color:#9ca3af;' : '';
-    return `<th style="min-width:20px;padding:2px 1px;font-size:9px;text-align:center;${bg}">${d}</th>`;
+    const bg = isSun ? 'background:#fee2e2;color:#dc2626;' : isSat ? 'background:#fef3c7;color:#b45309;' : isCommonOff ? 'background:#f3f4f6;color:#9ca3af;' : '';
+    return `<th style="min-width:20px;padding:2px 1px;font-size:11px;font-weight:700;text-align:center;${bg}">${d}</th>`;
   }).join('');
   const thWds = allDays.map(({wd}) => {
-    const isWeekend = wd === 0 || wd === 6;
+    const isSun = wd === 0; const isSat = wd === 6;
     const isCommonOff = allOffWds.has(wd);
-    return `<th style="min-width:20px;padding:1px;font-size:8px;text-align:center;font-weight:400;color:${isWeekend||isCommonOff?'#ef4444':'#6b7280'}">${wdNames[wd]}</th>`;
+    const color = isSun ? '#dc2626' : isSat ? '#b45309' : isCommonOff ? '#ef4444' : '#374151';
+    return `<th style="min-width:20px;padding:1px;font-size:10px;text-align:center;font-weight:600;color:${color}">${wdNames[wd]}</th>`;
   }).join('');
 
   const bodyRows = summaries.map(({emp, present, late, absent, swap, onLeave, overAbsent, deduction}, idx) => {
@@ -2728,13 +2731,16 @@ function saveMonthlyAttendanceAsImage() {
   summaries.forEach(function(s){ (parseOffDays(s.emp)||[]).forEach(function(w){ allOffWds.add(w); }); });
 
   const thDays = allDays.map(({d, wd}) => {
-    const isOff = allOffWds.has(wd) || wd===0 || wd===6;
-    const bg = isOff ? 'background:#e5e7eb;color:#6b7280;' : '';
-    return `<th style="min-width:22px;padding:3px 1px;font-size:10px;text-align:center;${bg}">${d}</th>`;
+    const isSun = wd === 0; const isSat = wd === 6;
+    const isCommonOff = allOffWds.has(wd);
+    const bg = isSun ? 'background:#fee2e2;color:#dc2626;' : isSat ? 'background:#fef3c7;color:#b45309;' : isCommonOff ? 'background:#e5e7eb;color:#6b7280;' : '';
+    return `<th style="min-width:22px;padding:3px 1px;font-size:12px;font-weight:700;text-align:center;${bg}">${d}</th>`;
   }).join('');
   const thWds = allDays.map(({wd}) => {
-    const isOff = allOffWds.has(wd) || wd===0 || wd===6;
-    return `<th style="min-width:22px;padding:1px;font-size:9px;text-align:center;font-weight:400;color:${isOff?'#dc2626':'#6b7280'}">${wdNames[wd]}</th>`;
+    const isSun = wd === 0; const isSat = wd === 6;
+    const isCommonOff = allOffWds.has(wd);
+    const color = isSun ? '#dc2626' : isSat ? '#b45309' : isCommonOff ? '#dc2626' : '#374151';
+    return `<th style="min-width:22px;padding:1px;font-size:11px;text-align:center;font-weight:600;color:${color}">${wdNames[wd]}</th>`;
   }).join('');
 
   const bodyRows = summaries.map(({emp, present, late, absent, swap, onLeave, overAbsent, deduction}, idx) => {
