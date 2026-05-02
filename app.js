@@ -2547,66 +2547,89 @@ function printMonthlyAttendance() {
   const monthLabel = currentMonth;
   const wdNames = ['អា','ច','អ','ព','ព្រ','សុ','ស'];
 
+  // Collect all unique days-off weekdays across all employees (for header highlighting)
+  const allOffWds = new Set();
+  summaries.forEach(function(s){ (parseOffDays(s.emp)||[]).forEach(function(w){ allOffWds.add(w); }); });
+
   const thDays = allDays.map(({d, wd}) => {
     const isWeekend = wd === 0 || wd === 6;
-    const bg = isWeekend ? 'background:#f3f4f6;color:#9ca3af;' : '';
-    return `<th style="min-width:22px;padding:2px 1px;font-size:9px;text-align:center;${bg}">${d}</th>`;
+    const isCommonOff = allOffWds.has(wd);
+    const bg = isWeekend || isCommonOff ? 'background:#f3f4f6;color:#9ca3af;' : '';
+    return `<th style="min-width:20px;padding:2px 1px;font-size:9px;text-align:center;${bg}">${d}</th>`;
   }).join('');
   const thWds = allDays.map(({wd}) => {
     const isWeekend = wd === 0 || wd === 6;
-    return `<th style="min-width:22px;padding:1px;font-size:8px;text-align:center;font-weight:400;color:${isWeekend?'#ef4444':'#6b7280'}">${wdNames[wd]}</th>`;
+    const isCommonOff = allOffWds.has(wd);
+    return `<th style="min-width:20px;padding:1px;font-size:8px;text-align:center;font-weight:400;color:${isWeekend||isCommonOff?'#ef4444':'#6b7280'}">${wdNames[wd]}</th>`;
   }).join('');
 
   const bodyRows = summaries.map(({emp, present, late, absent, swap, onLeave, overAbsent, deduction}, idx) => {
     const empOff = parseOffDays(emp);
+    const attMapData = window._monthlyAttData._attMap || {};
+    const lvMapData  = window._monthlyAttData._leaveMap || {};
     const cells = allDays.map(({dd, wd}) => {
-      const attMapData = window._monthlyAttData._attMap || {};
-      const lvMapData  = window._monthlyAttData._leaveMap || {};
       const a  = (attMapData[emp.id]||{})[dd];
       const lv = (lvMapData[emp.id]||{})[dd];
       const isOff = empOff.length > 0 && empOff.indexOf(wd) !== -1;
-      const bg = isOff ? 'background:#f3f4f6;' : '';
-      if (a && a.status === 'holiday') return `<td style="text-align:center;font-size:9px;color:#9333ea;${bg}">🎉</td>`;
-      if (isOff) return `<td style="text-align:center;font-size:8px;color:#9ca3af;${bg}">OFF</td>`;
-      if (lv) return `<td style="text-align:center;font-size:9px;background:#dcfce7;color:#16a34a;">🌴</td>`;
-      if (!a) return `<td style="text-align:center;font-size:9px;color:#ef4444;${bg}">—</td>`;
-      if (a.status==='present') return `<td style="text-align:center;font-size:10px;color:#16a34a;${bg}">✔</td>`;
-      if (a.status==='late')    return `<td style="text-align:center;font-size:10px;color:#f59e0b;${bg}">⏰</td>`;
-      return `<td style="text-align:center;font-size:10px;color:#ef4444;${bg}">✗</td>`;
+      const isWeekend = wd === 0 || wd === 6;
+      const offBg = (isOff || (isWeekend && allOffWds.has(wd))) ? 'background:#f3f4f6;' : '';
+      if (a && a.status === 'holiday') return `<td style="text-align:center;font-size:9px;color:#9333ea;${offBg}">🎉</td>`;
+      if (isOff) return `<td style="text-align:center;font-size:8px;color:#9ca3af;background:#f3f4f6;">OFF</td>`;
+      if (lv) {
+        const isPending = lv.status === 'pending';
+        const lbg = isPending ? 'background:#ede9fe;color:#6366f1;' : 'background:#dcfce7;color:#16a34a;';
+        return `<td style="text-align:center;font-size:9px;${lbg}">🌴</td>`;
+      }
+      if (!a) return `<td style="text-align:center;font-size:9px;color:#ef4444;${offBg}">—</td>`;
+      if (a.status==='present') return `<td style="text-align:center;font-size:10px;color:#16a34a;${offBg}">✔</td>`;
+      if (a.status==='late')    return `<td style="text-align:center;font-size:10px;color:#f59e0b;${offBg}">⏰</td>`;
+      return `<td style="text-align:center;font-size:10px;color:#ef4444;${offBg}">✗</td>`;
     }).join('');
     const rowBg = idx % 2 === 0 ? '' : 'background:#f9fafb;';
+    const dept = emp.department || '';
+    const deductCell = overAbsent > 0
+      ? `<td style="text-align:center;font-weight:700;color:#ef4444;font-size:11px">-$${deduction.toFixed(0)}</td>`
+      : `<td style="text-align:center;color:#16a34a;font-size:11px">—</td>`;
     return `<tr style="${rowBg}">
       <td style="padding:4px 6px;font-size:11px;font-weight:600;white-space:nowrap">${idx+1}. ${emp.name}</td>
+      <td style="padding:3px 4px;font-size:10px;color:#6b7280;white-space:nowrap">${dept}</td>
       <td style="text-align:center;font-weight:700;color:#16a34a;font-size:11px">${present}</td>
       <td style="text-align:center;font-weight:700;color:#f59e0b;font-size:11px">${late}</td>
       <td style="text-align:center;font-weight:700;color:#ef4444;font-size:11px">${absent}</td>
       <td style="text-align:center;font-weight:700;color:#6366f1;font-size:11px">${swap||0}</td>
-
+      <td style="text-align:center;font-weight:700;color:#15803d;font-size:11px">${onLeave||0}</td>
+      <td style="text-align:center;font-weight:700;color:${overAbsent>0?'#ef4444':'#9ca3af'};font-size:11px">${overAbsent}</td>
+      ${deductCell}
       ${cells}
     </tr>`;
   }).join('');
+
+  // Totals for new columns
+  const totalLeave = summaries.reduce((s,r)=>s+(r.onLeave||0),0);
+  const totalOver  = summaries.reduce((s,r)=>s+(r.overAbsent||0),0);
 
   const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
   <title>Monthly Attendance ${monthLabel}</title>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
     body{font-family:'Hanuman',Arial,sans-serif;font-size:11px;color:#111;padding:8px;background:#fff}
-    @media print{@page{size:A4 landscape;margin:6mm}body{padding:0}}
-    .header{text-align:center;margin-bottom:10px}
-    .company{font-size:16px;font-weight:700;color:#1e3a5f}
+    @media print{@page{size:A4 landscape;margin:5mm}body{padding:0}.no-print{display:none!important}}
+    .header{text-align:center;margin-bottom:8px}
+    .company{font-size:15px;font-weight:700;color:#1e3a5f}
     .title{font-size:13px;font-weight:700;color:#374151;margin-top:2px}
     .subtitle{font-size:10px;color:#6b7280;margin-top:2px}
-    table{width:100%;border-collapse:collapse;font-size:10px}
-    th{background:#1e3a5f;color:white;padding:4px 2px;border:1px solid #d1d5db}
-    td{border:1px solid #e5e7eb;padding:3px 2px}
-    .summary-row{background:#f0f4ff!important;font-weight:700}
-    .summary-box{display:inline-block;margin:4px 8px;padding:4px 12px;border-radius:6px;font-size:11px;font-weight:700}
-    .sig{margin-top:30px;display:flex;justify-content:space-between;padding:0 40px}
+    table{width:100%;border-collapse:collapse;font-size:9.5px}
+    th{background:#1e3a5f;color:white;padding:3px 2px;border:1px solid #d1d5db;text-align:center}
+    td{border:1px solid #e5e7eb;padding:2px 2px}
+    .summary-row td{background:#f0f4ff!important;font-weight:700}
+    .summary-box{display:inline-block;margin:3px 6px;padding:3px 10px;border-radius:6px;font-size:10px;font-weight:700}
+    .legend{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:6px;font-size:9px;align-items:center}
+    .legend span{padding:2px 6px;border-radius:4px}
+    .sig{margin-top:24px;display:flex;justify-content:space-between;padding:0 30px}
     .sig-col{text-align:center;min-width:150px}
-    .sig-line{border-top:1px solid #374151;margin-top:40px;padding-top:4px;font-size:10px}
-    .no-print{display:none}
-    @media screen{.no-print{display:block;text-align:center;margin-bottom:10px}}
-    .btn-print{background:#1e3a5f;color:white;border:none;padding:8px 24px;border-radius:6px;cursor:pointer;font-size:13px;margin:4px}
+    .sig-line{border-top:1px solid #374151;margin-top:36px;padding-top:4px;font-size:10px}
+    .no-print{text-align:center;margin-bottom:10px}
+    .btn-print{background:#1e3a5f;color:white;border:none;padding:8px 22px;border-radius:6px;cursor:pointer;font-size:13px;margin:3px}
   </style>
   </head><body>
   <div class="no-print">
@@ -2616,9 +2639,9 @@ function printMonthlyAttendance() {
   <div class="header">
     <div class="company">${cfg.company_name||'HR Pro System'}</div>
     <div class="title">📊 តារាងវត្តមានប្រចាំខែ — ${monthLabel}</div>
-    <div class="subtitle">បោះពុម្ពថ្ងៃទី: ${new Date().toLocaleDateString('km-KH')} | ថ្ងៃអវត្តមានអនុញ្ញាត: ${maxAbsent} ថ្ងៃ/ខែ</div>
+    <div class="subtitle">ម៉ោងចូល: ${rules&&rules.work_start_time||'08:00'} (grace ${rules&&rules.late_grace_minutes||15} នាទី) &nbsp;|&nbsp; ថ្ងៃអវត្តមានអនុញ្ញាត: ${maxAbsent} ថ្ងៃ/ខែ &nbsp;|&nbsp; បោះពុម្ពថ្ងៃទី: ${new Date().toLocaleDateString('km-KH')}</div>
   </div>
-  <div style="margin-bottom:8px;display:flex;gap:6px;flex-wrap:wrap">
+  <div style="margin-bottom:6px;display:flex;gap:4px;flex-wrap:wrap">
     <span class="summary-box" style="background:#dcfce7;color:#16a34a">✅ វត្តមាន: ${totals.p}</span>
     <span class="summary-box" style="background:#fef9c3;color:#92400e">⏰ យឺត: ${totals.l}</span>
     <span class="summary-box" style="background:#fee2e2;color:#ef4444">❌ អវត្តមាន: ${totals.a}</span>
@@ -2626,15 +2649,28 @@ function printMonthlyAttendance() {
     <span class="summary-box" style="background:#dcfce7;color:#15803d">🌴 ច្បាប់: ${totals.lv}</span>
     <span class="summary-box" style="background:#fee2e2;color:#ef4444">💸 សរុបកាត់: $${totals.d.toFixed(0)}</span>
   </div>
+  <div class="legend">
+    <b>សញ្ញា:</b>
+    <span style="background:#dcfce7;color:#16a34a">✔ មានវត្តមាន</span>
+    <span style="background:#fef9c3;color:#92400e">⏰ យឺត</span>
+    <span style="background:#fee2e2;color:#ef4444">— អវត្តមាន</span>
+    <span style="background:#ede9fe;color:#6366f1">🔄 ប្ដូរថ្ងៃ</span>
+    <span style="background:#dcfce7;color:#16a34a">🌴 ច្បាប់</span>
+    <span style="background:#f3f4f6;color:#9ca3af">OFF ឈប់</span>
+    <span style="color:#9333ea">🎉 ថ្ងៃឈប់</span>
+  </div>
   <table>
     <thead>
       <tr>
-        <th style="min-width:130px;text-align:left;padding:4px 6px" rowspan="2">បុគ្គលិក</th>
-        <th style="min-width:30px;color:#86efac" rowspan="2" title="វត្តមាន">✅</th>
-        <th style="min-width:30px;color:#fde68a" rowspan="2" title="យឺត">⏰</th>
-        <th style="min-width:30px;color:#fca5a5" rowspan="2" title="អវត្តមាន">❌</th>
-        <th style="min-width:30px;color:#c4b5fd" rowspan="2" title="ជំនួស">🔄</th>
-        
+        <th style="min-width:120px;text-align:left;padding:4px 5px" rowspan="2">បុគ្គលិក</th>
+        <th style="min-width:60px;text-align:left;padding:4px 4px" rowspan="2">នាយកដ្ឋាន</th>
+        <th style="min-width:26px;color:#86efac" rowspan="2" title="វត្តមាន">✅</th>
+        <th style="min-width:26px;color:#fde68a" rowspan="2" title="យឺត">⏰</th>
+        <th style="min-width:26px;color:#fca5a5" rowspan="2" title="អវត្តមាន">❌</th>
+        <th style="min-width:26px;color:#c4b5fd" rowspan="2" title="ជំនួស">🔄</th>
+        <th style="min-width:26px;color:#86efac" rowspan="2" title="ច្បាប់">🌴</th>
+        <th style="min-width:26px;color:#fca5a5;font-size:9px" rowspan="2" title="លើសថ្ងៃ">លើស</th>
+        <th style="min-width:36px;color:#fca5a5;font-size:9px" rowspan="2" title="កាត់ប្រាក់">កាត់$</th>
         ${thDays}
       </tr>
       <tr>${thWds}</tr>
@@ -2642,12 +2678,14 @@ function printMonthlyAttendance() {
     <tbody>${bodyRows}</tbody>
     <tfoot>
       <tr class="summary-row">
-        <td style="padding:4px 6px;font-size:11px">សរុប</td>
+        <td style="padding:3px 5px;font-size:11px;text-align:left" colspan="2">សរុប (Total)</td>
         <td style="text-align:center;color:#16a34a">${totals.p}</td>
         <td style="text-align:center;color:#f59e0b">${totals.l}</td>
         <td style="text-align:center;color:#ef4444">${totals.a}</td>
         <td style="text-align:center;color:#6366f1">${totals.sw}</td>
-        
+        <td style="text-align:center;color:#15803d">${totals.lv}</td>
+        <td style="text-align:center;color:#ef4444">${totalOver}</td>
+        <td style="text-align:center;color:#ef4444">${totals.d>0?'-$'+totals.d.toFixed(0):'—'}</td>
         ${allDays.map(()=>'<td></td>').join('')}
       </tr>
     </tfoot>
@@ -2692,14 +2730,14 @@ async function exportMonthlyAttendanceExcel() {
 
   try {
     // ── Sheet 1: Matrix (ដូច PDF) ────────────────────────────────
-    // Headers: ឈ្មោះ | ✅ | ⏰ | ❌ | 🔄 | លើស | កាត់ | 1 | 2 | ... | 31
+    // Headers: #| ឈ្មោះ | នាយកដ្ឋាន | ✅ | ⏰ | ❌ | 🔄 | 🌴 | លើស | កាត់ | 1 | 2 | ... | 31
     const dayNums   = allDays.map(({d}) => d);
     const dayLabels = allDays.map(({d, wd}) => d + '(' + wdNames[wd] + ')');
 
-    const matrixHeaders = ['#', 'ឈ្មោះបុគ្គលិក', 'នាយកដ្ឋាន', '✅ វត្តមាន', '⏰ យឺត', '❌ អវត្តមាន', '🔄 ជំនួស', 'លើសថ្ងៃ', 'កាត់ ($)', ...dayLabels];
+    const matrixHeaders = ['#', 'ឈ្មោះបុគ្គលិក', 'នាយកដ្ឋាន', '✅ វត្តមាន', '⏰ យឺត', '❌ អវត្តមាន', '🔄 ជំនួស', '🌴 ច្បាប់', 'លើសថ្ងៃ', 'កាត់ ($)', ...dayLabels];
 
     // Sub-header row: weekday names aligned to day columns
-    const subHeaderRow = ['', '', '', '', '', '', '', '', '', ...allDays.map(({wd}) => wdNames[wd])];
+    const subHeaderRow = ['', '', '', '', '', '', '', '', '', '', ...allDays.map(({wd}) => wdNames[wd])];
 
     const matrixRows = [subHeaderRow];
 
@@ -2738,6 +2776,7 @@ async function exportMonthlyAttendanceExcel() {
         late,
         absent,
         swap || 0,
+        onLeave || 0,
         overAbsent,
         overAbsent > 0 ? -deduction : 0,
         ...dayCells
@@ -2748,14 +2787,14 @@ async function exportMonthlyAttendanceExcel() {
     matrixRows.push(['', '', '']);
     matrixRows.push([
       '', 'សរុប (Total)', '',
-      totals.p, totals.l, totals.a, totals.sw, '',
+      totals.p, totals.l, totals.a, totals.sw, totals.lv, '',
       totals.d > 0 ? -totals.d : 0,
       ...allDays.map(() => '')
     ]);
 
     // ── Sheet 2: Detail Summary ───────────────────────────────────
-    const summaryHeaders = ['#', 'ឈ្មោះបុគ្គលិក', 'នាយកដ្ឋាន', '✅ វត្តមាន', '⏰ យឺត', '❌ អវត្តមាន', '🔄 ជំនួស', 'ថ្ងៃធ្វើការ', 'ថ្ងៃលើស', 'អត្រាថ្ងៃ ($)', 'កាត់ ($)'];
-    const summaryRows = summaries.map(({emp, present, late, absent, swap, overAbsent, deduction, dailyRate, workingDaysCount}, i) => [
+    const summaryHeaders = ['#', 'ឈ្មោះបុគ្គលិក', 'នាយកដ្ឋាន', '✅ វត្តមាន', '⏰ យឺត', '❌ អវត្តមាន', '🔄 ជំនួស', '🌴 ច្បាប់', 'ថ្ងៃធ្វើការ', 'ថ្ងៃលើស', 'អត្រាថ្ងៃ ($)', 'កាត់ ($)'];
+    const summaryRows = summaries.map(({emp, present, late, absent, swap, onLeave, overAbsent, deduction, dailyRate, workingDaysCount}, i) => [
       i + 1,
       emp.name,
       emp.department || '',
@@ -2763,13 +2802,14 @@ async function exportMonthlyAttendanceExcel() {
       late,
       absent,
       swap || 0,
+      onLeave || 0,
       workingDaysCount || '',
       overAbsent,
       dailyRate ? +dailyRate.toFixed(2) : 0,
       overAbsent > 0 ? -deduction : 0
     ]);
     summaryRows.push(['', '', '']);
-    summaryRows.push(['', 'សរុប (Total)', '', totals.p, totals.l, totals.a, totals.sw, '', '', '', totals.d > 0 ? -totals.d : 0]);
+    summaryRows.push(['', 'សរុប (Total)', '', totals.p, totals.l, totals.a, totals.sw, totals.lv, '', '', '', totals.d > 0 ? -totals.d : 0]);
 
     const blob = buildXLSX([
       { name: 'វត្តមាន Matrix ' + currentMonth, headers: matrixHeaders, rows: matrixRows },
