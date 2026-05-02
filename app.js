@@ -2483,6 +2483,7 @@ async function renderMonthlyAttendance(month='') {
       +'<button class="btn btn-primary" onclick="applyAllAbsenceDeductions(\''+currentMonth+'\')">💸 កាត់ប្រាក់ទាំងអស់</button>'
       +'<button class="btn btn-outline" onclick="renderAttendance(\''+currentMonth+'-01\')" style="border-color:var(--success);color:var(--success)">📅 ថ្ងៃទៅថ្ងៃ</button>'
       +'<button class="btn btn-outline" onclick="printMonthlyAttendance()" style="border-color:var(--primary);color:var(--primary)">🖨️ បោះពុម្ព PDF</button>'
+      +'<button class="btn btn-outline" onclick="saveMonthlyAttendanceAsImage()" style="border-color:#8b5cf6;color:#8b5cf6">📷 រូបថត PNG</button>'
       +'<button class="btn btn-outline" onclick="exportMonthlyAttendanceExcel()" style="border-color:var(--info);color:var(--info)">📊 Export Excel</button>'
       +'</div></div>'
       +'<div class="att-summary">'
@@ -2702,6 +2703,195 @@ function printMonthlyAttendance() {
   </div>
   </body></html>`;
   printHTML(html);
+}
+
+// ── Monthly Attendance → Save as PNG Image ──
+function saveMonthlyAttendanceAsImage() {
+  const d = window._monthlyAttData;
+  if (!d) { showToast('សូមចាំ... ទំព័រមិនទាន់ Load ទេ', 'error'); return; }
+  const { summaries, allDays, currentMonth, totals, maxAbsent, rules } = d;
+  const cfg = getCompanyConfig();
+  const monthLabel = currentMonth;
+  const wdNames = ['អា','ច','អ','ព','ព្រ','សុ','ស'];
+
+  const allOffWds = new Set();
+  summaries.forEach(function(s){ (parseOffDays(s.emp)||[]).forEach(function(w){ allOffWds.add(w); }); });
+
+  const thDays = allDays.map(({d, wd}) => {
+    const isOff = allOffWds.has(wd) || wd===0 || wd===6;
+    const bg = isOff ? 'background:#e5e7eb;color:#6b7280;' : '';
+    return `<th style="min-width:22px;padding:3px 1px;font-size:10px;text-align:center;${bg}">${d}</th>`;
+  }).join('');
+  const thWds = allDays.map(({wd}) => {
+    const isOff = allOffWds.has(wd) || wd===0 || wd===6;
+    return `<th style="min-width:22px;padding:1px;font-size:9px;text-align:center;font-weight:400;color:${isOff?'#dc2626':'#6b7280'}">${wdNames[wd]}</th>`;
+  }).join('');
+
+  const bodyRows = summaries.map(({emp, present, late, absent, swap, onLeave, overAbsent, deduction}, idx) => {
+    const empOff      = parseOffDays(emp);
+    const attMapData  = window._monthlyAttData._attMap     || {};
+    const lvMapData   = window._monthlyAttData._leaveMap   || {};
+    const swapMapData = window._monthlyAttData._swapMap    || {};
+    const offDateData = window._monthlyAttData._offDateMap || {};
+    const cells = allDays.map(({dd, wd}) => {
+      const a        = (attMapData[emp.id] ||{})[dd];
+      const lv       = (lvMapData[emp.id]  ||{})[dd];
+      const swapRec  = (swapMapData[emp.id]||{})[dd];
+      const compSwap = (offDateData[emp.id]||{})[dd];
+      const isOff    = empOff.length > 0 && empOff.indexOf(wd) !== -1;
+      if (a && a.status==='holiday') return `<td style="text-align:center;font-size:11px;color:#7c3aed;background:#ede9fe;">🎉</td>`;
+      if (isOff) {
+        if (swapRec) return `<td style="text-align:center;font-size:11px;background:#ede9fe;color:#4338ca;font-weight:700;">🔄</td>`;
+        return `<td style="text-align:center;font-size:10px;background:#e5e7eb;color:#374151;font-weight:700;">OFF</td>`;
+      }
+      if (compSwap) return `<td style="text-align:center;font-size:10px;background:#fde68a;color:#92400e;font-weight:700;">OFF+</td>`;
+      if (lv) {
+        const lbg = lv.status==='pending' ? 'background:#ddd6fe;color:#5b21b6;' : 'background:#bbf7d0;color:#15803d;';
+        return `<td style="text-align:center;font-size:11px;font-weight:700;${lbg}">🌴</td>`;
+      }
+      if (!a) return `<td style="text-align:center;font-size:12px;color:#dc2626;font-weight:700;">—</td>`;
+      if (a.status==='present') return `<td style="text-align:center;font-size:12px;color:#16a34a;font-weight:700;">✔</td>`;
+      if (a.status==='late')    return `<td style="text-align:center;font-size:12px;color:#d97706;font-weight:700;">⏰</td>`;
+      return `<td style="text-align:center;font-size:12px;color:#dc2626;font-weight:700;">✗</td>`;
+    }).join('');
+    const rowBg = idx % 2 === 0 ? '#ffffff' : '#f9fafb';
+    return `<tr style="background:${rowBg}">
+      <td style="padding:5px 8px;font-size:12px;font-weight:700;white-space:nowrap;color:#111;">${idx+1}. ${emp.name}</td>
+      <td style="padding:4px 6px;font-size:11px;color:#4b5563;white-space:nowrap;">${emp.department||''}</td>
+      <td style="text-align:center;font-weight:800;color:#16a34a;font-size:12px;">${present}</td>
+      <td style="text-align:center;font-weight:800;color:#d97706;font-size:12px;">${late}</td>
+      <td style="text-align:center;font-weight:800;color:#dc2626;font-size:12px;">${absent}</td>
+      <td style="text-align:center;font-weight:800;color:#4f46e5;font-size:12px;">${swap||0}</td>
+      <td style="text-align:center;font-weight:800;color:#15803d;font-size:12px;">${onLeave||0}</td>
+      <td style="text-align:center;font-weight:800;color:${overAbsent>0?'#dc2626':'#9ca3af'};font-size:12px;">${overAbsent}</td>
+      ${cells}
+    </tr>`;
+  }).join('');
+
+  const totalOver = summaries.reduce((s,r)=>s+(r.overAbsent||0),0);
+
+  // Build full self-contained HTML for image capture
+  const captureHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Hanuman:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Hanuman',Arial,sans-serif;font-size:12px;color:#111;background:#fff;padding:16px;width:max-content;min-width:900px;}
+    .header{text-align:center;margin-bottom:12px;padding-bottom:10px;border-bottom:2px solid #1e3a5f;}
+    .company{font-size:18px;font-weight:800;color:#1e3a5f;}
+    .title{font-size:15px;font-weight:700;color:#374151;margin-top:4px;}
+    .subtitle{font-size:11px;color:#6b7280;margin-top:3px;}
+    .summary{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;}
+    .sbox{padding:5px 14px;border-radius:8px;font-size:11px;font-weight:700;}
+    .legend{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;font-size:10px;align-items:center;}
+    .legend span{padding:2px 8px;border-radius:4px;font-weight:600;}
+    table{border-collapse:collapse;font-size:11px;width:100%;}
+    th{background:#1e3a5f;color:white;padding:5px 3px;border:1px solid #334155;text-align:center;}
+    td{border:1px solid #d1d5db;padding:3px 2px;}
+    .tfoot-row td{background:#dbeafe;font-weight:800;color:#1e3a5f;}
+    .sig{margin-top:28px;display:flex;justify-content:space-between;padding:0 40px;}
+    .sig-col{text-align:center;min-width:160px;}
+    .sig-line{border-top:1.5px solid #374151;margin-top:40px;padding-top:5px;font-size:11px;color:#374151;}
+  </style>
+  </head><body>
+  <div class="header">
+    <div class="company">🏢 ${cfg.company_name||'HR Pro System'}</div>
+    <div class="title">📊 តារាងវត្តមានប្រចាំខែ — ${monthLabel}</div>
+    <div class="subtitle">ម៉ោងចូល: ${rules&&rules.work_start_time||'08:00'} (grace ${rules&&rules.late_grace_minutes||15} នាទី) &nbsp;|&nbsp; ថ្ងៃអវត្តមានអនុញ្ញាត: ${maxAbsent} ថ្ងៃ/ខែ &nbsp;|&nbsp; រូបថតថ្ងៃទី: ${new Date().toLocaleDateString('km-KH')}</div>
+  </div>
+  <div class="summary">
+    <span class="sbox" style="background:#dcfce7;color:#15803d;">✅ វត្តមាន: ${totals.p}</span>
+    <span class="sbox" style="background:#fef9c3;color:#92400e;">⏰ យឺត: ${totals.l}</span>
+    <span class="sbox" style="background:#fee2e2;color:#dc2626;">❌ អវត្តមាន: ${totals.a}</span>
+    <span class="sbox" style="background:#ede9fe;color:#4f46e5;">🔄 ជំនួស: ${totals.sw}</span>
+    <span class="sbox" style="background:#dcfce7;color:#15803d;">🌴 ច្បាប់: ${totals.lv}</span>
+    <span class="sbox" style="background:#fee2e2;color:#dc2626;">💸 សរុបកាត់: $${totals.d.toFixed(0)}</span>
+  </div>
+  <div class="legend">
+    <b>សញ្ញា:</b>
+    <span style="background:#dcfce7;color:#15803d;">✔ វត្តមាន</span>
+    <span style="background:#fef9c3;color:#92400e;">⏰ យឺត</span>
+    <span style="background:#fee2e2;color:#dc2626;">— អវត្តមាន</span>
+    <span style="background:#ede9fe;color:#4f46e5;">🔄 ប្ដូរ</span>
+    <span style="background:#bbf7d0;color:#15803d;">🌴 ច្បាប់</span>
+    <span style="background:#e5e7eb;color:#374151;">OFF ឈប់</span>
+    <span style="background:#fde68a;color:#92400e;">OFF+ សង</span>
+    <span style="background:#ede9fe;color:#7c3aed;">🎉 ថ្ងៃបុណ្យ</span>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th style="min-width:130px;text-align:left;padding:5px 8px;" rowspan="2">បុគ្គលិក</th>
+        <th style="min-width:80px;text-align:left;padding:5px 6px;" rowspan="2">នាយកដ្ឋាន</th>
+        <th style="min-width:28px;color:#86efac;" rowspan="2">✅</th>
+        <th style="min-width:28px;color:#fde68a;" rowspan="2">⏰</th>
+        <th style="min-width:28px;color:#fca5a5;" rowspan="2">❌</th>
+        <th style="min-width:28px;color:#c4b5fd;" rowspan="2">🔄</th>
+        <th style="min-width:28px;color:#86efac;" rowspan="2">🌴</th>
+        <th style="min-width:28px;color:#fca5a5;font-size:10px;" rowspan="2">លើស</th>
+        ${thDays}
+      </tr>
+      <tr>${thWds}</tr>
+    </thead>
+    <tbody>${bodyRows}</tbody>
+    <tfoot>
+      <tr class="tfoot-row">
+        <td style="padding:5px 8px;font-size:12px;text-align:left;" colspan="2">សរុប (Total)</td>
+        <td style="text-align:center;color:#16a34a;">${totals.p}</td>
+        <td style="text-align:center;color:#d97706;">${totals.l}</td>
+        <td style="text-align:center;color:#dc2626;">${totals.a}</td>
+        <td style="text-align:center;color:#4f46e5;">${totals.sw}</td>
+        <td style="text-align:center;color:#15803d;">${totals.lv}</td>
+        <td style="text-align:center;color:#dc2626;">${totalOver}</td>
+        ${allDays.map(()=>'<td></td>').join('')}
+      </tr>
+    </tfoot>
+  </table>
+  <div class="sig">
+    <div class="sig-col"><div class="sig-line">ហត្ថលេខាអ្នករៀបចំ</div></div>
+    <div class="sig-col"><div class="sig-line">ហត្ថលេខា HR</div></div>
+    <div class="sig-col"><div class="sig-line">ហត្ថលេខាអ្នកគ្រប់គ្រង</div></div>
+  </div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"><\/script>
+  <script>
+    window.addEventListener('load', function() {
+      // Give fonts time to load
+      setTimeout(function() {
+        var btn = document.getElementById('capture-btn');
+        if (btn) btn.style.display = 'flex';
+        html2canvas(document.body, {
+          scale: 2,
+          useCORS: true,
+          allowTaint: true,
+          backgroundColor: '#ffffff',
+          logging: false,
+          width: document.body.scrollWidth,
+          height: document.body.scrollHeight,
+          windowWidth: document.body.scrollWidth,
+          windowHeight: document.body.scrollHeight
+        }).then(function(canvas) {
+          canvas.toBlob(function(blob) {
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.href = url;
+            a.download = 'Attendance_${monthLabel}_${(cfg.company_name||'HR').replace(/\\s+/g,'_')}.png';
+            a.click();
+            URL.revokeObjectURL(url);
+            if (btn) btn.textContent = '✅ Download ជោគជ័យ!';
+          }, 'image/png');
+        }).catch(function(err){
+          alert('Error: ' + err.message);
+        });
+      }, 800);
+    });
+  <\/script>
+  </body></html>`;
+
+  showToast('📷 កំពុងបង្កើតរូបថត... រង់ចាំបន្តិច', 'info');
+  const win = window.open('', '_blank', 'width=300,height=200');
+  if (!win) { showToast('សូម Allow Popup ក្នុង Browser!', 'error'); return; }
+  win.document.write(captureHtml);
+  win.document.close();
 }
 
 // ── Monthly Attendance Export Excel ──
