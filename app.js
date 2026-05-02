@@ -2406,7 +2406,7 @@ async function renderMonthlyAttendance(month='') {
     const wdThs = allDays.map(({wd}) => {
       const isSat = wd === 6; const isSun = wd === 0;
       const isCommonOff = allOffWds.has(wd);
-      const color = isSun ? 'color:#f87171;' : isSat ? 'color:#fbbf24;' : isCommonOff ? 'color:var(--danger);' : 'color:var(--text2);';
+      const color = isSun ? 'color:#f87171;' : isSat ? 'color:#fbbf24;' : 'color:var(--text);';
       return '<th style="padding:1px 0;font-size:11px;text-align:center;font-weight:600;'+color+'">' + wdNames[wd] + '</th>';
     }).join('');
 
