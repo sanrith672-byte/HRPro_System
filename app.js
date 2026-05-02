@@ -2376,6 +2376,16 @@ async function renderMonthlyAttendance(month='') {
       return { emp, present, late, absent, swap, onLeave, overAbsent, deduction, dailyRate, workingDaysCount };
     });
 
+    // Apply department filter
+    const allEmpsForDept = emps;
+    const selectedDept = (document.getElementById('att-dept-filter') || {}).value || '';
+    const filteredEmps = selectedDept ? emps.filter(e => (e.department||e.department_name||'') === selectedDept) : emps;
+    const filteredSummaries = summaries.filter(s => !selectedDept || (s.emp.department||s.emp.department_name||'') === selectedDept);
+    const filteredTotals = filteredSummaries.reduce((t,s)=>({ p:t.p+s.present, l:t.l+s.late, a:t.a+s.absent, sw:t.sw+s.swap, lv:t.lv+s.onLeave, d:t.d+s.deduction }),{p:0,l:0,a:0,sw:0,lv:0,d:0});
+    const renderSummaries = filteredSummaries;
+    const renderEmps = filteredEmps;
+    const renderTotals = filteredTotals;
+
     // Build union of all employee off_days for header highlight
     const allOffWds = new Set();
     emps.forEach(function(e) { parseOffDays(e).forEach(function(w){ allOffWds.add(w); }); });
@@ -2472,20 +2482,8 @@ async function renderMonthlyAttendance(month='') {
 
     const totals = summaries.reduce((t,s)=>({ p:t.p+s.present, l:t.l+s.late, a:t.a+s.absent, sw:t.sw+s.swap, lv:t.lv+s.onLeave, d:t.d+s.deduction }),{p:0,l:0,a:0,sw:0,lv:0,d:0});
 
-    // Apply department filter
-    const allEmpsForDept = emps;
-    const selectedDept = (document.getElementById('att-dept-filter') || {}).value || '';
-    const filteredEmps = selectedDept ? emps.filter(e => (e.department||e.department_name||'') === selectedDept) : emps;
-    // Re-compute summaries for filtered employees
-    const filteredSummaries = summaries.filter(s => !selectedDept || (s.emp.department||s.emp.department_name||'') === selectedDept);
-    const filteredTotals = filteredSummaries.reduce((t,s)=>({ p:t.p+s.present, l:t.l+s.late, a:t.a+s.absent, sw:t.sw+s.swap, lv:t.lv+s.onLeave, d:t.d+s.deduction }),{p:0,l:0,a:0,sw:0,lv:0,d:0});
-
     // Store data globally for print/export buttons
     window._monthlyAttData = { summaries: filteredSummaries, allDays, currentMonth, emps: filteredEmps, allEmps: allEmpsForDept, totals: filteredTotals, maxAbsent, rules, selectedDept, _attMap: attMap, _leaveMap: leaveMap, _swapMap: swapMap, _offDateMap: offDateMap };
-    // Override local vars for the rest of render
-    const renderSummaries = filteredSummaries;
-    const renderEmps = filteredEmps;
-    const renderTotals = filteredTotals;
 
     contentArea().innerHTML =
       '<div class="page-header">'
