@@ -1787,6 +1787,9 @@ input, select, textarea { font-size: max(14px, 1em); }
 }
 .notif-tag-leave { background: rgba(234,179,8,0.2); color: #eab308; }
 .notif-tag-swap  { background: rgba(99,102,241,0.2); color: #818cf8; }
+.notif-tag-today-work { background: rgba(239,68,68,0.18); color: #ef4444; }
+.notif-tag-today-off  { background: rgba(34,197,94,0.18); color: #22c55e; }
+.notif-tag-upcoming   { background: rgba(14,165,233,0.18); color: #0ea5e9; }
 .notif-empty {
   text-align: center;
   padding: 28px 16px;

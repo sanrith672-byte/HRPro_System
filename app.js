@@ -10887,7 +10887,19 @@ async function loadNotifications() {
 
     const pendingLeaves = (leaveRes.records || []).filter(r => r.status === 'pending');
     const pendingSwaps  = (swapRes.records  || []).filter(r => r.status === 'pending');
-    const total = pendingLeaves.length + pendingSwaps.length;
+
+    // ── Approved swaps: show today + next 7 days ──
+    const _todayStr = today();
+    const _maxDate  = new Date(); _maxDate.setDate(_maxDate.getDate() + 7);
+    const _maxStr   = _maxDate.toISOString().slice(0,10);
+    const approvedSwaps = (swapRes.records || []).filter(r => {
+      if (r.status !== 'approved') return false;
+      const sd = r.swap_date ? r.swap_date.slice(0,10) : '';
+      const od = r.off_date  ? r.off_date.slice(0,10)  : '';
+      return (sd >= _todayStr && sd <= _maxStr) || (od >= _todayStr && od <= _maxStr);
+    });
+
+    const total = pendingLeaves.length + pendingSwaps.length + approvedSwaps.length;
 
     // Update badge
     const badge = document.getElementById('notif-badge');
@@ -10946,6 +10958,42 @@ async function loadNotifications() {
         </div>`;
     });
 
+    // ── Approved swaps section (today/upcoming) ──
+    if (approvedSwaps.length > 0) {
+      if (pendingLeaves.length + pendingSwaps.length > 0) {
+        html += `<div style="font-size:10px;font-weight:700;color:var(--text3);padding:8px 16px 4px;letter-spacing:.5px;text-transform:uppercase;border-top:1px solid var(--border);margin-top:4px">📅 ការប្ដូរថ្ងៃ — ថ្ងៃនេះ/ខាងមុខ</div>`;
+      }
+      const _wdNames2 = ['អាទិត្យ','ច័ន្ទ','អង្គារ','ពុធ','ព្រហស្បតិ៍','សុក្រ','សៅរ៍'];
+      // Sort: today first, then by swap_date
+      approvedSwaps.sort((a,b) => {
+        const ad = (a.swap_date||'').slice(0,10); const bd = (b.swap_date||'').slice(0,10);
+        if (ad === _todayStr && bd !== _todayStr) return -1;
+        if (bd === _todayStr && ad !== _todayStr) return 1;
+        return ad < bd ? -1 : 1;
+      });
+      approvedSwaps.forEach(r => {
+        const emp  = r.employee_name || r.employee || '—';
+        const swap = r.swap_date ? r.swap_date.slice(0,10) : '';
+        const off  = r.off_date  ? r.off_date.slice(0,10)  : '';
+        const _wn  = (r.work_day !== undefined && r.work_day !== null) ? (_wdNames2[r.work_day] || '') : '';
+        const _on  = (r.off_day  !== undefined && r.off_day  !== null) ? (_wdNames2[r.off_day]  || '') : '';
+        const isSwapToday = swap === _todayStr;
+        const isOffToday  = off  === _todayStr;
+        const tagLabel = isSwapToday ? '🔴 ថ្ងៃនេះ' : isOffToday ? '🟢 OFF ថ្ងៃនេះ' : '📅 ខាងមុខ';
+        const tagClass = isSwapToday ? 'notif-tag-today-work' : isOffToday ? 'notif-tag-today-off' : 'notif-tag-upcoming';
+        html += `
+          <div class="notif-item" onclick="navigate('qr_scan');toggleNotifPanel();">
+            <div class="notif-icon">🔄</div>
+            <div class="notif-body">
+              <div class="notif-title">${emp}</div>
+              <div class="notif-sub">🔴 ចូលធ្វើការ: ${swap}${_wn?' ('+_wn+')':''}</div>
+              <div class="notif-sub" style="margin-top:2px">🟢 OFF ជំនួស: ${off}${_on?' ('+_on+')':''}</div>
+            </div>
+            <span class="notif-tag ${tagClass}">${tagLabel}</span>
+          </div>`;
+      });
+    }
+
     list.innerHTML = html;
 
   } catch (e) {
@@ -10959,8 +11007,18 @@ async function refreshNotifBadge() {
       api('GET', '/leave').catch(() => ({ records: [] })),
       api('GET', '/dayswap').catch(() => ({ records: [] }))
     ]);
+    const _todayStr = today();
+    const _maxDate  = new Date(); _maxDate.setDate(_maxDate.getDate() + 7);
+    const _maxStr   = _maxDate.toISOString().slice(0,10);
+    const approvedCount = (swapRes.records || []).filter(r => {
+      if (r.status !== 'approved') return false;
+      const sd = r.swap_date ? r.swap_date.slice(0,10) : '';
+      const od = r.off_date  ? r.off_date.slice(0,10)  : '';
+      return (sd >= _todayStr && sd <= _maxStr) || (od >= _todayStr && od <= _maxStr);
+    }).length;
     const total = (leaveRes.records || []).filter(r => r.status === 'pending').length
-                + (swapRes.records  || []).filter(r => r.status === 'pending').length;
+                + (swapRes.records  || []).filter(r => r.status === 'pending').length
+                + approvedCount;
     const badge = document.getElementById('notif-badge');
     if (badge) {
       if (total > 0) {
