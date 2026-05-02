@@ -3152,59 +3152,12 @@ async function quickCheckOut(empId, date) {
 async function renderQRScanPage() {
   showLoading();
   const _today = today();
-  let _todaySwaps = [];
   try {
-    const [empData, dsData] = await Promise.all([
-      api('GET', '/employees?limit=500').catch(() => ({ employees: [] })),
-      api('GET', '/dayswap').catch(() => ({ records: [] }))
-    ]);
+    const empData = await api('GET', '/employees?limit=500').catch(() => ({ employees: [] }));
     state.employees = empData.employees || [];
-    // Filter approved swaps involving today
-    const _allSwaps = dsData.records || [];
-    _todaySwaps = _allSwaps.filter(r =>
-      r.status === 'approved' && (r.swap_date === _today || r.off_date === _today)
-    );
   } catch(_) {}
 
   const _sess = getSession();
-  const _wdNames = ['អាទិត្យ','ច័ន្ទ','អង្គារ','ពុធ','ព្រហស្បតិ៍','សុក្រ','សៅរ៍'];
-
-  // Build today dayswap panel HTML
-  let _todaySwapPanel = '';
-  if (_todaySwaps.length > 0) {
-    const _swapRows = _todaySwaps.map(r => {
-      const _isWork = r.swap_date === _today; // employee working their OFF day today
-      const _wn = _wdNames[r.work_day] || '';
-      const _on = _wdNames[r.off_day] || '';
-      const _emp = (state.employees || []).find(e => e.id === r.employee_id);
-      const _photo = _emp ? getEmpPhoto(_emp.id) : null;
-      const _av = _photo
-        ? '<img src="'+_photo+'" style="width:30px;height:30px;border-radius:50%;object-fit:cover;flex-shrink:0"/>'
-        : '<div style="width:30px;height:30px;border-radius:50%;background:'+getColor(r.employee_name||'?')+';display:flex;align-items:center;justify-content:center;color:white;font-size:14px;font-weight:700;flex-shrink:0">'+(r.employee_name||'?')[0]+'</div>';
-      return '<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--bg);border-radius:8px;border:1px solid var(--border)">'
-        + _av
-        + '<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px">'+( r.employee_name||'—')+'</div>'
-        + '<div style="font-size:11px;color:var(--text3)">'
-        + (_isWork
-          ? '🔴 ធ្វើការថ្ងៃ OFF (<b>'+_wn+'</b>) → OFF <b>'+_on+'</b>'+(r.off_date?' ('+r.off_date+')':'')
-          : '🟢 OFF ជំនួស (<b>'+_on+'</b>) ← ធ្វើការ​ <b>'+_wn+'</b>'+(r.swap_date?' ('+r.swap_date+')':''))
-        + '</div></div>'
-        + '<span style="font-size:11px;padding:2px 8px;border-radius:12px;font-weight:700;'
-        + (_isWork
-          ? 'background:rgba(239,71,111,.12);color:var(--danger)'
-          : 'background:rgba(99,102,241,.12);color:rgba(99,102,241,1)')
-        + '">'
-        + (_isWork ? '🔄 ចូលធ្វើការ' : '🏖️ OFF ជំនួស')
-        + '</span>'
-        + '</div>';
-    }).join('');
-    _todaySwapPanel = '<div style="max-width:900px;margin:0 auto 16px;background:linear-gradient(135deg,rgba(245,158,11,.08),rgba(234,179,8,.05));border:1.5px solid rgba(245,158,11,.35);border-radius:14px;padding:14px 18px">'
-      + '<div style="font-weight:800;font-size:14px;color:#b45309;margin-bottom:10px;display:flex;align-items:center;gap:8px">'
-      + '<span style="font-size:20px">🔄</span> ការប្ដូរថ្ងៃ — ថ្ងៃនេះ ('+_today+') <span style="background:#b45309;color:white;font-size:11px;padding:1px 8px;border-radius:12px;margin-left:4px">'+_todaySwaps.length+' នាក់</span>'
-      + '</div>'
-      + '<div style="display:flex;flex-direction:column;gap:6px">'+_swapRows+'</div>'
-      + '</div>';
-  }
 
   contentArea().innerHTML =
     '<div class="page-header">'
@@ -3222,9 +3175,6 @@ async function renderQRScanPage() {
 
     // ── Scanner Identity Banner ──
     +((_sess && _sess.role === 'QR Scanner') ? '<div style="max-width:900px;margin:0 auto 18px;background:linear-gradient(135deg,rgba(16,185,129,.12),rgba(6,214,160,.08));border:1.5px solid rgba(16,185,129,.35);border-radius:14px;padding:12px 18px;display:flex;align-items:center;gap:12px"><div style="width:38px;height:38px;border-radius:50%;background:var(--success);display:flex;align-items:center;justify-content:center;color:white;font-size:18px;font-weight:800;flex-shrink:0">'+((_sess.name||'S')[0])+'</div><div style="flex:1"><div style="font-weight:800;font-size:16px;color:var(--text)">'+(_sess.name||'QR Scanner')+'</div><div style="font-size:13px;color:var(--text3)">📷 QR Scanner — វត្តមានដែលស្កែនដោយខ្ញុំ</div></div><span style="background:var(--success);color:white;font-size:12px;padding:3px 10px;border-radius:20px;font-weight:700">ACTIVE</span></div>' : '')
-
-    // ── Today Day Swap Panel ──
-    + _todaySwapPanel
 
     // ── No mode selector — direct employee scan ──
     +'<div id="qr-mode-selector" style="display:none"></div>'
