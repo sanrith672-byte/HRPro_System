@@ -2568,13 +2568,13 @@ function printMonthlyAttendance() {
   const thDays = allDays.map(({d, wd}) => {
     const isSun = wd === 0; const isSat = wd === 6;
     const isCommonOff = allOffWds.has(wd);
-    const bg = isSun ? 'background:#fee2e2;color:#dc2626;' : isSat ? 'background:#fef3c7;color:#b45309;' : isCommonOff ? 'background:#f3f4f6;color:#9ca3af;' : '';
+    const bg = isSun ? 'background:#fee2e2;color:#dc2626;' : isSat ? 'background:#fef9c3;color:#b45309;' : isCommonOff ? 'background:#f3f4f6;color:#9ca3af;' : '';
     return `<th style="min-width:20px;padding:2px 1px;font-size:11px;font-weight:700;text-align:center;${bg}">${d}</th>`;
   }).join('');
   const thWds = allDays.map(({wd}) => {
     const isSun = wd === 0; const isSat = wd === 6;
     const isCommonOff = allOffWds.has(wd);
-    const color = isSun ? '#dc2626' : isSat ? '#b45309' : isCommonOff ? '#ef4444' : '#374151';
+    const color = isSun ? '#dc2626' : isSat ? '#b45309' : '#374151';
     return `<th style="min-width:20px;padding:1px;font-size:10px;text-align:center;font-weight:600;color:${color}">${wdNames[wd]}</th>`;
   }).join('');
 
@@ -2733,13 +2733,13 @@ function saveMonthlyAttendanceAsImage() {
   const thDays = allDays.map(({d, wd}) => {
     const isSun = wd === 0; const isSat = wd === 6;
     const isCommonOff = allOffWds.has(wd);
-    const bg = isSun ? 'background:#fee2e2;color:#dc2626;' : isSat ? 'background:#fef3c7;color:#b45309;' : isCommonOff ? 'background:#e5e7eb;color:#6b7280;' : '';
+    const bg = isSun ? 'background:#fee2e2;color:#dc2626;' : isSat ? 'background:#fef9c3;color:#b45309;' : isCommonOff ? 'background:#e5e7eb;color:#6b7280;' : '';
     return `<th style="min-width:22px;padding:3px 1px;font-size:12px;font-weight:700;text-align:center;${bg}">${d}</th>`;
   }).join('');
   const thWds = allDays.map(({wd}) => {
     const isSun = wd === 0; const isSat = wd === 6;
     const isCommonOff = allOffWds.has(wd);
-    const color = isSun ? '#dc2626' : isSat ? '#b45309' : isCommonOff ? '#dc2626' : '#374151';
+    const color = isSun ? '#dc2626' : isSat ? '#b45309' : '#374151';
     return `<th style="min-width:22px;padding:1px;font-size:11px;text-align:center;font-weight:600;color:${color}">${wdNames[wd]}</th>`;
   }).join('');
 
