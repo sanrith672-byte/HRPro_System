@@ -2398,7 +2398,7 @@ async function renderMonthlyAttendance(month='') {
       const isToday = (thisMonth()===currentMonth && new Date().getDate()===d);
       const isSat = wd === 6; const isSun = wd === 0;
       const isCommonOff = allOffWds.has(wd);
-      let bg = isToday ? 'background:var(--primary);color:white;' : isSun ? 'background:#fee2e2;color:#dc2626;' : isSat ? 'background:#fef3c7;color:#b45309;' : isCommonOff ? 'background:var(--bg2);color:var(--text3);' : '';
+      let bg = isToday ? 'background:var(--primary);color:white;' : isSun ? 'background:rgba(220,38,38,0.25);color:#f87171;' : isSat ? 'background:rgba(180,83,9,0.25);color:#fbbf24;' : isCommonOff ? 'background:var(--bg2);color:var(--text3);' : '';
       return '<th style="padding:2px 1px;font-size:13px;font-weight:700;text-align:center;'+bg+'">' + d + '</th>';
     }).join('');
 
@@ -2406,7 +2406,7 @@ async function renderMonthlyAttendance(month='') {
     const wdThs = allDays.map(({wd}) => {
       const isSat = wd === 6; const isSun = wd === 0;
       const isCommonOff = allOffWds.has(wd);
-      const color = isSun ? 'color:#dc2626;' : isSat ? 'color:#b45309;' : isCommonOff ? 'color:var(--danger);' : 'color:var(--text2);';
+      const color = isSun ? 'color:#f87171;' : isSat ? 'color:#fbbf24;' : isCommonOff ? 'color:var(--danger);' : 'color:var(--text2);';
       return '<th style="padding:1px 0;font-size:11px;text-align:center;font-weight:600;'+color+'">' + wdNames[wd] + '</th>';
     }).join('');
 
