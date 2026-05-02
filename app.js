@@ -3870,6 +3870,9 @@ async function processQRScan_continue(emp, raw, date) {
     await api('POST', '/attendance', payload);
     window._scanCount = (window._scanCount || 0) + 1;
 
+    // Play success sound
+    playQRSuccessSound();
+
     // Update count label
     const cnt = document.getElementById('qr-count');
     if (cnt) cnt.textContent = window._scanCount + ' នាក់';
@@ -10805,6 +10808,47 @@ function applyTheme(t) {
 // ============================================================
 let _notifOpen = false;
 
+// ── Notification Sound ──
+function playNotifSound() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    // Bell-like tone: two short beeps
+    [0, 0.18].forEach(delay => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, ctx.currentTime + delay);
+      osc.frequency.exponentialRampToValueAtTime(660, ctx.currentTime + delay + 0.12);
+      gain.gain.setValueAtTime(0.35, ctx.currentTime + delay);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.22);
+      osc.start(ctx.currentTime + delay);
+      osc.stop(ctx.currentTime + delay + 0.22);
+    });
+  } catch(_) {}
+}
+
+// ── QR Scan Success Sound ──
+function playQRSuccessSound() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    // Pleasant ascending chime: C5 → E5 → G5
+    [[523, 0], [659, 0.15], [784, 0.30]].forEach(([freq, delay]) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, ctx.currentTime + delay);
+      gain.gain.setValueAtTime(0.4, ctx.currentTime + delay);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.35);
+      osc.start(ctx.currentTime + delay);
+      osc.stop(ctx.currentTime + delay + 0.35);
+    });
+  } catch(_) {}
+}
+
 function toggleNotifPanel() {
   _notifOpen = !_notifOpen;
   const panel = document.getElementById('notif-panel');
@@ -10812,6 +10856,7 @@ function toggleNotifPanel() {
   if (_notifOpen) {
     panel.style.display = 'block';
     loadNotifications();
+    playNotifSound();
     // Close when clicking outside
     setTimeout(() => {
       document.addEventListener('click', _closeNotifOutside, { once: true });
@@ -10884,12 +10929,18 @@ async function loadNotifications() {
       const emp  = r.employee_name || r.employee || '—';
       const swap = r.swap_date  ? r.swap_date.slice(0,10)  : '';
       const off  = r.off_date   ? r.off_date.slice(0,10)   : '';
+      const _wdNames = ['អាទិត្យ','ច័ន្ទ','អង្គារ','ពុធ','ព្រហស្បតិ៍','សុក្រ','សៅរ៍'];
+      const _workDay = (r.work_day !== undefined && r.work_day !== null) ? (_wdNames[r.work_day] || '') : '';
+      const _offDay  = (r.off_day  !== undefined && r.off_day  !== null) ? (_wdNames[r.off_day]  || '') : '';
+      const swapLabel = swap ? `${swap}${_workDay ? ' ('+_workDay+')' : ''}` : '—';
+      const offLabel  = off  ? `${off}${_offDay  ? ' ('+_offDay+')'  : ''}` : '—';
       html += `
         <div class="notif-item" onclick="navigate('dayswap');toggleNotifPanel();">
           <div class="notif-icon">🔄</div>
           <div class="notif-body">
             <div class="notif-title">${emp}</div>
-            <div class="notif-sub">ធ្វើការ: ${swap} → ឈប់: ${off}</div>
+            <div class="notif-sub">🔴 ចូលធ្វើការ: ${swapLabel}</div>
+            <div class="notif-sub" style="margin-top:2px">🟢 OFF ជំនួស: ${offLabel}</div>
           </div>
           <span class="notif-tag notif-tag-swap">ប្ដូរថ្ងៃ</span>
         </div>`;
