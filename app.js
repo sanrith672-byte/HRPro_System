@@ -2376,16 +2376,6 @@ async function renderMonthlyAttendance(month='') {
       return { emp, present, late, absent, swap, onLeave, overAbsent, deduction, dailyRate, workingDaysCount };
     });
 
-    // Apply department filter
-    const allEmpsForDept = emps;
-    const selectedDept = (document.getElementById('att-dept-filter') || {}).value || '';
-    const filteredEmps = selectedDept ? emps.filter(e => (e.department||e.department_name||'') === selectedDept) : emps;
-    const filteredSummaries = summaries.filter(s => !selectedDept || (s.emp.department||s.emp.department_name||'') === selectedDept);
-    const filteredTotals = filteredSummaries.reduce((t,s)=>({ p:t.p+s.present, l:t.l+s.late, a:t.a+s.absent, sw:t.sw+s.swap, lv:t.lv+s.onLeave, d:t.d+s.deduction }),{p:0,l:0,a:0,sw:0,lv:0,d:0});
-    const renderSummaries = filteredSummaries;
-    const renderEmps = filteredEmps;
-    const renderTotals = filteredTotals;
-
     // Build union of all employee off_days for header highlight
     const allOffWds = new Set();
     emps.forEach(function(e) { parseOffDays(e).forEach(function(w){ allOffWds.add(w); }); });
@@ -2408,7 +2398,7 @@ async function renderMonthlyAttendance(month='') {
       return '<th style="padding:1px 0;font-size:9px;text-align:center;font-weight:400;'+color+'">' + wdNames[wd] + '</th>';
     }).join('');
 
-    const dayRows = filteredSummaries.map(({emp, present, late, absent, swap, overAbsent, deduction}) => {
+    const dayRows = summaries.map(({emp, present, late, absent, swap, overAbsent, deduction}) => {
       const rec = attMap[emp.id] || {};
       const empOff = parseOffDays(emp);
       const cells = allDays.map(({dd, wd}) => {
@@ -2483,14 +2473,13 @@ async function renderMonthlyAttendance(month='') {
     const totals = summaries.reduce((t,s)=>({ p:t.p+s.present, l:t.l+s.late, a:t.a+s.absent, sw:t.sw+s.swap, lv:t.lv+s.onLeave, d:t.d+s.deduction }),{p:0,l:0,a:0,sw:0,lv:0,d:0});
 
     // Store data globally for print/export buttons
-    window._monthlyAttData = { summaries: filteredSummaries, allDays, currentMonth, emps: filteredEmps, allEmps: allEmpsForDept, totals: filteredTotals, maxAbsent, rules, selectedDept, _attMap: attMap, _leaveMap: leaveMap, _swapMap: swapMap, _offDateMap: offDateMap };
+    window._monthlyAttData = { summaries, allDays, currentMonth, emps, totals, maxAbsent, rules, _attMap: attMap, _leaveMap: leaveMap, _swapMap: swapMap, _offDateMap: offDateMap };
 
     contentArea().innerHTML =
       '<div class="page-header">'
       +'<div><h2>📊 តារាងវត្តមានប្រចាំខែ</h2></div>'
       +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
-      +'<input class="filter-input" id="att-month-input" type="month" value="'+currentMonth+'" onchange="renderMonthlyAttendance(this.value)" />'
-      +(function(){ const allE = (window._monthlyAttData && window._monthlyAttData.allEmps) || (window._monthlyAttData && window._monthlyAttData.emps) || []; const depts = [...new Set(allE.map(e=>e.department||e.department_name||'').filter(Boolean))]; const sel = (window._monthlyAttData && window._monthlyAttData.selectedDept) || ''; return '<select class="filter-input" id="att-dept-filter" style="min-width:120px" onchange="renderMonthlyAttendance(document.getElementById(\'att-month-input\').value)"><option value="">នាយកដ្ឋានទាំងអស់</option>'+depts.map(d=>'<option value="'+d+'"'+(sel===d?' selected':'')+'>'+d+'</option>').join('')+'</select>'; })()
+      +'<input class="filter-input" type="month" value="'+currentMonth+'" onchange="renderMonthlyAttendance(this.value)" />'
       +'<button class="btn btn-primary" onclick="applyAllAbsenceDeductions(\''+currentMonth+'\')">💸 កាត់ប្រាក់ទាំងអស់</button>'
       +'<button class="btn btn-outline" onclick="renderAttendance(\''+currentMonth+'-01\')" style="border-color:var(--success);color:var(--success)">📅 ថ្ងៃទៅថ្ងៃ</button>'
       +'<button class="btn btn-outline" onclick="printMonthlyAttendance()" style="border-color:var(--primary);color:var(--primary)">🖨️ បោះពុម្ព PDF</button>'
@@ -2498,13 +2487,13 @@ async function renderMonthlyAttendance(month='') {
       +'<button class="btn btn-outline" onclick="exportMonthlyAttendanceExcel()" style="border-color:var(--info);color:var(--info)">📊 Export Excel</button>'
       +'</div></div>'
       +'<div class="att-summary">'
-      +'<div class="att-box"><div class="att-num" style="color:var(--success)">'+renderTotals.p+'</div><div class="att-lbl">✅ វត្តមាន</div></div>'
-      +'<div class="att-box"><div class="att-num" style="color:var(--warning)">'+renderTotals.l+'</div><div class="att-lbl">⏰ យឺត</div></div>'
-      +'<div class="att-box"><div class="att-num" style="color:var(--danger)">'+renderTotals.a+'</div><div class="att-lbl">❌ អវត្តមាន</div></div>'
-      +'<div class="att-box"><div class="att-num" style="color:var(--primary)">'+renderTotals.sw+'</div><div class="att-lbl">🔄 ជំនួស</div></div>'
-      +'<div class="att-box"><div class="att-num" style="color:var(--success)">'+renderTotals.lv+'</div><div class="att-lbl">🌴 ច្បាប់</div></div>'
-      +'<div class="att-box"><div class="att-num" style="color:var(--danger)">'+renderSummaries.filter(s=>s.overAbsent>0).length+'</div><div class="att-lbl">⚠️ លើសថ្ងៃ</div></div>'
-
+      +'<div class="att-box"><div class="att-num" style="color:var(--success)">'+totals.p+'</div><div class="att-lbl">✅ វត្តមាន</div></div>'
+      +'<div class="att-box"><div class="att-num" style="color:var(--warning)">'+totals.l+'</div><div class="att-lbl">⏰ យឺត</div></div>'
+      +'<div class="att-box"><div class="att-num" style="color:var(--danger)">'+totals.a+'</div><div class="att-lbl">❌ អវត្តមាន</div></div>'
+      +'<div class="att-box"><div class="att-num" style="color:var(--primary)">'+totals.sw+'</div><div class="att-lbl">🔄 ជំនួស</div></div>'
+      +'<div class="att-box"><div class="att-num" style="color:var(--success)">'+totals.lv+'</div><div class="att-lbl">🌴 ច្បាប់</div></div>'
+      +'<div class="att-box"><div class="att-num" style="color:var(--danger)">'+emps.filter((_,i)=>summaries[i].overAbsent>0).length+'</div><div class="att-lbl">⚠️ លើសថ្ងៃ</div></div>'
+      +'<div class="att-box"><div class="att-num" style="color:var(--danger)">$'+totals.d.toFixed(0)+'</div><div class="att-lbl">💸 សរុបកាត់</div></div>'
       +'</div>'
       +'<div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:14px;display:flex;gap:16px;flex-wrap:wrap;align-items:center">'
       +'<span style="font-size:12px;color:var(--text3)">⚙️ ច្បាប់:</span>'
@@ -2554,7 +2543,7 @@ async function renderMonthlyAttendance(month='') {
 function printMonthlyAttendance() {
   const d = window._monthlyAttData;
   if (!d) { showToast('សូមចាំ... ទំព័រមិនទាន់ Load ទេ', 'error'); return; }
-  const { summaries, allDays, currentMonth, totals, maxAbsent, rules, selectedDept } = d;
+  const { summaries, allDays, currentMonth, totals, maxAbsent, rules } = d;
   const cfg = getCompanyConfig();
   const monthLabel = currentMonth;
   const wdNames = ['អា','ច','អ','ព','ព្រ','សុ','ស'];
@@ -2657,8 +2646,8 @@ function printMonthlyAttendance() {
   </div>
   <div class="header">
     <div class="company">${cfg.company_name||'HR Pro System'}</div>
-    <div class="title">📊 តារាងវត្តមានប្រចាំខែ — ${monthLabel}${selectedDept ? ' · 🏢 ' + selectedDept : ''}</div>
-    <div class="subtitle">ម៉ោងចូល: ${rules&&rules.work_start_time||'08:00'} (grace ${rules&&rules.late_grace_minutes||15} នាទី) &nbsp;|&nbsp; ថ្ងៃអវត្តមានអនុញ្ញាត: ${maxAbsent} ថ្ងៃ/ខែ &nbsp;|&nbsp; បោះពុម្ពថ្ងៃទី: ${new Date().toLocaleDateString('km-KH')}${selectedDept ? ' &nbsp;|&nbsp; 🏢 នាយកដ្ឋាន: ' + selectedDept : ''}</div>
+    <div class="title">📊 តារាងវត្តមានប្រចាំខែ — ${monthLabel}</div>
+    <div class="subtitle">ម៉ោងចូល: ${rules&&rules.work_start_time||'08:00'} (grace ${rules&&rules.late_grace_minutes||15} នាទី) &nbsp;|&nbsp; ថ្ងៃអវត្តមានអនុញ្ញាត: ${maxAbsent} ថ្ងៃ/ខែ &nbsp;|&nbsp; បោះពុម្ពថ្ងៃទី: ${new Date().toLocaleDateString('km-KH')}</div>
   </div>
   <div style="margin-bottom:6px;display:flex;gap:4px;flex-wrap:wrap">
     <span class="summary-box" style="background:#dcfce7;color:#16a34a">✅ វត្តមាន: ${totals.p}</span>
@@ -2666,6 +2655,7 @@ function printMonthlyAttendance() {
     <span class="summary-box" style="background:#fee2e2;color:#ef4444">❌ អវត្តមាន: ${totals.a}</span>
     <span class="summary-box" style="background:#ede9fe;color:#6366f1">🔄 ជំនួស: ${totals.sw}</span>
     <span class="summary-box" style="background:#dcfce7;color:#15803d">🌴 ច្បាប់: ${totals.lv}</span>
+    <span class="summary-box" style="background:#fee2e2;color:#ef4444">💸 សរុបកាត់: $${totals.d.toFixed(0)}</span>
   </div>
   <div class="legend">
     <b>សញ្ញា:</b>
@@ -2719,7 +2709,7 @@ function printMonthlyAttendance() {
 function saveMonthlyAttendanceAsImage() {
   const d = window._monthlyAttData;
   if (!d) { showToast('សូមចាំ... ទំព័រមិនទាន់ Load ទេ', 'error'); return; }
-  const { summaries, allDays, currentMonth, totals, maxAbsent, rules, selectedDept } = d;
+  const { summaries, allDays, currentMonth, totals, maxAbsent, rules } = d;
   const cfg = getCompanyConfig();
   const monthLabel = currentMonth;
   const wdNames = ['អា','ច','អ','ព','ព្រ','សុ','ស'];
@@ -2806,8 +2796,8 @@ function saveMonthlyAttendanceAsImage() {
   </head><body>
   <div class="header">
     <div class="company">🏢 ${cfg.company_name||'HR Pro System'}</div>
-    <div class="title">📊 តារាងវត្តមានប្រចាំខែ — ${monthLabel}${selectedDept ? ' · 🏢 ' + selectedDept : ''}</div>
-    <div class="subtitle">ម៉ោងចូល: ${rules&&rules.work_start_time||'08:00'} (grace ${rules&&rules.late_grace_minutes||15} នាទី) &nbsp;|&nbsp; ថ្ងៃអវត្តមានអនុញ្ញាត: ${maxAbsent} ថ្ងៃ/ខែ &nbsp;|&nbsp; រូបថតថ្ងៃទី: ${new Date().toLocaleDateString('km-KH')}${selectedDept ? ' &nbsp;|&nbsp; 🏢 នាយកដ្ឋាន: ' + selectedDept : ''}</div>
+    <div class="title">📊 តារាងវត្តមានប្រចាំខែ — ${monthLabel}</div>
+    <div class="subtitle">ម៉ោងចូល: ${rules&&rules.work_start_time||'08:00'} (grace ${rules&&rules.late_grace_minutes||15} នាទី) &nbsp;|&nbsp; ថ្ងៃអវត្តមានអនុញ្ញាត: ${maxAbsent} ថ្ងៃ/ខែ &nbsp;|&nbsp; រូបថតថ្ងៃទី: ${new Date().toLocaleDateString('km-KH')}</div>
   </div>
   <div class="summary">
     <span class="sbox" style="background:#dcfce7;color:#15803d;">✅ វត្តមាន: ${totals.p}</span>
@@ -2815,6 +2805,7 @@ function saveMonthlyAttendanceAsImage() {
     <span class="sbox" style="background:#fee2e2;color:#dc2626;">❌ អវត្តមាន: ${totals.a}</span>
     <span class="sbox" style="background:#ede9fe;color:#4f46e5;">🔄 ជំនួស: ${totals.sw}</span>
     <span class="sbox" style="background:#dcfce7;color:#15803d;">🌴 ច្បាប់: ${totals.lv}</span>
+    <span class="sbox" style="background:#fee2e2;color:#dc2626;">💸 សរុបកាត់: $${totals.d.toFixed(0)}</span>
   </div>
   <div class="legend">
     <b>សញ្ញា:</b>
@@ -2883,7 +2874,7 @@ function saveMonthlyAttendanceAsImage() {
             var url = URL.createObjectURL(blob);
             var a = document.createElement('a');
             a.href = url;
-            a.download = 'Attendance_${monthLabel}_${selectedDept ? selectedDept.replace(/\\s+/g,'_')+'_' : ''}${(cfg.company_name||'HR').replace(/\\s+/g,'_')}.png';
+            a.download = 'Attendance_${monthLabel}_${(cfg.company_name||'HR').replace(/\\s+/g,'_')}.png';
             a.click();
             URL.revokeObjectURL(url);
             if (btn) btn.textContent = '✅ Download ជោគជ័យ!';
@@ -2907,7 +2898,7 @@ function saveMonthlyAttendanceAsImage() {
 async function exportMonthlyAttendanceExcel() {
   const d = window._monthlyAttData;
   if (!d) { showToast('សូមចាំ... ទំព័រមិនទាន់ Load ទេ', 'error'); return; }
-  const { summaries, allDays, currentMonth, totals, maxAbsent, rules, selectedDept } = d;
+  const { summaries, allDays, currentMonth, totals, maxAbsent, rules } = d;
   const cfg = getCompanyConfig();
   const wdNames = ['អា','ច','អ','ព','ព្រ','សុ','ស'];
   showToast('កំពុង Export Excel...', 'info');
@@ -3005,7 +2996,7 @@ async function exportMonthlyAttendanceExcel() {
       { name: 'វត្តមាន Matrix ' + currentMonth, headers: matrixHeaders, rows: matrixRows },
       { name: 'Summary ' + currentMonth,        headers: summaryHeaders, rows: summaryRows },
     ]);
-    downloadBlob(blob, (cfg.company_name||'HR') + '_Monthly_Attendance_' + currentMonth + (selectedDept ? '_' + selectedDept.replace(/\s+/g,'_') : '') + '.xlsx');
+    downloadBlob(blob, (cfg.company_name||'HR') + '_Monthly_Attendance_' + currentMonth + '.xlsx');
     showToast('Download Excel ✅', 'success');
   } catch(e) { showToast('Error: ' + e.message, 'error'); }
 }
