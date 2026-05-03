@@ -2879,6 +2879,21 @@ function printMonthlyAttendance() {
         <td colspan="7"></td>
         ${(()=>{ const swapMapData=window._monthlyAttData._swapMap||{}; const offDateData=window._monthlyAttData._offDateMap||{}; return allDays.map(({dd,wd})=>{ let o=0; summaries.forEach(({emp})=>{ const empOff=parseOffDays(emp); const swapRec=(swapMapData[emp.id]||{})[dd]; const compSwap=(offDateData[emp.id]||{})[dd]; if(empOff.length>0&&empOff.indexOf(wd)!==-1){if(!swapRec)o++;} else if(compSwap)o++; }); const isSun=wd===0,isSat=wd===6; const bg=isSun?'background:#fee2e2;':isSat?'background:#fef9c3;':''; return '<td style="text-align:center;font-size:10px;font-weight:700;color:#dc2626;'+bg+'">'+o+'</td>'; }).join(''); })()}
       </tr>
+      <tr style="background:#fffbeb;">
+        <td style="padding:3px 5px;font-size:10px;font-weight:700;color:#92400e;white-space:nowrap" colspan="2">🌟 OFF ធ្វើការ (នាក់)</td>
+        <td colspan="7"></td>
+        ${(()=>{ const swapMapData=window._monthlyAttData._swapMap||{}; const attMapData=window._monthlyAttData._attMap||{}; return allDays.map(({dd,wd})=>{ let ow=0; summaries.forEach(({emp})=>{ const empOff=parseOffDays(emp); const swapRec=(swapMapData[emp.id]||{})[dd]; const a=(attMapData[emp.id]||{})[dd]; if(empOff.length>0&&empOff.indexOf(wd)!==-1){ if(swapRec&&!(swapRec.off_date&&swapRec.off_date.trim()!==''))ow++; else if(!swapRec&&a&&(a.status==='present'||a.status==='late'))ow++; } }); const isSun=wd===0,isSat=wd===6; const bg=isSun?'background:#fee2e2;':isSat?'background:#fef9c3;':'background:#fffbeb;'; return '<td style="text-align:center;font-size:10px;font-weight:700;color:#d97706;'+bg+'">'+(ow>0?'🌟'+ow:'—')+'</td>'; }).join(''); })()}
+      </tr>
+      <tr style="background:#f0f9ff;">
+        <td style="padding:3px 5px;font-size:10px;font-weight:700;color:#0369a1;white-space:nowrap" colspan="2">📅 សរុបថ្ងៃធ្វើការ/បុគ្គលិក</td>
+        <td colspan="7" style="text-align:center;font-size:10px;color:#0369a1">${summaries.reduce((s,r)=>s+(r.workingDaysCount||0),0)} ថ្ងៃ (${summaries.length} នាក់)</td>
+        ${allDays.map(()=>'<td style="background:#f0f9ff"></td>').join('')}
+      </tr>
+      <tr style="background:#f5f3ff;">
+        <td style="padding:3px 5px;font-size:10px;font-weight:700;color:#6d28d9;white-space:nowrap" colspan="2">📅 សរុបថ្ងៃ OFF/បុគ្គលិក</td>
+        <td colspan="7" style="text-align:center;font-size:10px;color:#6d28d9">${summaries.reduce((s,r)=>s+(r.empOffDaysThisMonth||0),0)} ថ្ងៃ (${summaries.length} នាក់)</td>
+        ${allDays.map(()=>'<td style="background:#f5f3ff"></td>').join('')}
+      </tr>
     </tfoot>
   </table>
   <div class="sig">
@@ -3073,6 +3088,21 @@ function saveMonthlyAttendanceAsImage() {
         <td colspan="7"></td>
         ${(()=>{ const swapMapData=window._monthlyAttData._swapMap||{}; const offDateData=window._monthlyAttData._offDateMap||{}; return allDays.map(({dd,wd})=>{ let o=0; summaries.forEach(({emp})=>{ const empOff=parseOffDays(emp); const swapRec=(swapMapData[emp.id]||{})[dd]; const compSwap=(offDateData[emp.id]||{})[dd]; if(empOff.length>0&&empOff.indexOf(wd)!==-1){if(!swapRec)o++;} else if(compSwap)o++; }); const isSun=wd===0,isSat=wd===6; const bg=isSun?'background:#fee2e2;':isSat?'background:#fef9c3;':''; return '<td style="text-align:center;font-size:11px;font-weight:700;color:#dc2626;'+bg+'">'+o+'</td>'; }).join(''); })()}
       </tr>
+      <tr style="background:#fffbeb;">
+        <td style="padding:4px 8px;font-size:11px;font-weight:700;color:#92400e;white-space:nowrap" colspan="2">🌟 OFF ធ្វើការ (នាក់)</td>
+        <td colspan="7"></td>
+        ${(()=>{ const swapMapData=window._monthlyAttData._swapMap||{}; const attMapData=window._monthlyAttData._attMap||{}; return allDays.map(({dd,wd})=>{ let ow=0; summaries.forEach(({emp})=>{ const empOff=parseOffDays(emp); const swapRec=(swapMapData[emp.id]||{})[dd]; const a=(attMapData[emp.id]||{})[dd]; if(empOff.length>0&&empOff.indexOf(wd)!==-1){ if(swapRec&&!(swapRec.off_date&&swapRec.off_date.trim()!==''))ow++; else if(!swapRec&&a&&(a.status==='present'||a.status==='late'))ow++; } }); const isSun=wd===0,isSat=wd===6; const bg=isSun?'background:#fee2e2;':isSat?'background:#fef9c3;':'background:#fffbeb;'; return '<td style="text-align:center;font-size:11px;font-weight:700;color:#d97706;'+bg+'">'+(ow>0?'🌟'+ow:'—')+'</td>'; }).join(''); })()}
+      </tr>
+      <tr style="background:#f0f9ff;">
+        <td style="padding:4px 8px;font-size:11px;font-weight:700;color:#0369a1;white-space:nowrap" colspan="2">📅 សរុបថ្ងៃធ្វើការ/បុគ្គលិក</td>
+        <td colspan="7" style="text-align:center;font-size:11px;color:#0369a1">${summaries.reduce((s,r)=>s+(r.workingDaysCount||0),0)} ថ្ងៃ (${summaries.length} នាក់)</td>
+        ${allDays.map(()=>'<td style="background:#f0f9ff"></td>').join('')}
+      </tr>
+      <tr style="background:#f5f3ff;">
+        <td style="padding:4px 8px;font-size:11px;font-weight:700;color:#6d28d9;white-space:nowrap" colspan="2">📅 សរុបថ្ងៃ OFF/បុគ្គលិក</td>
+        <td colspan="7" style="text-align:center;font-size:11px;color:#6d28d9">${summaries.reduce((s,r)=>s+(r.empOffDaysThisMonth||0),0)} ថ្ងៃ (${summaries.length} នាក់)</td>
+        ${allDays.map(()=>'<td style="background:#f5f3ff"></td>').join('')}
+      </tr>
     </tfoot>
   </table>
   <div class="sig">
@@ -3226,9 +3256,35 @@ async function exportMonthlyAttendanceExcel() {
     matrixRows.push(workingRow);
     matrixRows.push(offRow);
 
+    // OFF worked per day row
+    const offWorkedRow = ['', '🌟 OFF ធ្វើការ (នាក់)', '', '', '', '', '', '', '', '', ''];
+    const attMapExcel = d._attMap || {};
+    allDays.forEach(({dd, wd}) => {
+      let ow = 0;
+      summaries.forEach(({emp}) => {
+        const empOff  = typeof parseOffDays === 'function' ? parseOffDays(emp) : [];
+        const swapRec = (swapMap[emp.id]||{})[dd];
+        const a       = (attMapExcel[emp.id]||{})[dd];
+        if (empOff.length > 0 && empOff.indexOf(wd) !== -1) {
+          if (swapRec && !(swapRec.off_date && swapRec.off_date.trim() !== '')) ow++;
+          else if (!swapRec && a && (a.status==='present'||a.status==='late')) ow++;
+        }
+      });
+      offWorkedRow.push(ow > 0 ? ow : '');
+    });
+    matrixRows.push(offWorkedRow);
+
+    // Total working days & OFF days summary
+    const totalWorkingDays = summaries.reduce((s,r)=>s+(r.workingDaysCount||0),0);
+    const totalOffDays     = summaries.reduce((s,r)=>s+(r.empOffDaysThisMonth||0),0);
+    const totalOffWorked   = summaries.reduce((s,r)=>s+(r.offDaysWorked||0),0);
+    matrixRows.push(['', '📅 សរុបថ្ងៃធ្វើការ', '', totalWorkingDays + ' ថ្ងៃ (' + summaries.length + ' នាក់)', '', '', '', '', '', '', '', ...allDays.map(()=>'')]);
+    matrixRows.push(['', '📅 សរុបថ្ងៃ OFF', '', totalOffDays + ' ថ្ងៃ (' + summaries.length + ' នាក់)', '', '', '', '', '', '', '', ...allDays.map(()=>'')]);
+    matrixRows.push(['', '🌟 OFF ធ្វើការ (សរុប)', '', totalOffWorked + ' ថ្ងៃ', '', '', '', '', '', '', '', ...allDays.map(()=>'')]);
+
     // ── Sheet 2: Detail Summary ───────────────────────────────────
-    const summaryHeaders = ['#', 'ឈ្មោះបុគ្គលិក', 'នាយកដ្ឋាន', '✅ វត្តមាន', '⏰ យឺត', '❌ អវត្តមាន', '🔄 ជំនួស', '🌴 ច្បាប់', 'ថ្ងៃធ្វើការ', 'ថ្ងៃលើស', 'អត្រាថ្ងៃ ($)', 'កាត់ ($)', '🌟 OFF Bonus ($)'];
-    const summaryRows = summaries.map(({emp, present, late, absent, swap, onLeave, overAbsent, deduction, dailyRate, workingDaysCount, offBonus}, i) => [
+    const summaryHeaders = ['#', 'ឈ្មោះបុគ្គលិក', 'នាយកដ្ឋាន', '✅ វត្តមាន', '⏰ យឺត', '❌ អវត្តមាន', '🔄 ជំនួស', '🌴 ច្បាប់', 'ថ្ងៃធ្វើការ', 'ថ្ងៃ OFF', '🌟 OFF ធ្វើការ', 'ថ្ងៃលើស', 'អត្រាថ្ងៃ ($)', 'កាត់ ($)', '🌟 OFF Bonus ($)'];
+    const summaryRows = summaries.map(({emp, present, late, absent, swap, onLeave, overAbsent, deduction, dailyRate, workingDaysCount, offBonus, offDaysWorked, empOffDaysThisMonth}, i) => [
       i + 1,
       emp.name,
       emp.department || '',
@@ -3238,13 +3294,22 @@ async function exportMonthlyAttendanceExcel() {
       swap || 0,
       onLeave || 0,
       workingDaysCount || '',
+      empOffDaysThisMonth || 0,
+      offDaysWorked || 0,
       overAbsent,
       dailyRate ? +dailyRate.toFixed(2) : 0,
       overAbsent > 0 ? -deduction : 0,
       offBonus > 0 ? +offBonus.toFixed(2) : 0
     ]);
     summaryRows.push(['', '', '']);
-    summaryRows.push(['', 'សរុប (Total)', '', totals.p, totals.l, totals.a, totals.sw, totals.lv, '', '', '', totals.d > 0 ? -totals.d : 0, totals.ob > 0 ? +totals.ob.toFixed(2) : 0]);
+    summaryRows.push(['', 'សរុប (Total)', '', totals.p, totals.l, totals.a, totals.sw, totals.lv,
+      summaries.reduce((s,r)=>s+(r.workingDaysCount||0),0),
+      summaries.reduce((s,r)=>s+(r.empOffDaysThisMonth||0),0),
+      summaries.reduce((s,r)=>s+(r.offDaysWorked||0),0),
+      '', '',
+      totals.d > 0 ? -totals.d : 0,
+      totals.ob > 0 ? +totals.ob.toFixed(2) : 0
+    ]);
 
     const blob = buildXLSX([
       { name: 'វត្តមាន Matrix ' + currentMonth, headers: matrixHeaders, rows: matrixRows },
