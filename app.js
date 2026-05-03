@@ -2373,7 +2373,12 @@ async function renderMonthlyAttendance(month='') {
       const workingDaysCount = empDays.length;
       const dailyRate = workingDaysCount > 0 ? (emp.salary || 0) / workingDaysCount : 0;
       const deduction = parseFloat((overAbsent * dailyRate).toFixed(2));
-      return { emp, present, late, absent, swap, onLeave, overAbsent, deduction, dailyRate, workingDaysCount };
+      // Extra day bonus: if employee worked MORE than scheduled working days in month
+      // (present+late) > workingDaysCount means they worked on extra days (e.g. month has 30 days but worked 31)
+      const presentTotal = present + late; // both present and late count as worked
+      const extraDays = Math.max(0, presentTotal - workingDaysCount);
+      const extraBonus = parseFloat((extraDays * dailyRate).toFixed(2));
+      return { emp, present, late, absent, swap, onLeave, overAbsent, deduction, dailyRate, workingDaysCount, extraDays, extraBonus };
     });
 
     // Apply department filter
@@ -2381,7 +2386,7 @@ async function renderMonthlyAttendance(month='') {
     const selectedDept = (document.getElementById('att-dept-filter') || {}).value || '';
     const filteredEmps = selectedDept ? emps.filter(e => (e.department||e.department_name||'') === selectedDept) : emps;
     const filteredSummaries = summaries.filter(s => !selectedDept || (s.emp.department||s.emp.department_name||'') === selectedDept);
-    const filteredTotals = filteredSummaries.reduce((t,s)=>({ p:t.p+s.present, l:t.l+s.late, a:t.a+s.absent, sw:t.sw+s.swap, lv:t.lv+s.onLeave, d:t.d+s.deduction }),{p:0,l:0,a:0,sw:0,lv:0,d:0});
+    const filteredTotals = filteredSummaries.reduce((t,s)=>({ p:t.p+s.present, l:t.l+s.late, a:t.a+s.absent, sw:t.sw+s.swap, lv:t.lv+s.onLeave, d:t.d+s.deduction, eb:t.eb+(s.extraBonus||0) }),{p:0,l:0,a:0,sw:0,lv:0,d:0,eb:0});
     const renderSummaries = filteredSummaries;
     const renderEmps = filteredEmps;
     const renderTotals = filteredTotals;
@@ -2410,7 +2415,7 @@ async function renderMonthlyAttendance(month='') {
       return '<th style="padding:1px 0;font-size:11px;text-align:center;font-weight:600;'+color+'">' + wdNames[wd] + '</th>';
     }).join('');
 
-    const dayRows = filteredSummaries.map(({emp, present, late, absent, swap, overAbsent, deduction}) => {
+    const dayRows = filteredSummaries.map(({emp, present, late, absent, swap, overAbsent, deduction, extraDays, extraBonus}) => {
       const rec = attMap[emp.id] || {};
       const empOff = parseOffDays(emp);
       const cells = allDays.map(({dd, wd}) => {
@@ -2466,6 +2471,7 @@ async function renderMonthlyAttendance(month='') {
           +'<td style="text-align:center;font-weight:700;color:var(--primary);font-size:11px;min-width:20px;padding:2px 1px">'+swap+'</td>'
           +'<td style="text-align:center;font-weight:700;color:'+(overAbsent>0?'var(--danger)':'var(--text3)')+';font-size:10px;min-width:22px;padding:2px 1px">'+overAbsent+'</td>'
           +'<td style="text-align:center;font-weight:700;color:'+(overAbsent>0?'var(--danger)':'var(--success)')+';font-size:10px;min-width:34px;padding:2px 1px">'+(overAbsent>0?'-$'+deduction.toFixed(0):'—')+'</td>'
+          +(extraDays>0?'<td style="text-align:center;font-weight:700;color:#7c3aed;font-size:10px;min-width:38px;padding:2px 1px">+$'+extraBonus.toFixed(0)+'</td>':'<td style="text-align:center;color:var(--text3);font-size:10px;min-width:38px;padding:2px 1px">—</td>')
           +cells
           +'</tr>';
       }
@@ -2482,7 +2488,7 @@ async function renderMonthlyAttendance(month='') {
         +'</tr>';
     }).join('');
 
-    const totals = summaries.reduce((t,s)=>({ p:t.p+s.present, l:t.l+s.late, a:t.a+s.absent, sw:t.sw+s.swap, lv:t.lv+s.onLeave, d:t.d+s.deduction }),{p:0,l:0,a:0,sw:0,lv:0,d:0});
+    const totals = summaries.reduce((t,s)=>({ p:t.p+s.present, l:t.l+s.late, a:t.a+s.absent, sw:t.sw+s.swap, lv:t.lv+s.onLeave, d:t.d+s.deduction, eb:t.eb+(s.extraBonus||0) }),{p:0,l:0,a:0,sw:0,lv:0,d:0,eb:0});
 
     // Store data globally for print/export buttons
     window._monthlyAttData = { summaries: filteredSummaries, allDays, currentMonth, emps: filteredEmps, allEmps: allEmpsForDept, totals: filteredTotals, maxAbsent, rules, selectedDept, _attMap: attMap, _leaveMap: leaveMap, _swapMap: swapMap, _offDateMap: offDateMap };
@@ -2506,6 +2512,7 @@ async function renderMonthlyAttendance(month='') {
       +'<div class="att-box"><div class="att-num" style="color:var(--primary)">'+renderTotals.sw+'</div><div class="att-lbl">🔄 ជំនួស</div></div>'
       +'<div class="att-box"><div class="att-num" style="color:var(--success)">'+renderTotals.lv+'</div><div class="att-lbl">🌴 ច្បាប់</div></div>'
       +'<div class="att-box"><div class="att-num" style="color:var(--danger)">'+renderSummaries.filter(s=>s.overAbsent>0).length+'</div><div class="att-lbl">⚠️ លើសថ្ងៃ</div></div>'
+      +(renderSummaries.some(s=>s.extraDays>0)?'<div class="att-box" style="background:rgba(124,58,237,.08);border:1px solid rgba(124,58,237,.2)"><div class="att-num" style="color:#7c3aed">'+renderSummaries.filter(s=>s.extraDays>0).length+'</div><div class="att-lbl" style="color:#7c3aed">⭐ Extra Day</div></div>':'')
 
       +'</div>'
       +'<div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:14px;display:flex;gap:16px;flex-wrap:wrap;align-items:center">'
@@ -2513,6 +2520,7 @@ async function renderMonthlyAttendance(month='') {
       +'<span style="font-size:12px">ថ្ងៃអវត្តមានអនុញ្ញាត: <b style="color:var(--primary)">'+maxAbsent+' ថ្ងៃ/ខែ</b></span>'
       +'<span style="font-size:12px">ម៉ោងចូល: <b style="color:var(--warning)">'+(rules.work_start_time||'08:00')+'</b> <span style="color:var(--text3)">(grace '+(rules.late_grace_minutes||15)+' នាទី)</span></span>'
       +'<span style="font-size:12px">រូបមន្ត: <b style="color:var(--danger)">ប្រាក់ខែ ÷ ថ្ងៃធ្វើការ × ថ្ងៃលើស</b></span>'
+      +'<span style="font-size:12px;color:#7c3aed">⭐ Extra: <b>ធ្វើការ > ថ្ងៃគ្រោង → +ប្រាក់បន្ថែម</b></span>'
       +'<button class="btn btn-outline btn-sm" style="font-size:11px" onclick="openAbsenceRulesModal()">✏️ កែច្បាប់</button>'
       +'</div>'
       +'<div class="card" style="padding:0"><div style="overflow-x:scroll;overflow-y:auto;max-height:calc(100vh - 320px);will-change:scroll-position;-webkit-overflow-scrolling:touch"><table style="min-width:max-content;border-collapse:collapse;table-layout:auto">'
@@ -2540,6 +2548,7 @@ async function renderMonthlyAttendance(month='') {
           +'<th style="width:30px;text-align:center;color:var(--primary);position:sticky;left:250px;z-index:5;background:var(--bg2);padding:3px 0;font-size:13px" rowspan="2" title="ប្ដូរថ្ងៃ">🔄</th>'
           +'<th style="width:36px;text-align:center;font-size:10px;position:sticky;left:280px;z-index:5;background:var(--bg2);padding:3px 1px" rowspan="2" title="លើសថ្ងៃ">លើស</th>'
           +'<th style="width:52px;text-align:center;font-size:10px;position:sticky;left:316px;z-index:5;background:var(--bg2);box-shadow:3px 0 6px rgba(0,0,0,.2);padding:3px 2px" rowspan="2" title="កាត់ប្រាក់">កាត់</th>'
+          +'<th style="width:64px;text-align:center;font-size:10px;padding:3px 2px;color:#7c3aed;background:rgba(124,58,237,.06)" rowspan="2" title="ប្រាក់បន្ថែម (ធ្វើការលើសថ្ងៃ)">⭐Extra</th>'
           +dayThs
           +'<th style="min-width:70px;text-align:center;padding:3px 4px" rowspan="2">សកម្ម</th>'
           +'</tr>'
@@ -3167,6 +3176,29 @@ async function applyAbsenceDeduction(empId, empName, absentDays, overAbsent, ded
       showToast('កាត់ $'+deduction.toFixed(2)+' ចំពោះ '+empName+' បានជោគជ័យ!','success');
     }
     // Refresh
+    const inp = document.querySelector('input[type="month"]');
+    renderMonthlyAttendance(inp ? inp.value : month);
+  } catch(e) { showToast('Error: '+e.message,'error'); }
+}
+
+// Apply extra day bonus to one employee's salary (worked more days than scheduled)
+async function applyExtraDayBonus(empId, empName, extraDays, extraBonus, month) {
+  if (!confirm('បន្ថែម $'+parseFloat(extraBonus).toFixed(2)+' ជា Bonus ចំពោះ '+empName+' (ធ្វើការ '+extraDays+' ថ្ងៃ បន្ថែម)?')) return;
+  try {
+    const recs = await api('GET','/salary?employee_id='+empId+'&month='+month);
+    const list = recs.records || [];
+    const rec = list.find(r=>r.month===month && r.employee_id==empId);
+    if (!rec) {
+      const emp = await api('GET','/employees/'+empId).catch(()=>null);
+      const base = emp ? (emp.salary||0) : 0;
+      await api('POST','/salary',{ employee_id:empId, month, base_salary:base, bonus:parseFloat(extraBonus), deduction:0, net_salary:base+parseFloat(extraBonus), notes:'ធ្វើការបន្ថែម '+extraDays+' ថ្ងៃ (+$'+parseFloat(extraBonus).toFixed(2)+')' });
+      showToast('បន្ថែម Bonus $'+parseFloat(extraBonus).toFixed(2)+' ចំពោះ '+empName+'!','success');
+    } else {
+      const newBonus = (rec.bonus||0) + parseFloat(extraBonus);
+      const newNet = (rec.base_salary||0) + newBonus - (rec.deduction||0);
+      await api('PUT','/salary/'+rec.id,{ ...rec, bonus:newBonus, net_salary:newNet, notes:(rec.notes?rec.notes+' | ':'')+'ធ្វើការបន្ថែម '+extraDays+' ថ្ងៃ (+$'+parseFloat(extraBonus).toFixed(2)+')' });
+      showToast('Bonus $'+parseFloat(extraBonus).toFixed(2)+' បន្ថែមចំពោះ '+empName+' ជោគជ័យ!','success');
+    }
     const inp = document.querySelector('input[type="month"]');
     renderMonthlyAttendance(inp ? inp.value : month);
   } catch(e) { showToast('Error: '+e.message,'error'); }
