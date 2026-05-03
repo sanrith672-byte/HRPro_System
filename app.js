@@ -2543,7 +2543,7 @@ async function renderMonthlyAttendance(month='') {
           +'<td style="text-align:center;font-weight:700;font-size:10px;min-width:38px;padding:2px 1px;color:'+(offBonus>0?'#d97706':'var(--text3)');+'\">'+(offBonus>0?'+$'+offBonus.toFixed(0):'—')+'</td>'
           +cells
           +'<td style="text-align:center;font-weight:700;font-size:10px;min-width:32px;padding:2px 1px;color:#6366f1;border-left:1px solid var(--border)" title="ថ្ងៃ OFF សរុបក្នុងខែ">'+(empOffDaysThisMonth>0?empOffDaysThisMonth+'ថ្ងៃ':'—')+'</td>'
-          +'<td style="text-align:center;font-weight:700;font-size:11px;color:var(--success);min-width:30px;padding:2px 2px;border-left:1px solid var(--border)">'+(workingDaysCount||0)+'</td>'
+          +'<td style="text-align:center;font-weight:700;font-size:11px;color:var(--success);min-width:30px;padding:2px 2px;border-left:1px solid var(--border)">'+(present+late)+'</td>'
           +'</tr>';
       }
       return '<tr>'
@@ -2556,7 +2556,7 @@ async function renderMonthlyAttendance(month='') {
         +(overAbsent>0?'<td style="text-align:center;font-weight:700;color:var(--danger);font-size:12px;position:sticky;left:316px;z-index:1;background:var(--bg2);width:52px;padding:3px 2px;text-align:center">-$'+deduction.toFixed(0)+'</td>':'<td style="text-align:center;color:var(--success);font-size:11px;position:sticky;left:316px;z-index:1;background:var(--bg2);width:52px;padding:3px 2px;text-align:center">—</td>')
         +(offBonus>0?'<td style="text-align:center;font-weight:700;color:#d97706;font-size:12px;position:sticky;left:368px;z-index:1;background:rgba(251,191,36,.08);box-shadow:3px 0 6px rgba(0,0,0,.12);width:60px;padding:3px 2px;text-align:center" title="🌟 OFF ធ្វើការ (គ្មានជំនួស): '+offDaysWorked+' ថ្ងៃ × $'+(offDaysWorked>0?(offBonus/offDaysWorked).toFixed(2):'0')+'/ថ្ងៃ | OFF+ជំនួស=$0">+$'+offBonus.toFixed(0)+'</td>':'<td style="text-align:center;color:var(--text3);font-size:11px;position:sticky;left:368px;z-index:1;background:var(--bg2);box-shadow:3px 0 6px rgba(0,0,0,.12);width:60px;padding:3px 2px;text-align:center">—</td>')
         +cells
-        +'<td style="text-align:center;font-weight:700;font-size:12px;color:var(--success);width:48px;padding:3px 2px;position:sticky;right:116px;z-index:1;background:var(--bg2);box-shadow:-2px 0 4px rgba(0,0,0,.08)" title="ថ្ងៃធ្វើការសរុប">'+(workingDaysCount||0)+'<span style="font-size:8px;font-weight:400;color:var(--text3);display:block">ថ្ងៃ</span></td>'
+        +'<td style="text-align:center;font-weight:700;font-size:12px;color:var(--success);width:48px;padding:3px 2px;position:sticky;right:116px;z-index:1;background:var(--bg2);box-shadow:-2px 0 4px rgba(0,0,0,.08)" title="ថ្ងៃធ្វើការសរុប">'+(present+late)+'<span style="font-size:8px;font-weight:400;color:var(--text3);display:block">ថ្ងៃ</span></td>'
         +'<td style="text-align:center;font-weight:700;font-size:12px;color:'+(empOffDaysThisMonth>0?'#6366f1':'var(--text3)')+';width:48px;padding:3px 2px;position:sticky;right:68px;z-index:1;background:var(--bg2);border-left:1px solid var(--border)" title="ថ្ងៃ OFF សរុបក្នុងខែ">'+(empOffDaysThisMonth>0?'<span style="background:rgba(99,102,241,.12);border-radius:4px;padding:1px 4px">'+empOffDaysThisMonth+'</span>':'—')+'</td>'
         +'<td style="text-align:center;width:64px;position:sticky;right:0;z-index:1;background:var(--bg2);box-shadow:-2px 0 5px rgba(0,0,0,.12)"><button class="btn btn-outline btn-sm" style="font-size:10px;padding:3px 8px" onclick="applyAbsenceDeduction('+emp.id+',\''+emp.name+'\','+absent+','+overAbsent+','+deduction+',\''+currentMonth+'\','+offBonus+')">💸 កាត់</button></td>'
         +'</tr>';
@@ -2699,7 +2699,7 @@ async function renderMonthlyAttendance(month='') {
           )
           +footCells
           +(()=>{
-            const totalWD  = renderSummaries.reduce((s,r)=>s+(r.workingDaysCount||0),0);
+            const totalWD  = renderSummaries.reduce((s,r)=>s+(r.present+r.late||0),0);
             const totalOff = renderSummaries.reduce((s,r)=>s+(r.empOffDaysThisMonth||0),0);
             const totalOW  = renderSummaries.reduce((s,r)=>s+(r.offDaysWorked||0),0);
             return '<td style="background:var(--bg3);position:sticky;right:116px;z-index:4;width:48px;text-align:center;padding:2px 1px;border-left:1px solid var(--border)">'
@@ -2830,7 +2830,7 @@ function printMonthlyAttendance() {
     }).join('');
     const rowBg = idx % 2 === 0 ? '' : 'background:#f9fafb;';
     const dept = emp.department || '';
-    const _wdCount = workingDaysCount || (present + late);
+    const _wdCount = present + late;
     const _offCount = empOffDaysThisMonth || 0;
     return `<tr style="${rowBg}">
       <td style="padding:4px 6px;font-size:11px;font-weight:600;white-space:nowrap">${idx+1}. ${emp.name}</td>
@@ -2936,7 +2936,7 @@ function printMonthlyAttendance() {
         <td style="text-align:center;color:#ef4444">${totalOver}</td>
         <td style="text-align:center;color:#d97706;font-weight:700">${(totals.ob||0)>0?'+$'+(totals.ob).toFixed(0):'—'}</td>
         ${allDays.map(()=>'<td></td>').join('')}
-        <td style="text-align:center;font-weight:700;color:#16a34a;background:#f0fdf4">${summaries.reduce((s,r)=>s+(r.workingDaysCount||r.present+r.late||0),0)}</td>
+        <td style="text-align:center;font-weight:700;color:#16a34a;background:#f0fdf4">${summaries.reduce((s,r)=>s+(r.present+r.late||0),0)}</td>
         <td style="text-align:center;font-weight:700;color:#6366f1;background:#f5f3ff">${summaries.reduce((s,r)=>s+(r.empOffDaysThisMonth||0),0)}</td>
       </tr>
       <tr style="background:#f0fdf4;">
@@ -3064,7 +3064,7 @@ function saveMonthlyAttendanceAsImage() {
       return `<td style="text-align:center;font-size:12px;color:#dc2626;font-weight:700;">✗</td>`;
     }).join('');
     const rowBg = idx % 2 === 0 ? '#ffffff' : '#f9fafb';
-    const _wdCount = workingDaysCount || (present + late);
+    const _wdCount = present + late;
     const _offCount = empOffDaysThisMonth || 0;
     return `<tr style="background:${rowBg}">
       <td style="padding:5px 8px;font-size:12px;font-weight:700;white-space:nowrap;color:#111;">${idx+1}. ${emp.name}</td>
@@ -3200,7 +3200,7 @@ function saveMonthlyAttendanceAsImage() {
         <td style="text-align:center;color:#dc2626;">${totalOver}</td>
         <td style="text-align:center;color:#d97706;font-weight:800;">${(totals.ob||0)>0?'+$'+(totals.ob).toFixed(0):'—'}</td>
         ${allDays.map(()=>'<td></td>').join('')}
-        <td style="text-align:center;font-weight:800;color:#16a34a;background:#f0fdf4">${summaries.reduce((s,r)=>s+(r.workingDaysCount||r.present+r.late||0),0)}</td>
+        <td style="text-align:center;font-weight:800;color:#16a34a;background:#f0fdf4">${summaries.reduce((s,r)=>s+(r.present+r.late||0),0)}</td>
         <td style="text-align:center;font-weight:800;color:#6366f1;background:#f5f3ff">${summaries.reduce((s,r)=>s+(r.empOffDaysThisMonth||0),0)}</td>
       </tr>
       <tr style="background:#f0fdf4;">
@@ -3351,7 +3351,7 @@ async function exportMonthlyAttendanceExcel() {
         overAbsent > 0 ? -deduction : 0,
         offBonus > 0 ? +offBonus.toFixed(2) : 0,
         ...dayCells,
-        workingDaysCount || (present + late),
+        present + late,
         empOffDaysThisMonth || 0
       ]);
     });
@@ -3364,7 +3364,7 @@ async function exportMonthlyAttendanceExcel() {
       totals.d > 0 ? -totals.d : 0,
       totals.ob > 0 ? +totals.ob.toFixed(2) : 0,
       ...allDays.map(() => ''),
-      summaries.reduce((s,r)=>s+(r.workingDaysCount||r.present+r.late||0),0),
+      summaries.reduce((s,r)=>s+(r.present+r.late||0),0),
       summaries.reduce((s,r)=>s+(r.empOffDaysThisMonth||0),0)
     ]);
 
@@ -3428,7 +3428,7 @@ async function exportMonthlyAttendanceExcel() {
       absent,
       swap || 0,
       onLeave || 0,
-      workingDaysCount || '',
+      present + late,
       empOffDaysThisMonth || 0,
       offDaysWorked || 0,
       overAbsent,
@@ -3438,7 +3438,7 @@ async function exportMonthlyAttendanceExcel() {
     ]);
     summaryRows.push(['', '', '']);
     summaryRows.push(['', 'សរុប (Total)', '', totals.p, totals.l, totals.a, totals.sw, totals.lv,
-      summaries.reduce((s,r)=>s+(r.workingDaysCount||0),0),
+      summaries.reduce((s,r)=>s+(r.present+r.late||0),0),
       summaries.reduce((s,r)=>s+(r.empOffDaysThisMonth||0),0),
       summaries.reduce((s,r)=>s+(r.offDaysWorked||0),0),
       '', '',
