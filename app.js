@@ -2461,7 +2461,7 @@ async function renderMonthlyAttendance(month='') {
       const isSat = wd === 6; const isSun = wd === 0;
       const isCommonOff = allOffWds.has(wd);
       let bg = isToday ? 'background:var(--primary);color:white;' : isSun ? 'background:rgba(220,38,38,0.25);color:#f87171;' : isSat ? 'background:rgba(180,83,9,0.25);color:#fbbf24;' : isCommonOff ? 'background:var(--bg2);color:var(--text3);' : '';
-      return '<th style="padding:2px 1px;font-size:13px;font-weight:700;text-align:center;'+bg+'">' + d + '</th>';
+      return '<th style="padding:0;height:26px;font-size:13px;font-weight:700;text-align:center;vertical-align:middle;line-height:26px;'+bg+'">' + d + '</th>';
     }).join('');
 
     // Table header row 2: weekday names
@@ -2469,7 +2469,7 @@ async function renderMonthlyAttendance(month='') {
       const isSat = wd === 6; const isSun = wd === 0;
       const isCommonOff = allOffWds.has(wd);
       const color = isSun ? 'color:#f87171;' : isSat ? 'color:#fbbf24;' : 'color:var(--text);';
-      return '<th style="padding:1px 0;font-size:11px;text-align:center;font-weight:600;'+color+'">' + wdNames[wd] + '</th>';
+      return '<th style="padding:0;height:18px;font-size:11px;text-align:center;font-weight:600;vertical-align:middle;line-height:18px;'+color+'">' + wdNames[wd] + '</th>';
     }).join('');
 
     const dayRows = filteredSummaries.map(({emp, present, late, absent, swap, overAbsent, deduction, offBonus, offDaysWorked, empOffDaysThisMonth}) => {
@@ -2617,7 +2617,7 @@ async function renderMonthlyAttendance(month='') {
           +'<th style="min-width:32px;text-align:center;font-size:9px;padding:2px 0;color:#6366f1" rowspan="2" title="ថ្ងៃ OFF សរុបក្នុងខែ (ថ្ងៃឈប់ប្រចាំខែ)">📅OFF</th>'
           +dayThs+'</tr>'
           +'<tr style="position:sticky;top:22px;z-index:4;background:var(--bg2)">'+wdThs+'</tr>'
-        : '<tr style="position:sticky;top:0;z-index:4;background:var(--bg2);height:28px">'
+        : '<tr style="position:sticky;top:0;z-index:4;background:var(--bg2);height:26px">'
           +'<th style="width:160px;text-align:left;position:sticky;left:0;z-index:5;background:var(--bg2);box-shadow:2px 0 5px rgba(0,0,0,.2);padding:6px 8px" rowspan="2">បុគ្គលិក</th>'
           +'<th style="width:30px;text-align:center;color:var(--success);position:sticky;left:160px;z-index:5;background:var(--bg2);padding:3px 0;font-size:13px" rowspan="2" title="វត្តមាន">✅</th>'
           +'<th style="width:30px;text-align:center;color:var(--warning);position:sticky;left:190px;z-index:5;background:var(--bg2);padding:3px 0;font-size:13px" rowspan="2" title="យឺត">⏰</th>'
@@ -2631,7 +2631,7 @@ async function renderMonthlyAttendance(month='') {
           +'<th style="width:48px;text-align:center;font-size:9px;padding:3px 2px;color:#6366f1;position:sticky;right:68px;z-index:5;background:var(--bg2);border-left:1px solid var(--border)" rowspan="2" title="ថ្ងៃ OFF សរុបក្នុងខែ (ថ្ងៃឈប់ប្រចាំខែរបស់បុគ្គលិក)">📅OFF<br/><span style="font-size:8px;color:var(--text3)">ខែនេះ</span></th>'
           +'<th style="width:64px;text-align:center;padding:3px 4px;position:sticky;right:0;z-index:5;background:var(--bg2);box-shadow:-2px 0 5px rgba(0,0,0,.15)" rowspan="2">សកម្ម</th>'
           +'</tr>'
-          +'<tr style="position:sticky;top:28px;z-index:4;background:var(--bg2);height:18px">'+wdThs+'</tr>'
+          +'<tr style="position:sticky;top:26px;z-index:4;background:var(--bg2);height:18px">'+wdThs+'</tr>'
       )
       +'</thead>'
       +'<tbody>'+dayRows+'</tbody>'
