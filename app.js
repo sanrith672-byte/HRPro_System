@@ -2657,7 +2657,7 @@ async function renderMonthlyAttendance(month='') {
         const mob = window.innerWidth < 700;
         if (mob) {
           return '<tfoot><tr style="position:sticky;bottom:0;z-index:3;background:var(--bg3);border-top:2px solid var(--border)">'
-            +'<td colspan="7" style="position:sticky;left:0;z-index:4;background:var(--bg3);box-shadow:2px 0 4px rgba(0,0,0,.15);padding:3px 5px;font-size:9px;font-weight:700">'
+            +'<td colspan="8" style="position:sticky;left:0;z-index:4;background:var(--bg3);box-shadow:2px 0 4px rgba(0,0,0,.15);padding:3px 5px;font-size:9px;font-weight:700">'
             +'<div style="color:var(--success)">✅ ធ្វើការ</div><div style="color:var(--danger)">🔴 Off</div>'
             +'</td>'+footCells+'</tr></tfoot>';
         }
@@ -2666,11 +2666,12 @@ async function renderMonthlyAttendance(month='') {
           +'<div style="color:var(--success);line-height:1.5">✅ ធ្វើការ (នាក់)</div>'
           +'<div style="color:var(--danger);line-height:1.5">🔴 Off (នាក់)</div>'
           +'</td>'
-          +'<td colspan="6" style="position:sticky;left:160px;z-index:4;background:var(--bg3);box-shadow:3px 0 6px rgba(0,0,0,.12);padding:4px 2px;text-align:center;font-size:10px">'
+          +'<td colspan="7" style="position:sticky;left:160px;z-index:4;background:var(--bg3);box-shadow:3px 0 6px rgba(0,0,0,.12);padding:4px 2px;text-align:center;font-size:10px">'
           +'<div style="color:var(--text3);line-height:1.5">'+totalEmps+' នាក់</div>'
           +'<div style="color:var(--text3);line-height:1.5">សរុប</div>'
           +'</td>'
           +footCells
+          +'<td style="background:var(--bg3)"></td>'
           +'<td style="background:var(--bg3)"></td>'
           +'</tr></tfoot>';
       })()
