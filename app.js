@@ -2461,7 +2461,7 @@ async function renderMonthlyAttendance(month='') {
       const isSat = wd === 6; const isSun = wd === 0;
       const isCommonOff = allOffWds.has(wd);
       let bg = isToday ? 'background:var(--primary);color:white;' : isSun ? 'background:rgba(220,38,38,0.25);color:#f87171;' : isSat ? 'background:rgba(180,83,9,0.25);color:#fbbf24;' : isCommonOff ? 'background:var(--bg2);color:var(--text3);' : '';
-      return '<th style="padding:2px 1px;font-size:13px;font-weight:700;text-align:center;'+bg+'">' + d + '</th>';
+      return '<th style="width:28px;min-width:28px;max-width:28px;height:20px;padding:2px 0;font-size:12px;font-weight:700;text-align:center;box-sizing:border-box;'+bg+'">' + d + '</th>';
     }).join('');
 
     // Table header row 2: weekday names
@@ -2469,7 +2469,7 @@ async function renderMonthlyAttendance(month='') {
       const isSat = wd === 6; const isSun = wd === 0;
       const isCommonOff = allOffWds.has(wd);
       const color = isSun ? 'color:#f87171;' : isSat ? 'color:#fbbf24;' : 'color:var(--text);';
-      return '<th style="padding:1px 0;font-size:11px;text-align:center;font-weight:600;'+color+'">' + wdNames[wd] + '</th>';
+      return '<th style="width:28px;min-width:28px;max-width:28px;height:18px;padding:1px 0;font-size:10px;text-align:center;font-weight:600;box-sizing:border-box;'+color+'">' + wdNames[wd] + '</th>';
     }).join('');
 
     const dayRows = filteredSummaries.map(({emp, present, late, absent, swap, overAbsent, deduction, offBonus, offDaysWorked, empOffDaysThisMonth}) => {
@@ -2482,7 +2482,7 @@ async function renderMonthlyAttendance(month='') {
 
         // Check holiday first (overrides everything)
         if (a && a.status === 'holiday') {
-          return '<td style="text-align:center;font-size:9px;padding:1px 0" title="ថ្ងៃឈប់សម្រាក">🎉</td>';
+          return '<td style="width:28px;min-width:28px;max-width:28px;text-align:center;font-size:9px;padding:1px 0;box-sizing:border-box" title="ថ្ងៃឈប់សម្រាក">🎉</td>';
         }
 
         // This day is employee's day off (only if off_days is set and includes this weekday)
@@ -2492,23 +2492,23 @@ async function renderMonthlyAttendance(month='') {
             const isCompOff = swapRec.off_date && swapRec.off_date.trim() !== '';
             if (isCompOff) {
               // OFF+ជំនួស — employee came but will take OFF later → show 🔄 (swap)
-              return '<td style="text-align:center;font-size:8px;padding:1px 0;font-weight:700;color:#92400e;background:#fde68a" title="OFF+ជំនួស (មិនគិតប្រាក់)">🔄</td>';
+              return '<td style="width:28px;min-width:28px;max-width:28px;text-align:center;font-size:8px;padding:1px 0;font-weight:700;color:#92400e;background:#fde68a;box-sizing:border-box" title="OFF+ជំនួស (មិនគិតប្រាក់)">🔄</td>';
             }
             // OFF ធ្វើការ គ្មានជំនួស → 🔄 primary
-            return '<td style="text-align:center;font-size:8px;padding:1px 0;color:var(--primary)" title="OFF ធ្វើការ (គិតប្រាក់)">🔄</td>';
+            return '<td style="width:28px;min-width:28px;max-width:28px;text-align:center;font-size:8px;padding:1px 0;color:var(--primary);box-sizing:border-box" title="OFF ធ្វើការ (គិតប្រាក់)">🔄</td>';
           }
           // attendance direct on OFF day (no dayswap)
           if (a && (a.status === 'present' || a.status === 'late')) {
             const icon = a.status === 'late' ? '⏰' : '✔';
             const color = a.status === 'late' ? '#f59e0b' : '#d97706';
-            return '<td style="text-align:center;font-size:11px;padding:1px 0;font-weight:700;color:'+color+';background:rgba(251,191,36,.15)" title="OFF ធ្វើការ (គិតប្រាក់)">'+icon+'</td>';
+            return '<td style="width:28px;min-width:28px;max-width:28px;text-align:center;font-size:11px;padding:1px 0;font-weight:700;color:'+color+';background:rgba(251,191,36,.15);box-sizing:border-box" title="OFF ធ្វើការ (គិតប្រាក់)">'+icon+'</td>';
           }
-          return '<td style="text-align:center;font-size:9px;padding:2px 0;color:var(--text3);background:var(--bg2)">OFF</td>';
+          return '<td style="width:28px;min-width:28px;max-width:28px;text-align:center;font-size:9px;padding:2px 0;color:var(--text3);background:var(--bg2);box-sizing:border-box">OFF</td>';
         }
         // Check if this working day is the exact compensation OFF date
         const compSwap = (offDateMap[emp.id]||{})[dd];
         if (compSwap) {
-          return '<td style="text-align:center;font-size:8px;padding:2px 0;font-weight:700;color:var(--warning);background:rgba(255,190,11,.1)" title="OFF+">OFF+</td>';
+          return '<td style="width:28px;min-width:28px;max-width:28px;text-align:center;font-size:8px;padding:2px 0;font-weight:700;color:var(--warning);background:rgba(255,190,11,.1);box-sizing:border-box" title="OFF+">OFF+</td>';
         }
         // Leave day (approved or pending)
         if (lv) {
@@ -2516,12 +2516,12 @@ async function renderMonthlyAttendance(month='') {
           const bg = isPending ? 'rgba(99,102,241,.12)' : 'rgba(6,214,160,.10)';
           const color = isPending ? 'var(--primary)' : 'var(--success)';
           const title = (lv.leave_type||'ច្បាប់') + (isPending ? ' (រង់ចាំ)' : ' (អនុម័ត)');
-          return `<td style="text-align:center;font-size:9px;padding:2px 0;background:${bg};color:${color};font-weight:700" title="${title}">🌴</td>`;
+          return `<td style="width:28px;min-width:28px;max-width:28px;text-align:center;font-size:9px;padding:2px 0;background:${bg};color:${color};font-weight:700;box-sizing:border-box" title="${title}">🌴</td>`;
         }
-        if (!a) return '<td style="text-align:center;font-size:11px;padding:2px 0;color:var(--danger)">—</td>';
-        if (a.status==='present') return '<td style="text-align:center;font-size:12px;padding:2px 0;color:var(--success);text-align:center">✔</td>';
-        if (a.status==='late') return '<td style="text-align:center;font-size:11px;padding:2px 0;color:var(--warning)">⏰</td>';
-        return '<td style="text-align:center;font-size:12px;padding:2px 0;color:var(--danger);text-align:center">✗</td>';
+        if (!a) return '<td style="width:28px;min-width:28px;max-width:28px;text-align:center;font-size:11px;padding:2px 0;color:var(--danger);box-sizing:border-box">—</td>';
+        if (a.status==='present') return '<td style="width:28px;min-width:28px;max-width:28px;text-align:center;font-size:12px;padding:2px 0;color:var(--success);box-sizing:border-box">✔</td>';
+        if (a.status==='late') return '<td style="width:28px;min-width:28px;max-width:28px;text-align:center;font-size:11px;padding:2px 0;color:var(--warning);box-sizing:border-box">⏰</td>';
+        return '<td style="width:28px;min-width:28px;max-width:28px;text-align:center;font-size:12px;padding:2px 0;color:var(--danger);box-sizing:border-box">✗</td>';
       }).join('');
       const photo = getEmpPhoto(emp.id);
       const av = photo
@@ -2596,10 +2596,10 @@ async function renderMonthlyAttendance(month='') {
       +'<span style="font-size:12px">រូបមន្ត: <b style="color:var(--danger)">ប្រាក់ខែ ÷ ថ្ងៃធ្វើការ × ថ្ងៃលើស</b></span>'
       +'<button class="btn btn-outline btn-sm" style="font-size:11px" onclick="openAbsenceRulesModal()">✏️ កែច្បាប់</button>'
       +'</div>'
-      +'<div class="card" style="padding:0"><div style="overflow-x:scroll;overflow-y:auto;max-height:calc(100vh - 320px);will-change:scroll-position;-webkit-overflow-scrolling:touch"><table style="min-width:max-content;border-collapse:collapse;table-layout:auto">'
+      +'<div class="card" style="padding:0">'+'<style>.att-month-tbl td,.att-month-tbl th{height:32px;box-sizing:border-box;overflow:hidden;white-space:nowrap}</style>'+'<div style="overflow-x:scroll;overflow-y:auto;max-height:calc(100vh - 320px);will-change:scroll-position;-webkit-overflow-scrolling:touch"><table class="att-month-tbl" style="min-width:max-content;border-collapse:collapse;table-layout:fixed">'
       +(window.innerWidth<700
         ? '<colgroup><col style="width:72px"/><col style="width:20px"/><col style="width:20px"/><col style="width:20px"/><col style="width:20px"/><col style="width:22px"/><col style="width:34px"/><col style="width:38px"/><col style="width:32px"/>'+allDays.map(()=>'<col style="min-width:22px;width:22px"/>').join('')+'</colgroup>'
-        : '<colgroup><col style="width:160px"/><col style="width:30px"/><col style="width:30px"/><col style="width:30px"/><col style="width:30px"/><col style="width:36px"/><col style="width:52px"/><col style="width:60px"/><col style="width:44px"/>'+allDays.map(()=>'<col style="min-width:26px;width:26px"/>').join('')+'<col style="width:70px"/></colgroup>'
+        : '<colgroup><col style="width:160px"/><col style="width:30px"/><col style="width:30px"/><col style="width:30px"/><col style="width:30px"/><col style="width:36px"/><col style="width:52px"/><col style="width:60px"/>'+allDays.map(()=>'<col style="width:28px"/>').join('')+'<col style="width:48px"/><col style="width:48px"/><col style="width:64px"/></colgroup>'
       )
       +'<thead>'
       +(window.innerWidth<700
