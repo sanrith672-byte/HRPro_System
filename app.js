@@ -2675,10 +2675,14 @@ async function renderMonthlyAttendance(month='') {
           +'<div style="color:var(--danger);line-height:1.5;font-size:10px">🔴 Off (នាក់)</div>'
           +'<div style="color:#d97706;line-height:1.3;font-size:9px">🌟 OFF ធ្វើការ</div>'
           +'</td>'
-          +'<td colspan="7" style="position:sticky;left:160px;z-index:4;background:var(--bg3);box-shadow:3px 0 6px rgba(0,0,0,.12);padding:4px 2px;text-align:center;font-size:10px">'
+          +'<td colspan="6" style="position:sticky;left:160px;z-index:4;background:var(--bg3);padding:4px 2px;text-align:center;font-size:10px">'
           +'<div style="color:var(--text3);line-height:1.5">'+totalEmps+' នាក់</div>'
           +'<div style="color:var(--text3);line-height:1.5">សរុប</div>'
           +'</td>'
+          +(renderTotals.ob>0
+            ?'<td style="position:sticky;left:368px;z-index:4;background:rgba(251,191,36,.12);box-shadow:3px 0 6px rgba(0,0,0,.12);padding:4px 2px;text-align:center;font-weight:700;color:#d97706;font-size:12px" title="🌟 OFF Bonus សរុប">+$'+renderTotals.ob.toFixed(0)+'</td>'
+            :'<td style="position:sticky;left:368px;z-index:4;background:var(--bg3);box-shadow:3px 0 6px rgba(0,0,0,.12);padding:4px 2px;text-align:center;color:var(--text3);font-size:11px">—</td>'
+          )
           +footCells
           +'<td style="background:var(--bg3);position:sticky;right:68px;z-index:3"></td>'
           +'<td style="background:var(--bg3);position:sticky;right:0;z-index:3"></td>'
