@@ -2365,6 +2365,7 @@ async function renderMonthlyAttendance(month='') {
       });
       // Count swap days: OFF days where employee came to work (swap approved this month)
       const empSwapDays = swapMap[emp.id] || {};
+      const empOffDateDays = offDateMap[emp.id] || {};
       Object.keys(empSwapDays).forEach(dd => {
         swap++;
         present++; // swap day counts as present
@@ -2373,9 +2374,23 @@ async function renderMonthlyAttendance(month='') {
       const workingDaysCount = empDays.length;
       const dailyRate = workingDaysCount > 0 ? (emp.salary || 0) / workingDaysCount : 0;
       const deduction = parseFloat((overAbsent * dailyRate).toFixed(2));
-      // ប្រាក់បន្ថែមថ្ងៃ OFF: ចំនួនថ្ងៃ OFF ដែលមកធ្វើការ × អត្រាប្រចាំថ្ងៃ
-      const offBonus = parseFloat((swap * dailyRate).toFixed(2));
-      return { emp, present, late, absent, swap, onLeave, overAbsent, deduction, dailyRate, workingDaysCount, offBonus };
+      // ប្រាក់បន្ថែមថ្ងៃ OFF: ចំនួនថ្ងៃ OFF ដែលមកធ្វើការ (swap_date) ដែល មិនមែនជា compensation day
+      // OFF day worked = swap_date ស្ថិតខែនេះ ហើយ weekday ស្ថិតក្នុង emp.off_days
+      // OFF+ (compensation) = off_date ស្ថិតខែនេះ → មិនគិតប្រាក់
+      const empOff = parseOffDays(emp);
+      let offDaysWorked = 0;
+      Object.keys(empSwapDays).forEach(dd => {
+        const swapRec = empSwapDays[dd];
+        const swapDate = swapRec.swap_date || '';
+        const dt = new Date(swapDate + 'T00:00:00');
+        const wd = dt.getDay();
+        // Only count if this day is truly an employee OFF day (weekday in off_days)
+        if (empOff.length > 0 && empOff.indexOf(wd) !== -1) {
+          offDaysWorked++;
+        }
+      });
+      const offBonus = parseFloat((offDaysWorked * dailyRate).toFixed(2));
+      return { emp, present, late, absent, swap, onLeave, overAbsent, deduction, dailyRate, workingDaysCount, offBonus, offDaysWorked };
     });
 
     // Apply department filter
@@ -2412,7 +2427,7 @@ async function renderMonthlyAttendance(month='') {
       return '<th style="padding:1px 0;font-size:11px;text-align:center;font-weight:600;'+color+'">' + wdNames[wd] + '</th>';
     }).join('');
 
-    const dayRows = filteredSummaries.map(({emp, present, late, absent, swap, overAbsent, deduction, offBonus}) => {
+    const dayRows = filteredSummaries.map(({emp, present, late, absent, swap, overAbsent, deduction, offBonus, offDaysWorked}) => {
       const rec = attMap[emp.id] || {};
       const empOff = parseOffDays(emp);
       const cells = allDays.map(({dd, wd}) => {
@@ -2480,7 +2495,7 @@ async function renderMonthlyAttendance(month='') {
         +'<td style="text-align:center;font-weight:700;color:var(--primary);font-size:13px;width:30px;position:sticky;left:250px;z-index:1;background:var(--bg2);padding:3px 0;text-align:center;font-weight:700">'+(swap>0?'<span style="background:rgba(99,102,241,.15);border-radius:4px;padding:1px 6px">'+swap+'</span>':'<span style="color:var(--text3)">0</span>')+'</td>'
         +'<td style="text-align:center;font-weight:700;color:'+(overAbsent>0?'var(--danger)':'var(--text3)')+';font-size:11px;position:sticky;left:280px;z-index:1;background:var(--bg2);width:36px;padding:3px 1px;text-align:center">'+overAbsent+'</td>'
         +(overAbsent>0?'<td style="text-align:center;font-weight:700;color:var(--danger);font-size:12px;position:sticky;left:316px;z-index:1;background:var(--bg2);width:52px;padding:3px 2px;text-align:center">-$'+deduction.toFixed(0)+'</td>':'<td style="text-align:center;color:var(--success);font-size:11px;position:sticky;left:316px;z-index:1;background:var(--bg2);width:52px;padding:3px 2px;text-align:center">—</td>')
-        +(offBonus>0?'<td style="text-align:center;font-weight:700;color:#d97706;font-size:12px;position:sticky;left:368px;z-index:1;background:rgba(251,191,36,.08);box-shadow:3px 0 6px rgba(0,0,0,.12);width:60px;padding:3px 2px;text-align:center" title="ប្រាក់បន្ថែម: '+swap+' ថ្ងៃ × $'+(offBonus/Math.max(swap,1)).toFixed(2)+'">+$'+offBonus.toFixed(0)+'</td>':'<td style="text-align:center;color:var(--text3);font-size:11px;position:sticky;left:368px;z-index:1;background:var(--bg2);box-shadow:3px 0 6px rgba(0,0,0,.12);width:60px;padding:3px 2px;text-align:center">—</td>')
+        +(offBonus>0?'<td style="text-align:center;font-weight:700;color:#d97706;font-size:12px;position:sticky;left:368px;z-index:1;background:rgba(251,191,36,.08);box-shadow:3px 0 6px rgba(0,0,0,.12);width:60px;padding:3px 2px;text-align:center" title="ប្រាក់បន្ថែម: '+offDaysWorked+' ថ្ងៃ × $'+(offDaysWorked>0?offBonus/offDaysWorked:0).toFixed(2)+'">+$'+offBonus.toFixed(0)+'</td>':'<td style="text-align:center;color:var(--text3);font-size:11px;position:sticky;left:368px;z-index:1;background:var(--bg2);box-shadow:3px 0 6px rgba(0,0,0,.12);width:60px;padding:3px 2px;text-align:center">—</td>')
         +cells
         +'<td style="text-align:center"><button class="btn btn-outline btn-sm" style="font-size:10px;padding:3px 8px" onclick="applyAbsenceDeduction('+emp.id+',\''+emp.name+'\','+absent+','+overAbsent+','+deduction+',\''+currentMonth+'\')">💸 កាត់</button></td>'
         +'</tr>';
