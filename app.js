@@ -2786,7 +2786,7 @@ function printMonthlyAttendance() {
     return `<th style="min-width:20px;padding:1px;font-size:10px;text-align:center;font-weight:600;${style}">${wdNames[wd]}</th>`;
   }).join('');
 
-  const bodyRows = summaries.map(({emp, present, late, absent, swap, onLeave, overAbsent, deduction, offBonus}, idx) => {
+  const bodyRows = summaries.map(({emp, present, late, absent, swap, onLeave, overAbsent, deduction, offBonus, workingDaysCount, empOffDaysThisMonth}, idx) => {
     const empOff = parseOffDays(emp);
     const attMapData  = window._monthlyAttData._attMap     || {};
     const lvMapData   = window._monthlyAttData._leaveMap   || {};
@@ -2821,6 +2821,8 @@ function printMonthlyAttendance() {
     }).join('');
     const rowBg = idx % 2 === 0 ? '' : 'background:#f9fafb;';
     const dept = emp.department || '';
+    const _wdCount = workingDaysCount || (present + late);
+    const _offCount = empOffDaysThisMonth || 0;
     return `<tr style="${rowBg}">
       <td style="padding:4px 6px;font-size:11px;font-weight:600;white-space:nowrap">${idx+1}. ${emp.name}</td>
       <td style="padding:3px 4px;font-size:10px;color:#374151;white-space:nowrap">${dept}</td>
@@ -2832,6 +2834,8 @@ function printMonthlyAttendance() {
       <td style="text-align:center;font-weight:700;color:${overAbsent>0?'#dc2626':'#9ca3af'};font-size:11px">${overAbsent}</td>
       <td style="text-align:center;font-weight:700;color:${offBonus>0?'#d97706':'#9ca3af'};font-size:11px;background:${offBonus>0?'rgba(251,191,36,.1)':''}">${offBonus>0?'+$'+offBonus.toFixed(0):'—'}</td>
       ${cells}
+      <td style="text-align:center;font-weight:800;font-size:12px;color:#16a34a;background:#f0fdf4;border-left:2px solid #86efac;white-space:nowrap;padding:2px 4px">${_wdCount}<span style="font-size:8px;font-weight:400;color:#6b7280"> ថ្ងៃ</span></td>
+      <td style="text-align:center;font-weight:800;font-size:12px;color:#6366f1;background:#f5f3ff;white-space:nowrap;padding:2px 4px">${_offCount>0?_offCount:'—'}<span style="font-size:8px;font-weight:400;color:#6b7280">${_offCount>0?' ថ្ងៃ':''}</span></td>
     </tr>`;
   }).join('');
 
@@ -2905,6 +2909,8 @@ function printMonthlyAttendance() {
         <th style="min-width:26px;color:#fca5a5;font-size:9px" rowspan="2" title="លើសថ្ងៃ">លើស</th>
         <th style="min-width:36px;color:#fbbf24;font-size:9px;background:#1e3a5f;" rowspan="2" title="🌟 OFF ធ្វើការ (គ្មានជំនួស) = គិតប្រាក់ | OFF+ជំនួស = $0">🌟OFF</th>
         ${thDays}
+        <th style="min-width:36px;color:#86efac;font-size:9px;background:#166534;" rowspan="2" title="📅 ថ្ងៃធ្វើការសរុបក្នុងខែ">📅<br/>ធ្វើការ</th>
+        <th style="min-width:36px;color:#c4b5fd;font-size:9px;background:#4338ca;" rowspan="2" title="📅 ថ្ងៃ OFF សរុបក្នុងខែ">📅<br/>OFFខែ</th>
       </tr>
       <tr>${thWds}</tr>
     </thead>
@@ -2920,6 +2926,8 @@ function printMonthlyAttendance() {
         <td style="text-align:center;color:#ef4444">${totalOver}</td>
         <td style="text-align:center;color:#d97706;font-weight:700">${(totals.ob||0)>0?'+$'+(totals.ob).toFixed(0):'—'}</td>
         ${allDays.map(()=>'<td></td>').join('')}
+        <td style="text-align:center;font-weight:700;color:#16a34a;background:#f0fdf4">${summaries.reduce((s,r)=>s+(r.workingDaysCount||r.present+r.late||0),0)}</td>
+        <td style="text-align:center;font-weight:700;color:#6366f1;background:#f5f3ff">${summaries.reduce((s,r)=>s+(r.empOffDaysThisMonth||0),0)}</td>
       </tr>
       <tr style="background:#f0fdf4;">
         <td style="padding:3px 5px;font-size:10px;font-weight:700;color:#166534;white-space:nowrap" colspan="2">✅ ធ្វើការ (នាក់)</td>
@@ -3009,7 +3017,7 @@ function saveMonthlyAttendanceAsImage() {
     return `<th style="min-width:22px;padding:1px;font-size:11px;text-align:center;font-weight:600;${style}">${wdNames[wd]}</th>`;
   }).join('');
 
-  const bodyRows = summaries.map(({emp, present, late, absent, swap, onLeave, overAbsent, deduction, offBonus}, idx) => {
+  const bodyRows = summaries.map(({emp, present, late, absent, swap, onLeave, overAbsent, deduction, offBonus, workingDaysCount, empOffDaysThisMonth}, idx) => {
     const empOff      = parseOffDays(emp);
     const attMapData  = window._monthlyAttData._attMap     || {};
     const lvMapData   = window._monthlyAttData._leaveMap   || {};
@@ -3037,6 +3045,8 @@ function saveMonthlyAttendanceAsImage() {
       return `<td style="text-align:center;font-size:12px;color:#dc2626;font-weight:700;">✗</td>`;
     }).join('');
     const rowBg = idx % 2 === 0 ? '#ffffff' : '#f9fafb';
+    const _wdCount = workingDaysCount || (present + late);
+    const _offCount = empOffDaysThisMonth || 0;
     return `<tr style="background:${rowBg}">
       <td style="padding:5px 8px;font-size:12px;font-weight:700;white-space:nowrap;color:#111;">${idx+1}. ${emp.name}</td>
       <td style="padding:4px 6px;font-size:11px;color:#4b5563;white-space:nowrap;">${emp.department||''}</td>
@@ -3048,6 +3058,8 @@ function saveMonthlyAttendanceAsImage() {
       <td style="text-align:center;font-weight:800;color:${overAbsent>0?'#dc2626':'#9ca3af'};font-size:12px;">${overAbsent}</td>
       <td style="text-align:center;font-weight:800;color:${offBonus>0?'#d97706':'#9ca3af'};font-size:12px;background:${offBonus>0?'rgba(251,191,36,.12)':''}">${offBonus>0?'+$'+offBonus.toFixed(0):'—'}</td>
       ${cells}
+      <td style="text-align:center;font-weight:800;font-size:13px;color:#16a34a;background:#f0fdf4;border-left:2px solid #86efac;white-space:nowrap;padding:3px 5px">${_wdCount}<span style="font-size:9px;font-weight:400;color:#6b7280"> ថ្ងៃ</span></td>
+      <td style="text-align:center;font-weight:800;font-size:13px;color:#6366f1;background:#f5f3ff;white-space:nowrap;padding:3px 5px">${_offCount>0?_offCount:'—'}<span style="font-size:9px;font-weight:400;color:#6b7280">${_offCount>0?' ថ្ងៃ':''}</span></td>
     </tr>`;
   }).join('');
 
@@ -3151,6 +3163,8 @@ function saveMonthlyAttendanceAsImage() {
         <th style="min-width:28px;color:#fca5a5;font-size:10px;" rowspan="2">លើស</th>
         <th style="min-width:40px;color:#fbbf24;font-size:10px;" rowspan="2" title="🌟 OFF ធ្វើការ (គ្មានជំនួស) = គិតប្រាក់ | OFF+ជំនួស = $0">🌟OFF</th>
         ${thDays}
+        <th style="min-width:42px;color:#86efac;font-size:10px;background:#166534;" rowspan="2" title="📅 ថ្ងៃធ្វើការសរុបក្នុងខែ">📅<br/>ធ្វើការ</th>
+        <th style="min-width:42px;color:#c4b5fd;font-size:10px;background:#4338ca;" rowspan="2" title="📅 ថ្ងៃ OFF សរុបក្នុងខែ">📅<br/>OFFខែ</th>
       </tr>
       <tr>${thWds}</tr>
     </thead>
@@ -3166,6 +3180,8 @@ function saveMonthlyAttendanceAsImage() {
         <td style="text-align:center;color:#dc2626;">${totalOver}</td>
         <td style="text-align:center;color:#d97706;font-weight:800;">${(totals.ob||0)>0?'+$'+(totals.ob).toFixed(0):'—'}</td>
         ${allDays.map(()=>'<td></td>').join('')}
+        <td style="text-align:center;font-weight:800;color:#16a34a;background:#f0fdf4">${summaries.reduce((s,r)=>s+(r.workingDaysCount||r.present+r.late||0),0)}</td>
+        <td style="text-align:center;font-weight:800;color:#6366f1;background:#f5f3ff">${summaries.reduce((s,r)=>s+(r.empOffDaysThisMonth||0),0)}</td>
       </tr>
       <tr style="background:#f0fdf4;">
       <tr style="background:#f0fdf4;">
@@ -3258,14 +3274,14 @@ async function exportMonthlyAttendanceExcel() {
     // ── Sheet 1: Matrix (ដូច PDF) ────────────────────────────────
     const dayLabels = allDays.map(({d, wd}) => d + '(' + wdNames[wd] + ')');
 
-    const matrixHeaders = ['#', 'ឈ្មោះបុគ្គលិក', 'នាយកដ្ឋាន', '✅ វត្តមាន', '⏰ យឺត', '❌ អវត្តមាន', '🔄 ជំនួស', '🌴 ច្បាប់', 'លើសថ្ងៃ', 'កាត់ ($)', '🌟 OFF Bonus ($)', ...dayLabels];
+    const matrixHeaders = ['#', 'ឈ្មោះបុគ្គលិក', 'នាយកដ្ឋាន', '✅ វត្តមាន', '⏰ យឺត', '❌ អវត្តមាន', '🔄 ជំនួស', '🌴 ច្បាប់', 'លើសថ្ងៃ', 'កាត់ ($)', '🌟 OFF Bonus ($)', ...dayLabels, '📅 ធ្វើការ', '📅 OFFខែ'];
 
     // Sub-header row: weekday names aligned to day columns
-    const subHeaderRow = ['', '', '', '', '', '', '', '', '', '', '', ...allDays.map(({wd}) => wdNames[wd])];
+    const subHeaderRow = ['', '', '', '', '', '', '', '', '', '', '', ...allDays.map(({wd}) => wdNames[wd]), '', ''];
 
     const matrixRows = [subHeaderRow];
 
-    summaries.forEach(({emp, present, late, absent, swap, onLeave, overAbsent, deduction}, i) => {
+    summaries.forEach(({emp, present, late, absent, swap, onLeave, overAbsent, deduction, offBonus, workingDaysCount, empOffDaysThisMonth}, i) => {
       const attMap     = d._attMap   || {};
       const lvMap      = d._leaveMap || {};
       const empOffDays = typeof parseOffDays === 'function' ? parseOffDays(emp) : [];
@@ -3308,7 +3324,9 @@ async function exportMonthlyAttendanceExcel() {
         overAbsent,
         overAbsent > 0 ? -deduction : 0,
         offBonus > 0 ? +offBonus.toFixed(2) : 0,
-        ...dayCells
+        ...dayCells,
+        workingDaysCount || (present + late),
+        empOffDaysThisMonth || 0
       ]);
     });
 
@@ -3319,12 +3337,14 @@ async function exportMonthlyAttendanceExcel() {
       totals.p, totals.l, totals.a, totals.sw, totals.lv, '',
       totals.d > 0 ? -totals.d : 0,
       totals.ob > 0 ? +totals.ob.toFixed(2) : 0,
-      ...allDays.map(() => '')
+      ...allDays.map(() => ''),
+      summaries.reduce((s,r)=>s+(r.workingDaysCount||r.present+r.late||0),0),
+      summaries.reduce((s,r)=>s+(r.empOffDaysThisMonth||0),0)
     ]);
 
     // Working / Off per day rows
-    const workingRow = ['', '✅ ធ្វើការ (នាក់)', '', '', '', '', '', '', '', '', ''];
-    const offRow     = ['', '🔴 Off (នាក់)',     '', '', '', '', '', '', '', '', ''];
+    const workingRow = ['', '✅ ធ្វើការ (នាក់)', '', '', '', '', '', '', '', '', '', '', ''];
+    const offRow     = ['', '🔴 Off (នាក់)',     '', '', '', '', '', '', '', '', '', '', ''];
     allDays.forEach(({dd, wd}) => {
       let w = 0, o = 0;
       summaries.forEach(({emp}) => {
@@ -3346,7 +3366,7 @@ async function exportMonthlyAttendanceExcel() {
     matrixRows.push(offRow);
 
     // OFF worked per day row
-    const offWorkedRow = ['', '🌟 OFF ធ្វើការ (នាក់)', '', '', '', '', '', '', '', '', ''];
+    const offWorkedRow = ['', '🌟 OFF ធ្វើការ (នាក់)', '', '', '', '', '', '', '', '', '', '', ''];
     const attMapExcel = d._attMap || {};
     allDays.forEach(({dd, wd}) => {
       let ow = 0;
@@ -3367,9 +3387,9 @@ async function exportMonthlyAttendanceExcel() {
     const totalWorkingDays = summaries.reduce((s,r)=>s+(r.workingDaysCount||0),0);
     const totalOffDays     = summaries.reduce((s,r)=>s+(r.empOffDaysThisMonth||0),0);
     const totalOffWorked   = summaries.reduce((s,r)=>s+(r.offDaysWorked||0),0);
-    matrixRows.push(['', '📅 សរុបថ្ងៃធ្វើការ', '', totalWorkingDays + ' ថ្ងៃ (' + summaries.length + ' នាក់)', '', '', '', '', '', '', '', ...allDays.map(()=>'')]);
-    matrixRows.push(['', '📅 សរុបថ្ងៃ OFF', '', totalOffDays + ' ថ្ងៃ (' + summaries.length + ' នាក់)', '', '', '', '', '', '', '', ...allDays.map(()=>'')]);
-    matrixRows.push(['', '🌟 OFF ធ្វើការ (សរុប)', '', totalOffWorked + ' ថ្ងៃ', '', '', '', '', '', '', '', ...allDays.map(()=>'')]);
+    matrixRows.push(['', '📅 សរុបថ្ងៃធ្វើការ', '', totalWorkingDays + ' ថ្ងៃ (' + summaries.length + ' នាក់)', '', '', '', '', '', '', '', ...allDays.map(()=>''), '', '']);
+    matrixRows.push(['', '📅 សរុបថ្ងៃ OFF', '', totalOffDays + ' ថ្ងៃ (' + summaries.length + ' នាក់)', '', '', '', '', '', '', '', ...allDays.map(()=>''), '', '']);
+    matrixRows.push(['', '🌟 OFF ធ្វើការ (សរុប)', '', totalOffWorked + ' ថ្ងៃ', '', '', '', '', '', '', '', ...allDays.map(()=>''), '', '']);
 
     // ── Sheet 2: Detail Summary ───────────────────────────────────
     const summaryHeaders = ['#', 'ឈ្មោះបុគ្គលិក', 'នាយកដ្ឋាន', '✅ វត្តមាន', '⏰ យឺត', '❌ អវត្តមាន', '🔄 ជំនួស', '🌴 ច្បាប់', 'ថ្ងៃធ្វើការ', 'ថ្ងៃ OFF', '🌟 OFF ធ្វើការ', 'ថ្ងៃលើស', 'អត្រាថ្ងៃ ($)', 'កាត់ ($)', '🌟 OFF Bonus ($)'];
