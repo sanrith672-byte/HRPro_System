@@ -2399,6 +2399,9 @@ async function renderMonthlyAttendance(month='') {
       const workingDaysCount = empDays.length;
       const dailyRate = workingDaysCount > 0 ? (emp.salary || 0) / workingDaysCount : 0;
       const deduction = parseFloat((overAbsent * dailyRate).toFixed(2));
+      // ប្រាក់បន្ថែមថ្ងៃ OFF ប្រើ salary/daysInMonth (ថ្ងៃសរុបក្នុងខែ) ជំនួស salary/workingDays
+      // ដើម្បីឱ្យត្រឹមត្រូវ: $500/31 = $16.13/ថ្ងៃ (មិនមែន $500/26 = $19.23/ថ្ងៃ)
+      const offDailyRate = daysInMonth > 0 ? (emp.salary || 0) / daysInMonth : 0;
       // ប្រាក់បន្ថែមថ្ងៃ OFF:
       // វិធី ១: attendance record (present/late) ត្រង់ថ្ងៃ OFF → គិតប្រាក់
       // វិធី ២: dayswap approved (swap_date) ដែល off_date ទំនេរ → គិតប្រាក់
@@ -2429,8 +2432,8 @@ async function renderMonthlyAttendance(month='') {
       });
       const _rules = getSalaryRules();
       const _offMult = (_rules.off_bonus_enabled !== false) ? (_rules.off_day_multiplier || 1.0) : 0;
-      const offBonus = parseFloat((offDaysWorked * dailyRate * _offMult).toFixed(2));
-      return { emp, present, late, absent, swap, onLeave, overAbsent, deduction, dailyRate, workingDaysCount, offBonus, offDaysWorked };
+      const offBonus = parseFloat((offDaysWorked * offDailyRate * _offMult).toFixed(2));
+      return { emp, present, late, absent, swap, onLeave, overAbsent, deduction, dailyRate, offDailyRate, workingDaysCount, offBonus, offDaysWorked };
     });
 
     // Apply department filter
@@ -3328,6 +3331,8 @@ async function applyAllAbsenceDeductions(month) {
       const over=Math.max(0,absent-maxAbsent);
       const dailyRate = workingDaysCount > 0 ? (emp.salary||0) / workingDaysCount : 0;
       const deduction = parseFloat((over * dailyRate).toFixed(2));
+      // OFF bonus ប្រើ salary/daysInMonth (មិនមែន salary/workingDays)
+      const offDailyRate = daysInMonth > 0 ? (emp.salary||0) / daysInMonth : 0;
       // Count OFF days worked (direct attendance on OFF days, no compensation swap)
       let offDaysWorked = 0;
       allMonthDaysArr.forEach(x=>{
@@ -3338,7 +3343,7 @@ async function applyAllAbsenceDeductions(month) {
       });
       const _rules = getSalaryRules();
       const _offMult = (_rules.off_bonus_enabled !== false) ? (_rules.off_day_multiplier || 1.0) : 0;
-      const offBonus = parseFloat((offDaysWorked * dailyRate * _offMult).toFixed(2));
+      const offBonus = parseFloat((offDaysWorked * offDailyRate * _offMult).toFixed(2));
       return { emp, absent, over, deduction, offBonus, offDaysWorked };
     }).filter(x=>x.over>0||x.offBonus>0);
     if (!toDeduct.length) { showToast('គ្មានបុគ្គលិកណាលើសថ្ងៃ!','success'); renderMonthlyAttendance(month); return; }
@@ -8669,7 +8674,7 @@ function renderSettings() {
                     <span class="rule-unit" style="color:#d97706">x ប្រាក់ថ្ងៃ</span>
                   </div>
                   <div style="font-size:12px;color:var(--text3);margin-top:4px">
-                    ប្រាក់ OFF = <span id="off-bonus-preview" style="color:#d97706;font-weight:700">${(()=>{const m=rules.off_day_multiplier||1;const ex=500/22;return '$'+(ex*m).toFixed(2)+'/ថ្ងៃ (ex: $500/22ថ្ងៃ)';})()} </span>
+                    ប្រាក់ OFF = <span id="off-bonus-preview" style="color:#d97706;font-weight:700">${(()=>{const m=rules.off_day_multiplier||1;const ex=500/30;return '$'+(ex*m).toFixed(2)+'/ថ្ងៃ (ex: $500/30ថ្ងៃ)';})()} </span>
                   </div>
                 </div>
                 <div class="salary-rule-card" style="border-color:#f59e0b;background:rgba(251,191,36,.04)">
@@ -8688,8 +8693,8 @@ function renderSettings() {
                 <div class="salary-rule-card" style="border-color:#f59e0b;background:rgba(251,191,36,.08);grid-column:1/-1">
                   <div class="rule-label">📐 រូបមន្ត OFF Bonus</div>
                   <div style="font-family:var(--mono);font-size:13px;color:var(--text2);line-height:2;margin-top:6px">
-                    <span style="color:#d97706;font-weight:700">OFF Bonus</span> = (ប្រាក់ខែ ÷ ថ្ងៃធ្វើការ) × <span id="off-formula-mult" style="color:#d97706;font-weight:700">${rules.off_day_multiplier||1.0}</span>x × ថ្ងៃ OFF ធ្វើការ<br/>
-                    <span style="color:var(--text3);font-size:12px">ឧ. $500 ÷ 22 × <span id="off-formula-mult2">${rules.off_day_multiplier||1.0}</span>x × 2ថ្ងៃ = <span id="off-formula-result" style="color:#d97706">$${((500/22)*(rules.off_day_multiplier||1)*2).toFixed(2)}</span></span>
+                    <span style="color:#d97706;font-weight:700">OFF Bonus</span> = (ប្រាក់ខែ ÷ ថ្ងៃសរុបក្នុងខែ) × <span id="off-formula-mult" style="color:#d97706;font-weight:700">${rules.off_day_multiplier||1.0}</span>x × ថ្ងៃ OFF ធ្វើការ<br/>
+                    <span style="color:var(--text3);font-size:12px">ឧ. $500 ÷ 30 × <span id="off-formula-mult2">${rules.off_day_multiplier||1.0}</span>x × 2ថ្ងៃ = <span id="off-formula-result" style="color:#d97706">$${((500/30)*(rules.off_day_multiplier||1)*2).toFixed(2)}</span></span>
                   </div>
                 </div>
               </div>
@@ -9756,16 +9761,16 @@ function saveSalarySettings() {
 function updateOffBonusPreview() {
   const mult = parseFloat(document.getElementById('sr-off-multiplier')?.value) || 1.0;
   const enabled = document.getElementById('sr-off-enabled')?.checked !== false;
-  // Update formula display
-  const ex = (500 / 22 * mult).toFixed(2);
+  // Update formula display — ប្រើ salary/daysInMonth (30 ជា standard) មិនមែន salary/workingDays
+  const ex = (500 / 30 * mult).toFixed(2);
   const p = document.getElementById('off-bonus-preview');
-  if (p) p.textContent = '$' + ex + '/ថ្ងៃ (ex: $500/22ថ្ងៃ)';
+  if (p) p.textContent = '$' + ex + '/ថ្ងៃ (ex: $500/30ថ្ងៃ)';
   const m1 = document.getElementById('off-formula-mult');
   if (m1) m1.textContent = mult + 'x';
   const m2 = document.getElementById('off-formula-mult2');
   if (m2) m2.textContent = mult + 'x';
   const res = document.getElementById('off-formula-result');
-  if (res) res.textContent = '$' + (500 / 22 * mult * 2).toFixed(2);
+  if (res) res.textContent = '$' + (500 / 30 * mult * 2).toFixed(2);
   // Update toggle label
   const lbl = document.getElementById('sr-off-enabled-label');
   if (lbl) {
@@ -9840,6 +9845,8 @@ async function runAutoPayrollNow() {
       const overAbsent = Math.max(0, absent - maxAbsent);
       const dailyRate = workingDaysCount > 0 ? base / workingDaysCount : 0;
       const deduction = parseFloat((overAbsent * dailyRate).toFixed(2));
+      // OFF bonus ប្រើ salary/daysInMonth (មិនមែន salary/workingDays)
+      const offDailyRate = daysInMonth > 0 ? base / daysInMonth : 0;
       // Count OFF days worked (for OFF Bonus)
       let offDaysWorked = 0;
       allMonthDays.forEach(function(x) {
@@ -9850,7 +9857,7 @@ async function runAutoPayrollNow() {
       });
       const _rules = getSalaryRules();
       const _offMult = (_rules.off_bonus_enabled !== false) ? (_rules.off_day_multiplier || 1.0) : 0;
-      const offBonus = parseFloat((offDaysWorked * dailyRate * _offMult).toFixed(2));
+      const offBonus = parseFloat((offDaysWorked * offDailyRate * _offMult).toFixed(2));
       const net = base + offBonus - deduction;
       const noteParts = ['Auto Payroll'];
       if (deduction > 0) noteParts.push('អវត្តមាន ' + absent + ' ថ្ងៃ, លើស ' + overAbsent + ' ថ្ងៃ (-$' + deduction.toFixed(2) + ')');
