@@ -2427,7 +2427,9 @@ async function renderMonthlyAttendance(month='') {
           offDaysWorked++;
         }
       });
-      const offBonus = parseFloat((offDaysWorked * dailyRate).toFixed(2));
+      const _rules = getSalaryRules();
+      const _offMult = (_rules.off_bonus_enabled !== false) ? (_rules.off_day_multiplier || 1.0) : 0;
+      const offBonus = parseFloat((offDaysWorked * dailyRate * _offMult).toFixed(2));
       return { emp, present, late, absent, swap, onLeave, overAbsent, deduction, dailyRate, workingDaysCount, offBonus, offDaysWorked };
     });
 
@@ -3334,7 +3336,9 @@ async function applyAllAbsenceDeductions(month) {
           if (a && (a.status==='present'||a.status==='late')) offDaysWorked++;
         }
       });
-      const offBonus = parseFloat((offDaysWorked * dailyRate).toFixed(2));
+      const _rules = getSalaryRules();
+      const _offMult = (_rules.off_bonus_enabled !== false) ? (_rules.off_day_multiplier || 1.0) : 0;
+      const offBonus = parseFloat((offDaysWorked * dailyRate * _offMult).toFixed(2));
       return { emp, absent, over, deduction, offBonus, offDaysWorked };
     }).filter(x=>x.over>0||x.offBonus>0);
     if (!toDeduct.length) { showToast('គ្មានបុគ្គលិកណាលើសថ្ងៃ!','success'); renderMonthlyAttendance(month); return; }
@@ -7893,6 +7897,8 @@ function getSalaryRules() {
     work_start_time: '08:00',
     work_end_time: '17:00',
     late_grace_minutes: 15,
+    off_day_multiplier: 1.0,
+    off_bonus_enabled: true,
   };
   try { return { ...def, ...JSON.parse(localStorage.getItem(SAL_KEY)) }; } catch { return def; }
 }
@@ -8643,6 +8649,47 @@ function renderSettings() {
                   <div class="rule-input-wrap">
                     <input type="number" id="sr-nssf-er" value="${rules.nssf_employer}" min="0" step="0.1" />
                     <span class="rule-unit">%</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 🌟 OFF Day Bonus Rules -->
+            <div style="margin-bottom:24px">
+              <div style="font-size:14px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:12px">🌟 ប្រាក់ OFF — ថ្ងៃ OFF ធ្វើការ</div>
+              <div style="background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.3);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:13px;color:var(--text2)">
+                💡 ប្រាក់ OFF = ប្រាក់ថ្ងៃ × multiplier — គណនាដោយស្វ័យប្រវត្តិ នៅពេល "កាត់ប្រាក់" ក្នុងតារាងប្រចាំខែ<br/>
+                <span style="color:#d97706;font-weight:600">🔄 OFF+ជំនួស = $0 | OFF ធ្វើការ (គ្មានជំនួស) = ទទួលប្រាក់</span>
+              </div>
+              <div class="salary-rules-grid">
+                <div class="salary-rule-card" style="border-color:#f59e0b;background:rgba(251,191,36,.04)">
+                  <div class="rule-label">🌟 OFF Day Multiplier</div>
+                  <div class="rule-input-wrap">
+                    <input type="number" id="sr-off-multiplier" value="${rules.off_day_multiplier !== undefined ? rules.off_day_multiplier : 1.0}" min="0.5" max="5" step="0.25" oninput="updateOffBonusPreview()" style="color:#d97706;font-weight:700" />
+                    <span class="rule-unit" style="color:#d97706">x ប្រាក់ថ្ងៃ</span>
+                  </div>
+                  <div style="font-size:12px;color:var(--text3);margin-top:4px">
+                    ប្រាក់ OFF = <span id="off-bonus-preview" style="color:#d97706;font-weight:700">${(()=>{const m=rules.off_day_multiplier||1;const ex=500/22;return '$'+(ex*m).toFixed(2)+'/ថ្ងៃ (ex: $500/22ថ្ងៃ)';})()} </span>
+                  </div>
+                </div>
+                <div class="salary-rule-card" style="border-color:#f59e0b;background:rgba(251,191,36,.04)">
+                  <div class="rule-label">🔘 បើក OFF Bonus ដោយស្វ័យប្រវត្តិ</div>
+                  <div style="margin-top:10px;display:flex;align-items:center;gap:10px">
+                    <label class="toggle-switch">
+                      <input type="checkbox" id="sr-off-enabled" ${(rules.off_bonus_enabled!==false)?'checked':''} onchange="updateOffBonusPreview()">
+                      <span class="toggle-slider"></span>
+                    </label>
+                    <span id="sr-off-enabled-label" style="font-size:13px;font-weight:600;color:${(rules.off_bonus_enabled!==false)?'var(--success)':'var(--text3)'}">${(rules.off_bonus_enabled!==false)?'✅ បើក':'⛔ បិទ'}</span>
+                  </div>
+                  <div style="font-size:12px;color:var(--text3);margin-top:8px">
+                    បិទ = មិនគណនា OFF Bonus ទោះដំណើរការ "កាត់ទាំងអស់"
+                  </div>
+                </div>
+                <div class="salary-rule-card" style="border-color:#f59e0b;background:rgba(251,191,36,.08);grid-column:1/-1">
+                  <div class="rule-label">📐 រូបមន្ត OFF Bonus</div>
+                  <div style="font-family:var(--mono);font-size:13px;color:var(--text2);line-height:2;margin-top:6px">
+                    <span style="color:#d97706;font-weight:700">OFF Bonus</span> = (ប្រាក់ខែ ÷ ថ្ងៃធ្វើការ) × <span id="off-formula-mult" style="color:#d97706;font-weight:700">${rules.off_day_multiplier||1.0}</span>x × ថ្ងៃ OFF ធ្វើការ<br/>
+                    <span style="color:var(--text3);font-size:12px">ឧ. $500 ÷ 22 × <span id="off-formula-mult2">${rules.off_day_multiplier||1.0}</span>x × 2ថ្ងៃ = <span id="off-formula-result" style="color:#d97706">$${((500/22)*(rules.off_day_multiplier||1)*2).toFixed(2)}</span></span>
                   </div>
                 </div>
               </div>
@@ -9698,10 +9745,33 @@ function saveSalarySettings() {
     work_start_time:      $('sr-work-start')?.value || '08:00',
     work_end_time:        $('sr-work-end')?.value   || '17:00',
     late_grace_minutes:   parseInt($('sr-late-grace')?.value) || 0,
+    off_day_multiplier:   parseFloat($('sr-off-multiplier')?.value) ?? 1.0,
+    off_bonus_enabled:    $('sr-off-enabled')?.checked !== false,
   };
   saveSalaryRules(rules);
   showToast('រក្សាទុកការកំណត់បៀវត្សបានជោគជ័យ! ✅','success');
   updateLatePreview();
+}
+
+function updateOffBonusPreview() {
+  const mult = parseFloat(document.getElementById('sr-off-multiplier')?.value) || 1.0;
+  const enabled = document.getElementById('sr-off-enabled')?.checked !== false;
+  // Update formula display
+  const ex = (500 / 22 * mult).toFixed(2);
+  const p = document.getElementById('off-bonus-preview');
+  if (p) p.textContent = '$' + ex + '/ថ្ងៃ (ex: $500/22ថ្ងៃ)';
+  const m1 = document.getElementById('off-formula-mult');
+  if (m1) m1.textContent = mult + 'x';
+  const m2 = document.getElementById('off-formula-mult2');
+  if (m2) m2.textContent = mult + 'x';
+  const res = document.getElementById('off-formula-result');
+  if (res) res.textContent = '$' + (500 / 22 * mult * 2).toFixed(2);
+  // Update toggle label
+  const lbl = document.getElementById('sr-off-enabled-label');
+  if (lbl) {
+    lbl.textContent = enabled ? '✅ បើក' : '⛔ បិទ';
+    lbl.style.color = enabled ? 'var(--success)' : 'var(--text3)';
+  }
 }
 
 function updateLatePreview() {
@@ -9778,7 +9848,9 @@ async function runAutoPayrollNow() {
           if (a && (a.status === 'present' || a.status === 'late')) offDaysWorked++;
         }
       });
-      const offBonus = parseFloat((offDaysWorked * dailyRate).toFixed(2));
+      const _rules = getSalaryRules();
+      const _offMult = (_rules.off_bonus_enabled !== false) ? (_rules.off_day_multiplier || 1.0) : 0;
+      const offBonus = parseFloat((offDaysWorked * dailyRate * _offMult).toFixed(2));
       const net = base + offBonus - deduction;
       const noteParts = ['Auto Payroll'];
       if (deduction > 0) noteParts.push('អវត្តមាន ' + absent + ' ថ្ងៃ, លើស ' + overAbsent + ' ថ្ងៃ (-$' + deduction.toFixed(2) + ')');
