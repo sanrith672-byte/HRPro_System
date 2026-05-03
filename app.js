@@ -2377,7 +2377,9 @@ async function renderMonthlyAttendance(month='') {
       // ប្រាក់បន្ថែមថ្ងៃ OFF: ចំនួនថ្ងៃ OFF ដែលមកធ្វើការ (swap_date) ដែល មិនមែនជា compensation day
       // OFF day worked = swap_date ស្ថិតខែនេះ ហើយ weekday ស្ថិតក្នុង emp.off_days
       // OFF+ (compensation) = off_date ស្ថិតខែនេះ → មិនគិតប្រាក់
+      // ករណី OFF + ជំនួស (មាន off_date ជាប់ swap record) = មិនគិតប្រាក់បន្ថែម
       const empOff = parseOffDays(emp);
+      const empOffDateDaysThisMonth = offDateMap[emp.id] || {};
       let offDaysWorked = 0;
       Object.keys(empSwapDays).forEach(dd => {
         const swapRec = empSwapDays[dd];
@@ -2386,7 +2388,12 @@ async function renderMonthlyAttendance(month='') {
         const wd = dt.getDay();
         // Only count if this day is truly an employee OFF day (weekday in off_days)
         if (empOff.length > 0 && empOff.indexOf(wd) !== -1) {
-          offDaysWorked++;
+          // ❌ OFF + ជំនួស: មាន off_date ក្នុង swap record → មិនគិតប្រាក់បន្ថែម
+          // ✅ OFF ធ្វើការ (គ្មាន off_date ជំនួស) → គិតប្រាក់បន្ថែម
+          const hasCompOffDate = swapRec.off_date && swapRec.off_date.trim() !== '';
+          if (!hasCompOffDate) {
+            offDaysWorked++;
+          }
         }
       });
       const offBonus = parseFloat((offDaysWorked * dailyRate).toFixed(2));
@@ -2495,7 +2502,7 @@ async function renderMonthlyAttendance(month='') {
         +'<td style="text-align:center;font-weight:700;color:var(--primary);font-size:13px;width:30px;position:sticky;left:250px;z-index:1;background:var(--bg2);padding:3px 0;text-align:center;font-weight:700">'+(swap>0?'<span style="background:rgba(99,102,241,.15);border-radius:4px;padding:1px 6px">'+swap+'</span>':'<span style="color:var(--text3)">0</span>')+'</td>'
         +'<td style="text-align:center;font-weight:700;color:'+(overAbsent>0?'var(--danger)':'var(--text3)')+';font-size:11px;position:sticky;left:280px;z-index:1;background:var(--bg2);width:36px;padding:3px 1px;text-align:center">'+overAbsent+'</td>'
         +(overAbsent>0?'<td style="text-align:center;font-weight:700;color:var(--danger);font-size:12px;position:sticky;left:316px;z-index:1;background:var(--bg2);width:52px;padding:3px 2px;text-align:center">-$'+deduction.toFixed(0)+'</td>':'<td style="text-align:center;color:var(--success);font-size:11px;position:sticky;left:316px;z-index:1;background:var(--bg2);width:52px;padding:3px 2px;text-align:center">—</td>')
-        +(offBonus>0?'<td style="text-align:center;font-weight:700;color:#d97706;font-size:12px;position:sticky;left:368px;z-index:1;background:rgba(251,191,36,.08);box-shadow:3px 0 6px rgba(0,0,0,.12);width:60px;padding:3px 2px;text-align:center" title="ប្រាក់បន្ថែម: '+offDaysWorked+' ថ្ងៃ × $'+(offDaysWorked>0?offBonus/offDaysWorked:0).toFixed(2)+'">+$'+offBonus.toFixed(0)+'</td>':'<td style="text-align:center;color:var(--text3);font-size:11px;position:sticky;left:368px;z-index:1;background:var(--bg2);box-shadow:3px 0 6px rgba(0,0,0,.12);width:60px;padding:3px 2px;text-align:center">—</td>')
+        +(offBonus>0?'<td style="text-align:center;font-weight:700;color:#d97706;font-size:12px;position:sticky;left:368px;z-index:1;background:rgba(251,191,36,.08);box-shadow:3px 0 6px rgba(0,0,0,.12);width:60px;padding:3px 2px;text-align:center" title="🌟 OFF ធ្វើការ (គ្មានជំនួស): '+offDaysWorked+' ថ្ងៃ × $'+(offDaysWorked>0?(offBonus/offDaysWorked).toFixed(2):'0')+'/ថ្ងៃ | OFF+ជំនួស=$0">+$'+offBonus.toFixed(0)+'</td>':'<td style="text-align:center;color:var(--text3);font-size:11px;position:sticky;left:368px;z-index:1;background:var(--bg2);box-shadow:3px 0 6px rgba(0,0,0,.12);width:60px;padding:3px 2px;text-align:center">—</td>')
         +cells
         +'<td style="text-align:center"><button class="btn btn-outline btn-sm" style="font-size:10px;padding:3px 8px" onclick="applyAbsenceDeduction('+emp.id+',\''+emp.name+'\','+absent+','+overAbsent+','+deduction+',\''+currentMonth+'\')">💸 កាត់</button></td>'
         +'</tr>';
@@ -2550,7 +2557,7 @@ async function renderMonthlyAttendance(month='') {
           +'<th style="min-width:20px;text-align:center;color:var(--primary);font-size:11px;padding:2px 0" rowspan="2">🔄</th>'
           +'<th style="min-width:22px;text-align:center;font-size:9px;padding:2px 0" rowspan="2">លើស</th>'
           +'<th style="min-width:34px;text-align:center;font-size:9px;padding:2px 0" rowspan="2">កាត់</th>'
-          +'<th style="min-width:38px;text-align:center;font-size:9px;padding:2px 0;color:#f59e0b" rowspan="2" title="ប្រាក់បន្ថែមថ្ងៃ OFF">🌟OFF</th>'
+          +'<th style="min-width:38px;text-align:center;font-size:9px;padding:2px 0;color:#f59e0b" rowspan="2" title="🌟 OFF ធ្វើការ (គ្មានជំនួស) = គិតប្រាក់ | OFF+ជំនួស = $0">🌟OFF</th>'
           +dayThs+'</tr>'
           +'<tr style="position:sticky;top:22px;z-index:4;background:var(--bg2)">'+wdThs+'</tr>'
         : '<tr style="position:sticky;top:0;z-index:4;background:var(--bg2);height:28px">'
@@ -2561,7 +2568,7 @@ async function renderMonthlyAttendance(month='') {
           +'<th style="width:30px;text-align:center;color:var(--primary);position:sticky;left:250px;z-index:5;background:var(--bg2);padding:3px 0;font-size:13px" rowspan="2" title="ប្ដូរថ្ងៃ">🔄</th>'
           +'<th style="width:36px;text-align:center;font-size:10px;position:sticky;left:280px;z-index:5;background:var(--bg2);padding:3px 1px" rowspan="2" title="លើសថ្ងៃ">លើស</th>'
           +'<th style="width:52px;text-align:center;font-size:10px;position:sticky;left:316px;z-index:5;background:var(--bg2);padding:3px 2px" rowspan="2" title="កាត់ប្រាក់">កាត់</th>'
-          +'<th style="width:60px;text-align:center;font-size:10px;position:sticky;left:368px;z-index:5;background:var(--bg2);box-shadow:3px 0 6px rgba(0,0,0,.2);padding:3px 2px;color:#f59e0b" rowspan="2" title="ប្រាក់បន្ថែម: ថ្ងៃ OFF ដែលមកធ្វើការ">🌟 OFF</th>'
+          +'<th style="width:60px;text-align:center;font-size:10px;position:sticky;left:368px;z-index:5;background:var(--bg2);box-shadow:3px 0 6px rgba(0,0,0,.2);padding:3px 2px;color:#f59e0b" rowspan="2" title="🌟 OFF ធ្វើការ (គ្មានជំនួស) = គិតប្រាក់ | OFF+ជំនួស = $0">🌟 OFF</th>'
           +dayThs
           +'<th style="min-width:70px;text-align:center;padding:3px 4px" rowspan="2">សកម្ម</th>'
           +'</tr>'
@@ -2759,7 +2766,7 @@ function printMonthlyAttendance() {
         <th style="min-width:26px;color:#c4b5fd" rowspan="2" title="ជំនួស">🔄</th>
         <th style="min-width:26px;color:#86efac" rowspan="2" title="ច្បាប់">🌴</th>
         <th style="min-width:26px;color:#fca5a5;font-size:9px" rowspan="2" title="លើសថ្ងៃ">លើស</th>
-        <th style="min-width:36px;color:#fbbf24;font-size:9px;background:#1e3a5f;" rowspan="2" title="ប្រាក់បន្ថែម: ថ្ងៃ OFF ដែលមកធ្វើការ">🌟OFF</th>
+        <th style="min-width:36px;color:#fbbf24;font-size:9px;background:#1e3a5f;" rowspan="2" title="🌟 OFF ធ្វើការ (គ្មានជំនួស) = គិតប្រាក់ | OFF+ជំនួស = $0">🌟OFF</th>
         ${thDays}
       </tr>
       <tr>${thWds}</tr>
@@ -2926,7 +2933,7 @@ function saveMonthlyAttendanceAsImage() {
         <th style="min-width:28px;color:#c4b5fd;" rowspan="2">🔄</th>
         <th style="min-width:28px;color:#86efac;" rowspan="2">🌴</th>
         <th style="min-width:28px;color:#fca5a5;font-size:10px;" rowspan="2">លើស</th>
-        <th style="min-width:40px;color:#fbbf24;font-size:10px;" rowspan="2" title="ប្រាក់បន្ថែម: ថ្ងៃ OFF ដែលមកធ្វើការ">🌟OFF</th>
+        <th style="min-width:40px;color:#fbbf24;font-size:10px;" rowspan="2" title="🌟 OFF ធ្វើការ (គ្មានជំនួស) = គិតប្រាក់ | OFF+ជំនួស = $0">🌟OFF</th>
         ${thDays}
       </tr>
       <tr>${thWds}</tr>
