@@ -2547,6 +2547,50 @@ async function renderMonthlyAttendance(month='') {
       )
       +'</thead>'
       +'<tbody>'+dayRows+'</tbody>'
+      +(()=>{
+        // Build per-day working/off summary footer
+        const totalEmps = renderEmps.length;
+        const footCells = allDays.map(({dd, wd}) => {
+          let working = 0, offCount = 0;
+          renderSummaries.forEach(({emp}) => {
+            const empOff = parseOffDays(emp);
+            const swapRec = (swapMap[emp.id]||{})[dd];
+            const compSwap = (offDateMap[emp.id]||{})[dd];
+            if (empOff.length > 0 && empOff.indexOf(wd) !== -1) {
+              if (swapRec) { working++; } else { offCount++; }
+            } else if (compSwap) {
+              offCount++;
+            } else {
+              working++;
+            }
+          });
+          const isSun = wd===0, isSat = wd===6;
+          const bg = isSun ? 'background:rgba(220,38,38,0.12);' : isSat ? 'background:rgba(180,83,9,0.12);' : '';
+          return '<td style="text-align:center;padding:2px 1px;font-size:10px;'+bg+'">'
+            +'<div style="color:var(--success);font-weight:700;line-height:1.4">'+working+'</div>'
+            +'<div style="color:var(--danger);font-weight:600;line-height:1.4">'+offCount+'</div>'
+            +'</td>';
+        }).join('');
+        const mob = window.innerWidth < 700;
+        if (mob) {
+          return '<tfoot><tr style="position:sticky;bottom:0;z-index:3;background:var(--bg3);border-top:2px solid var(--border)">'
+            +'<td colspan="7" style="position:sticky;left:0;z-index:4;background:var(--bg3);box-shadow:2px 0 4px rgba(0,0,0,.15);padding:3px 5px;font-size:9px;font-weight:700">'
+            +'<div style="color:var(--success)">✅ ធ្វើការ</div><div style="color:var(--danger)">🔴 Off</div>'
+            +'</td>'+footCells+'</tr></tfoot>';
+        }
+        return '<tfoot><tr style="position:sticky;bottom:0;z-index:3;background:var(--bg3);border-top:2px solid var(--border)">'
+          +'<td style="position:sticky;left:0;z-index:4;background:var(--bg3);box-shadow:2px 0 5px rgba(0,0,0,.12);padding:4px 8px;font-size:11px;font-weight:700;white-space:nowrap">'
+          +'<div style="color:var(--success);line-height:1.5">✅ ធ្វើការ (នាក់)</div>'
+          +'<div style="color:var(--danger);line-height:1.5">🔴 Off (នាក់)</div>'
+          +'</td>'
+          +'<td colspan="6" style="position:sticky;left:160px;z-index:4;background:var(--bg3);box-shadow:3px 0 6px rgba(0,0,0,.12);padding:4px 2px;text-align:center;font-size:10px">'
+          +'<div style="color:var(--text3);line-height:1.5">'+totalEmps+' នាក់</div>'
+          +'<div style="color:var(--text3);line-height:1.5">សរុប</div>'
+          +'</td>'
+          +footCells
+          +'<td style="background:var(--bg3)"></td>'
+          +'</tr></tfoot>';
+      })()
       +'</table></div></div>';
   } catch(e) { showError(e.message); }
 }
