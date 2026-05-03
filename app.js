@@ -2535,6 +2535,7 @@ async function renderMonthlyAttendance(month='') {
           +'<td style="text-align:center;font-weight:700;color:'+(overAbsent>0?'var(--danger)':'var(--success)')+';font-size:10px;min-width:34px;padding:2px 1px">'+(overAbsent>0?'-$'+deduction.toFixed(0):'—')+'</td>'
           +'<td style="text-align:center;font-weight:700;font-size:10px;min-width:38px;padding:2px 1px;color:'+(offBonus>0?'#d97706':'var(--text3)');+'\">'+(offBonus>0?'+$'+offBonus.toFixed(0):'—')+'</td>'
           +cells
+          +'<td style="text-align:center;font-weight:700;font-size:11px;color:var(--success);min-width:30px;padding:2px 2px;border-left:1px solid var(--border)">'+(present+late)+'</td>'
           +'</tr>';
       }
       return '<tr>'
@@ -2547,6 +2548,7 @@ async function renderMonthlyAttendance(month='') {
         +(overAbsent>0?'<td style="text-align:center;font-weight:700;color:var(--danger);font-size:12px;position:sticky;left:316px;z-index:1;background:var(--bg2);width:52px;padding:3px 2px;text-align:center">-$'+deduction.toFixed(0)+'</td>':'<td style="text-align:center;color:var(--success);font-size:11px;position:sticky;left:316px;z-index:1;background:var(--bg2);width:52px;padding:3px 2px;text-align:center">—</td>')
         +(offBonus>0?'<td style="text-align:center;font-weight:700;color:#d97706;font-size:12px;position:sticky;left:368px;z-index:1;background:rgba(251,191,36,.08);box-shadow:3px 0 6px rgba(0,0,0,.12);width:60px;padding:3px 2px;text-align:center" title="🌟 OFF ធ្វើការ (គ្មានជំនួស): '+offDaysWorked+' ថ្ងៃ × $'+(offDaysWorked>0?(offBonus/offDaysWorked).toFixed(2):'0')+'/ថ្ងៃ | OFF+ជំនួស=$0">+$'+offBonus.toFixed(0)+'</td>':'<td style="text-align:center;color:var(--text3);font-size:11px;position:sticky;left:368px;z-index:1;background:var(--bg2);box-shadow:3px 0 6px rgba(0,0,0,.12);width:60px;padding:3px 2px;text-align:center">—</td>')
         +cells
+        +'<td style="text-align:center;font-weight:700;font-size:12px;color:var(--success);min-width:50px;padding:3px 4px;border-left:1px solid var(--border)" title="ថ្ងៃធ្វើការសរុប">'+(present+late)+'</td>'
         +'<td style="text-align:center"><button class="btn btn-outline btn-sm" style="font-size:10px;padding:3px 8px" onclick="applyAbsenceDeduction('+emp.id+',\''+emp.name+'\','+absent+','+overAbsent+','+deduction+',\''+currentMonth+'\')">💸 កាត់</button></td>'
         +'</tr>';
     }).join('');
@@ -2613,7 +2615,7 @@ async function renderMonthlyAttendance(month='') {
           +'<th style="width:52px;text-align:center;font-size:10px;position:sticky;left:316px;z-index:5;background:var(--bg2);padding:3px 2px" rowspan="2" title="កាត់ប្រាក់">កាត់</th>'
           +'<th style="width:60px;text-align:center;font-size:10px;position:sticky;left:368px;z-index:5;background:var(--bg2);box-shadow:3px 0 6px rgba(0,0,0,.2);padding:3px 2px;color:#f59e0b" rowspan="2" title="🌟 OFF ធ្វើការ (គ្មានជំនួស) = គិតប្រាក់ | OFF+ជំនួស = $0">🌟 OFF</th>'
           +dayThs
-          +'<th style="min-width:70px;text-align:center;padding:3px 4px" rowspan="2">សកម្ម</th>'
+          +'<th style="min-width:50px;text-align:center;padding:3px 4px;font-size:10px;color:var(--success)" rowspan="2" title="ថ្ងៃធ្វើការសរុប (present+late+swap)">📅 ថ្ងៃ</th>'+'<th style="min-width:70px;text-align:center;padding:3px 4px" rowspan="2">សកម្ម</th>'
           +'</tr>'
           +'<tr style="position:sticky;top:28px;z-index:4;background:var(--bg2);height:18px">'+wdThs+'</tr>'
       )
@@ -2628,10 +2630,19 @@ async function renderMonthlyAttendance(month='') {
             const empOff = parseOffDays(emp);
             const swapRec = (swapMap[emp.id]||{})[dd];
             const compSwap = (offDateMap[emp.id]||{})[dd];
+            const attRec = ((window._monthlyAttData||{})._attMap||{})[emp.id]?.[dd];
             if (empOff.length > 0 && empOff.indexOf(wd) !== -1) {
-              if (swapRec) { working++; } else { offCount++; }
+              // OFF day for this employee
+              if (swapRec) {
+                const isCompOff = swapRec.off_date && swapRec.off_date.trim() !== '';
+                if (isCompOff) { offCount++; } else { working++; } // OFF+ជំនួស=off, OFF worked=working
+              } else if (attRec && (attRec.status==='present'||attRec.status==='late')) {
+                working++; // direct attendance on OFF day
+              } else {
+                offCount++;
+              }
             } else if (compSwap) {
-              offCount++;
+              offCount++; // compensation OFF day (working day taken as OFF)
             } else {
               working++;
             }
