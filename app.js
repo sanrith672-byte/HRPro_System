@@ -6413,7 +6413,7 @@ function idCardHTML(e, style, cfg) {
   // Avatar helper
   function avatar(size, border, borderColor, radius, shadow) {
     borderColor = borderColor || 'rgba(255,255,255,.5)';
-    radius = radius || '10px'; shadow = shadow || '';
+    radius = radius || '50%'; shadow = shadow || '';
     return '<div style="width:'+size+'px;height:'+size+'px;border-radius:'+radius
       +';background:'+ac+';display:flex;align-items:center;justify-content:center'
       +';border:'+border+' solid '+borderColor+';flex-shrink:0;overflow:hidden;box-shadow:'+shadow+'">'
@@ -6784,7 +6784,7 @@ idCardHTML = function(e, style, cfg) {
   const qrInner  = qrSize - 6;
 
   function avatar(size, border, borderColor, radius, shadow) {
-    borderColor = borderColor||'rgba(255,255,255,.5)'; radius=radius||'10px'; shadow=shadow||'';
+    borderColor = borderColor||'rgba(255,255,255,.5)'; radius=radius||'50%'; shadow=shadow||'';
     return '<div style="width:'+size+'px;height:'+size+'px;border-radius:'+radius
       +';background:'+ac+';display:flex;align-items:center;justify-content:center'
       +';border:'+border+' solid '+borderColor+';flex-shrink:0;overflow:hidden;box-shadow:'+shadow+'">'
@@ -7128,7 +7128,7 @@ function idCardPortraitHTML(e, style, cfg) {
   const photo     = getEmpPhoto(e.id);
 
   function av(size, borderColor, shadow) {
-    return '<div style="width:'+size+'px;height:'+size+'px;border-radius:10px;background:'+ac
+    return '<div style="width:'+size+'px;height:'+size+'px;border-radius:50%;background:'+ac
       +';display:flex;align-items:center;justify-content:center;border:3px solid '+(borderColor||'rgba(255,255,255,.5)')
       +';overflow:hidden;box-shadow:'+(shadow||'0 4px 14px rgba(0,0,0,.3)')+';flex-shrink:0">'
       +(photo?'<img src="'+photo+'" style="width:100%;height:100%;object-fit:cover"/>'
