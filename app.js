@@ -3305,9 +3305,7 @@ async function renderQRScanPage() {
     +'<div style="position:absolute;bottom:16px;right:16px;width:44px;height:44px;border-bottom:3px solid var(--primary);border-right:3px solid var(--primary);border-radius:0 0 4px 0"></div>'
     +'<div id="qr-scan-line" style="position:absolute;left:16px;right:16px;height:2px;background:var(--primary);top:50%;animation:qrScanLine 2s ease-in-out infinite;box-shadow:0 0 8px var(--primary)"></div>'
     +'</div>'
-    +'<div id="qr-scan-status" style="position:absolute;bottom:0;left:0;right:0;text-align:center;color:white;font-size:13px;background:rgba(0,0,0,.6);padding:6px">📷 កំពុងចាប់ផ្ដើម...</div>'
-    +'</div>'
-    // Check in/out type
+    +'<div id="qr-scan-status" style="position:absolute;bottom:0;left:0;right:0;text-align:center;color:white;font-size:13px;background:rgba(0,0,0,.6);padding:6px">📷 កំពុងចាប់ផ្ដើម...</div>'    +'<button id="qr-switch-cam" onclick="switchQRCamera()" title="ប្តូរកាមេរ៉ា" style="position:absolute;top:10px;right:10px;background:rgba(0,0,0,.55);border:none;border-radius:50%;width:38px;height:38px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:white;font-size:18px;z-index:10">🔄</button>'    +'</div>'    // Check in/out type
     +'<div style="display:flex;gap:6px;margin-bottom:12px;background:var(--bg3);padding:4px;border-radius:8px">'
     +'<button id="scan-type-in" class="btn btn-success btn-sm" style="flex:1;border:none" onclick="setScanType(\'in\')">🟢 ចូល</button>'
     +'<button id="scan-type-out" class="btn btn-outline btn-sm" style="flex:1;border:none" onclick="setScanType(\'out\')">🔴 ចេញ</button>'
@@ -3545,6 +3543,8 @@ function setScanType(type) {
 
 let qrScanStream = null;
 let qrScanActive = false;
+let _qrCameraDeviceId = null;   // null = prefer environment, string = specific deviceId
+let _qrCameraList = [];         // [{deviceId, label, facing}]
 
 // ── jsQR loader ──
 var _jsQR = null;
@@ -3568,13 +3568,10 @@ async function startQRScanner(date) {
 
   // Request camera
   try {
-    const constraints = {
-      video: {
-        facingMode: { ideal: 'environment' },
-        width:  { ideal: 1280, min: 320 },
-        height: { ideal: 720,  min: 240 },
-      }
-    };
+    // Build constraints: use specific deviceId if user has switched, else prefer back camera
+    const constraints = _qrCameraDeviceId
+      ? { video: { deviceId: { exact: _qrCameraDeviceId }, width: { ideal: 1280, min: 320 }, height: { ideal: 720, min: 240 } } }
+      : { video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280, min: 320 }, height: { ideal: 720, min: 240 } } };
     qrScanStream = await navigator.mediaDevices.getUserMedia(constraints);
   } catch(err) {
     let msg = '❌ Camera error';
@@ -3669,6 +3666,39 @@ function onQRDetected(val, date) {
     if (sx) { sx.textContent = '📷 ស្កេន...'; sx.style.background = 'rgba(0,0,0,.6)'; }
   }, 1500);
   processQRScan(val, date);
+}
+
+async function switchQRCamera() {
+  // Enumerate cameras (requires an active stream or prior permission)
+  try {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    _qrCameraList = devices
+      .filter(d => d.kind === 'videoinput')
+      .map(d => ({ deviceId: d.deviceId, label: d.label || d.deviceId }));
+  } catch(e) { _qrCameraList = []; }
+
+  if (_qrCameraList.length <= 1) {
+    showToast('មានតែកាមេរ៉ាតែមួយ', 'info');
+    return;
+  }
+
+  // Find index of current camera
+  let curIdx = _qrCameraList.findIndex(c => c.deviceId === _qrCameraDeviceId);
+  if (curIdx < 0) {
+    // Try to match by current stream track
+    if (qrScanStream) {
+      const trackSettings = qrScanStream.getVideoTracks()[0]?.getSettings() || {};
+      curIdx = _qrCameraList.findIndex(c => c.deviceId === trackSettings.deviceId);
+    }
+  }
+  const nextIdx = (curIdx + 1) % _qrCameraList.length;
+  _qrCameraDeviceId = _qrCameraList[nextIdx].deviceId;
+
+  // Restart scanner with new camera
+  const date = getQRScanDate();
+  stopQRScanner();
+  setTimeout(() => startQRScanner(date), 200);
+  showToast('ប្តូរទៅ ' + (_qrCameraList[nextIdx].label || 'Camera ' + (nextIdx + 1)), 'info');
 }
 
 function stopQRScanner() {
