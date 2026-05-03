@@ -2397,8 +2397,6 @@ async function renderMonthlyAttendance(month='') {
       });
       const overAbsent = Math.max(0, absent - maxAbsent);
       const workingDaysCount = empDays.length;
-      // ថ្ងៃ OFF សរុបក្នុងខែ = ថ្ងៃទាំងអស់ដែលជា OFF day របស់បុគ្គលិក (empOff ត្រូវបានគណនាខាងលើ)
-      const empOffDaysThisMonth = allDays.filter(({wd}) => empOff.length > 0 && empOff.indexOf(wd) !== -1).length;
       const dailyRate = workingDaysCount > 0 ? (emp.salary || 0) / workingDaysCount : 0;
       const deduction = parseFloat((overAbsent * dailyRate).toFixed(2));
       // ប្រាក់បន្ថែមថ្ងៃ OFF ប្រើ salary/daysInMonth (ថ្ងៃសរុបក្នុងខែ) ជំនួស salary/workingDays
@@ -2409,6 +2407,8 @@ async function renderMonthlyAttendance(month='') {
       // វិធី ២: dayswap approved (swap_date) ដែល off_date ទំនេរ → គិតប្រាក់
       // OFF + ជំនួស (off_date ស្ថិតខែនេះ) → មិនគិតប្រាក់
       const empOff = parseOffDays(emp);
+      // ថ្ងៃ OFF សរុបក្នុងខែ = ថ្ងៃទាំងអស់ដែលជា OFF day របស់បុគ្គលិក
+      const empOffDaysThisMonth = allDays.filter(({wd}) => empOff.length > 0 && empOff.indexOf(wd) !== -1).length;
       const empOffDateDaysThisMonth = offDateMap[emp.id] || {};
       const empAttRec = rec; // attMap[emp.id]
       let offDaysWorked = 0;
