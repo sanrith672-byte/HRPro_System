@@ -2549,7 +2549,7 @@ async function renderMonthlyAttendance(month='') {
         +(offBonus>0?'<td style="text-align:center;font-weight:700;color:#d97706;font-size:12px;position:sticky;left:368px;z-index:1;background:rgba(251,191,36,.08);box-shadow:3px 0 6px rgba(0,0,0,.12);width:60px;padding:3px 2px;text-align:center" title="🌟 OFF ធ្វើការ (គ្មានជំនួស): '+offDaysWorked+' ថ្ងៃ × $'+(offDaysWorked>0?(offBonus/offDaysWorked).toFixed(2):'0')+'/ថ្ងៃ | OFF+ជំនួស=$0">+$'+offBonus.toFixed(0)+'</td>':'<td style="text-align:center;color:var(--text3);font-size:11px;position:sticky;left:368px;z-index:1;background:var(--bg2);box-shadow:3px 0 6px rgba(0,0,0,.12);width:60px;padding:3px 2px;text-align:center">—</td>')
         +cells
         +'<td style="text-align:center;font-weight:700;font-size:12px;color:var(--success);width:36px;padding:3px 2px;position:sticky;right:68px;z-index:1;background:var(--bg2);box-shadow:-2px 0 4px rgba(0,0,0,.08)" title="ថ្ងៃធ្វើការសរុប">'+(present+late)+'</td>'
-        +'<td style="text-align:center;width:64px;position:sticky;right:0;z-index:1;background:var(--bg2);box-shadow:-2px 0 5px rgba(0,0,0,.12)"><button class="btn btn-outline btn-sm" style="font-size:10px;padding:3px 8px" onclick="applyAbsenceDeduction('+emp.id+',\''+emp.name+'\','+absent+','+overAbsent+','+deduction+',\''+currentMonth+'\')">💸 កាត់</button></td>'
+        +'<td style="text-align:center;width:64px;position:sticky;right:0;z-index:1;background:var(--bg2);box-shadow:-2px 0 5px rgba(0,0,0,.12)"><button class="btn btn-outline btn-sm" style="font-size:10px;padding:3px 8px" onclick="applyAbsenceDeduction('+emp.id+',\''+emp.name+'\','+absent+','+overAbsent+','+deduction+',\''+currentMonth+'\','+offBonus+')">💸 កាត់</button></td>'
         +'</tr>';
     }).join('');
 
@@ -3255,9 +3255,14 @@ function saveAbsenceRules() {
 }
 
 // Apply deduction to one employee's salary
-async function applyAbsenceDeduction(empId, empName, absentDays, overAbsent, deduction, month) {
-  if (overAbsent <= 0) { showToast(empName+': គ្មានលើសថ្ងៃ — មិនចាំបាច់កាត់','info'); return; }
-  if (!confirm('កាត់ $'+deduction.toFixed(2)+' ចំពោះ '+empName+' (អវត្តមាន '+absentDays+' ថ្ងៃ, លើស '+overAbsent+' ថ្ងៃ)?')) return;
+async function applyAbsenceDeduction(empId, empName, absentDays, overAbsent, deduction, month, offBonus=0) {
+  if (overAbsent <= 0 && offBonus <= 0) { showToast(empName+': គ្មានការកាត់ / OFF Bonus','info'); return; }
+  const offB = parseFloat(offBonus) || 0;
+  const confirmMsg = 'ចំពោះ '+empName+':\n'
+    +(overAbsent>0?'• កាត់ $'+deduction.toFixed(2)+' (អវត្តមាន '+absentDays+' ថ្ងៃ, លើស '+overAbsent+' ថ្ងៃ)\n':'')
+    +(offB>0?'• + OFF Bonus $'+offB.toFixed(2)+' (ថ្ងៃ OFF ធ្វើការ)\n':'')
+    +'\nបន្តទេ?';
+  if (!confirm(confirmMsg)) return;
   try {
     // Get or create salary record for this month
     const salData = await api('GET','/salary?month='+month);
@@ -3266,13 +3271,21 @@ async function applyAbsenceDeduction(empId, empName, absentDays, overAbsent, ded
       // Find employee salary
       const emp = (state.employees||[]).find(e=>e.id===empId);
       const base = emp ? (emp.salary||0) : 0;
-      await api('POST','/salary',{ employee_id:empId, month, base_salary:base, bonus:0, deduction:deduction, net_salary:base-deduction });
-      showToast('បន្ថែម + កាត់ $'+deduction.toFixed(2)+' ចំពោះ '+empName+'!','success');
+      const netNew = base - deduction + offB;
+      const noteParts = [];
+      if (deduction > 0) noteParts.push('អវត្តមាន '+absentDays+' ថ្ងៃ (-$'+deduction.toFixed(2)+')');
+      if (offB > 0) noteParts.push('🌟 OFF Bonus (+$'+offB.toFixed(2)+')');
+      await api('POST','/salary',{ employee_id:empId, month, base_salary:base, bonus:offB, deduction:deduction, net_salary:netNew, notes:noteParts.join(' | ') });
+      showToast('បន្ថែម + កែ $'+netNew.toFixed(2)+' Net ចំពោះ '+empName+'!','success');
     } else {
       const newDeduct = (rec.deduction||0) + deduction;
-      const newNet = (rec.base_salary||0) + (rec.bonus||0) - newDeduct;
-      await api('PUT','/salary/'+rec.id,{ ...rec, deduction:newDeduct, net_salary:newNet, notes:(rec.notes?rec.notes+' | ':'')+'អវត្តមាន '+absentDays+' ថ្ងៃ (-$'+deduction.toFixed(2)+')' });
-      showToast('កាត់ $'+deduction.toFixed(2)+' ចំពោះ '+empName+' បានជោគជ័យ!','success');
+      const newBonus = (rec.bonus||0) + offB;
+      const newNet = (rec.base_salary||0) + newBonus - newDeduct;
+      const noteParts = [];
+      if (deduction > 0) noteParts.push('អវត្តមាន '+absentDays+' ថ្ងៃ (-$'+deduction.toFixed(2)+')');
+      if (offB > 0) noteParts.push('🌟 OFF Bonus (+$'+offB.toFixed(2)+')');
+      await api('PUT','/salary/'+rec.id,{ ...rec, deduction:newDeduct, bonus:newBonus, net_salary:newNet, notes:(rec.notes?rec.notes+' | ':'')+noteParts.join(' | ') });
+      showToast('កែ Net $'+newNet.toFixed(2)+' ចំពោះ '+empName+' បានជោគជ័យ!','success');
     }
     // Refresh
     const inp = document.querySelector('input[type="month"]');
@@ -3313,17 +3326,37 @@ async function applyAllAbsenceDeductions(month) {
       const over=Math.max(0,absent-maxAbsent);
       const dailyRate = workingDaysCount > 0 ? (emp.salary||0) / workingDaysCount : 0;
       const deduction = parseFloat((over * dailyRate).toFixed(2));
-      return { emp, absent, over, deduction };
-    }).filter(x=>x.over>0);
+      // Count OFF days worked (direct attendance on OFF days, no compensation swap)
+      let offDaysWorked = 0;
+      allMonthDaysArr.forEach(x=>{
+        if (empOff.length > 0 && empOff.indexOf(x.wd) !== -1) {
+          const a = rec[x.dd];
+          if (a && (a.status==='present'||a.status==='late')) offDaysWorked++;
+        }
+      });
+      const offBonus = parseFloat((offDaysWorked * dailyRate).toFixed(2));
+      return { emp, absent, over, deduction, offBonus, offDaysWorked };
+    }).filter(x=>x.over>0||x.offBonus>0);
     if (!toDeduct.length) { showToast('គ្មានបុគ្គលិកណាលើសថ្ងៃ!','success'); renderMonthlyAttendance(month); return; }
-    if (!confirm('កាត់ប្រាក់ '+toDeduct.length+' នាក់?\n'+toDeduct.map(x=>x.emp.name+' -$'+x.deduction.toFixed(2)+' (លើស '+x.over+' ថ្ងៃ)').join('\n'))) { renderMonthlyAttendance(month); return; }
+    if (!confirm('ធ្វើបច្ចុប្បន្នភាពបៀវត្ស '+toDeduct.length+' នាក់?\n'+toDeduct.map(x=>x.emp.name+(x.over>0?' -$'+x.deduction.toFixed(2)+' (លើស '+x.over+' ថ្ងៃ)':'')+(x.offBonus>0?' +$'+x.offBonus.toFixed(2)+' (🌟 OFF)':'')).join('\n'))) { renderMonthlyAttendance(month); return; }
     const salData = await api('GET','/salary?month='+month);
     let applied=0;
     for(const {emp,absent,over,deduction} of toDeduct) {
       try {
         let rec=(salData.records||[]).find(r=>r.employee_id===emp.id);
-        if(!rec){ await api('POST','/salary',{employee_id:emp.id,month,base_salary:emp.salary||0,bonus:0,deduction,net_salary:(emp.salary||0)-deduction,notes:'អវត្តមាន '+absent+' ថ្ងៃ, លើស '+over+' ថ្ងៃ (-$'+deduction.toFixed(2)+')'}); }
-        else { const nd=(rec.deduction||0)+deduction; const nn=(rec.base_salary||0)+(rec.bonus||0)-nd; await api('PUT','/salary/'+rec.id,{...rec,deduction:nd,net_salary:nn,notes:(rec.notes?rec.notes+' | ':'')+'អវត្តមាន '+absent+' ថ្ងៃ (-$'+deduction.toFixed(2)+')'}); }
+        const noteParts=[];
+        if(over>0) noteParts.push('អវត្តមាន '+absent+' ថ្ងៃ, លើស '+over+' ថ្ងៃ (-$'+deduction.toFixed(2)+')');
+        if(offBonus>0) noteParts.push('🌟 OFF Bonus (+$'+offBonus.toFixed(2)+')');
+        const noteStr = noteParts.join(' | ');
+        if(!rec){
+          const netNew=(emp.salary||0)-deduction+offBonus;
+          await api('POST','/salary',{employee_id:emp.id,month,base_salary:emp.salary||0,bonus:offBonus,deduction,net_salary:netNew,notes:noteStr});
+        } else {
+          const nd=(rec.deduction||0)+deduction;
+          const nb=(rec.bonus||0)+offBonus;
+          const nn=(rec.base_salary||0)+nb-nd;
+          await api('PUT','/salary/'+rec.id,{...rec,deduction:nd,bonus:nb,net_salary:nn,notes:(rec.notes?rec.notes+' | ':'')+noteStr});
+        }
         applied++;
       } catch(_){}
     }
@@ -4426,7 +4459,7 @@ async function renderSalary(month='') {
             +'<td><div class="employee-cell">'+av+'<div class="emp-name">'+r.employee_name+'</div></div></td>'
             +'<td>'+(r.department||'—')+'</td>'
             +'<td style="font-family:var(--mono)">$'+r.base_salary+'</td>'
-            +'<td style="font-family:var(--mono);color:var(--success)">+$'+r.bonus+'</td>'
+            +(r.bonus>0?'<td style="font-family:var(--mono);color:#d97706;font-weight:700">+$'+r.bonus+'</td>':'<td style="color:var(--text3);text-align:center">—</td>')
             +'<td style="font-family:var(--mono);color:var(--danger)">-$'+r.deduction+'</td>'
             +'<td style="font-family:var(--mono);font-weight:700;color:var(--text)">$'+r.net_salary+'</td>'
             +qrCell
@@ -4454,10 +4487,11 @@ async function renderSalary(month='') {
       +'<div class="salary-summary">'
       +'<div class="salary-box"><div class="lbl">💵 Net សរុប</div><div class="val">$'+(data.summary.total_net||0).toLocaleString()+'</div></div>'
       +'<div class="salary-box"><div class="lbl">💰 មូលដ្ឋាន</div><div class="val" style="color:var(--warning)">$'+(data.summary.total_base||0).toLocaleString()+'</div></div>'
+      +(data.records.some(r=>r.bonus>0)?'<div class="salary-box" style="background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.3)"><div class="lbl" style="color:#d97706">🌟 OFF Bonus</div><div class="val" style="color:#d97706">+$'+data.records.reduce((s,r)=>s+(r.bonus||0),0).toLocaleString()+'</div></div>':'')
       +'<div class="salary-box"><div class="lbl">✅ បង់ / សរុប</div><div class="val" style="color:var(--info)">'+(data.summary.paid||0)+' / '+data.records.length+'</div></div>'
       +'</div>'
       +'<div class="card"><div class="table-container"><table>'
-      +'<thead><tr><th>បុគ្គលិក</th><th>នាយកដ្ឋាន</th><th>មូលដ្ឋាន</th><th>រង្វាន់</th><th>កាត់</th><th>សុទ្ធ</th><th style="text-align:center">QR ធនាគារ</th><th>ស្ថានភាព</th><th>សកម្មភាព</th></tr></thead>'
+      +'<thead><tr><th>បុគ្គលិក</th><th>នាយកដ្ឋាន</th><th>មូលដ្ឋាន</th><th style="color:#f59e0b">🌟 OFF</th><th>រង្វាន់</th><th>កាត់</th><th>សុទ្ធ</th><th style="text-align:center">QR ធនាគារ</th><th>ស្ថានភាព</th><th>សកម្មភាព</th></tr></thead>'
       +'<tbody>'+rows+'</tbody>'
       +'</table></div></div>';
   } catch(e) { showError(e.message); }
@@ -4945,25 +4979,26 @@ async function exportPayrollExcel() {
     const sym = rules.currency_symbol || '$';
     const companyName = cfg.company_name || 'HR Pro';
 
-    const headers = ['#','ឈ្មោះ','នាយកដ្ឋាន','ប្រាក់មូលដ្ឋាន','OT','រង្វាន់','ប្រាក់កាត់','NSSF','Tax','Net Salary','ខែ','ស្ថានភាព'];
+    const headers = ['#','ឈ្មោះ','នាយកដ្ឋាន','ប្រាក់មូលដ្ឋាន','🌟 OFF Bonus','OT','ប្រាក់កាត់','NSSF','Tax','Net Salary','ខែ','ស្ថានភាព'];
     const rows = records.map((r,i)=>{
       const nssf = +((r.base_salary||0)*(rules.nssf_employee||0)/100).toFixed(2);
       const taxable = Math.max(0,(r.base_salary||0)-(rules.income_tax_threshold||0));
       const tax = +(taxable*(rules.tax_rate||0)/100).toFixed(2);
       return [
         i+1, r.employee_name||'', r.department||'',
-        r.base_salary||0, r.overtime_pay||0, r.bonus||0,
+        r.base_salary||0, r.bonus||0, r.overtime_pay||0,
         r.deduction||0, nssf, tax, r.net_salary||0,
         r.month||month, r.status==='paid'?'បានបង់':'រង់ចាំ',
       ];
     });
 
     // Summary row
-    const totBase = records.reduce((s,r)=>s+(r.base_salary||0),0);
-    const totNet  = records.reduce((s,r)=>s+(r.net_salary||0),0);
+    const totBase   = records.reduce((s,r)=>s+(r.base_salary||0),0);
+    const totBonus  = records.reduce((s,r)=>s+(r.bonus||0),0);
+    const totNet    = records.reduce((s,r)=>s+(r.net_salary||0),0);
     rows.push(['','','','','','','','','','','','']);
     rows.push(['','','ចំណែប','','','','','','','','','']);
-    rows.push(['','','ប្រាក់មូលដ្ឋានសរុប',totBase,'','','','','Net សរុប',totNet,'','']);
+    rows.push(['','','ប្រាក់មូលដ្ឋានសរុប',totBase,'🌟 OFF Bonus',totBonus,'','','Net សរុប',totNet,'','']);
 
     const blob = buildXLSX([
       { name:`Payroll ${month}`, headers, rows },
@@ -9735,21 +9770,31 @@ async function runAutoPayrollNow() {
       const overAbsent = Math.max(0, absent - maxAbsent);
       const dailyRate = workingDaysCount > 0 ? base / workingDaysCount : 0;
       const deduction = parseFloat((overAbsent * dailyRate).toFixed(2));
-      const net = base - deduction;
-      const absenceNote = deduction > 0
-        ? 'Auto Payroll · អវត្តមាន ' + absent + ' ថ្ងៃ, លើស ' + overAbsent + ' ថ្ងៃ (-$' + deduction.toFixed(2) + ')'
-        : 'Auto Payroll';
+      // Count OFF days worked (for OFF Bonus)
+      let offDaysWorked = 0;
+      allMonthDays.forEach(function(x) {
+        if (empOffDays.length > 0 && empOffDays.indexOf(x.wd) !== -1) {
+          const a = empAtt[x.dd];
+          if (a && (a.status === 'present' || a.status === 'late')) offDaysWorked++;
+        }
+      });
+      const offBonus = parseFloat((offDaysWorked * dailyRate).toFixed(2));
+      const net = base + offBonus - deduction;
+      const noteParts = ['Auto Payroll'];
+      if (deduction > 0) noteParts.push('អវត្តមាន ' + absent + ' ថ្ងៃ, លើស ' + overAbsent + ' ថ្ងៃ (-$' + deduction.toFixed(2) + ')');
+      if (offBonus > 0) noteParts.push('🌟 OFF Bonus (+$' + offBonus.toFixed(2) + ')');
+      const absenceNote = noteParts.join(' · ');
       try {
         const existSal = await api('GET', '/salary?month=' + month).catch(() => ({ records: [] }));
         const existing = (existSal.records || []).find(r => r.employee_id === e.id);
         if (!existing) {
-          await api('POST', '/salary', { employee_id: e.id, month, base_salary: base, bonus: 0, deduction, net_salary: net, notes: absenceNote });
+          await api('POST', '/salary', { employee_id: e.id, month, base_salary: base, bonus: offBonus, deduction, net_salary: net, notes: absenceNote });
           success++;
         } else {
           const prevNote = existing.notes || '';
           if (!prevNote.includes('Auto Payroll')) {
-            const newNet = (existing.base_salary || base) + (existing.bonus || 0) - deduction;
-            await api('PUT', '/salary/' + existing.id, { ...existing, deduction, net_salary: newNet, notes: (prevNote ? prevNote + ' | ' : '') + absenceNote });
+            const newNet = (existing.base_salary || base) + offBonus - deduction;
+            await api('PUT', '/salary/' + existing.id, { ...existing, bonus: offBonus, deduction, net_salary: newNet, notes: (prevNote ? prevNote + ' | ' : '') + absenceNote });
             updated++;
           } else { skip++; }
         }
@@ -10254,11 +10299,12 @@ async function printPayroll() {
 
   if (!records.length) { showToast('មិនទាន់មានទិន្នន័យ!', 'error'); return; }
 
-  let totalNet = 0, totalBase = 0;
+  let totalNet = 0, totalBase = 0, totalBonus = 0;
   const tableBody = records.map((r, i) => {
     const emp  = empMap[r.employee_id] || {};
     totalNet  += parseFloat(r.net_salary)  || 0;
     totalBase += parseFloat(r.base_salary) || 0;
+    totalBonus += parseFloat(r.bonus) || 0;
     const statusHtml = r.status === 'paid'
       ? '<span style="color:#16a34a;font-weight:700">✅ បានបង់</span>'
       : '<span style="color:#d97706;font-weight:700">⏳ រង់ចាំ</span>';
@@ -10267,7 +10313,7 @@ async function printPayroll() {
       +'<td style="font-weight:600">'+(r.employee_name||'—')+'</td>'
       +'<td style="font-size:12px;color:#64748b">'+(r.department||'—')+'</td>'
       +'<td style="font-family:monospace">'+sym+(r.base_salary||0)+'</td>'
-      +'<td style="font-family:monospace;color:#16a34a">+'+sym+(r.bonus||0)+'</td>'
+      +(((r.bonus||0)>0)?'<td style="font-family:monospace;color:#d97706;font-weight:700">+'+sym+(r.bonus||0)+'</td>':'<td style="color:#9ca3af;text-align:center">—</td>')
       +'<td style="font-family:monospace;color:#dc2626">-'+sym+(r.deduction||0)+'</td>'
       +'<td style="font-family:monospace;font-weight:800;color:#1d4ed8">'+sym+(r.net_salary||0)+'</td>'
       +'<td>'+statusHtml+'</td>'
@@ -10276,7 +10322,8 @@ async function printPayroll() {
   const totalRow = '<tr style="background:#dbeafe;border-top:2px solid #1a3a8f">'
     +'<td colspan="3" style="text-align:right;font-weight:700;padding:8px 6px">សរុប:</td>'
     +'<td style="font-family:monospace;font-weight:700">'+sym+totalBase.toFixed(2)+'</td>'
-    +'<td></td><td></td>'
+    +(totalBonus>0?'<td style="font-family:monospace;font-weight:700;color:#d97706">+'+sym+totalBonus.toFixed(2)+'</td>':'<td></td>')
+    +'<td></td>'
     +'<td style="font-family:monospace;font-weight:800;color:#1a3a8f">'+sym+totalNet.toFixed(2)+'</td>'
     +'<td></td></tr>';
 
@@ -10307,7 +10354,7 @@ async function printPayroll() {
     +'</div></div>'
     +'<table><thead><tr>'
     +'<th style="width:28px">លេខ</th><th>ឈ្មោះ</th><th>នាយកដ្ឋាន</th>'
-    +'<th>មូលដ្ឋាន</th><th>រង្វាន់</th><th>កាត់</th><th>Net</th><th>ស្ថានភាព</th>'
+    +'<th>មូលដ្ឋាន</th><th style="color:#fbbf24">🌟 OFF</th><th>កាត់</th><th>Net</th><th>ស្ថានភាព</th>'
     +'</tr></thead><tbody>'+tableBody+totalRow+'</tbody></table>'
     +'<div class="footer">'
     +'<div class="sign">ហត្ថលេខាអ្នកត្រួតពិនិត្យ</div>'
