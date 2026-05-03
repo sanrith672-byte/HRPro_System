@@ -2546,7 +2546,7 @@ async function renderMonthlyAttendance(month='') {
           +'<th style="width:30px;text-align:center;color:var(--primary);position:sticky;left:250px;z-index:5;background:var(--bg2);padding:3px 0;font-size:13px" rowspan="2" title="ប្ដូរថ្ងៃ">🔄</th>'
           +'<th style="width:36px;text-align:center;font-size:10px;position:sticky;left:280px;z-index:5;background:var(--bg2);padding:3px 1px" rowspan="2" title="លើសថ្ងៃ">លើស</th>'
           +'<th style="width:52px;text-align:center;font-size:10px;position:sticky;left:316px;z-index:5;background:var(--bg2);padding:3px 2px" rowspan="2" title="កាត់ប្រាក់">កាត់</th>'
-          +'<th style="width:60px;text-align:center;font-size:10px;position:sticky;left:368px;z-index:5;background:var(--bg2);box-shadow:3px 0 6px rgba(0,0,0,.2);padding:3px 2px;color:#f59e0b" rowspan="2" title="ប្រាក់បន្ថែមថ្ងៃ OFF">🌟 OFF+</th>'
+          +'<th style="width:60px;text-align:center;font-size:10px;position:sticky;left:368px;z-index:5;background:var(--bg2);box-shadow:3px 0 6px rgba(0,0,0,.2);padding:3px 2px;color:#f59e0b" rowspan="2" title="ប្រាក់បន្ថែម: ថ្ងៃ OFF ដែលមកធ្វើការ">🌟 OFF</th>'
           +dayThs
           +'<th style="min-width:70px;text-align:center;padding:3px 4px" rowspan="2">សកម្ម</th>'
           +'</tr>'
@@ -2744,7 +2744,7 @@ function printMonthlyAttendance() {
         <th style="min-width:26px;color:#c4b5fd" rowspan="2" title="ជំនួស">🔄</th>
         <th style="min-width:26px;color:#86efac" rowspan="2" title="ច្បាប់">🌴</th>
         <th style="min-width:26px;color:#fca5a5;font-size:9px" rowspan="2" title="លើសថ្ងៃ">លើស</th>
-        <th style="min-width:36px;color:#fbbf24;font-size:9px;background:#1e3a5f;" rowspan="2" title="ប្រាក់បន្ថែមថ្ងៃ OFF">🌟OFF+</th>
+        <th style="min-width:36px;color:#fbbf24;font-size:9px;background:#1e3a5f;" rowspan="2" title="ប្រាក់បន្ថែម: ថ្ងៃ OFF ដែលមកធ្វើការ">🌟OFF</th>
         ${thDays}
       </tr>
       <tr>${thWds}</tr>
@@ -2911,7 +2911,7 @@ function saveMonthlyAttendanceAsImage() {
         <th style="min-width:28px;color:#c4b5fd;" rowspan="2">🔄</th>
         <th style="min-width:28px;color:#86efac;" rowspan="2">🌴</th>
         <th style="min-width:28px;color:#fca5a5;font-size:10px;" rowspan="2">លើស</th>
-        <th style="min-width:40px;color:#fbbf24;font-size:10px;" rowspan="2">🌟OFF+</th>
+        <th style="min-width:40px;color:#fbbf24;font-size:10px;" rowspan="2" title="ប្រាក់បន្ថែម: ថ្ងៃ OFF ដែលមកធ្វើការ">🌟OFF</th>
         ${thDays}
       </tr>
       <tr>${thWds}</tr>
