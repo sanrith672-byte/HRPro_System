@@ -2803,7 +2803,16 @@ function printMonthlyAttendance() {
       if (a && a.status === 'holiday') return `<td style="text-align:center;font-size:9px;color:#9333ea;background:#f5f3ff;">🎉</td>`;
       // Employee OFF day
       if (isOff) {
-        if (swapRec) return `<td style="text-align:center;font-size:9px;color:#4338ca;background:#ede9fe;font-weight:700;">🔄</td>`;
+        if (swapRec) {
+          const hasComp = swapRec.off_date && swapRec.off_date.trim() !== '';
+          if (hasComp) return `<td style="text-align:center;font-size:8px;color:#374151;background:#e5e7eb;font-weight:600;">OFF</td>`;
+          return `<td style="text-align:center;font-size:9px;color:#4338ca;background:#ede9fe;font-weight:700;">🔄</td>`;
+        }
+        // Direct attendance on OFF day (no dayswap) → 🌟 OFF worked
+        if (a && (a.status === 'present' || a.status === 'late')) {
+          const sym = a.status === 'late' ? '⏰' : '✔';
+          return `<td style="text-align:center;font-size:9px;color:#d97706;background:#fffbeb;font-weight:700;">🌟${sym}</td>`;
+        }
         return `<td style="text-align:center;font-size:8px;color:#374151;background:#e5e7eb;font-weight:600;">OFF</td>`;
       }
       // Compensation OFF day (OFF+)
@@ -2894,6 +2903,7 @@ function printMonthlyAttendance() {
     <span style="background:#ede9fe;color:#6366f1">🔄 ប្ដូរថ្ងៃ</span>
     <span style="background:#dcfce7;color:#16a34a">🌴 ច្បាប់</span>
     <span style="background:#f3f4f6;color:#9ca3af">OFF ឈប់</span>
+    <span style="background:#fffbeb;color:#d97706">🌟✔ OFF ធ្វើការ</span>
     <span style="color:#9333ea">🎉 ថ្ងៃឈប់</span>
   </div>
   <table>
@@ -3031,7 +3041,16 @@ function saveMonthlyAttendanceAsImage() {
       const isOff    = empOff.length > 0 && empOff.indexOf(wd) !== -1;
       if (a && a.status==='holiday') return `<td style="text-align:center;font-size:11px;color:#7c3aed;background:#ede9fe;">🎉</td>`;
       if (isOff) {
-        if (swapRec) return `<td style="text-align:center;font-size:11px;background:#ede9fe;color:#4338ca;font-weight:700;">🔄</td>`;
+        if (swapRec) {
+          const hasComp = swapRec.off_date && swapRec.off_date.trim() !== '';
+          if (hasComp) return `<td style="text-align:center;font-size:10px;background:#e5e7eb;color:#374151;font-weight:700;">OFF</td>`;
+          return `<td style="text-align:center;font-size:11px;background:#ede9fe;color:#4338ca;font-weight:700;">🔄</td>`;
+        }
+        // Direct attendance on OFF day (no dayswap) → 🌟 OFF worked
+        if (a && (a.status === 'present' || a.status === 'late')) {
+          const sym = a.status === 'late' ? '⏰' : '✔';
+          return `<td style="text-align:center;font-size:10px;color:#d97706;background:#fffbeb;font-weight:700;">🌟${sym}</td>`;
+        }
         return `<td style="text-align:center;font-size:10px;background:#e5e7eb;color:#374151;font-weight:700;">OFF</td>`;
       }
       if (compSwap) return `<td style="text-align:center;font-size:10px;background:#fde68a;color:#92400e;font-weight:700;">OFF+</td>`;
@@ -3148,6 +3167,7 @@ function saveMonthlyAttendanceAsImage() {
     <span style="background:#bbf7d0;color:#15803d;">🌴 ច្បាប់</span>
     <span style="background:#e5e7eb;color:#374151;">OFF ឈប់</span>
     <span style="background:#fde68a;color:#92400e;">OFF+ សង</span>
+    <span style="background:#fffbeb;color:#d97706;">🌟✔ OFF ធ្វើការ</span>
     <span style="background:#ede9fe;color:#7c3aed;">🎉 ថ្ងៃបុណ្យ</span>
   </div>
   <table>
@@ -3297,7 +3317,13 @@ async function exportMonthlyAttendanceExcel() {
         if (a && a.status === 'holiday') return '🎉';
         // Employee OFF day
         if (isEmpOff) {
-          if (swapRec) return '🔄';   // came to work on OFF day
+          if (swapRec) {
+            const hasComp = swapRec.off_date && swapRec.off_date.trim() !== '';
+            if (hasComp) return 'OFF';   // OFF+compensation
+            return '🔄';   // dayswap without comp = worked OFF
+          }
+          // Direct attendance on OFF day (no dayswap)
+          if (a && (a.status === 'present' || a.status === 'late')) return '🌟' + (a.status === 'late' ? '⏰' : '✔');
           return 'OFF';
         }
         // Compensation OFF day (off_date)
