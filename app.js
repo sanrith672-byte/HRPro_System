@@ -2369,13 +2369,19 @@ async function renderMonthlyAttendance(month='') {
       const empOffDateDays = offDateMap[emp.id] || {};
       const empOffDaysSet = parseOffDays(emp);
       const countedOffDays = new Set();
-      // dayswap approved records
+      // dayswap approved records — OFF+ជំនួស (off_date មាន) = count ជា present ប៉ុន្តែ swap=0 (ដោយ offDateMap handle present elsewhere)
       Object.keys(empSwapDays).forEach(dd => {
-        if (!countedOffDays.has(dd)) {
-          countedOffDays.add(dd);
+        if (countedOffDays.has(dd)) return;
+        countedOffDays.add(dd);
+        const sr = empSwapDays[dd];
+        const isCompOff = sr.off_date && sr.off_date.trim() !== '';
+        if (!isCompOff) {
+          // OFF ធ្វើការ (គ្មានជំនួស) — swap + present
           swap++;
           present++;
         }
+        // OFF+ជំនួស — present ត្រូវបន្ថែម (បុគ្គលិកបានមក) ប៉ុន្តែ swap column មិន count
+        // (present already counted in empDays loop above if att record exists)
       });
       // attendance records on OFF days (direct scan/add — no dayswap)
       allDays.forEach(({dd, wd}) => {
@@ -2404,19 +2410,21 @@ async function renderMonthlyAttendance(month='') {
       allDays.forEach(({dd, wd}) => {
         // ថ្ងៃ OFF របស់បុគ្គលិក?
         if (empOff.length === 0 || empOff.indexOf(wd) === -1) return;
-        // OFF+ ជំនួស → មិនគិតប្រាក់
+        // OFF+ ជំនួស (off_date) → មិនគិតប្រាក់
         if (empOffDateDaysThisMonth[dd]) return;
-        // មាន attendance record (present/late) ថ្ងៃ OFF → គិតប្រាក់
-        const attRec = empAttRec[dd];
-        if (attRec && (attRec.status === 'present' || attRec.status === 'late')) {
-          offDaysWorked++;
-          return;
-        }
-        // dayswap approved ដែល off_date ទំនេរ → គិតប្រាក់
+        // ពិនិត្យ dayswap record: ប្រសិន swap_date=ថ្ងៃ OFF នេះ ហើយ off_date មាន → OFF+ជំនួស → skip
         const swapRec = empSwapDays[dd];
         if (swapRec) {
           const hasCompOffDate = swapRec.off_date && swapRec.off_date.trim() !== '';
-          if (!hasCompOffDate) offDaysWorked++;
+          if (hasCompOffDate) return; // OFF+ជំនួស — មិនគិតប្រាក់
+          // dayswap approved ដោយគ្មាន off_date → គិតប្រាក់
+          offDaysWorked++;
+          return;
+        }
+        // មាន attendance record (present/late) ថ្ងៃ OFF ដោយ គ្មាន dayswap → គិតប្រាក់
+        const attRec = empAttRec[dd];
+        if (attRec && (attRec.status === 'present' || attRec.status === 'late')) {
+          offDaysWorked++;
         }
       });
       const offBonus = parseFloat((offDaysWorked * dailyRate).toFixed(2));
@@ -2472,20 +2480,23 @@ async function renderMonthlyAttendance(month='') {
 
         // This day is employee's day off (only if off_days is set and includes this weekday)
         if (empOff.length > 0 && empOff.indexOf(wd) !== -1) {
-          const compSwapOff = (offDateMap[emp.id]||{})[dd];
-          if (compSwapOff) {
-            // OFF+ ជំនួស — rendered below
-          } else if (swapRec) {
-            // dayswap approved — employee came on OFF day
-            return '<td style="text-align:center;font-size:8px;padding:1px 0;color:var(--primary)" title="ប្តូរ (dayswap)">🔄</td>';
-          } else if (a && (a.status === 'present' || a.status === 'late')) {
-            // Attendance scanned/added directly on OFF day → show as worked OFF day
+          // ករណី dayswap: swap_date = ថ្ងៃ OFF ដែលមក
+          if (swapRec) {
+            const isCompOff = swapRec.off_date && swapRec.off_date.trim() !== '';
+            if (isCompOff) {
+              // OFF+ជំនួស — employee came but will take OFF later → show 🔄 (swap)
+              return '<td style="text-align:center;font-size:8px;padding:1px 0;font-weight:700;color:#92400e;background:#fde68a" title="OFF+ជំនួស (មិនគិតប្រាក់)">🔄</td>';
+            }
+            // OFF ធ្វើការ គ្មានជំនួស → 🔄 primary
+            return '<td style="text-align:center;font-size:8px;padding:1px 0;color:var(--primary)" title="OFF ធ្វើការ (គិតប្រាក់)">🔄</td>';
+          }
+          // attendance direct on OFF day (no dayswap)
+          if (a && (a.status === 'present' || a.status === 'late')) {
             const icon = a.status === 'late' ? '⏰' : '✔';
             const color = a.status === 'late' ? '#f59e0b' : '#d97706';
-            return '<td style="text-align:center;font-size:11px;padding:1px 0;font-weight:700;color:'+color+';background:rgba(251,191,36,.15)" title="OFF ធ្វើការ — '+a.status+'">'+icon+'</td>';
-          } else {
-            return '<td style="text-align:center;font-size:9px;padding:2px 0;color:var(--text3);background:var(--bg2)">OFF</td>';
+            return '<td style="text-align:center;font-size:11px;padding:1px 0;font-weight:700;color:'+color+';background:rgba(251,191,36,.15)" title="OFF ធ្វើការ (គិតប្រាក់)">'+icon+'</td>';
           }
+          return '<td style="text-align:center;font-size:9px;padding:2px 0;color:var(--text3);background:var(--bg2)">OFF</td>';
         }
         // Check if this working day is the exact compensation OFF date
         const compSwap = (offDateMap[emp.id]||{})[dd];
