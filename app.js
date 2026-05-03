@@ -2698,9 +2698,22 @@ async function renderMonthlyAttendance(month='') {
             :'<td style="position:sticky;left:368px;z-index:4;background:var(--bg3);box-shadow:3px 0 6px rgba(0,0,0,.12);padding:4px 2px;text-align:center;color:var(--text3);font-size:11px">—</td>'
           )
           +footCells
-          +'<td style="background:var(--bg3);position:sticky;right:116px;z-index:3;width:48px"></td>'
-          +'<td style="background:var(--bg3);position:sticky;right:68px;z-index:3;width:48px"></td>'
-          +'<td style="background:var(--bg3);position:sticky;right:0;z-index:3;width:64px"></td>'
+          +(()=>{
+            const totalWD  = renderSummaries.reduce((s,r)=>s+(r.workingDaysCount||0),0);
+            const totalOff = renderSummaries.reduce((s,r)=>s+(r.empOffDaysThisMonth||0),0);
+            const totalOW  = renderSummaries.reduce((s,r)=>s+(r.offDaysWorked||0),0);
+            return '<td style="background:var(--bg3);position:sticky;right:116px;z-index:4;width:48px;text-align:center;padding:2px 1px;border-left:1px solid var(--border)">'
+              +'<div style="font-size:11px;font-weight:700;color:var(--success);line-height:1.4">'+totalWD+'</div>'
+              +'<div style="font-size:8px;color:var(--text3);line-height:1.2">ថ្ងៃ</div>'
+              +'</td>'
+              +'<td style="background:var(--bg3);position:sticky;right:68px;z-index:4;width:48px;text-align:center;padding:2px 1px;border-left:1px solid var(--border)">'
+              +'<div style="font-size:11px;font-weight:700;color:#6366f1;line-height:1.4">'+totalOff+'</div>'
+              +(totalOW>0?'<div style="font-size:9px;font-weight:700;color:#d97706;line-height:1.3">🌟'+totalOW+'</div>':'')
+              +'</td>'
+              +'<td style="background:var(--bg3);position:sticky;right:0;z-index:4;width:64px;text-align:center;padding:2px 4px">'
+              +'<div style="font-size:9px;color:var(--text3);line-height:1.3">'+renderSummaries.length+' នាក់</div>'
+              +'</td>';
+          })()
           +'</tr></tfoot>';
       })()
       +'</table></div></div>';
@@ -2720,6 +2733,45 @@ function printMonthlyAttendance() {
   // Collect all unique days-off weekdays across all employees (for header highlighting)
   const allOffWds = new Set();
   summaries.forEach(function(s){ (parseOffDays(s.emp)||[]).forEach(function(w){ allOffWds.add(w); }); });
+
+  // Pre-compute footer rows (static, for embed into new window HTML)
+  const _attMapPDF   = d._attMap    || {};
+  const _swapMapPDF  = d._swapMap   || {};
+  const _offDatePDF  = d._offDateMap|| {};
+  const _lvMapPDF    = d._leaveMap  || {};
+  const footWorkHTML = allDays.map(({dd,wd})=>{
+    let w=0;
+    summaries.forEach(({emp})=>{
+      const empOff=parseOffDays(emp); const swapRec=(_swapMapPDF[emp.id]||{})[dd]; const compSwap=(_offDatePDF[emp.id]||{})[dd];
+      if(empOff.length>0&&empOff.indexOf(wd)!==-1){if(swapRec)w++;} else if(!compSwap)w++;
+    });
+    const isSun=wd===0,isSat=wd===6; const bg=isSun?'background:#fee2e2;':isSat?'background:#fef9c3;':'';
+    return `<td style="text-align:center;font-size:10px;font-weight:700;color:#16a34a;${bg}">${w}</td>`;
+  }).join('');
+  const footOffHTML = allDays.map(({dd,wd})=>{
+    let o=0;
+    summaries.forEach(({emp})=>{
+      const empOff=parseOffDays(emp); const swapRec=(_swapMapPDF[emp.id]||{})[dd]; const compSwap=(_offDatePDF[emp.id]||{})[dd];
+      if(empOff.length>0&&empOff.indexOf(wd)!==-1){if(!swapRec)o++;} else if(compSwap)o++;
+    });
+    const isSun=wd===0,isSat=wd===6; const bg=isSun?'background:#fee2e2;':isSat?'background:#fef9c3;':'';
+    return `<td style="text-align:center;font-size:10px;font-weight:700;color:#dc2626;${bg}">${o}</td>`;
+  }).join('');
+  const footOWHTML = allDays.map(({dd,wd})=>{
+    let ow=0;
+    summaries.forEach(({emp})=>{
+      const empOff=parseOffDays(emp); const swapRec=(_swapMapPDF[emp.id]||{})[dd]; const a=(_attMapPDF[emp.id]||{})[dd];
+      if(empOff.length>0&&empOff.indexOf(wd)!==-1){
+        if(swapRec&&!(swapRec.off_date&&swapRec.off_date.trim()!==''))ow++;
+        else if(!swapRec&&a&&(a.status==='present'||a.status==='late'))ow++;
+      }
+    });
+    const isSun=wd===0,isSat=wd===6; const bg=isSun?'background:#fee2e2;':isSat?'background:#fef9c3;':'background:#fffbeb;';
+    return `<td style="text-align:center;font-size:10px;font-weight:700;color:#d97706;${bg}">${ow>0?'🌟'+ow:'—'}</td>`;
+  }).join('');
+  const totalWDpdf  = summaries.reduce((s,r)=>s+(r.workingDaysCount||0),0);
+  const totalOFFpdf = summaries.reduce((s,r)=>s+(r.empOffDaysThisMonth||0),0);
+  const totalOWpdf  = summaries.reduce((s,r)=>s+(r.offDaysWorked||0),0);
 
   const thDays = allDays.map(({d, wd}) => {
     const isSun = wd === 0; const isSat = wd === 6;
@@ -2872,26 +2924,26 @@ function printMonthlyAttendance() {
       <tr style="background:#f0fdf4;">
         <td style="padding:3px 5px;font-size:10px;font-weight:700;color:#166534;white-space:nowrap" colspan="2">✅ ធ្វើការ (នាក់)</td>
         <td colspan="7"></td>
-        ${(()=>{ const swapMapData=window._monthlyAttData._swapMap||{}; const offDateData=window._monthlyAttData._offDateMap||{}; return allDays.map(({dd,wd})=>{ let w=0; summaries.forEach(({emp})=>{ const empOff=parseOffDays(emp); const swapRec=(swapMapData[emp.id]||{})[dd]; const compSwap=(offDateData[emp.id]||{})[dd]; if(empOff.length>0&&empOff.indexOf(wd)!==-1){if(swapRec)w++;} else if(!compSwap)w++; }); const isSun=wd===0,isSat=wd===6; const bg=isSun?'background:#fee2e2;':isSat?'background:#fef9c3;':''; return '<td style="text-align:center;font-size:10px;font-weight:700;color:#16a34a;'+bg+'">'+w+'</td>'; }).join(''); })()}
+        ${footWorkHTML}
       </tr>
       <tr style="background:#fff1f2;">
         <td style="padding:3px 5px;font-size:10px;font-weight:700;color:#991b1b;white-space:nowrap" colspan="2">🔴 Off (នាក់)</td>
         <td colspan="7"></td>
-        ${(()=>{ const swapMapData=window._monthlyAttData._swapMap||{}; const offDateData=window._monthlyAttData._offDateMap||{}; return allDays.map(({dd,wd})=>{ let o=0; summaries.forEach(({emp})=>{ const empOff=parseOffDays(emp); const swapRec=(swapMapData[emp.id]||{})[dd]; const compSwap=(offDateData[emp.id]||{})[dd]; if(empOff.length>0&&empOff.indexOf(wd)!==-1){if(!swapRec)o++;} else if(compSwap)o++; }); const isSun=wd===0,isSat=wd===6; const bg=isSun?'background:#fee2e2;':isSat?'background:#fef9c3;':''; return '<td style="text-align:center;font-size:10px;font-weight:700;color:#dc2626;'+bg+'">'+o+'</td>'; }).join(''); })()}
+        ${footOffHTML}
       </tr>
       <tr style="background:#fffbeb;">
         <td style="padding:3px 5px;font-size:10px;font-weight:700;color:#92400e;white-space:nowrap" colspan="2">🌟 OFF ធ្វើការ (នាក់)</td>
         <td colspan="7"></td>
-        ${(()=>{ const swapMapData=window._monthlyAttData._swapMap||{}; const attMapData=window._monthlyAttData._attMap||{}; return allDays.map(({dd,wd})=>{ let ow=0; summaries.forEach(({emp})=>{ const empOff=parseOffDays(emp); const swapRec=(swapMapData[emp.id]||{})[dd]; const a=(attMapData[emp.id]||{})[dd]; if(empOff.length>0&&empOff.indexOf(wd)!==-1){ if(swapRec&&!(swapRec.off_date&&swapRec.off_date.trim()!==''))ow++; else if(!swapRec&&a&&(a.status==='present'||a.status==='late'))ow++; } }); const isSun=wd===0,isSat=wd===6; const bg=isSun?'background:#fee2e2;':isSat?'background:#fef9c3;':'background:#fffbeb;'; return '<td style="text-align:center;font-size:10px;font-weight:700;color:#d97706;'+bg+'">'+(ow>0?'🌟'+ow:'—')+'</td>'; }).join(''); })()}
+        ${footOWHTML}
       </tr>
       <tr style="background:#f0f9ff;">
         <td style="padding:3px 5px;font-size:10px;font-weight:700;color:#0369a1;white-space:nowrap" colspan="2">📅 សរុបថ្ងៃធ្វើការ/បុគ្គលិក</td>
-        <td colspan="7" style="text-align:center;font-size:10px;color:#0369a1">${summaries.reduce((s,r)=>s+(r.workingDaysCount||0),0)} ថ្ងៃ (${summaries.length} នាក់)</td>
+        <td colspan="7" style="text-align:center;font-size:10px;color:#0369a1">${totalWDpdf} ថ្ងៃ (${summaries.length} នាក់)</td>
         ${allDays.map(()=>'<td style="background:#f0f9ff"></td>').join('')}
       </tr>
       <tr style="background:#f5f3ff;">
         <td style="padding:3px 5px;font-size:10px;font-weight:700;color:#6d28d9;white-space:nowrap" colspan="2">📅 សរុបថ្ងៃ OFF/បុគ្គលិក</td>
-        <td colspan="7" style="text-align:center;font-size:10px;color:#6d28d9">${summaries.reduce((s,r)=>s+(r.empOffDaysThisMonth||0),0)} ថ្ងៃ (${summaries.length} នាក់)</td>
+        <td colspan="7" style="text-align:center;font-size:10px;color:#6d28d9">${totalOFFpdf} ថ្ងៃ (${summaries.length} នាក់)</td>
         ${allDays.map(()=>'<td style="background:#f5f3ff"></td>').join('')}
       </tr>
     </tfoot>
@@ -3001,6 +3053,43 @@ function saveMonthlyAttendanceAsImage() {
 
   const totalOver = summaries.reduce((s,r)=>s+(r.overAbsent||0),0);
 
+  // Pre-compute footer rows for PNG (static embed)
+  const _attMapPNG   = d._attMap    || {};
+  const _swapMapPNG  = d._swapMap   || {};
+  const _offDatePNG  = d._offDateMap|| {};
+  const pngFootWorkHTML = allDays.map(({dd,wd})=>{
+    let w=0;
+    summaries.forEach(({emp})=>{
+      const empOff=parseOffDays(emp); const swapRec=(_swapMapPNG[emp.id]||{})[dd]; const compSwap=(_offDatePNG[emp.id]||{})[dd];
+      if(empOff.length>0&&empOff.indexOf(wd)!==-1){if(swapRec)w++;} else if(!compSwap)w++;
+    });
+    const isSun=wd===0,isSat=wd===6; const bg=isSun?'background:#fee2e2;':isSat?'background:#fef9c3;':''
+    return `<td style="text-align:center;font-size:11px;font-weight:700;color:#16a34a;${bg}">${w}</td>`;
+  }).join('');
+  const pngFootOffHTML = allDays.map(({dd,wd})=>{
+    let o=0;
+    summaries.forEach(({emp})=>{
+      const empOff=parseOffDays(emp); const swapRec=(_swapMapPNG[emp.id]||{})[dd]; const compSwap=(_offDatePNG[emp.id]||{})[dd];
+      if(empOff.length>0&&empOff.indexOf(wd)!==-1){if(!swapRec)o++;} else if(compSwap)o++;
+    });
+    const isSun=wd===0,isSat=wd===6; const bg=isSun?'background:#fee2e2;':isSat?'background:#fef9c3;':''
+    return `<td style="text-align:center;font-size:11px;font-weight:700;color:#dc2626;${bg}">${o}</td>`;
+  }).join('');
+  const pngFootOWHTML = allDays.map(({dd,wd})=>{
+    let ow=0;
+    summaries.forEach(({emp})=>{
+      const empOff=parseOffDays(emp); const swapRec=(_swapMapPNG[emp.id]||{})[dd]; const a=(_attMapPNG[emp.id]||{})[dd];
+      if(empOff.length>0&&empOff.indexOf(wd)!==-1){
+        if(swapRec&&!(swapRec.off_date&&swapRec.off_date.trim()!==''))ow++;
+        else if(!swapRec&&a&&(a.status==='present'||a.status==='late'))ow++;
+      }
+    });
+    const isSun=wd===0,isSat=wd===6; const bg=isSun?'background:#fee2e2;':isSat?'background:#fef9c3;':'background:#fffbeb;'
+    return `<td style="text-align:center;font-size:11px;font-weight:700;color:#d97706;${bg}">${ow>0?'🌟'+ow:'—'}</td>`;
+  }).join('');
+  const pngTotalWD  = summaries.reduce((s,r)=>s+(r.workingDaysCount||0),0);
+  const pngTotalOFF = summaries.reduce((s,r)=>s+(r.empOffDaysThisMonth||0),0);
+
   // Build full self-contained HTML for image capture
   const captureHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -3079,31 +3168,31 @@ function saveMonthlyAttendanceAsImage() {
         ${allDays.map(()=>'<td></td>').join('')}
       </tr>
       <tr style="background:#f0fdf4;">
+      <tr style="background:#f0fdf4;">
         <td style="padding:4px 8px;font-size:11px;font-weight:700;color:#166534;white-space:nowrap" colspan="2">✅ ធ្វើការ (នាក់)</td>
         <td colspan="7"></td>
-        ${(()=>{ const swapMapData=window._monthlyAttData._swapMap||{}; const offDateData=window._monthlyAttData._offDateMap||{}; return allDays.map(({dd,wd})=>{ let w=0; summaries.forEach(({emp})=>{ const empOff=parseOffDays(emp); const swapRec=(swapMapData[emp.id]||{})[dd]; const compSwap=(offDateData[emp.id]||{})[dd]; if(empOff.length>0&&empOff.indexOf(wd)!==-1){if(swapRec)w++;} else if(!compSwap)w++; }); const isSun=wd===0,isSat=wd===6; const bg=isSun?'background:#fee2e2;':isSat?'background:#fef9c3;':''; return '<td style="text-align:center;font-size:11px;font-weight:700;color:#16a34a;'+bg+'">'+w+'</td>'; }).join(''); })()}
+        ${pngFootWorkHTML}
       </tr>
       <tr style="background:#fff1f2;">
         <td style="padding:4px 8px;font-size:11px;font-weight:700;color:#991b1b;white-space:nowrap" colspan="2">🔴 Off (នាក់)</td>
         <td colspan="7"></td>
-        ${(()=>{ const swapMapData=window._monthlyAttData._swapMap||{}; const offDateData=window._monthlyAttData._offDateMap||{}; return allDays.map(({dd,wd})=>{ let o=0; summaries.forEach(({emp})=>{ const empOff=parseOffDays(emp); const swapRec=(swapMapData[emp.id]||{})[dd]; const compSwap=(offDateData[emp.id]||{})[dd]; if(empOff.length>0&&empOff.indexOf(wd)!==-1){if(!swapRec)o++;} else if(compSwap)o++; }); const isSun=wd===0,isSat=wd===6; const bg=isSun?'background:#fee2e2;':isSat?'background:#fef9c3;':''; return '<td style="text-align:center;font-size:11px;font-weight:700;color:#dc2626;'+bg+'">'+o+'</td>'; }).join(''); })()}
+        ${pngFootOffHTML}
       </tr>
       <tr style="background:#fffbeb;">
         <td style="padding:4px 8px;font-size:11px;font-weight:700;color:#92400e;white-space:nowrap" colspan="2">🌟 OFF ធ្វើការ (នាក់)</td>
         <td colspan="7"></td>
-        ${(()=>{ const swapMapData=window._monthlyAttData._swapMap||{}; const attMapData=window._monthlyAttData._attMap||{}; return allDays.map(({dd,wd})=>{ let ow=0; summaries.forEach(({emp})=>{ const empOff=parseOffDays(emp); const swapRec=(swapMapData[emp.id]||{})[dd]; const a=(attMapData[emp.id]||{})[dd]; if(empOff.length>0&&empOff.indexOf(wd)!==-1){ if(swapRec&&!(swapRec.off_date&&swapRec.off_date.trim()!==''))ow++; else if(!swapRec&&a&&(a.status==='present'||a.status==='late'))ow++; } }); const isSun=wd===0,isSat=wd===6; const bg=isSun?'background:#fee2e2;':isSat?'background:#fef9c3;':'background:#fffbeb;'; return '<td style="text-align:center;font-size:11px;font-weight:700;color:#d97706;'+bg+'">'+(ow>0?'🌟'+ow:'—')+'</td>'; }).join(''); })()}
+        ${pngFootOWHTML}
       </tr>
       <tr style="background:#f0f9ff;">
         <td style="padding:4px 8px;font-size:11px;font-weight:700;color:#0369a1;white-space:nowrap" colspan="2">📅 សរុបថ្ងៃធ្វើការ/បុគ្គលិក</td>
-        <td colspan="7" style="text-align:center;font-size:11px;color:#0369a1">${summaries.reduce((s,r)=>s+(r.workingDaysCount||0),0)} ថ្ងៃ (${summaries.length} នាក់)</td>
+        <td colspan="7" style="text-align:center;font-size:11px;color:#0369a1">${pngTotalWD} ថ្ងៃ (${summaries.length} នាក់)</td>
         ${allDays.map(()=>'<td style="background:#f0f9ff"></td>').join('')}
       </tr>
       <tr style="background:#f5f3ff;">
         <td style="padding:4px 8px;font-size:11px;font-weight:700;color:#6d28d9;white-space:nowrap" colspan="2">📅 សរុបថ្ងៃ OFF/បុគ្គលិក</td>
-        <td colspan="7" style="text-align:center;font-size:11px;color:#6d28d9">${summaries.reduce((s,r)=>s+(r.empOffDaysThisMonth||0),0)} ថ្ងៃ (${summaries.length} នាក់)</td>
+        <td colspan="7" style="text-align:center;font-size:11px;color:#6d28d9">${pngTotalOFF} ថ្ងៃ (${summaries.length} នាក់)</td>
         ${allDays.map(()=>'<td style="background:#f5f3ff"></td>').join('')}
       </tr>
-    </tfoot>
   </table>
   <div class="sig">
     <div class="sig-col"><div class="sig-line">ហត្ថលេខាអ្នករៀបចំ</div></div>
