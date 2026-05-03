@@ -2472,7 +2472,7 @@ async function renderMonthlyAttendance(month='') {
       return '<th style="padding:0;height:18px;font-size:11px;text-align:center;font-weight:600;vertical-align:middle;line-height:18px;'+color+'">' + wdNames[wd] + '</th>';
     }).join('');
 
-    const dayRows = filteredSummaries.map(({emp, present, late, absent, swap, overAbsent, deduction, offBonus, offDaysWorked, empOffDaysThisMonth}) => {
+    const dayRows = filteredSummaries.map(({emp, present, late, absent, swap, overAbsent, deduction, offBonus, offDaysWorked, empOffDaysThisMonth, workingDaysCount}) => {
       const rec = attMap[emp.id] || {};
       const empOff = parseOffDays(emp);
       const cells = allDays.map(({dd, wd}) => {
@@ -2543,7 +2543,7 @@ async function renderMonthlyAttendance(month='') {
           +'<td style="text-align:center;font-weight:700;font-size:10px;min-width:38px;padding:2px 1px;color:'+(offBonus>0?'#d97706':'var(--text3)');+'\">'+(offBonus>0?'+$'+offBonus.toFixed(0):'—')+'</td>'
           +cells
           +'<td style="text-align:center;font-weight:700;font-size:10px;min-width:32px;padding:2px 1px;color:#6366f1;border-left:1px solid var(--border)" title="ថ្ងៃ OFF សរុបក្នុងខែ">'+(empOffDaysThisMonth>0?empOffDaysThisMonth+'ថ្ងៃ':'—')+'</td>'
-          +'<td style="text-align:center;font-weight:700;font-size:11px;color:var(--success);min-width:30px;padding:2px 2px;border-left:1px solid var(--border)">'+(present+late)+'</td>'
+          +'<td style="text-align:center;font-weight:700;font-size:11px;color:var(--success);min-width:30px;padding:2px 2px;border-left:1px solid var(--border)">'+(workingDaysCount||0)+'</td>'
           +'</tr>';
       }
       return '<tr>'
@@ -2556,7 +2556,7 @@ async function renderMonthlyAttendance(month='') {
         +(overAbsent>0?'<td style="text-align:center;font-weight:700;color:var(--danger);font-size:12px;position:sticky;left:316px;z-index:1;background:var(--bg2);width:52px;padding:3px 2px;text-align:center">-$'+deduction.toFixed(0)+'</td>':'<td style="text-align:center;color:var(--success);font-size:11px;position:sticky;left:316px;z-index:1;background:var(--bg2);width:52px;padding:3px 2px;text-align:center">—</td>')
         +(offBonus>0?'<td style="text-align:center;font-weight:700;color:#d97706;font-size:12px;position:sticky;left:368px;z-index:1;background:rgba(251,191,36,.08);box-shadow:3px 0 6px rgba(0,0,0,.12);width:60px;padding:3px 2px;text-align:center" title="🌟 OFF ធ្វើការ (គ្មានជំនួស): '+offDaysWorked+' ថ្ងៃ × $'+(offDaysWorked>0?(offBonus/offDaysWorked).toFixed(2):'0')+'/ថ្ងៃ | OFF+ជំនួស=$0">+$'+offBonus.toFixed(0)+'</td>':'<td style="text-align:center;color:var(--text3);font-size:11px;position:sticky;left:368px;z-index:1;background:var(--bg2);box-shadow:3px 0 6px rgba(0,0,0,.12);width:60px;padding:3px 2px;text-align:center">—</td>')
         +cells
-        +'<td style="text-align:center;font-weight:700;font-size:12px;color:var(--success);width:48px;padding:3px 2px;position:sticky;right:116px;z-index:1;background:var(--bg2);box-shadow:-2px 0 4px rgba(0,0,0,.08)" title="ថ្ងៃធ្វើការសរុប">'+(present+late)+'<span style="font-size:8px;font-weight:400;color:var(--text3);display:block">ថ្ងៃ</span></td>'
+        +'<td style="text-align:center;font-weight:700;font-size:12px;color:var(--success);width:48px;padding:3px 2px;position:sticky;right:116px;z-index:1;background:var(--bg2);box-shadow:-2px 0 4px rgba(0,0,0,.08)" title="ថ្ងៃធ្វើការសរុប">'+(workingDaysCount||0)+'<span style="font-size:8px;font-weight:400;color:var(--text3);display:block">ថ្ងៃ</span></td>'
         +'<td style="text-align:center;font-weight:700;font-size:12px;color:'+(empOffDaysThisMonth>0?'#6366f1':'var(--text3)')+';width:48px;padding:3px 2px;position:sticky;right:68px;z-index:1;background:var(--bg2);border-left:1px solid var(--border)" title="ថ្ងៃ OFF សរុបក្នុងខែ">'+(empOffDaysThisMonth>0?'<span style="background:rgba(99,102,241,.12);border-radius:4px;padding:1px 4px">'+empOffDaysThisMonth+'</span>':'—')+'</td>'
         +'<td style="text-align:center;width:64px;position:sticky;right:0;z-index:1;background:var(--bg2);box-shadow:-2px 0 5px rgba(0,0,0,.12)"><button class="btn btn-outline btn-sm" style="font-size:10px;padding:3px 8px" onclick="applyAbsenceDeduction('+emp.id+',\''+emp.name+'\','+absent+','+overAbsent+','+deduction+',\''+currentMonth+'\','+offBonus+')">💸 កាត់</button></td>'
         +'</tr>';
