@@ -2599,7 +2599,7 @@ async function renderMonthlyAttendance(month='') {
       +'<span style="font-size:12px">រូបមន្ត: <b style="color:var(--danger)">ប្រាក់ខែ ÷ ថ្ងៃធ្វើការ × ថ្ងៃលើស</b></span>'
       +'<button class="btn btn-outline btn-sm" style="font-size:11px" onclick="openAbsenceRulesModal()">✏️ កែច្បាប់</button>'
       +'</div>'
-      +'<div class="card" style="padding:0"><div style="overflow-x:scroll;overflow-y:auto;max-height:calc(100vh - 265px);will-change:scroll-position;-webkit-overflow-scrolling:touch"><table style="min-width:max-content;border-collapse:collapse;table-layout:fixed">'
+      +'<div class="card" style="padding:0"><div style="overflow-x:scroll;overflow-y:auto;max-height:calc(100vh - 265px);will-change:scroll-position;-webkit-overflow-scrolling:touch"><table style="min-width:max-content;border-collapse:collapse;table-layout:auto">'
       +(window.innerWidth<700
         ? '<colgroup><col style="width:72px"/><col style="width:20px"/><col style="width:20px"/><col style="width:20px"/><col style="width:20px"/><col style="width:22px"/><col style="width:34px"/><col style="width:38px"/><col style="width:32px"/>'+allDays.map(()=>'<col style="width:26px;min-width:26px;max-width:26px"/>').join('')+'</colgroup>'
         : '<colgroup><col style="width:160px"/><col style="width:30px"/><col style="width:30px"/><col style="width:30px"/><col style="width:30px"/><col style="width:36px"/><col style="width:52px"/><col style="width:60px"/><col style="width:44px"/>'+allDays.map(()=>'<col style="width:26px;min-width:26px;max-width:26px"/>').join('')+'<col style="width:70px"/></colgroup>'
