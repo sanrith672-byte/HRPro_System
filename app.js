@@ -2954,16 +2954,6 @@ function printMonthlyAttendance() {
         <td colspan="7"></td>
         ${footOWHTML}
       </tr>
-      <tr style="background:#f0f9ff;">
-        <td style="padding:3px 5px;font-size:10px;font-weight:700;color:#0369a1;white-space:nowrap" colspan="2">📅 សរុបថ្ងៃធ្វើការ/បុគ្គលិក</td>
-        <td colspan="7" style="text-align:center;font-size:10px;color:#0369a1">${totalWDpdf} ថ្ងៃ (${summaries.length} នាក់)</td>
-        ${allDays.map(()=>'<td style="background:#f0f9ff"></td>').join('')}
-      </tr>
-      <tr style="background:#f5f3ff;">
-        <td style="padding:3px 5px;font-size:10px;font-weight:700;color:#6d28d9;white-space:nowrap" colspan="2">📅 សរុបថ្ងៃ OFF/បុគ្គលិក</td>
-        <td colspan="7" style="text-align:center;font-size:10px;color:#6d28d9">${totalOFFpdf} ថ្ងៃ (${summaries.length} នាក់)</td>
-        ${allDays.map(()=>'<td style="background:#f5f3ff"></td>').join('')}
-      </tr>
     </tfoot>
   </table>
   <div class="sig">
@@ -3219,16 +3209,6 @@ function saveMonthlyAttendanceAsImage() {
         <td colspan="7"></td>
         ${pngFootOWHTML}
       </tr>
-      <tr style="background:#f0f9ff;">
-        <td style="padding:4px 8px;font-size:11px;font-weight:700;color:#0369a1;white-space:nowrap" colspan="2">📅 សរុបថ្ងៃធ្វើការ/បុគ្គលិក</td>
-        <td colspan="7" style="text-align:center;font-size:11px;color:#0369a1">${pngTotalWD} ថ្ងៃ (${summaries.length} នាក់)</td>
-        ${allDays.map(()=>'<td style="background:#f0f9ff"></td>').join('')}
-      </tr>
-      <tr style="background:#f5f3ff;">
-        <td style="padding:4px 8px;font-size:11px;font-weight:700;color:#6d28d9;white-space:nowrap" colspan="2">📅 សរុបថ្ងៃ OFF/បុគ្គលិក</td>
-        <td colspan="7" style="text-align:center;font-size:11px;color:#6d28d9">${pngTotalOFF} ថ្ងៃ (${summaries.length} នាក់)</td>
-        ${allDays.map(()=>'<td style="background:#f5f3ff"></td>').join('')}
-      </tr>
   </table>
   <div class="sig">
     <div class="sig-col"><div class="sig-line">ហត្ថលេខាអ្នករៀបចំ</div></div>
@@ -3413,8 +3393,6 @@ async function exportMonthlyAttendanceExcel() {
     const totalWorkingDays = summaries.reduce((s,r)=>s+(r.workingDaysCount||0),0);
     const totalOffDays     = summaries.reduce((s,r)=>s+(r.empOffDaysThisMonth||0),0);
     const totalOffWorked   = summaries.reduce((s,r)=>s+(r.offDaysWorked||0),0);
-    matrixRows.push(['', '📅 សរុបថ្ងៃធ្វើការ', '', totalWorkingDays + ' ថ្ងៃ (' + summaries.length + ' នាក់)', '', '', '', '', '', '', '', ...allDays.map(()=>''), '', '']);
-    matrixRows.push(['', '📅 សរុបថ្ងៃ OFF', '', totalOffDays + ' ថ្ងៃ (' + summaries.length + ' នាក់)', '', '', '', '', '', '', '', ...allDays.map(()=>''), '', '']);
     matrixRows.push(['', '🌟 OFF ធ្វើការ (សរុប)', '', totalOffWorked + ' ថ្ងៃ', '', '', '', '', '', '', '', ...allDays.map(()=>''), '', '']);
 
     // ── Sheet 2: Detail Summary ───────────────────────────────────
