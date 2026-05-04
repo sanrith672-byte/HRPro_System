@@ -2947,31 +2947,31 @@ async function renderMonthlyAttendance(month='') {
             const compSwap = (offDateMap[emp.id]||{})[dd];
             const attRec = (attMap[emp.id]||{})[dd];
             if (empOff.length > 0 && empOff.indexOf(wd) !== -1) {
+              // ថ្ងៃ OFF
               if (swapRec) {
-                const isCompOff = swapRec.off_date && swapRec.off_date.trim() !== '';
-                if (isCompOff) {
-                  working++;
-                  if (attRec && attRec.status==='present') presentOnly++;
-                  if (attRec && attRec.status==='late') lateCount++;
-                } else {
-                  working++; offWorked++;
-                  if (attRec && attRec.status==='present') presentOnly++;
-                  if (attRec && attRec.status==='late') lateCount++;
-                }
+                // OFF+ជំនួស ឬ OFF ធ្វើការ → មិនរាប់ក្នុង ✅ ធ្វើការ
+                working++;
+                if (attRec && attRec.status==='late') lateCount++;
+                offWorked++;
               } else if (attRec && (attRec.status==='present'||attRec.status==='late')) {
+                // OFF ធ្វើការដោយខ្លួនឯង (គ្មានជំនួស) → មិនរាប់ ✅ ធ្វើការ
                 working++; offWorked++;
-                if (attRec.status==='present') presentOnly++;
                 if (attRec.status==='late') lateCount++;
               } else {
                 offCount++;
               }
             } else if (compSwap) {
+              // ថ្ងៃសម្រាក compensate → off
               offCount++;
             } else {
-              if (attRec && (attRec.status==='present'||attRec.status==='late')) {
+              // ថ្ងៃធ្វើការធម្មតា → រាប់តែ present ប៉ុណ្ណោះ មិនរួម late និង ជំនួស
+              if (attRec && attRec.status==='present') {
                 working++;
-                if (attRec.status==='present') presentOnly++;
-                if (attRec.status==='late') lateCount++;
+                presentOnly++;
+              } else if (attRec && attRec.status==='late') {
+                working++;
+                lateCount++;
+                // presentOnly មិនរាប់ late
               } else {
                 offCount++;
               }
@@ -3093,14 +3093,15 @@ function printMonthlyAttendance() {
     let w=0;
     summaries.forEach(({emp})=>{
       const empOff=parseOffDays(emp); const swapRec=(_swapMapPDF[emp.id]||{})[dd]; const compSwap=(_offDatePDF[emp.id]||{})[dd]; const attRec=(_attMapPDF[emp.id]||{})[dd];
-      // ✅ ធ្វើការ: រាប់តែ present មិនរួម late និង ជំនួស
+      // ✅ ធ្វើការ: រាប់តែ present ថ្ងៃធ្វើការធម្មតា មិនរួម late, ជំនួស, OFF ធ្វើការ
       if(empOff.length>0&&empOff.indexOf(wd)!==-1){
-        if(swapRec){
-          // OFF+ជំនួស = មិនរាប់; OFF ធ្វើការ = រាប់តែ present
-          if(attRec&&attRec.status==='present') w++;
-        } else if(attRec&&attRec.status==='present') w++;
-      } else if(compSwap){ /* compensation OFF — not working */ }
-      else { if(attRec&&attRec.status==='present') w++; }
+        // ថ្ងៃ OFF — មិនរាប់ទាល់តែសោះ (ទោះ present, late, ឬ ជំនួស)
+      } else if(compSwap){
+        // ថ្ងៃ compensate OFF — មិនរាប់
+      } else {
+        // ថ្ងៃធ្វើការធម្មតា — រាប់តែ present ប៉ុណ្ណោះ
+        if(attRec&&attRec.status==='present') w++;
+      }
     });
     const isSun=wd===0,isSat=wd===6; const bg=isSun?'background:#fee2e2;':isSat?'background:#fef9c3;':'';
     return `<td style="text-align:center;font-size:10px;font-weight:700;color:#16a34a;${bg}">${w||'—'}</td>`;
