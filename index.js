@@ -251,6 +251,40 @@ async function handleRequest(request, env) {
 
     if (path === '/stats' && method === 'GET') return getStats(env);
 
+    // ===== SALARY INCREASES =====
+    if (path === '/salary-increases') {
+      if (method === 'GET') {
+        const empId = url.searchParams.get('employee_id');
+        let q = `SELECT si.*, e.name as employee_name FROM salary_increases si JOIN employees e ON si.employee_id=e.id`;
+        const params = [];
+        if (empId) { q += ' WHERE si.employee_id=?'; params.push(parseInt(empId)); }
+        q += ' ORDER BY si.effective_date DESC, si.created_at DESC';
+        const result = await env.DB.prepare(q).bind(...params).all();
+        return json(result.results || []);
+      }
+      if (method === 'POST') {
+        const body = await request.json();
+        const { employee_id, amount, reason, effective_date, note } = body;
+        if (!employee_id || !amount || !effective_date) return error('employee_id, amount, effective_date required');
+        const now = new Date().toISOString();
+        // Get current salary for reference
+        const emp = await env.DB.prepare('SELECT salary FROM employees WHERE id=?').bind(employee_id).first();
+        const salary_before = emp ? emp.salary : 0;
+        const salary_after = salary_before + parseFloat(amount);
+        const r = await env.DB.prepare(
+          `INSERT INTO salary_increases (employee_id, amount, salary_before, salary_after, reason, effective_date, note, created_at) VALUES (?,?,?,?,?,?,?,?)`
+        ).bind(employee_id, parseFloat(amount), salary_before, salary_after, reason||'', effective_date, note||'', now).run();
+        return json({ message: 'Salary increase recorded', id: r.meta.last_row_id, salary_after }, 201);
+      }
+    }
+    if (path.match(/^\/salary-increases\/\d+$/)) {
+      const id = parseInt(path.split('/')[2]);
+      if (method === 'DELETE') {
+        await env.DB.prepare('DELETE FROM salary_increases WHERE id=?').bind(id).run();
+        return json({ message: 'Deleted' });
+      }
+    }
+
     // ===== INIT DB =====
     if (path === '/init' && method === 'POST') return initDatabase(env);
 
@@ -1029,6 +1063,18 @@ async function initDatabase(env) {
       created_at TEXT, updated_at TEXT
     )`,
 
+    `CREATE TABLE IF NOT EXISTS salary_increases (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      employee_id INTEGER NOT NULL REFERENCES employees(id),
+      amount REAL DEFAULT 0,
+      salary_before REAL DEFAULT 0,
+      salary_after REAL DEFAULT 0,
+      reason TEXT DEFAULT '',
+      effective_date TEXT NOT NULL,
+      note TEXT DEFAULT '',
+      created_at TEXT
+    )`,
+
   ];
 
   for (const sql of statements) {
@@ -1065,6 +1111,17 @@ async function initDatabase(env) {
     // employees — off_days (personal weekly day off)
     `ALTER TABLE employees ADD COLUMN off_days TEXT DEFAULT '[]'`,
     `ALTER TABLE employees ADD COLUMN work_location TEXT DEFAULT ''`,
+    `CREATE TABLE IF NOT EXISTS salary_increases (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      employee_id INTEGER NOT NULL REFERENCES employees(id),
+      amount REAL DEFAULT 0,
+      salary_before REAL DEFAULT 0,
+      salary_after REAL DEFAULT 0,
+      reason TEXT DEFAULT '',
+      effective_date TEXT NOT NULL,
+      note TEXT DEFAULT '',
+      created_at TEXT
+    )`,
   ];
   for (const m of migrations) {
     try { await env.DB.prepare(m).run(); } catch(_) { /* column already exists — OK */ }

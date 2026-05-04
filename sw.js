@@ -1,5 +1,5 @@
-// HR Pro — Service Worker v8 (Force cache clear)
-const CACHE_NAME = 'hr-pro-v8';
+// HR Pro — Service Worker v9 (Force cache clear)
+const CACHE_NAME = 'hr-pro-v9';
 
 const STATIC_ASSETS = [
   '/',
