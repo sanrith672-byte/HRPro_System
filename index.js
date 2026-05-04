@@ -287,6 +287,7 @@ async function getEmployees(request, env) {
     `ALTER TABLE employees ADD COLUMN work_history TEXT DEFAULT ''`,
     `ALTER TABLE employees ADD COLUMN off_days TEXT DEFAULT '[]'`,
     `ALTER TABLE employees ADD COLUMN work_location TEXT DEFAULT ''`,
+    `ALTER TABLE employees ADD COLUMN allowance REAL DEFAULT 0`,
   ];
   await Promise.allSettled(colMigrations.map(sql => env.DB.prepare(sql).run()));
 
@@ -377,11 +378,11 @@ async function createEmployee(request, env) {
   }
 
   const result = await env.DB.prepare(`
-    INSERT INTO employees (name, position, department_id, phone, email, salary, hire_date, status, gender, custom_id, bank, bank_account, bank_holder, termination_date, work_history, off_days, work_location, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+    INSERT INTO employees (name, position, department_id, phone, email, salary, allowance, hire_date, status, gender, custom_id, bank, bank_account, bank_holder, termination_date, work_history, off_days, work_location, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
   `).bind(
     name, position, department_id,
-    phone||'', email||'', salary||0,
+    phone||'', email||'', salary||0, body.allowance||0,
     hire_date||new Date().toISOString().split('T')[0],
     status||'active', gender||'male',
     custom_id||'', bank||'', bank_account||'', bank_holder||'',
@@ -403,7 +404,7 @@ async function updateEmployee(id, request, env) {
   await env.DB.prepare(`
     UPDATE employees SET
       name=?, position=?, department_id=?, phone=?, email=?,
-      salary=?, hire_date=?, status=?, gender=?,
+      salary=?, allowance=?, hire_date=?, status=?, gender=?,
       termination_date=?, work_history=?,
       custom_id=COALESCE(?,custom_id),
       bank=COALESCE(?,bank), bank_account=COALESCE(?,bank_account), bank_holder=COALESCE(?,bank_holder),
@@ -412,7 +413,7 @@ async function updateEmployee(id, request, env) {
     WHERE id=?
   `).bind(
     name, position, department_id, phone||'', email||'',
-    salary||0, hire_date||'', status||'active', gender||'male',
+    salary||0, body.allowance||0, hire_date||'', status||'active', gender||'male',
     termination_date||'', work_history||'',
     custom_id||null, bank||null, bank_account||null, bank_holder||null,
     JSON.stringify(body.off_days||[]), body.work_location||'',
