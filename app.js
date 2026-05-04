@@ -2618,9 +2618,10 @@ async function renderMonthlyAttendance(month='') {
       +'<col style="width:'+COL_OVER+'px"/>'
       +'<col style="width:'+COL_DED+'px"/>'
       +'<col style="width:'+COL_OFF+'px"/>'
-      +'<col style="width:44px"/>'
-      +allDays.map(()=>'<col style="width:24px;min-width:24px;max-width:24px"/>').join('')
-      +'<col style="width:'+(isMobile?108:132)+'px"/>'
+      +allDays.map(()=>'<col style="width:30px;min-width:30px;max-width:30px"/>').join('')
+      +'<col style="width:'+(isMobile?36:42)+'px"/>'
+      +'<col style="width:'+(isMobile?36:48)+'px"/>'
+      +'<col style="width:'+(isMobile?36:42)+'px"/>'
       +'</colgroup>'
       +'<thead>'
       +'<tr style="position:sticky;top:0;z-index:4;background:var(--bg2);height:26px">'
