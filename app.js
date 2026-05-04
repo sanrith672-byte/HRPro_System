@@ -2940,7 +2940,7 @@ async function renderMonthlyAttendance(month='') {
 
         // Compute per-day stats
         const footData = allDays.map(({dd, wd}) => {
-          let working = 0, lateCount = 0, offCount = 0, offWorked = 0;
+          let working = 0, presentOnly = 0, lateCount = 0, offCount = 0, offWorked = 0;
           renderSummaries.forEach(({emp}) => {
             const empOff = parseOffDays(emp);
             const swapRec = (swapMap[emp.id]||{})[dd];
@@ -2949,10 +2949,19 @@ async function renderMonthlyAttendance(month='') {
             if (empOff.length > 0 && empOff.indexOf(wd) !== -1) {
               if (swapRec) {
                 const isCompOff = swapRec.off_date && swapRec.off_date.trim() !== '';
-                if (isCompOff) { working++; if (attRec && attRec.status==='late') lateCount++; }
-                else { working++; offWorked++; if (attRec && attRec.status==='late') lateCount++; }
+                if (isCompOff) {
+                  working++;
+                  if (attRec && attRec.status==='present') presentOnly++;
+                  if (attRec && attRec.status==='late') lateCount++;
+                } else {
+                  working++; offWorked++;
+                  if (attRec && attRec.status==='present') presentOnly++;
+                  if (attRec && attRec.status==='late') lateCount++;
+                }
               } else if (attRec && (attRec.status==='present'||attRec.status==='late')) {
-                working++; offWorked++; if (attRec.status==='late') lateCount++;
+                working++; offWorked++;
+                if (attRec.status==='present') presentOnly++;
+                if (attRec.status==='late') lateCount++;
               } else {
                 offCount++;
               }
@@ -2961,6 +2970,7 @@ async function renderMonthlyAttendance(month='') {
             } else {
               if (attRec && (attRec.status==='present'||attRec.status==='late')) {
                 working++;
+                if (attRec.status==='present') presentOnly++;
                 if (attRec.status==='late') lateCount++;
               } else {
                 offCount++;
@@ -2969,15 +2979,15 @@ async function renderMonthlyAttendance(month='') {
           });
           const isSun = wd===0, isSat = wd===6;
           const bg = isSun ? 'background:rgba(220,38,38,0.12);' : isSat ? 'background:rgba(180,83,9,0.12);' : '';
-          return { working, lateCount, offCount, offWorked, bg };
+          return { working, presentOnly, lateCount, offCount, offWorked, bg };
         });
 
         // Shared cell width style
         const TDW = 'width:26px;min-width:26px;max-width:26px;text-align:center;padding:3px 1px;font-size:11px;font-weight:700;';
 
         // Row 1: ✅ ធ្វើការ
-        const row1Cells = footData.map(({working,bg}) =>
-          '<td style="'+TDW+bg+'color:var(--success)">'+working+'</td>'
+        const row1Cells = footData.map(({presentOnly,bg}) =>
+          '<td style="'+TDW+bg+'color:var(--success)">'+(presentOnly||'—')+'</td>'
         ).join('');
 
         // Row 2: ⏰ ចូលយឺត
@@ -2996,7 +3006,7 @@ async function renderMonthlyAttendance(month='') {
         ).join('');
 
         // Grand totals (sticky right)
-        const totalWD   = renderSummaries.reduce((s,r)=>s+(r.present+r.late||0),0);
+        const totalWD   = renderSummaries.reduce((s,r)=>s+(r.present||0),0);
         const totalLate = renderSummaries.reduce((s,r)=>s+(r.late||0),0);
         const totalOff  = renderSummaries.reduce((s,r)=>s+(r.empOffDaysThisMonth||0),0);
         const totalOW   = renderSummaries.reduce((s,r)=>s+(r.offDaysWorked||0),0);
@@ -3083,15 +3093,17 @@ function printMonthlyAttendance() {
     let w=0;
     summaries.forEach(({emp})=>{
       const empOff=parseOffDays(emp); const swapRec=(_swapMapPDF[emp.id]||{})[dd]; const compSwap=(_offDatePDF[emp.id]||{})[dd]; const attRec=(_attMapPDF[emp.id]||{})[dd];
+      // ✅ ធ្វើការ: រាប់តែ present មិនរួម late និង ជំនួស
       if(empOff.length>0&&empOff.indexOf(wd)!==-1){
-        // OFF day: count if came to work (swapRec without compOff, or direct att)
-        if(swapRec){ w++; } // OFF+ជំនួស OR OFF ធ្វើការ → both came to work
-        else if(attRec&&(attRec.status==='present'||attRec.status==='late'))w++;
+        if(swapRec){
+          // OFF+ជំនួស = មិនរាប់; OFF ធ្វើការ = រាប់តែ present
+          if(attRec&&attRec.status==='present') w++;
+        } else if(attRec&&attRec.status==='present') w++;
       } else if(compSwap){ /* compensation OFF — not working */ }
-      else { if(attRec&&(attRec.status==='present'||attRec.status==='late'))w++; }
+      else { if(attRec&&attRec.status==='present') w++; }
     });
     const isSun=wd===0,isSat=wd===6; const bg=isSun?'background:#fee2e2;':isSat?'background:#fef9c3;':'';
-    return `<td style="text-align:center;font-size:10px;font-weight:700;color:#16a34a;${bg}">${w}</td>`;
+    return `<td style="text-align:center;font-size:10px;font-weight:700;color:#16a34a;${bg}">${w||'—'}</td>`;
   }).join('');
   const footOffHTML = allDays.map(({dd,wd})=>{
     let o=0;
@@ -3279,7 +3291,7 @@ function printMonthlyAttendance() {
     <tfoot>
       <tr class="summary-row">
         <td style="padding:3px 5px;font-size:11px;text-align:left" colspan="2">សរុប (Total)</td>
-        <td style="text-align:center;color:#16a34a">${totals.p+totals.l}</td>
+        <td style="text-align:center;color:#16a34a">${totals.p}</td>
         <td style="text-align:center;color:#f59e0b">${totals.l}</td>
         <td style="text-align:center;color:#ef4444">${totals.a}</td>
         <td style="text-align:center;color:#6366f1">${totals.sw}</td>
