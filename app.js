@@ -2566,9 +2566,9 @@ async function renderMonthlyAttendance(month='') {
         +(overAbsent>0?'<td style="text-align:center;font-weight:700;color:var(--danger);font-size:11px;background:var(--bg2);width:'+COL_DED+'px;padding:3px 2px">-$'+deduction.toFixed(0)+'</td>':'<td style="text-align:center;color:var(--success);font-size:11px;background:var(--bg2);width:'+COL_DED+'px;padding:3px 2px">—</td>')
         +(offBonus>0?'<td style="text-align:center;font-weight:700;color:#d97706;font-size:11px;background:rgba(251,191,36,.08);width:'+COL_OFF+'px;padding:3px 2px" title="🌟 OFF">+$'+offBonus.toFixed(0)+'</td>':'<td style="text-align:center;color:var(--text3);font-size:11px;background:var(--bg2);width:'+COL_OFF+'px;padding:3px 2px">—</td>')
         +cells
-        +'<td style="text-align:center;font-weight:700;font-size:12px;color:var(--success);width:'+(isMobile?28:32)+'px;padding:3px 2px;position:sticky;right:'+(isMobile?58:68)+'px;z-index:1;background:var(--bg2);box-shadow:-2px 0 4px rgba(0,0,0,.08)">'+(present+late)+'<span style="font-size:8px;font-weight:400;color:var(--text3);display:block">ថ្ងៃ</span></td>'
-        +'<td style="text-align:center;font-weight:700;font-size:'+(isMobile?'11px':'12px')+';color:'+(empOffDaysThisMonth>0?'#6366f1':'var(--text3)')+';width:'+(isMobile?28:32)+'px;padding:3px 2px;position:sticky;right:'+(isMobile?30:36)+'px;z-index:1;background:var(--bg2);border-left:1px solid var(--border)">'+(empOffDaysThisMonth>0?'<span style="background:rgba(99,102,241,.12);border-radius:4px;padding:1px 4px">'+empOffDaysThisMonth+'</span>':'—')+'</td>'
-        +'<td style="text-align:center;width:'+(isMobile?30:36)+'px;position:sticky;right:0;z-index:1;background:var(--bg2);box-shadow:-2px 0 5px rgba(0,0,0,.12)"><button class="btn btn-outline btn-sm" style="font-size:'+(isMobile?'9px':'10px')+';padding:2px '+(isMobile?'2px':'8px')+'" onclick="applyAbsenceDeduction('+emp.id+',\''+emp.name+'\','+absent+','+overAbsent+','+deduction+',\''+currentMonth+'\','+offBonus+')">💸</button></td>'
+        +'<td style="text-align:center;font-weight:700;font-size:12px;color:var(--success);width:'+(isMobile?28:32)+'px;padding:3px 2px;position:sticky;right:'+(isMobile?56:66)+'px;z-index:1;background:var(--bg2);box-shadow:-2px 0 4px rgba(0,0,0,.08)">'+(present+late)+'<span style="font-size:8px;font-weight:400;color:var(--text3);display:block">ថ្ងៃ</span></td>'
+        +'<td style="text-align:center;font-weight:700;font-size:'+(isMobile?'11px':'12px')+';color:'+(empOffDaysThisMonth>0?'#6366f1':'var(--text3)')+';width:'+(isMobile?28:32)+'px;padding:3px 2px;position:sticky;right:'+(isMobile?28:34)+'px;z-index:1;background:var(--bg2);border-left:1px solid var(--border)">'+(empOffDaysThisMonth>0?'<span style="background:rgba(99,102,241,.12);border-radius:4px;padding:1px 4px">'+empOffDaysThisMonth+'</span>':'—')+'</td>'
+        +'<td style="text-align:center;width:'+(isMobile?28:34)+'px;max-width:'+(isMobile?28:34)+'px;overflow:hidden;position:sticky;right:0;z-index:1;background:var(--bg2);box-shadow:-2px 0 5px rgba(0,0,0,.12)"><button class="btn btn-outline btn-sm" style="font-size:'+(isMobile?'9px':'10px')+';padding:2px 2px;min-width:0;width:100%" onclick="applyAbsenceDeduction('+emp.id+',\''+emp.name+'\','+absent+','+overAbsent+','+deduction+',\''+currentMonth+'\','+offBonus+')">💸</button></td>'
         +'</tr>';
     }).join('');
 
@@ -2608,7 +2608,7 @@ async function renderMonthlyAttendance(month='') {
       +'<span style="font-size:12px">រូបមន្ត: <b style="color:var(--danger)">ប្រាក់ខែ ÷ ថ្ងៃធ្វើការ × ថ្ងៃលើស</b></span>'
       +'<button class="btn btn-outline btn-sm" style="font-size:11px" onclick="openAbsenceRulesModal()">✏️ កែច្បាប់</button>'
       +'</div>'
-      +'<div class="card" style="padding:0"><div style="overflow-x:scroll;overflow-y:auto;max-height:calc(100vh - 265px);will-change:scroll-position;-webkit-overflow-scrolling:touch"><table style="min-width:max-content;border-collapse:collapse;table-layout:auto">'
+      +'<div class="card" style="padding:0"><div style="overflow-x:scroll;overflow-y:auto;max-height:calc(100vh - 265px);will-change:scroll-position;-webkit-overflow-scrolling:touch"><table class="monthly-att-wrap" style="min-width:max-content;border-collapse:collapse;table-layout:auto">'
       +'<colgroup>'
       +'<col style="width:'+COL_NAME+'px"/>'
       +'<col style="width:'+COL_P+'px"/>'
@@ -2633,8 +2633,8 @@ async function renderMonthlyAttendance(month='') {
           +'<th style="width:'+COL_DED+'px;text-align:center;font-size:9px;'+(isMobile?'':'position:sticky;left:'+S_DED+'px;z-index:5;')+';background:var(--bg2);padding:3px 2px" rowspan="2" title="កាត់ប្រាក់">កាត់</th>'
           +'<th style="width:'+COL_OFF+'px;text-align:center;font-size:9px;'+(isMobile?'':'position:sticky;left:'+S_OFF+'px;z-index:5;box-shadow:3px 0 6px rgba(0,0,0,.2);')+';background:var(--bg2);padding:3px 2px;color:#f59e0b" rowspan="2" title="🌟 OFF">🌟OFF</th>'
           +dayThs
-          +'<th style="width:'+(isMobile?28:32)+'px;text-align:center;padding:3px 2px;font-size:9px;color:var(--success);position:sticky;right:'+(isMobile?58:68)+'px;z-index:5;background:var(--bg2);box-shadow:-2px 0 4px rgba(0,0,0,.1)" rowspan="2" title="ធ្វើការ">📅<br/><span style="font-size:8px">ធ្វើ</span></th>'
-          +'<th style="width:'+(isMobile?28:32)+'px;text-align:center;font-size:9px;padding:3px 2px;color:#6366f1;position:sticky;right:'+(isMobile?30:36)+'px;z-index:5;background:var(--bg2);border-left:1px solid var(--border)" rowspan="2" title="OFF ខែ">📅OFF<br/><span style="font-size:8px;color:var(--text3)">ខែ</span></th>'
+          +'<th style="width:'+(isMobile?28:32)+'px;text-align:center;padding:3px 2px;font-size:9px;color:var(--success);position:sticky;right:'+(isMobile?56:66)+'px;z-index:5;background:var(--bg2);box-shadow:-2px 0 4px rgba(0,0,0,.1)" rowspan="2" title="ធ្វើការ">📅<br/><span style="font-size:8px">ធ្វើ</span></th>'
+          +'<th style="width:'+(isMobile?28:32)+'px;text-align:center;font-size:9px;padding:3px 2px;color:#6366f1;position:sticky;right:'+(isMobile?28:34)+'px;z-index:5;background:var(--bg2);border-left:1px solid var(--border)" rowspan="2" title="OFF ខែ">📅OFF<br/><span style="font-size:8px;color:var(--text3)">ខែ</span></th>'
           +'<th style="width:'+(isMobile?30:36)+'px;text-align:center;padding:3px 2px;font-size:'+(isMobile?'10px':'inherit')+';position:sticky;right:0;z-index:5;background:var(--bg2);box-shadow:-2px 0 5px rgba(0,0,0,.15)" rowspan="2">សកម្ម</th>'
           +'</tr>'
           +'<tr style="position:sticky;top:26px;z-index:4;background:var(--bg2);height:18px">'+wdThs+'</tr>'
@@ -2701,11 +2701,11 @@ async function renderMonthlyAttendance(month='') {
             const totalWD  = renderSummaries.reduce((s,r)=>s+(r.present+r.late||0),0);
             const totalOff = renderSummaries.reduce((s,r)=>s+(r.empOffDaysThisMonth||0),0);
             const totalOW  = renderSummaries.reduce((s,r)=>s+(r.offDaysWorked||0),0);
-            return '<td style="background:var(--bg3);position:sticky;right:'+(isMobile?58:68)+'px;z-index:4;width:'+(isMobile?28:32)+'px;text-align:center;padding:2px 1px;border-left:1px solid var(--border)">'
+            return '<td style="background:var(--bg3);position:sticky;right:'+(isMobile?56:66)+'px;z-index:4;width:'+(isMobile?28:32)+'px;text-align:center;padding:2px 1px;border-left:1px solid var(--border)">'
               +'<div style="font-size:11px;font-weight:700;color:var(--success);line-height:1.4">'+totalWD+'</div>'
               +'<div style="font-size:8px;color:var(--text3);line-height:1.2">ថ្ងៃ</div>'
               +'</td>'
-              +'<td style="background:var(--bg3);position:sticky;right:'+(isMobile?30:36)+'px;z-index:4;width:'+(isMobile?28:32)+'px;text-align:center;padding:2px 1px;border-left:1px solid var(--border)">'
+              +'<td style="background:var(--bg3);position:sticky;right:'+(isMobile?28:34)+'px;z-index:4;width:'+(isMobile?28:32)+'px;text-align:center;padding:2px 1px;border-left:1px solid var(--border)">'
               +'<div style="font-size:11px;font-weight:700;color:#6366f1;line-height:1.4">'+totalOff+'</div>'
               +(totalOW>0?'<div style="font-size:9px;font-weight:700;color:#d97706;line-height:1.3">🌟'+totalOW+'</div>':'')
               +'</td>'
