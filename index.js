@@ -61,6 +61,20 @@ async function handleRequest(request, env) {
       if (method === 'POST') return saveEmpMedia(id,'qr_data',request,env);
       if (method === 'DELETE') return deleteEmpMedia(id,'qr_data',env);
     }
+    // ===== DEBUG DB CHECK =====
+    if (path === '/check-db' && method === 'GET') {
+      try {
+        const cols = await env.DB.prepare("PRAGMA table_info(employees)").all();
+        const colNames = cols.results.map(c => c.name);
+        const hasAllowance = colNames.includes('allowance');
+        // Try to get one employee with allowance
+        const sample = await env.DB.prepare("SELECT id, name, salary, allowance FROM employees LIMIT 3").all();
+        return json({ columns: colNames, hasAllowance, sample: sample.results });
+      } catch(e) {
+        return json({ error: e.message });
+      }
+    }
+
     if (path === '/config') {
       if (method === 'GET') return getAppConfig(env);
       if (method === 'POST') return saveAppConfig(request,env);
