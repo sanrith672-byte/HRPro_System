@@ -2608,7 +2608,7 @@ async function renderMonthlyAttendance(month='') {
       +'<span style="font-size:12px">រូបមន្ត: <b style="color:var(--danger)">ប្រាក់ខែ ÷ ថ្ងៃធ្វើការ × ថ្ងៃលើស</b></span>'
       +'<button class="btn btn-outline btn-sm" style="font-size:11px" onclick="openAbsenceRulesModal()">✏️ កែច្បាប់</button>'
       +'</div>'
-      +'<div class="card" style="padding:0"><div style="overflow-x:scroll;overflow-y:auto;max-height:calc(100vh - 265px);will-change:scroll-position;-webkit-overflow-scrolling:touch"><table style="min-width:max-content;border-collapse:collapse;table-layout:auto">'
+      +'<div class="card" style="padding:0"><div style="overflow-x:auto;overflow-y:auto;max-height:calc(100vh - 265px);-webkit-overflow-scrolling:touch"><table id="monthly-att-tbl" style="min-width:max-content;border-collapse:separate;border-spacing:0;table-layout:auto">'
       +'<colgroup>'
       +'<col style="width:'+COL_NAME+'px"/>'
       +'<col style="width:'+COL_P+'px"/>'
