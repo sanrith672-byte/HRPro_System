@@ -1375,7 +1375,7 @@ async function openEmployeeModal(id=null) {
     + '<div style="margin-top:10px;padding:12px 14px;background:var(--bg3);border-radius:10px;border:1px solid var(--border)">'
     + '<div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:10px">💰 ប្រាក់ខែ</div>'
     + '<div class="form-grid-3">'
-    + '<div class="form-group"><label class="form-label">💵 ប្រាក់ខែបន្ថែម (USD)</label>'
+    + '<div class="form-group"><label class="form-label">💵 ប្រាក់ឧបត្ថម្ភ/ថេរ (USD) <span style="font-size:10px;color:var(--text3);font-weight:400">· ប្រចាំខែ</span></label>'
     + '<input class="form-control" id="f-allowance" type="number" min="0" step="0.01" placeholder="0" '
     + 'value="' + (emp?.allowance != null ? parseFloat(emp.allowance) : '') + '" oninput="updateSalaryPreview()" /></div>'
     + '<div class="form-group" style="grid-column:span 2"><label class="form-label" style="color:var(--success);font-weight:700">✅ ប្រាក់ខែសរុប (USD)</label>'
@@ -1415,7 +1415,10 @@ async function openEmployeeModal(id=null) {
     + (id ? '<div id="salary-increase-section" class="form-group full-width">'
       +'<div style="padding:12px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:8px">'
       +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">'
+      +'<div>'
       +'<div style="font-size:12px;font-weight:700;color:var(--text2)">💹 ប្រវត្តិប្រាក់ខែបន្ថែម</div>'
+      +'<div style="font-size:10px;color:var(--text3);margin-top:2px">· ការឡើងប្រាក់ខែជារៀងរាល់លើក (ខុសពីប្រាក់ឧបត្ថម្ភថេរ)</div>'
+      +'</div>'
       +(canEdit()?'<button class="btn btn-outline btn-sm" onclick="openSalaryIncreaseModal('+id+')" style="font-size:11px">+ បន្ថែម</button>':'')
       +'</div>'
       +'<div id="salary-increase-list-'+id+'" style="font-size:11px;color:var(--text3)">⏳ កំពុងផ្ទុក...</div>'
@@ -1627,6 +1630,10 @@ function openSalaryIncreaseModal(empId) {
   $('modal-title').textContent = '💹 បន្ថែមប្រាក់ខែ';
   $('modal-body').innerHTML =
     '<div style="padding:4px 0">'
+    +'<div style="background:rgba(255,190,11,.08);border:1px solid rgba(255,190,11,.25);border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:11px;color:var(--text2)">'
+    +'⚠️ <strong>ការបន្ថែម</strong>នេះ គឺជា <strong>ប្រវត្តិការឡើងប្រាក់ខែ</strong> — ខុសពី <em>ប្រាក់ឧបត្ថម្ភ/ថេរ</em> ដែលនៅ form ខាងលើ។ '
+    +'ប្រើ field នេះ ដើម្បីកត់ត្រា ការឡើងប្រាក់ខែម្ដងៗ។'
+    +'</div>'
     +'<div class="form-grid-3" style="grid-template-columns:1fr 1fr">'
     +'<div class="form-group"><label class="form-label">💵 ចំនួនបន្ថែម (USD) *</label>'
     +'<input class="form-control" id="si-amount" type="number" min="0" step="0.01" placeholder="100" /></div>'
