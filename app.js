@@ -2772,7 +2772,7 @@ async function renderMonthlyAttendance(month='') {
 
       return '<tr>'
         +'<td style="padding:'+(isMobile?'4px 4px':'6px 8px')+';white-space:nowrap;position:sticky;left:0;z-index:1;background:var(--bg2);box-shadow:2px 0 5px rgba(0,0,0,.12)"><div style="display:flex;align-items:center;gap:'+(isMobile?'3px':'6px')+';">'+av+'<span style="font-size:'+(isMobile?'11px':'12px')+';font-weight:600">'+emp.name+'</span></div></td>'
-        +'<td style="text-align:center;font-weight:700;color:var(--success);font-size:'+(isMobile?'11px':'13px')+';width:'+COL_P+'px;position:sticky;left:'+S_P+'px;z-index:1;background:var(--bg2);padding:3px 0">'+present+'</td>'
+        +'<td style="text-align:center;font-weight:700;color:var(--success);font-size:'+(isMobile?'11px':'13px')+';width:'+COL_P+'px;position:sticky;left:'+S_P+'px;z-index:1;background:var(--bg2);padding:3px 0">'+(present+late)+'</td>'
         +'<td style="text-align:center;font-weight:700;color:var(--warning);font-size:'+(isMobile?'11px':'13px')+';width:'+COL_L+'px;background:var(--bg2);padding:3px 0">'+late+'</td>'
         +'<td style="text-align:center;font-weight:700;color:var(--danger);font-size:'+(isMobile?'11px':'13px')+';width:'+COL_A+'px;background:var(--bg2);padding:3px 0">'+absent+'</td>'
         +'<td style="text-align:center;font-weight:700;color:var(--primary);font-size:'+(isMobile?'11px':'13px')+';width:'+COL_SW+'px;background:var(--bg2);padding:3px 0">'+(swap>0?'<span style="background:rgba(99,102,241,.15);border-radius:4px;padding:1px 4px">'+swap+'</span>':'<span style="color:var(--text3)">0</span>')+'</td>'
@@ -2806,7 +2806,7 @@ async function renderMonthlyAttendance(month='') {
       +'</div>'
       +'</div></div>'
       +'<div class="att-summary">'
-      +'<div class="att-box"><div class="att-num" style="color:var(--success)">'+renderTotals.p+'</div><div class="att-lbl">✅ វត្តមាន</div></div>'
+      +'<div class="att-box"><div class="att-num" style="color:var(--success)">'+(renderTotals.p+renderTotals.l)+'</div><div class="att-lbl">✅ វត្តមាន</div></div>'
       +'<div class="att-box"><div class="att-num" style="color:var(--warning)">'+renderTotals.l+'</div><div class="att-lbl">⏰ យឺត</div></div>'
       +'<div class="att-box"><div class="att-num" style="color:var(--danger)">'+renderTotals.a+'</div><div class="att-lbl">❌ អវត្តមាន</div></div>'
       +'<div class="att-box"><div class="att-num" style="color:var(--primary)">'+renderTotals.sw+'</div><div class="att-lbl">🔄 ជំនួស</div></div>'
@@ -3049,7 +3049,7 @@ function printMonthlyAttendance() {
     return `<tr style="${rowBg}">
       <td style="padding:4px 6px;font-size:11px;font-weight:600;white-space:nowrap">${idx+1}. ${emp.name}</td>
       <td style="padding:3px 4px;font-size:10px;color:#374151;white-space:nowrap">${dept}</td>
-      <td style="text-align:center;font-weight:700;color:#16a34a;font-size:11px">${present}</td>
+      <td style="text-align:center;font-weight:700;color:#16a34a;font-size:11px">${present+late}</td>
       <td style="text-align:center;font-weight:700;color:#d97706;font-size:11px">${late}</td>
       <td style="text-align:center;font-weight:700;color:#dc2626;font-size:11px">${absent}</td>
       <td style="text-align:center;font-weight:700;color:#4f46e5;font-size:11px">${swap||0}</td>
@@ -3102,7 +3102,7 @@ function printMonthlyAttendance() {
     <div class="subtitle">ម៉ោងចូល: ${rules&&rules.work_start_time||'08:00'} (grace ${rules&&rules.late_grace_minutes||15} នាទី) &nbsp;|&nbsp; ថ្ងៃអវត្តមានអនុញ្ញាត: ${maxAbsent} ថ្ងៃ/ខែ &nbsp;|&nbsp; បោះពុម្ពថ្ងៃទី: ${new Date().toLocaleDateString('km-KH')}${selectedDept ? ' &nbsp;|&nbsp; 🏢 នាយកដ្ឋាន: ' + selectedDept : ''}</div>
   </div>
   <div style="margin-bottom:6px;display:flex;gap:4px;flex-wrap:wrap">
-    <span class="summary-box" style="background:#dcfce7;color:#16a34a">✅ វត្តមាន: ${totals.p}</span>
+    <span class="summary-box" style="background:#dcfce7;color:#16a34a">✅ វត្តមាន: ${totals.p+totals.l}</span>
     <span class="summary-box" style="background:#fef9c3;color:#92400e">⏰ យឺត: ${totals.l}</span>
     <span class="summary-box" style="background:#fee2e2;color:#ef4444">❌ អវត្តមាន: ${totals.a}</span>
     <span class="summary-box" style="background:#ede9fe;color:#6366f1">🔄 ជំនួស: ${totals.sw}</span>
@@ -3142,7 +3142,7 @@ function printMonthlyAttendance() {
     <tfoot>
       <tr class="summary-row">
         <td style="padding:3px 5px;font-size:11px;text-align:left" colspan="2">សរុប (Total)</td>
-        <td style="text-align:center;color:#16a34a">${totals.p}</td>
+        <td style="text-align:center;color:#16a34a">${totals.p+totals.l}</td>
         <td style="text-align:center;color:#f59e0b">${totals.l}</td>
         <td style="text-align:center;color:#ef4444">${totals.a}</td>
         <td style="text-align:center;color:#6366f1">${totals.sw}</td>
@@ -3273,7 +3273,7 @@ function saveMonthlyAttendanceAsImage() {
     return `<tr style="background:${rowBg}">
       <td style="padding:5px 8px;font-size:12px;font-weight:700;white-space:nowrap;color:#111;">${idx+1}. ${emp.name}</td>
       <td style="padding:4px 6px;font-size:11px;color:#4b5563;white-space:nowrap;">${emp.department||''}</td>
-      <td style="text-align:center;font-weight:800;color:#16a34a;font-size:12px;">${present}</td>
+      <td style="text-align:center;font-weight:800;color:#16a34a;font-size:12px;">${present+late}</td>
       <td style="text-align:center;font-weight:800;color:#d97706;font-size:12px;">${late}</td>
       <td style="text-align:center;font-weight:800;color:#dc2626;font-size:12px;">${absent}</td>
       <td style="text-align:center;font-weight:800;color:#4f46e5;font-size:12px;">${swap||0}</td>
@@ -3355,7 +3355,7 @@ function saveMonthlyAttendanceAsImage() {
     <div class="subtitle">ម៉ោងចូល: ${rules&&rules.work_start_time||'08:00'} (grace ${rules&&rules.late_grace_minutes||15} នាទី) &nbsp;|&nbsp; ថ្ងៃអវត្តមានអនុញ្ញាត: ${maxAbsent} ថ្ងៃ/ខែ &nbsp;|&nbsp; រូបថតថ្ងៃទី: ${new Date().toLocaleDateString('km-KH')}${selectedDept ? ' &nbsp;|&nbsp; 🏢 នាយកដ្ឋាន: ' + selectedDept : ''}</div>
   </div>
   <div class="summary">
-    <span class="sbox" style="background:#dcfce7;color:#15803d;">✅ វត្តមាន: ${totals.p}</span>
+    <span class="sbox" style="background:#dcfce7;color:#15803d;">✅ វត្តមាន: ${totals.p+totals.l}</span>
     <span class="sbox" style="background:#fef9c3;color:#92400e;">⏰ យឺត: ${totals.l}</span>
     <span class="sbox" style="background:#fee2e2;color:#dc2626;">❌ អវត្តមាន: ${totals.a}</span>
     <span class="sbox" style="background:#ede9fe;color:#4f46e5;">🔄 ជំនួស: ${totals.sw}</span>
@@ -3396,7 +3396,7 @@ function saveMonthlyAttendanceAsImage() {
     <tfoot>
       <tr class="tfoot-row">
         <td style="padding:5px 8px;font-size:12px;text-align:left;" colspan="2">សរុប (Total)</td>
-        <td style="text-align:center;color:#16a34a;">${totals.p}</td>
+        <td style="text-align:center;color:#16a34a;">${totals.p+totals.l}</td>
         <td style="text-align:center;color:#d97706;">${totals.l}</td>
         <td style="text-align:center;color:#dc2626;">${totals.a}</td>
         <td style="text-align:center;color:#4f46e5;">${totals.sw}</td>
@@ -3536,7 +3536,7 @@ async function exportMonthlyAttendanceExcel() {
         i + 1,
         emp.name,
         emp.department || '',
-        present,
+        present + late,
         late,
         absent,
         swap || 0,
@@ -3554,7 +3554,7 @@ async function exportMonthlyAttendanceExcel() {
     matrixRows.push(['', '', '']);
     matrixRows.push([
       '', 'សរុប (Total)', '',
-      totals.p, totals.l, totals.a, totals.sw, totals.lv, '',
+      totals.p+totals.l, totals.l, totals.a, totals.sw, totals.lv, '',
       totals.d > 0 ? -totals.d : 0,
       totals.ob > 0 ? +totals.ob.toFixed(2) : 0,
       ...allDays.map(() => ''),
@@ -3615,7 +3615,7 @@ async function exportMonthlyAttendanceExcel() {
       i + 1,
       emp.name,
       emp.department || '',
-      present,
+      present + late,
       late,
       absent,
       swap || 0,
@@ -3629,7 +3629,7 @@ async function exportMonthlyAttendanceExcel() {
       offBonus > 0 ? +offBonus.toFixed(2) : 0
     ]);
     summaryRows.push(['', '', '']);
-    summaryRows.push(['', 'សរុប (Total)', '', totals.p, totals.l, totals.a, totals.sw, totals.lv,
+    summaryRows.push(['', 'សរុប (Total)', '', totals.p+totals.l, totals.l, totals.a, totals.sw, totals.lv,
       summaries.reduce((s,r)=>s+(r.present+r.late||0),0),
       summaries.reduce((s,r)=>s+(r.empOffDaysThisMonth||0),0),
       summaries.reduce((s,r)=>s+(r.offDaysWorked||0),0),
