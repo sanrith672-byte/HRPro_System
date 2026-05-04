@@ -252,6 +252,21 @@ async function handleRequest(request, env) {
     if (path === '/stats' && method === 'GET') return getStats(env);
 
     // ===== SALARY INCREASES =====
+    if (path === '/salary-increases' || path.match(/^\/salary-increases\/\d+$/)) {
+      // Auto-create table if not exists (migration-safe)
+      await env.DB.prepare(`CREATE TABLE IF NOT EXISTS salary_increases (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        employee_id INTEGER NOT NULL REFERENCES employees(id),
+        amount REAL DEFAULT 0,
+        salary_before REAL DEFAULT 0,
+        salary_after REAL DEFAULT 0,
+        reason TEXT DEFAULT '',
+        effective_date TEXT NOT NULL,
+        note TEXT DEFAULT '',
+        created_at TEXT
+      )`).run().catch(()=>{});
+    }
+
     if (path === '/salary-increases') {
       if (method === 'GET') {
         const empId = url.searchParams.get('employee_id');
