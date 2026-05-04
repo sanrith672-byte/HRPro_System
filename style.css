@@ -1796,3 +1796,275 @@ input, select, textarea { font-size: max(14px, 1em); }
   color: var(--text3);
   font-size: 13px;
 }
+/* ═══════════════════════════════════════════════════════════════
+   MOBILE FULL-FEATURE RESPONSIVE — all pages match desktop
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Page header: always wrap, never clip buttons ── */
+@media (max-width: 700px) {
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .page-header > div:last-child {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    width: 100%;
+  }
+  .page-header .btn {
+    flex: 1 1 auto;
+    min-width: 0;
+    justify-content: center;
+    font-size: 12px;
+    padding: 7px 10px;
+    white-space: nowrap;
+  }
+  .page-header input[type="month"],
+  .page-header input[type="date"],
+  .page-header select {
+    flex: 1 1 120px;
+    font-size: 13px;
+    min-height: 36px;
+  }
+}
+
+/* ── Filter bar: scrollable row on mobile ── */
+@media (max-width: 700px) {
+  .filter-bar {
+    display: flex;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    flex-wrap: nowrap;
+    gap: 6px;
+    padding-bottom: 4px;
+    scrollbar-width: none;
+  }
+  .filter-bar::-webkit-scrollbar { display: none; }
+  .filter-bar .btn,
+  .filter-bar .filter-input,
+  .filter-bar select { flex-shrink: 0; font-size: 12px; }
+}
+
+/* ── Salary summary: 2-col grid ── */
+@media (max-width: 700px) {
+  .salary-summary {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px;
+  }
+  .salary-box .val { font-size: 18px; }
+}
+
+/* ── Attendance summary: 2-col ── */
+@media (max-width: 700px) {
+  .att-summary {
+    grid-template-columns: 1fr 1fr 1fr !important;
+    gap: 6px;
+  }
+  .att-num { font-size: 22px !important; }
+  .att-lbl { font-size: 10px !important; }
+  .att-box { padding: 10px 6px !important; }
+}
+
+/* ── Stats grid: 2-col ── */
+@media (max-width: 700px) {
+  .stats-grid { grid-template-columns: 1fr 1fr !important; gap: 8px; }
+  .stat-card { padding: 12px 10px; }
+  .stat-value { font-size: 20px; }
+}
+
+/* ── Dashboard grid: single column ── */
+@media (max-width: 700px) {
+  .dashboard-grid { grid-template-columns: 1fr !important; gap: 12px; }
+}
+
+/* ── Card body: smaller padding ── */
+@media (max-width: 700px) {
+  .card-body { padding: 10px 12px; }
+  .card-header { flex-wrap: wrap; gap: 8px; padding: 10px 12px; }
+}
+
+/* ── Tables: full horizontal scroll ── */
+@media (max-width: 700px) {
+  .table-container,
+  .card > div[style*="overflow"] {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: thin;
+  }
+  table { min-width: 560px; font-size: 12px; }
+  thead th { font-size: 11px; padding: 6px 8px; }
+  tbody td { font-size: 12px; padding: 8px 6px; }
+  .action-btns { gap: 3px; }
+  .action-btns .btn-sm { padding: 4px 7px; font-size: 11px; }
+}
+
+/* ── Modal: full-width slide-up on mobile ── */
+@media (max-width: 700px) {
+  .modal-overlay { align-items: flex-end; padding: 0; }
+  .modal {
+    width: 100% !important;
+    max-width: 100% !important;
+    border-radius: 20px 20px 0 0;
+    max-height: 92vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    margin: 0;
+  }
+  .modal--wide { width: 100% !important; max-width: 100% !important; }
+  .form-grid { grid-template-columns: 1fr !important; }
+  .form-grid-3 { grid-template-columns: 1fr !important; }
+  .form-grid-2 { grid-template-columns: 1fr !important; }
+  .form-actions {
+    position: sticky;
+    bottom: 0;
+    background: var(--bg2);
+    padding: 12px 16px 20px;
+    border-top: 1px solid var(--border);
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .form-actions .btn { flex: 1 1 auto; justify-content: center; }
+}
+
+/* ── Salary table on mobile: card-per-row style ── */
+@media (max-width: 700px) {
+  .salary-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* ── Leave & DaySwap pages ── */
+@media (max-width: 700px) {
+  .leave-grid,
+  .dayswap-grid {
+    grid-template-columns: 1fr !important;
+    gap: 10px;
+  }
+}
+
+/* ── Reports page: single column ── */
+@media (max-width: 700px) {
+  .reports-grid { grid-template-columns: 1fr !important; gap: 10px; }
+}
+
+/* ── ID cards: single col ── */
+@media (max-width: 700px) {
+  .id-card-grid { grid-template-columns: 1fr !important; gap: 16px; }
+  .id-card { width: 100% !important; max-width: 340px; margin: 0 auto; }
+}
+
+/* ── Dept cards ── */
+@media (max-width: 700px) {
+  .dept-grid { grid-template-columns: 1fr 1fr !important; gap: 8px; }
+  .dept-card { padding: 12px; }
+}
+
+/* ── Loan / Expense / Allowance pages: filter + table ── */
+@media (max-width: 700px) {
+  .loan-summary,
+  .expense-summary,
+  .allowance-summary {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px;
+  }
+}
+
+/* ── Settings tabs: wrap ── */
+@media (max-width: 700px) {
+  .settings-tabs {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .settings-tabs::-webkit-scrollbar { display: none; }
+  .settings-tab { flex-shrink: 0; font-size: 11px; padding: 8px 12px; }
+  .settings-section { padding: 14px; }
+  .settings-grid { grid-template-columns: 1fr !important; gap: 12px; }
+}
+
+/* ── QR scan page: full width camera ── */
+@media (max-width: 700px) {
+  #qr-video-container { width: 100% !important; max-width: 100% !important; }
+  #qr-video { width: 100% !important; }
+}
+
+/* ── Attendance date-view: fix action bar ── */
+@media (max-width: 700px) {
+  .att-date-header {
+    flex-direction: column;
+    gap: 8px;
+  }
+  .att-date-actions { flex-wrap: wrap; gap: 6px; width: 100%; }
+  .att-date-actions .btn { flex: 1 1 auto; justify-content: center; }
+}
+
+/* ── OT page ── */
+@media (max-width: 700px) {
+  .ot-summary { grid-template-columns: 1fr 1fr 1fr !important; gap: 6px; }
+}
+
+/* ── Monthly attendance: rules info bar wrap ── */
+@media (max-width: 700px) {
+  .rules-info-bar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    font-size: 11px;
+  }
+}
+
+/* ── Badge / status ── */
+@media (max-width: 700px) {
+  .badge { font-size: 10px; padding: 2px 6px; }
+}
+
+/* ── Employee cards search area ── */
+@media (max-width: 700px) {
+  .emp-search-bar {
+    flex-direction: column;
+    gap: 6px;
+  }
+  .emp-search-bar input { width: 100%; }
+  .emp-search-bar .btn { width: 100%; justify-content: center; }
+}
+
+/* ── Content area base: always scrollable, full padding ── */
+@media (max-width: 700px) {
+  .content-area {
+    padding: 10px 8px 76px;
+    overflow-x: hidden;
+  }
+}
+
+/* ── Ensure monthly attendance export buttons visible on mobile ── */
+@media (max-width: 700px) {
+  .monthly-att-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    width: 100%;
+  }
+  .monthly-att-actions .btn {
+    flex: 1 1 auto;
+    font-size: 11px;
+    padding: 6px 8px;
+    justify-content: center;
+    min-width: 60px;
+  }
+}
+
+/* ── Prevent text overflow in cells ── */
+@media (max-width: 700px) {
+  .emp-name { font-size: 12px; max-width: 120px; overflow: hidden; text-overflow: ellipsis; }
+  .emp-id, .emp-dept { font-size: 10px; }
+}
+
+/* ── Responsive colgroup for big tables ── */
+@media (max-width: 700px) {
+  th, td { box-sizing: border-box; }
+}
