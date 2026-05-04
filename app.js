@@ -1374,7 +1374,7 @@ async function openEmployeeModal(id=null) {
     + '<div class="form-grid-3">'
     + '<div class="form-group"><label class="form-label">💵 ប្រាក់ខែបន្ថែម (USD)</label>'
     + '<input class="form-control" id="f-allowance" type="number" min="0" step="0.01" placeholder="0" '
-    + 'value="' + (parseFloat(emp?.allowance||0)||'') + '" oninput="updateSalaryPreview()" /></div>'
+    + 'value="' + (emp?.allowance != null ? parseFloat(emp.allowance) : '') + '" oninput="updateSalaryPreview()" /></div>'
     + '<div class="form-group" style="grid-column:span 2"><label class="form-label" style="color:var(--success);font-weight:700">✅ ប្រាក់ខែសរុប (USD)</label>'
     + '<div id="f-salary-total" style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:14px;font-weight:400;color:var(--text);display:flex;align-items:center;gap:4px">'
     + '$<span id="f-sb-total">' + (parseFloat(emp?.salary||0)+parseFloat(emp?.allowance||0)).toFixed(2) + '</span>'
