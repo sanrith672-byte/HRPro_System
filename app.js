@@ -2369,19 +2369,21 @@ async function renderMonthlyAttendance(month='') {
       const empOffDateDays = offDateMap[emp.id] || {};
       const empOffDaysSet = parseOffDays(emp);
       const countedOffDays = new Set();
-      // dayswap approved records — OFF+ជំនួស (off_date មាន) = count ជា present ប៉ុន្តែ swap=0 (ដោយ offDateMap handle present elsewhere)
+      // dayswap approved records
       Object.keys(empSwapDays).forEach(dd => {
         if (countedOffDays.has(dd)) return;
         countedOffDays.add(dd);
         const sr = empSwapDays[dd];
         const isCompOff = sr.off_date && sr.off_date.trim() !== '';
         if (!isCompOff) {
-          // OFF ធ្វើការ (គ្មានជំនួស) — swap + present
+          // OFF ្នូវការ (គ្មានជានួស) — swap + present
           swap++;
           present++;
+        } else {
+          // OFF+្នួរជានួស — បុគ្គលិកបានមក្នូវការ្នូវការ — count present + swap
+          present++;
+          swap++;
         }
-        // OFF+ជំនួស — present ត្រូវបន្ថែម (បុគ្គលិកបានមក) ប៉ុន្តែ swap column មិន count
-        // (present already counted in empDays loop above if att record exists)
       });
       // attendance records on OFF days (direct scan/add — no dayswap)
       allDays.forEach(({dd, wd}) => {
