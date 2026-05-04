@@ -2879,11 +2879,12 @@ async function renderMonthlyAttendance(month='') {
             } else if (compSwap) {
               offCount++; // compensation OFF day
             } else {
-              // Working day — only count if has att record (present/late) or is future/today
+              // Working day
               if (attRec && (attRec.status==='present'||attRec.status==='late')) {
                 working++;
               } else {
-                // no att yet (absent or future) → count as 0 working
+                // absent or future day → count as offCount so 0 shows correctly
+                offCount++;
               }
             }
           });
@@ -2956,8 +2957,13 @@ function printMonthlyAttendance() {
   const footWorkHTML = allDays.map(({dd,wd})=>{
     let w=0;
     summaries.forEach(({emp})=>{
-      const empOff=parseOffDays(emp); const swapRec=(_swapMapPDF[emp.id]||{})[dd]; const compSwap=(_offDatePDF[emp.id]||{})[dd];
-      if(empOff.length>0&&empOff.indexOf(wd)!==-1){if(swapRec)w++;} else if(!compSwap)w++;
+      const empOff=parseOffDays(emp); const swapRec=(_swapMapPDF[emp.id]||{})[dd]; const compSwap=(_offDatePDF[emp.id]||{})[dd]; const attRec=(_attMapPDF[emp.id]||{})[dd];
+      if(empOff.length>0&&empOff.indexOf(wd)!==-1){
+        // OFF day: count if came to work (swapRec without compOff, or direct att)
+        if(swapRec){ const isComp=swapRec.off_date&&swapRec.off_date.trim()!==''; if(!isComp)w++; }
+        else if(attRec&&(attRec.status==='present'||attRec.status==='late'))w++;
+      } else if(compSwap){ /* compensation OFF — not working */ }
+      else { if(attRec&&(attRec.status==='present'||attRec.status==='late'))w++; }
     });
     const isSun=wd===0,isSat=wd===6; const bg=isSun?'background:#fee2e2;':isSat?'background:#fef9c3;':'';
     return `<td style="text-align:center;font-size:10px;font-weight:700;color:#16a34a;${bg}">${w}</td>`;
@@ -2965,8 +2971,14 @@ function printMonthlyAttendance() {
   const footOffHTML = allDays.map(({dd,wd})=>{
     let o=0;
     summaries.forEach(({emp})=>{
-      const empOff=parseOffDays(emp); const swapRec=(_swapMapPDF[emp.id]||{})[dd]; const compSwap=(_offDatePDF[emp.id]||{})[dd];
-      if(empOff.length>0&&empOff.indexOf(wd)!==-1){if(!swapRec)o++;} else if(compSwap)o++;
+      const empOff=parseOffDays(emp); const swapRec=(_swapMapPDF[emp.id]||{})[dd]; const compSwap=(_offDatePDF[emp.id]||{})[dd]; const attRec=(_attMapPDF[emp.id]||{})[dd];
+      if(empOff.length>0&&empOff.indexOf(wd)!==-1){
+        // OFF day: count as off if not came to work
+        if(swapRec){ const isComp=swapRec.off_date&&swapRec.off_date.trim()!==''; if(isComp)o++; }
+        else if(attRec&&(attRec.status==='present'||attRec.status==='late')){ /* worked */ }
+        else o++;
+      } else if(compSwap){ o++; }
+      else { if(!attRec||(attRec.status!=='present'&&attRec.status!=='late'))o++; }
     });
     const isSun=wd===0,isSat=wd===6; const bg=isSun?'background:#fee2e2;':isSat?'background:#fef9c3;':'';
     return `<td style="text-align:center;font-size:10px;font-weight:700;color:#dc2626;${bg}">${o}</td>`;
@@ -3295,8 +3307,12 @@ function saveMonthlyAttendanceAsImage() {
   const pngFootWorkHTML = allDays.map(({dd,wd})=>{
     let w=0;
     summaries.forEach(({emp})=>{
-      const empOff=parseOffDays(emp); const swapRec=(_swapMapPNG[emp.id]||{})[dd]; const compSwap=(_offDatePNG[emp.id]||{})[dd];
-      if(empOff.length>0&&empOff.indexOf(wd)!==-1){if(swapRec)w++;} else if(!compSwap)w++;
+      const empOff=parseOffDays(emp); const swapRec=(_swapMapPNG[emp.id]||{})[dd]; const compSwap=(_offDatePNG[emp.id]||{})[dd]; const attRec=(_attMapPNG[emp.id]||{})[dd];
+      if(empOff.length>0&&empOff.indexOf(wd)!==-1){
+        if(swapRec){ const isComp=swapRec.off_date&&swapRec.off_date.trim()!==''; if(!isComp)w++; }
+        else if(attRec&&(attRec.status==='present'||attRec.status==='late'))w++;
+      } else if(compSwap){ /* compensation OFF */ }
+      else { if(attRec&&(attRec.status==='present'||attRec.status==='late'))w++; }
     });
     const isSun=wd===0,isSat=wd===6; const bg=isSun?'background:#fee2e2;':isSat?'background:#fef9c3;':''
     return `<td style="text-align:center;font-size:11px;font-weight:700;color:#16a34a;${bg}">${w}</td>`;
@@ -3304,8 +3320,13 @@ function saveMonthlyAttendanceAsImage() {
   const pngFootOffHTML = allDays.map(({dd,wd})=>{
     let o=0;
     summaries.forEach(({emp})=>{
-      const empOff=parseOffDays(emp); const swapRec=(_swapMapPNG[emp.id]||{})[dd]; const compSwap=(_offDatePNG[emp.id]||{})[dd];
-      if(empOff.length>0&&empOff.indexOf(wd)!==-1){if(!swapRec)o++;} else if(compSwap)o++;
+      const empOff=parseOffDays(emp); const swapRec=(_swapMapPNG[emp.id]||{})[dd]; const compSwap=(_offDatePNG[emp.id]||{})[dd]; const attRec=(_attMapPNG[emp.id]||{})[dd];
+      if(empOff.length>0&&empOff.indexOf(wd)!==-1){
+        if(swapRec){ const isComp=swapRec.off_date&&swapRec.off_date.trim()!==''; if(isComp)o++; }
+        else if(attRec&&(attRec.status==='present'||attRec.status==='late')){ /* worked */ }
+        else o++;
+      } else if(compSwap){ o++; }
+      else { if(!attRec||(attRec.status!=='present'&&attRec.status!=='late'))o++; }
     });
     const isSun=wd===0,isSat=wd===6; const bg=isSun?'background:#fee2e2;':isSat?'background:#fef9c3;':''
     return `<td style="text-align:center;font-size:11px;font-weight:700;color:#dc2626;${bg}">${o}</td>`;
