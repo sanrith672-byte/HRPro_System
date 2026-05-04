@@ -1595,10 +1595,11 @@ async function loadSalaryIncreaseHistory(empId) {
       +'<div style="font-size:11px"><span style="color:var(--text3)">សរុបបន្ថែម: </span><span style="font-weight:700;color:var(--success)">+$'+totalAmount.toFixed(2)+'</span></div>'
       +'</div>'
       + list.map(function(r,i){
-          return '<div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:6px;align-items:center;font-size:11px;padding:5px 0;border-bottom:1px solid var(--border)">'
-            +'<span style="color:var(--text3)">លើកទី '+(totalRaises-i)+'</span>'
-            +'<span style="font-family:var(--mono)">'+r.effective_date+'</span>'
-            +'<span style="color:var(--success);font-weight:700">+'+(r.amount>=0?'':'') +'$'+parseFloat(r.amount).toFixed(2)
+          return '<div style="display:grid;grid-template-columns:auto 1fr 1fr 1fr auto;gap:6px;align-items:center;font-size:11px;padding:6px 0;border-bottom:1px solid var(--border)">'
+            +'<span style="color:var(--text3);white-space:nowrap">លើកទី '+(totalRaises-i)+'</span>'
+            +'<span style="font-family:var(--mono);color:var(--text3)">'+r.effective_date+'</span>'
+            +'<span style="color:var(--text2)">$'+parseFloat(r.salary_before||0).toFixed(2)+' → <strong style="color:var(--success)">$'+parseFloat(r.salary_after||0).toFixed(2)+'</strong></span>'
+            +'<span style="color:var(--success);font-weight:700">+$'+parseFloat(r.amount).toFixed(2)
               +(r.reason?' <span style="color:var(--text3);font-weight:400">('+r.reason+')</span>':'')+'</span>'
             +(canEdit()?'<button onclick="deleteSalaryIncrease('+r.id+','+empId+')" style="background:none;border:none;cursor:pointer;color:var(--danger);font-size:13px;padding:0 4px" title="លុប">🗑️</button>':'<span></span>')
             +'</div>';
@@ -1609,19 +1610,24 @@ async function loadSalaryIncreaseHistory(empId) {
 }
 
 // ── Open salary increase add modal ──
-function openSalaryIncreaseModal(empId) {
+async function openSalaryIncreaseModal(empId) {
   state._salIncEmpId = empId;
   const todayVal = today();
+  // Fetch current salary
+  let currentSalary = 0;
+  try { const e = await api('GET', '/employees/' + empId); currentSalary = parseFloat(e?.salary||0); } catch(_){}
   $('modal-title').textContent = '💹 បន្ថែមប្រាក់ខែ';
   $('modal-body').innerHTML =
     '<div style="padding:4px 0">'
-    +'<div style="background:rgba(255,190,11,.08);border:1px solid rgba(255,190,11,.25);border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:11px;color:var(--text2)">'
-    +'⚠️ <strong>ការបន្ថែម</strong>នេះ គឺជា <strong>ប្រវត្តិការឡើងប្រាក់ខែ</strong> — ខុសពី <em>ប្រាក់ឧបត្ថម្ភ/ថេរ</em> ដែលនៅ form ខាងលើ។ '
-    +'ប្រើ field នេះ ដើម្បីកត់ត្រា ការឡើងប្រាក់ខែម្ដងៗ។'
+    // Current salary display
+    +'<div style="display:flex;align-items:center;gap:12px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:12px">'
+    +'<div style="font-size:12px;color:var(--text3)">ប្រាក់ខែគោលបច្ចុប្បន្ន</div>'
+    +'<div style="font-size:18px;font-weight:700;color:var(--success)">$' + currentSalary.toFixed(2) + '</div>'
+    +'<div style="font-size:12px;color:var(--text3);margin-left:auto">បន្ទាប់ពីបន្ថែម → <span id="si-preview" style="color:var(--primary);font-weight:700">$' + currentSalary.toFixed(2) + '</span></div>'
     +'</div>'
     +'<div class="form-grid-3" style="grid-template-columns:1fr 1fr">'
     +'<div class="form-group"><label class="form-label">💵 ចំនួនបន្ថែម (USD) *</label>'
-    +'<input class="form-control" id="si-amount" type="number" min="0" step="0.01" placeholder="100" /></div>'
+    +'<input class="form-control" id="si-amount" type="number" min="0" step="0.01" placeholder="100" oninput="updateSalaryIncreasePreview(' + currentSalary + ')" /></div>'
     +'<div class="form-group"><label class="form-label">📅 ថ្ងៃចូលជាធរមាន *</label>'
     +'<input class="form-control" id="si-date" type="date" value="'+todayVal+'" /></div>'
     +'</div>'
@@ -1637,19 +1643,36 @@ function openSalaryIncreaseModal(empId) {
   openModal();
 }
 
+function updateSalaryIncreasePreview(currentSalary) {
+  const amount = parseFloat(document.getElementById('si-amount')?.value) || 0;
+  const el = document.getElementById('si-preview');
+  if (el) el.textContent = '$' + (currentSalary + amount).toFixed(2);
+}
+
 async function saveSalaryIncrease() {
   const amount = parseFloat($('si-amount')?.value);
   const date   = $('si-date')?.value;
   if (!amount || amount <= 0 || !date) { showToast('សូមបំពេញចំនួនបន្ថែម និងថ្ងៃ!','error'); return; }
   try {
-    await api('POST', '/salary-increases', {
+    // 1. Record salary increase history
+    const res = await api('POST', '/salary-increases', {
       employee_id:    state._salIncEmpId,
       amount:         amount,
       effective_date: date,
       reason:         $('si-reason')?.value.trim(),
       note:           $('si-note')?.value.trim(),
     });
-    showToast('បន្ថែមប្រាក់ខែបានជោគជ័យ!','success');
+    // 2. Update employee base salary (salary_after returned from API)
+    const newSalary = res?.salary_after;
+    if (newSalary != null) {
+      // Fetch current employee data to preserve all fields
+      const emp = await api('GET', '/employees/' + state._salIncEmpId);
+      await api('PUT', '/employees/' + state._salIncEmpId, {
+        ...emp,
+        salary: newSalary,
+      });
+    }
+    showToast('បន្ថែមប្រាក់ខែ និងអាប់ដេតប្រាក់ខែគោលបានជោគជ័យ!', 'success');
     openEmployeeModal(state._salIncEmpId);
   } catch(e) {
     showToast('បញ្ហា: '+e.message,'error');
