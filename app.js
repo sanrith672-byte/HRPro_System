@@ -2770,15 +2770,6 @@ function printMonthlyAttendance() {
     const isSun=wd===0,isSat=wd===6; const bg=isSun?'background:#fee2e2;':isSat?'background:#fef9c3;':'background:#fffbeb;';
     return `<td style="text-align:center;font-size:10px;font-weight:700;color:#d97706;${bg}">${ow>0?'🌟'+ow:'—'}</td>`;
   }).join('');
-  const footCompSwapHTML = allDays.map(({dd,wd})=>{
-    let cs=0;
-    summaries.forEach(({emp})=>{
-      const compSwap=(_offDatePDF[emp.id]||{})[dd];
-      if(compSwap)cs++;
-    });
-    const isSun=wd===0,isSat=wd===6; const bg=isSun?'background:#fee2e2;':isSat?'background:#fef9c3;':'background:#fefce8;';
-    return `<td style="text-align:center;font-size:10px;font-weight:700;color:#92400e;${bg}">${cs>0?'🔄'+cs:'—'}</td>`;
-  }).join('');
   const totalWDpdf  = summaries.reduce((s,r)=>s+(r.workingDaysCount||0),0);
   const totalOFFpdf = summaries.reduce((s,r)=>s+(r.empOffDaysThisMonth||0),0);
   const totalOWpdf  = summaries.reduce((s,r)=>s+(r.offDaysWorked||0),0);
@@ -2815,8 +2806,8 @@ function printMonthlyAttendance() {
       if (isOff) {
         if (swapRec) {
           const hasComp = swapRec.off_date && swapRec.off_date.trim() !== '';
-          if (hasComp) return `<td style="text-align:center;font-size:9px;color:#92400e;background:#fde68a;font-weight:700;" title="OFF+ជំនួស (មិនគិតប្រាក់)">🔄</td>`;
-          return `<td style="text-align:center;font-size:9px;color:#4338ca;background:#ede9fe;font-weight:700;" title="OFF ធ្វើការ (គិតប្រាក់)">🔄</td>`;
+          if (hasComp) return `<td style="text-align:center;font-size:9px;color:#92400e;background:#fde68a;font-weight:700;">🔄</td>`;
+          return `<td style="text-align:center;font-size:9px;color:#4338ca;background:#ede9fe;font-weight:700;">🔄</td>`;
         }
         // Direct attendance on OFF day (no dayswap) → 🌟 OFF worked
         if (a && (a.status === 'present' || a.status === 'late')) {
@@ -2825,8 +2816,8 @@ function printMonthlyAttendance() {
         }
         return `<td style="text-align:center;font-size:8px;color:#374151;background:#e5e7eb;font-weight:600;">OFF</td>`;
       }
-      // Compensation OFF day (OFF+) — working day but employee takes as comp day off
-      if (compSwap) return `<td style="text-align:center;font-size:8px;font-weight:700;color:#15803d;background:#bbf7d0;" title="OFF+ ថ្ងៃជំនួស">OFF+</td>`;
+      // Compensation OFF day (OFF+)
+      if (compSwap) return `<td style="text-align:center;font-size:8px;font-weight:700;color:#92400e;background:#fde68a;">OFF+</td>`;
       // Leave
       if (lv) {
         const isPending = lv.status === 'pending';
@@ -2913,7 +2904,6 @@ function printMonthlyAttendance() {
     <span style="background:#ede9fe;color:#6366f1">🔄 ប្ដូរថ្ងៃ</span>
     <span style="background:#dcfce7;color:#16a34a">🌴 ច្បាប់</span>
     <span style="background:#f3f4f6;color:#9ca3af">OFF ឈប់</span>
-    <span style="background:#fde68a;color:#92400e">🔄 OFF+ ជំនួស</span>
     <span style="background:#fffbeb;color:#d97706">🌟✔ OFF ធ្វើការ</span>
     <span style="color:#9333ea">🎉 ថ្ងៃឈប់</span>
   </div>
@@ -2964,11 +2954,6 @@ function printMonthlyAttendance() {
         <td style="padding:3px 5px;font-size:10px;font-weight:700;color:#92400e;white-space:nowrap" colspan="2">🌟 OFF ធ្វើការ (នាក់)</td>
         <td colspan="7"></td>
         ${footOWHTML}
-      </tr>
-      <tr style="background:#fefce8;">
-        <td style="padding:3px 5px;font-size:10px;font-weight:700;color:#92400e;white-space:nowrap" colspan="2">🔄 OFF+ ជំនួស (នាក់)</td>
-        <td colspan="7"></td>
-        ${footCompSwapHTML}
       </tr>
     </tfoot>
   </table>
@@ -3049,8 +3034,8 @@ function saveMonthlyAttendanceAsImage() {
       if (isOff) {
         if (swapRec) {
           const hasComp = swapRec.off_date && swapRec.off_date.trim() !== '';
-          if (hasComp) return `<td style="text-align:center;font-size:11px;background:#fde68a;color:#92400e;font-weight:700;" title="OFF+ជំនួស (មិនគិតប្រាក់)">🔄</td>`;
-          return `<td style="text-align:center;font-size:11px;background:#ede9fe;color:#4338ca;font-weight:700;" title="OFF ធ្វើការ (គិតប្រាក់)">🔄</td>`;
+          if (hasComp) return `<td style="text-align:center;font-size:11px;background:#fde68a;color:#92400e;font-weight:700;">🔄</td>`;
+          return `<td style="text-align:center;font-size:11px;background:#ede9fe;color:#4338ca;font-weight:700;">🔄</td>`;
         }
         // Direct attendance on OFF day (no dayswap) → 🌟 OFF worked
         if (a && (a.status === 'present' || a.status === 'late')) {
@@ -3059,7 +3044,7 @@ function saveMonthlyAttendanceAsImage() {
         }
         return `<td style="text-align:center;font-size:10px;background:#e5e7eb;color:#374151;font-weight:700;">OFF</td>`;
       }
-      if (compSwap) return `<td style="text-align:center;font-size:10px;background:#bbf7d0;color:#15803d;font-weight:700;" title="OFF+ ថ្ងៃជំនួស">OFF+</td>`;
+      if (compSwap) return `<td style="text-align:center;font-size:10px;background:#fde68a;color:#92400e;font-weight:700;">OFF+</td>`;
       if (lv) {
         const lbg = lv.status==='pending' ? 'background:#ddd6fe;color:#5b21b6;' : 'background:#bbf7d0;color:#15803d;';
         return `<td style="text-align:center;font-size:11px;font-weight:700;${lbg}">🌴</td>`;
@@ -3124,15 +3109,6 @@ function saveMonthlyAttendanceAsImage() {
     const isSun=wd===0,isSat=wd===6; const bg=isSun?'background:#fee2e2;':isSat?'background:#fef9c3;':'background:#fffbeb;'
     return `<td style="text-align:center;font-size:11px;font-weight:700;color:#d97706;${bg}">${ow>0?'🌟'+ow:'—'}</td>`;
   }).join('');
-  const pngFootCompSwapHTML = allDays.map(({dd,wd})=>{
-    let cs=0;
-    summaries.forEach(({emp})=>{
-      const compSwap=(_offDatePNG[emp.id]||{})[dd];
-      if(compSwap)cs++;
-    });
-    const isSun=wd===0,isSat=wd===6; const bg=isSun?'background:#fee2e2;':isSat?'background:#fef9c3;':'background:#fefce8;'
-    return `<td style="text-align:center;font-size:11px;font-weight:700;color:#92400e;${bg}">${cs>0?'🔄'+cs:'—'}</td>`;
-  }).join('');
   const pngTotalWD  = summaries.reduce((s,r)=>s+(r.workingDaysCount||0),0);
   const pngTotalOFF = summaries.reduce((s,r)=>s+(r.empOffDaysThisMonth||0),0);
 
@@ -3178,11 +3154,10 @@ function saveMonthlyAttendanceAsImage() {
     <span style="background:#dcfce7;color:#15803d;">✔ វត្តមាន</span>
     <span style="background:#fef9c3;color:#92400e;">⏰ យឺត</span>
     <span style="background:#fee2e2;color:#dc2626;">— អវត្តមាន</span>
-    <span style="background:#fde68a;color:#92400e;">🔄 OFF+ជំនួស (មិនគិតប្រាក់)</span>
-    <span style="background:#ede9fe;color:#4f46e5;">🔄 OFF ធ្វើការ (គិតប្រាក់)</span>
+    <span style="background:#ede9fe;color:#4f46e5;">🔄 ប្ដូរ</span>
     <span style="background:#bbf7d0;color:#15803d;">🌴 ច្បាប់</span>
     <span style="background:#e5e7eb;color:#374151;">OFF ឈប់</span>
-    <span style="background:#bbf7d0;color:#15803d;">OFF+ ថ្ងៃជំនួស</span>
+    <span style="background:#fde68a;color:#92400e;">OFF+ សង</span>
     <span style="background:#fffbeb;color:#d97706;">🌟✔ OFF ធ្វើការ</span>
     <span style="background:#ede9fe;color:#7c3aed;">🎉 ថ្ងៃបុណ្យ</span>
   </div>
@@ -3220,6 +3195,7 @@ function saveMonthlyAttendanceAsImage() {
         <td style="text-align:center;font-weight:800;color:#6366f1;background:#f5f3ff">${summaries.reduce((s,r)=>s+(r.empOffDaysThisMonth||0),0)}</td>
       </tr>
       <tr style="background:#f0fdf4;">
+      <tr style="background:#f0fdf4;">
         <td style="padding:4px 8px;font-size:11px;font-weight:700;color:#166534;white-space:nowrap" colspan="2">✅ ធ្វើការ (នាក់)</td>
         <td colspan="7"></td>
         ${pngFootWorkHTML}
@@ -3234,12 +3210,6 @@ function saveMonthlyAttendanceAsImage() {
         <td colspan="7"></td>
         ${pngFootOWHTML}
       </tr>
-      <tr style="background:#fefce8;">
-        <td style="padding:4px 8px;font-size:11px;font-weight:700;color:#92400e;white-space:nowrap" colspan="2">🔄 OFF+ ជំនួស (នាក់)</td>
-        <td colspan="7"></td>
-        ${pngFootCompSwapHTML}
-      </tr>
-    </tfoot>
   </table>
   <div class="sig">
     <div class="sig-col"><div class="sig-line">ហត្ថលេខាអ្នករៀបចំ</div></div>
@@ -3330,7 +3300,7 @@ async function exportMonthlyAttendanceExcel() {
         if (isEmpOff) {
           if (swapRec) {
             const hasComp = swapRec.off_date && swapRec.off_date.trim() !== '';
-            if (hasComp) return 'OFF';   // OFF+compensation
+            if (hasComp) return '🔄';   // OFF+compensation → show 🔄
             return '🔄';   // dayswap without comp = worked OFF
           }
           // Direct attendance on OFF day (no dayswap)
