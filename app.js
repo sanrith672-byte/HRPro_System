@@ -35,6 +35,7 @@ const state = {
   departments: [],
   currentPage: 'dashboard',
   editingId: null,
+  _editingEmp: null,
 };
 
 // ===== COLORS FOR AVATARS =====
@@ -1321,6 +1322,7 @@ async function openEmployeeModal(id=null) {
   }
   let emp = null;
   if (id) { try { emp = await api('GET', '/employees/' + id); } catch(_) {} }
+  state._editingEmp = emp;
 
   // Auto-generate next ID for new employee
   let autoNextId = '';
@@ -1525,7 +1527,7 @@ async function saveEmployee() {
     phone:         $('f-phone')?.value.trim(),
     email:         $('f-email')?.value.trim(),
     salary:        parseFloat($('f-salary')?.value) || 0,
-    allowance:     emp?.allowance || 0,  // preserved, not editable from this form
+    allowance:     state._editingEmp?.allowance || 0,  // preserved, not editable from this form
     hire_date:     $('f-hire')?.value,
     status:        $('f-status')?.value,
     termination_date: $('f-termination-date')?.value || null,
