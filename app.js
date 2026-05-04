@@ -1757,11 +1757,26 @@ async function updateSalaryIncrease() {
 }
 
 async function deleteSalaryIncrease(id, empId) {
-  if (!confirm('តើលុបប្រវត្តិបន្ថែមប្រាក់ខែនេះ?')) return;
+  if (!confirm('តើលុបប្រវត្តិបន្ថែមប្រាក់ខែនេះ?\n(ប្រាក់ខែបុគ្គលិកនឹងត្រូវវិលទៅតម្លៃ មុន ការបន្ថែម)')) return;
   try {
+    // 1. Fetch the salary-increase record to get salary_before
+    const list = await api('GET', '/salary-increases?employee_id=' + empId);
+    const rec = Array.isArray(list) ? list.find(r => r.id === id) : null;
+
+    // 2. Delete the salary-increase record
     await api('DELETE', '/salary-increases/' + id);
-    showToast('លុបបានជោគជ័យ!','success');
-    loadSalaryIncreaseHistory(empId);
+
+    // 3. Revert employee salary back to salary_before
+    if (rec && rec.salary_before != null) {
+      const emp = await api('GET', '/employees/' + empId);
+      await api('PUT', '/employees/' + empId, {
+        ...emp,
+        salary: parseFloat(rec.salary_before),
+      });
+    }
+
+    showToast('លុបបានជោគជ័យ! ប្រាក់ខែបានវិលទៅតម្លៃមុន!', 'success');
+    openEmployeeModal(empId);
   } catch(e) {
     showToast('Error: '+e.message,'error');
   }
