@@ -2856,86 +2856,126 @@ async function renderMonthlyAttendance(month='') {
       +'</thead>'
       +'<tbody>'+dayRows+'</tbody>'
       +(()=>{
-        // Build per-day working/off summary footer
+        // Build per-day working/off summary footer — 4 separate rows
         const totalEmps = renderEmps.length;
-        const footCells = allDays.map(({dd, wd}) => {
+
+        // Compute per-day stats
+        const footData = allDays.map(({dd, wd}) => {
           let working = 0, lateCount = 0, offCount = 0, offWorked = 0;
           renderSummaries.forEach(({emp}) => {
             const empOff = parseOffDays(emp);
             const swapRec = (swapMap[emp.id]||{})[dd];
             const compSwap = (offDateMap[emp.id]||{})[dd];
-            const attRec = (attMap[emp.id]||{})[dd]; // use closure attMap directly
+            const attRec = (attMap[emp.id]||{})[dd];
             if (empOff.length > 0 && empOff.indexOf(wd) !== -1) {
-              // OFF day for this employee
               if (swapRec) {
                 const isCompOff = swapRec.off_date && swapRec.off_date.trim() !== '';
-                if (isCompOff) { working++; if (attRec && attRec.status==='late') lateCount++; } // OFF+ជំនួស → came to work (swap day), count as working
-                else { working++; offWorked++; if (attRec && attRec.status==='late') lateCount++; } // OFF ធ្វើការ
+                if (isCompOff) { working++; if (attRec && attRec.status==='late') lateCount++; }
+                else { working++; offWorked++; if (attRec && attRec.status==='late') lateCount++; }
               } else if (attRec && (attRec.status==='present'||attRec.status==='late')) {
-                working++; offWorked++; if (attRec.status==='late') lateCount++; // direct att on OFF day
+                working++; offWorked++; if (attRec.status==='late') lateCount++;
               } else {
                 offCount++;
               }
             } else if (compSwap) {
-              offCount++; // compensation OFF day
+              offCount++;
             } else {
-              // Working day
               if (attRec && (attRec.status==='present'||attRec.status==='late')) {
                 working++;
                 if (attRec.status==='late') lateCount++;
               } else {
-                // absent or future day → count as offCount so 0 shows correctly
                 offCount++;
               }
             }
           });
           const isSun = wd===0, isSat = wd===6;
           const bg = isSun ? 'background:rgba(220,38,38,0.12);' : isSat ? 'background:rgba(180,83,9,0.12);' : '';
-          const offWorkedStr = offWorked > 0 ? '<div style="color:#d97706;font-weight:700;font-size:9px;line-height:1.3">🌟'+offWorked+'</div>' : '';
-          const lateStr = lateCount > 0 ? '<div style="color:var(--warning);font-weight:700;font-size:9px;line-height:1.3">⏰'+lateCount+'</div>' : '';
-          return '<td style="width:26px;min-width:26px;max-width:26px;text-align:center;padding:2px 1px;font-size:10px;'+bg+'">'
-            +'<div style="color:var(--success);font-weight:700;line-height:1.4">'+working+'</div>'
-            +lateStr
-            +'<div style="color:var(--danger);font-weight:600;line-height:1.4">'+offCount+'</div>'
-            +offWorkedStr
-            +'</td>';
-        }).join('');
+          return { working, lateCount, offCount, offWorked, bg };
+        });
 
-        return '<tfoot><tr style="position:sticky;bottom:0;z-index:3;background:var(--bg3);border-top:2px solid var(--border)">'
-          +'<td style="position:sticky;left:0;z-index:4;background:var(--bg3);box-shadow:2px 0 5px rgba(0,0,0,.12);padding:4px 8px;font-size:11px;font-weight:700;white-space:nowrap">'
-          +'<div style="color:var(--success);line-height:1.5;font-size:10px">✅ ធ្វើការ (នាក់)</div>'
-          +'<div style="color:var(--warning);line-height:1.3;font-size:9px">⏰ ចូលយឺត (នាក់)</div>'
-          +'<div style="color:var(--danger);line-height:1.5;font-size:10px">🔴 Off (នាក់)</div>'
-          +'<div style="color:#d97706;line-height:1.3;font-size:9px">🌟 OFF ធ្វើការ</div>'
-          +'</td>'
-          +'<td colspan="6" style="background:var(--bg3);padding:4px 2px;text-align:center;font-size:10px">'
-          +'<div style="color:var(--text3);line-height:1.5">'+totalEmps+' នាក់</div>'
-          +'<div style="color:var(--text3);line-height:1.5">សរុប</div>'
-          +'</td>'
-          +(renderTotals.ob>0
-            ?'<td style="background:rgba(251,191,36,.12);padding:4px 2px;text-align:center;font-weight:700;color:#d97706;font-size:12px" title="🌟 OFF">+$'+renderTotals.ob.toFixed(0)+'</td>'
-            :'<td style="background:var(--bg3);padding:4px 2px;text-align:center;color:var(--text3);font-size:11px">—</td>'
-          )
-          +footCells
-          +(()=>{
-            const totalWD  = renderSummaries.reduce((s,r)=>s+(r.present+r.late||0),0);
-            const totalLate = renderSummaries.reduce((s,r)=>s+(r.late||0),0);
-            const totalOff = renderSummaries.reduce((s,r)=>s+(r.empOffDaysThisMonth||0),0);
-            const totalOW  = renderSummaries.reduce((s,r)=>s+(r.offDaysWorked||0),0);
-            return '<td style="background:var(--bg3);position:sticky;right:'+(isMobile?84:100)+'px;z-index:4;width:'+(isMobile?36:42)+'px;text-align:center;padding:2px 1px;border-left:1px solid var(--border)">'
-              +'<div style="font-size:11px;font-weight:700;color:var(--success);line-height:1.4">'+totalWD+'</div>'
-              +(totalLate>0?'<div style="font-size:9px;font-weight:700;color:var(--warning);line-height:1.3">⏰'+totalLate+'</div>':'')
-              +'<div style="font-size:10px;color:var(--text3);line-height:1.2">ថ្ងៃ</div>'
-              +'</td>'
-              +'<td style="background:var(--bg3);position:sticky;right:'+(isMobile?36:42)+'px;z-index:4;width:'+(isMobile?36:48)+'px;text-align:center;padding:2px 1px;border-left:1px solid var(--border);box-shadow:-2px 0 4px rgba(0,0,0,.06)">'
-              +'<div style="font-size:11px;font-weight:700;color:#6366f1;line-height:1.4">'+totalOff+'</div>'
-              +(totalOW>0?'<div style="font-size:9px;font-weight:700;color:#d97706;line-height:1.3">🌟'+totalOW+'</div>':'')
-              +'</td>'
-              +'<td style="background:var(--bg3);position:sticky;right:0;z-index:4;width:'+(isMobile?48:52)+'px;text-align:center;padding:2px 2px">'
-              +'<div style="font-size:9px;color:var(--text3);line-height:1.3">'+renderSummaries.length+' នាក់</div>'
-              +'</td>';
-          })()
-          +'</tr></tfoot>';
+        // Shared cell width style
+        const TDW = 'width:26px;min-width:26px;max-width:26px;text-align:center;padding:3px 1px;font-size:11px;font-weight:700;';
+
+        // Row 1: ✅ ធ្វើការ
+        const row1Cells = footData.map(({working,bg}) =>
+          '<td style="'+TDW+bg+'color:var(--success)">'+working+'</td>'
+        ).join('');
+
+        // Row 2: ⏰ ចូលយឺត
+        const row2Cells = footData.map(({lateCount,bg}) =>
+          '<td style="'+TDW+bg+'color:var(--warning)">'+(lateCount||'—')+'</td>'
+        ).join('');
+
+        // Row 3: 🔴 Off
+        const row3Cells = footData.map(({offCount,bg}) =>
+          '<td style="'+TDW+bg+'color:var(--danger)">'+offCount+'</td>'
+        ).join('');
+
+        // Row 4: 🌟 OFF ធ្វើការ
+        const row4Cells = footData.map(({offWorked,bg}) =>
+          '<td style="'+TDW+bg+'color:#d97706">'+(offWorked>0?offWorked:'—')+'</td>'
+        ).join('');
+
+        // Grand totals (sticky right)
+        const totalWD   = renderSummaries.reduce((s,r)=>s+(r.present+r.late||0),0);
+        const totalLate = renderSummaries.reduce((s,r)=>s+(r.late||0),0);
+        const totalOff  = renderSummaries.reduce((s,r)=>s+(r.empOffDaysThisMonth||0),0);
+        const totalOW   = renderSummaries.reduce((s,r)=>s+(r.offDaysWorked||0),0);
+
+        const stickyTd = (val, color) =>
+          '<td style="background:var(--bg3);position:sticky;right:0;z-index:4;width:'+(isMobile?48:52)+'px;'
+          +'text-align:center;padding:3px 4px;font-size:12px;font-weight:800;color:'+color+';'
+          +'border-left:2px solid var(--border)">'+val+'</td>';
+
+        const labelTd = (icon, label, color) =>
+          '<td style="background:var(--bg3);position:sticky;left:0;z-index:4;'
+          +'box-shadow:2px 0 5px rgba(0,0,0,.12);padding:5px 12px;font-size:11px;'
+          +'font-weight:700;white-space:nowrap;color:'+color+'">'+icon+' '+label+'</td>';
+
+        const infoTd = (extra) =>
+          '<td colspan="6" style="background:var(--bg3);padding:4px 2px;text-align:center;font-size:10px;color:var(--text3)">'+extra+'</td>';
+
+        const blankTd =
+          '<td colspan="6" style="background:var(--bg3);padding:0"></td>';
+
+        const obTd = renderTotals.ob>0
+          ? '<td style="background:rgba(251,191,36,.12);padding:4px 2px;text-align:center;font-weight:700;color:#d97706;font-size:12px" title="🌟 OFF">+$'+renderTotals.ob.toFixed(0)+'</td>'
+          : '<td style="background:var(--bg3);padding:4px 2px;text-align:center;color:var(--text3);font-size:11px">—</td>';
+
+        const blankObTd = '<td style="background:var(--bg3);padding:0"></td>';
+
+        const trStyle = 'background:var(--bg3);border-top:1px solid var(--border)';
+
+        return '<tfoot>'
+          // ── Row 1: ✅ ធ្វើការ ──────────────────────────────────────────────
+          +'<tr style="'+trStyle+';border-top:2px solid var(--border)">'
+          +labelTd('✅','ធ្វើការ (នាក់)','var(--success)')
+          +infoTd(totalEmps+' នាក់')+obTd
+          +row1Cells
+          +stickyTd(totalWD,'var(--success)')
+          +'</tr>'
+          // ── Row 2: ⏰ ចូលយឺត ───────────────────────────────────────────────
+          +'<tr style="'+trStyle+'">'
+          +labelTd('⏰','ចូលយឺត (នាក់)','var(--warning)')
+          +blankTd+blankObTd
+          +row2Cells
+          +stickyTd(totalLate,'var(--warning)')
+          +'</tr>'
+          // ── Row 3: 🔴 Off ──────────────────────────────────────────────────
+          +'<tr style="'+trStyle+'">'
+          +labelTd('🔴','Off (នាក់)','var(--danger)')
+          +blankTd+blankObTd
+          +row3Cells
+          +stickyTd(totalOff,'var(--danger)')
+          +'</tr>'
+          // ── Row 4: 🌟 OFF ធ្វើការ ──────────────────────────────────────────
+          +'<tr style="'+trStyle+'">'
+          +labelTd('🌟','OFF ធ្វើការ (នាក់)','#d97706')
+          +blankTd+blankObTd
+          +row4Cells
+          +stickyTd(totalOW,'#d97706')
+          +'</tr>'
+          +'</tfoot>';
       })()
       +'</table></div></div>';
   } catch(e) { showError(e.message); }
