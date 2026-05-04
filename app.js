@@ -976,7 +976,8 @@ function renderEmployeesWithData(emps, subtitle) {
         const bankInfo = (e.bank && e.bank !== '—')
           ? '<div style="font-size:11px;font-weight:600;color:var(--text2)">'+e.bank+'</div>'+(e.bank_account?'<div style="font-size:10px;color:var(--text3)">'+e.bank_account+'</div>':'')
           : '<span style="color:var(--text3);font-size:11px">—</span>';
-        const salaryFmt = e.salary ? '<span style="font-weight:700;color:var(--success);font-size:13px">$'+parseFloat(e.salary).toFixed(0)+'</span>' : '—';
+        const totalSal = parseFloat(e.salary||0) + parseFloat(e.allowance||0);
+        const salaryFmt = totalSal ? '<span style="font-weight:700;color:var(--success);font-size:13px">$'+totalSal.toFixed(0)+'</span>' : '—';
         return '<tr>'
           +'<td><div style="display:flex;align-items:center;gap:8px"><div class="emp-avatar" style="'+avStyle+'">'+avInner+'</div><div><div style="font-weight:600;font-size:13px">'+e.name+'</div><div style="font-size:11px;color:var(--text3)">'+displayId+'</div></div></div></td>'
           +'<td><div style="font-size:12px">'+( e.position||'—')+'</div></td>'
@@ -1052,7 +1053,8 @@ function _empQuickFilter(val, dept, status) {
     const bankInfo = (e.bank && e.bank !== '—')
       ? '<div style="font-size:11px;font-weight:600;color:var(--text2)">'+e.bank+'</div>'+(e.bank_account?'<div style="font-size:10px;color:var(--text3)">'+e.bank_account+'</div>':'')
       : '<span style="color:var(--text3);font-size:11px">—</span>';
-    const salaryFmt = e.salary ? '<span style="font-weight:700;color:var(--success);font-size:13px">$'+parseFloat(e.salary).toFixed(0)+'</span>' : '—';
+    const totalSal = parseFloat(e.salary||0) + parseFloat(e.allowance||0);
+        const salaryFmt = totalSal ? '<span style="font-weight:700;color:var(--success);font-size:13px">$'+totalSal.toFixed(0)+'</span>' : '—';
     const termCell = e.termination_date
       ? '<td style="text-align:center"><div style="font-family:var(--mono);font-size:11px;font-weight:700;color:var(--danger)">'+e.termination_date+'</div></td>'
       : '<td style="text-align:center;color:var(--text3);font-size:12px">—</td>';
