@@ -1680,7 +1680,7 @@ async function saveSalaryIncrease() {
       });
       // Update state.employees cache so list reflects new salary immediately
       if (state.employees) {
-        const idx = state.employees.findIndex(e => e.id === state._salIncEmpId);
+        const idx = state.employees.findIndex(e => e.id == state._salIncEmpId);
         if (idx !== -1) state.employees[idx] = { ...state.employees[idx], salary: newSalary };
       }
     }
@@ -1696,7 +1696,8 @@ async function editSalaryIncrease(id, empId) {
   let rec = null;
   try {
     const list = await api('GET', '/salary-increases?employee_id=' + empId);
-    rec = list.find(r => r.id === id);
+    const recList = Array.isArray(list) ? list : (list?.records || []);
+    rec = recList.find(r => r.id == id); // FIX: use == to handle string/number type mismatch
   } catch(e) { showToast('Error: '+e.message,'error'); return; }
   if (!rec) { showToast('រកមិនឃើញ!','error'); return; }
 
@@ -1756,7 +1757,7 @@ async function updateSalaryIncrease() {
     await api('PUT', '/employees/' + empId, { ...emp, salary: salaryAfter });
     // Update state.employees cache so list reflects updated salary immediately
     if (state.employees) {
-      const idx = state.employees.findIndex(e => e.id === empId);
+      const idx = state.employees.findIndex(e => e.id == empId);
       if (idx !== -1) state.employees[idx] = { ...state.employees[idx], salary: salaryAfter };
     }
     showToast('កែប្រែបានជោគជ័យ!', 'success');
@@ -1771,7 +1772,9 @@ async function deleteSalaryIncrease(id, empId) {
   try {
     // 1. Fetch the salary-increase record to get salary_before
     const list = await api('GET', '/salary-increases?employee_id=' + empId);
-    const rec = Array.isArray(list) ? list.find(r => r.id === id) : null;
+    // FIX: use == (loose equality) to handle string/number type mismatch from API
+    const records = Array.isArray(list) ? list : (list?.records || []);
+    const rec = records.find(r => r.id == id) || null;
 
     // 2. Delete the salary-increase record
     await api('DELETE', '/salary-increases/' + id);
@@ -1784,9 +1787,35 @@ async function deleteSalaryIncrease(id, empId) {
 
       // 4. Update state.employees cache so the list shows correct salary
       if (state.employees) {
-        const idx = state.employees.findIndex(e => e.id === empId);
+        const idx = state.employees.findIndex(e => e.id == empId);
         if (idx !== -1) {
           state.employees[idx] = { ...state.employees[idx], salary: parseFloat(rec.salary_before) };
+        }
+      }
+    } else {
+      // Fallback: if record not found, revert by subtracting the increase amount from current salary
+      console.warn('deleteSalaryIncrease: record not found for id='+id+', attempting salary fetch fallback');
+      const emp = await api('GET', '/employees/' + empId);
+      // Re-fetch remaining records after deletion to compute correct salary
+      const remaining = await api('GET', '/salary-increases?employee_id=' + empId);
+      const remList = Array.isArray(remaining) ? remaining : (remaining?.records || []);
+      if (remList.length > 0) {
+        // salary_before of oldest record = original base salary
+        const sorted = remList.slice().sort((a,b) => a.id - b.id);
+        const correctSalary = parseFloat(sorted[sorted.length-1].salary_after);
+        const updatedEmp = { ...emp, salary: correctSalary };
+        await api('PUT', '/employees/' + empId, updatedEmp);
+        if (state.employees) {
+          const idx = state.employees.findIndex(e => e.id == empId);
+          if (idx !== -1) state.employees[idx] = { ...state.employees[idx], salary: correctSalary };
+        }
+      } else {
+        // No more increases — use the very first salary_before from the deleted record
+        // Best effort: just reload from server
+        const fresh = await api('GET', '/employees/' + empId);
+        if (state.employees) {
+          const idx = state.employees.findIndex(e => e.id == empId);
+          if (idx !== -1) state.employees[idx] = { ...state.employees[idx], ...fresh };
         }
       }
     }
