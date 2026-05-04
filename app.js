@@ -2892,10 +2892,13 @@ async function renderMonthlyAttendance(month='') {
           const isSun = wd===0, isSat = wd===6;
           const bg = isSun ? 'background:rgba(220,38,38,0.12);' : isSat ? 'background:rgba(180,83,9,0.12);' : '';
           const offWorkedStr = offWorked > 0 ? '<div style="color:#d97706;font-weight:700;font-size:9px;line-height:1.3">🌟'+offWorked+'</div>' : '';
-          const lateStr = lateCount > 0 ? '<div style="color:var(--warning);font-weight:700;font-size:9px;line-height:1.3">⏰'+lateCount+'</div>' : '';
+          const presentOnly = working - lateCount;
+          const workingDisplay = lateCount > 0
+            ? '<div style="color:var(--success);font-weight:700;line-height:1.3;font-size:10px">' + working + '</div>'
+              + '<div style="color:#888;font-size:8px;line-height:1.2">' + presentOnly + '+<span style="color:var(--warning)">' + lateCount + '</span></div>'
+            : '<div style="color:var(--success);font-weight:700;line-height:1.4">' + working + '</div>';
           return '<td style="width:26px;min-width:26px;max-width:26px;text-align:center;padding:2px 1px;font-size:10px;'+bg+'">'
-            +'<div style="color:var(--success);font-weight:700;line-height:1.4">'+working+'</div>'
-            +lateStr
+            +workingDisplay
             +'<div style="color:var(--danger);font-weight:600;line-height:1.4">'+offCount+'</div>'
             +offWorkedStr
             +'</td>';
@@ -2903,8 +2906,7 @@ async function renderMonthlyAttendance(month='') {
 
         return '<tfoot><tr style="position:sticky;bottom:0;z-index:3;background:var(--bg3);border-top:2px solid var(--border)">'
           +'<td style="position:sticky;left:0;z-index:4;background:var(--bg3);box-shadow:2px 0 5px rgba(0,0,0,.12);padding:4px 8px;font-size:11px;font-weight:700;white-space:nowrap">'
-          +'<div style="color:var(--success);line-height:1.5;font-size:10px">✅ ធ្វើការ (នាក់)</div>'
-          +'<div style="color:var(--warning);line-height:1.3;font-size:9px">⏰ ចូលយឺត (នាក់)</div>'
+          +'<div style="color:var(--success);line-height:1.5;font-size:10px">✅ ធ្វើការ (វត្តមាន+យឺត)</div>'
           +'<div style="color:var(--danger);line-height:1.5;font-size:10px">🔴 Off (នាក់)</div>'
           +'<div style="color:#d97706;line-height:1.3;font-size:9px">🌟 OFF ធ្វើការ</div>'
           +'</td>'
@@ -3172,7 +3174,7 @@ function printMonthlyAttendance() {
         <td style="text-align:center;font-weight:700;color:#6366f1;background:#f5f3ff">${summaries.reduce((s,r)=>s+(r.empOffDaysThisMonth||0),0)}</td>
       </tr>
       <tr style="background:#f0fdf4;">
-        <td style="padding:3px 5px;font-size:10px;font-weight:700;color:#166534;white-space:nowrap" colspan="2">✅ ធ្វើការ (នាក់)</td>
+        <td style="padding:3px 5px;font-size:10px;font-weight:700;color:#166534;white-space:nowrap" colspan="2">✅ ធ្វើការ (វត្តមាន+យឺត)</td>
         <td colspan="7"></td>
         ${footWorkHTML}
       </tr>
@@ -3436,7 +3438,7 @@ function saveMonthlyAttendanceAsImage() {
       </tr>
       <tr style="background:#f0fdf4;">
       <tr style="background:#f0fdf4;">
-        <td style="padding:4px 8px;font-size:11px;font-weight:700;color:#166534;white-space:nowrap" colspan="2">✅ ធ្វើការ (នាក់)</td>
+        <td style="padding:4px 8px;font-size:11px;font-weight:700;color:#166534;white-space:nowrap" colspan="2">✅ ធ្វើការ (វត្តមាន+យឺត)</td>
         <td colspan="7"></td>
         ${pngFootWorkHTML}
       </tr>
@@ -3590,20 +3592,24 @@ async function exportMonthlyAttendanceExcel() {
     ]);
 
     // Working / Off per day rows
-    const workingRow = ['', '✅ ធ្វើការ (នាក់)', '', '', '', '', '', '', '', '', '', '', ''];
+    const workingRow = ['', '✅ ធ្វើការ (វត្តមាន+យឺត)', '', '', '', '', '', '', '', '', '', '', ''];
     const offRow     = ['', '🔴 Off (នាក់)',     '', '', '', '', '', '', '', '', '', '', ''];
+    const attMapExcelW = d._attMap || {};
     allDays.forEach(({dd, wd}) => {
       let w = 0, o = 0;
       summaries.forEach(({emp}) => {
         const empOff   = typeof parseOffDays === 'function' ? parseOffDays(emp) : [];
         const swapRec  = (swapMap[emp.id]    ||{})[dd];
         const compSwap = (offDateMap[emp.id]  ||{})[dd];
+        const attRec   = (attMapExcelW[emp.id]||{})[dd];
         if (empOff.length > 0 && empOff.indexOf(wd) !== -1) {
-          if (swapRec) { w++; } else { o++; }
+          if (swapRec) { const isComp = swapRec.off_date && swapRec.off_date.trim() !== ''; if (!isComp) w++; else o++; }
+          else if (attRec && (attRec.status==='present'||attRec.status==='late')) { w++; }
+          else { o++; }
         } else if (compSwap) {
           o++;
         } else {
-          w++;
+          if (attRec && (attRec.status==='present'||attRec.status==='late')) w++; else o++;
         }
       });
       workingRow.push(w);
