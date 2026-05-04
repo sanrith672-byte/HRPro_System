@@ -976,6 +976,7 @@ function renderEmployeesWithData(emps, subtitle) {
         const bankInfo = (e.bank && e.bank !== '—')
           ? '<div style="font-size:11px;font-weight:600;color:var(--text2)">'+e.bank+'</div>'+(e.bank_account?'<div style="font-size:10px;color:var(--text3)">'+e.bank_account+'</div>':'')
           : '<span style="color:var(--text3);font-size:11px">—</span>';
+        console.log('[EMP]', e.id, e.name, 'salary=', e.salary, 'allowance=', e.allowance);
         const totalSal = parseFloat(e.salary||0) + parseFloat(e.allowance||0);
         const salaryFmt = totalSal ? '<span style="font-weight:700;color:var(--success);font-size:13px">$'+totalSal.toFixed(0)+'</span>' : '—';
         return '<tr>'
