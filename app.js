@@ -1376,12 +1376,8 @@ async function openEmployeeModal(id=null) {
     + '<input class="form-control" id="f-allowance" type="number" min="0" step="0.01" placeholder="0" '
     + 'value="' + (parseFloat(emp?.allowance||0)||'') + '" oninput="updateSalaryPreview()" /></div>'
     + '<div class="form-group" style="grid-column:span 2"><label class="form-label" style="color:var(--success);font-weight:700">✅ ប្រាក់ខែសរុប (USD)</label>'
-    + '<div id="f-salary-total" style="background:var(--bg4);border:1.5px solid var(--success);border-radius:8px;padding:9px 14px;font-family:var(--mono);font-size:18px;font-weight:700;color:var(--success);display:flex;align-items:center;gap:8px">'
-    + '<span>$<span id="f-sb-base" style="color:var(--warning)">' + parseFloat(emp?.salary||0).toFixed(2) + '</span></span>'
-    + '<span style="color:var(--text3)">+</span>'
-    + '<span style="color:var(--info)">$<span id="f-sb-allow">' + parseFloat(emp?.allowance||0).toFixed(2) + '</span></span>'
-    + '<span style="color:var(--text3)">=</span>'
-    + '<span style="color:var(--success)">$<span id="f-sb-total">' + (parseFloat(emp?.salary||0)+parseFloat(emp?.allowance||0)).toFixed(2) + '</span></span>'
+    + '<div id="f-salary-total" style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:14px;font-weight:400;color:var(--text);display:flex;align-items:center;gap:4px">'
+    + '$<span id="f-sb-total">' + (parseFloat(emp?.salary||0)+parseFloat(emp?.allowance||0)).toFixed(2) + '</span>'
     + '</div></div>'
     + '</div>'
     + '</div>'
@@ -1510,12 +1506,7 @@ function updateSalaryPreview() {
   const base = parseFloat(document.getElementById('f-salary')?.value) || 0;
   const allow = parseFloat(document.getElementById('f-allowance')?.value) || 0;
   const total = base + allow;
-  const elBase = document.getElementById('f-sb-base');
-  const elAllow = document.getElementById('f-sb-allow');
   const elTotal = document.getElementById('f-sb-total');
-  const elBox = document.getElementById('f-salary-total');
-  if (elBase) elBase.textContent = base.toFixed(2);
-  if (elAllow) elAllow.textContent = allow.toFixed(2);
   if (elTotal) elTotal.textContent = total.toFixed(2);
 }
 
