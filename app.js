@@ -2567,7 +2567,7 @@ async function renderMonthlyAttendance(month='') {
         +(offBonus>0?'<td style="text-align:center;font-weight:700;color:#d97706;font-size:11px;background:rgba(251,191,36,.08);width:'+COL_OFF+'px;padding:3px 2px" title="🌟 OFF">+$'+offBonus.toFixed(0)+'</td>':'<td style="text-align:center;color:var(--text3);font-size:11px;background:var(--bg2);width:'+COL_OFF+'px;padding:3px 2px">—</td>')
         +cells
         +'<td style="text-align:center;font-weight:700;font-size:12px;color:var(--success);width:'+(isMobile?36:42)+'px;padding:3px 2px;position:sticky;right:'+(isMobile?72:90)+'px;z-index:1;background:var(--bg2);box-shadow:-2px 0 4px rgba(0,0,0,.08)">'+(present+late)+'<span style="font-size:10px;font-weight:400;color:var(--text3);display:block">ថ្ងៃ</span></td>'
-        +'<td style="text-align:center;font-weight:700;font-size:12px;color:'+(empOffDaysThisMonth>0?'#6366f1':'var(--text3)')+';width:'+(isMobile?36:48)+'px;max-width:'+(isMobile?36:48)+'px;overflow:hidden;padding:3px 2px;position:sticky;right:'+(isMobile?36:42)+'px;z-index:1;background:var(--bg2);border-left:1px solid var(--border)">'+(empOffDaysThisMonth>0?'<span style="background:rgba(99,102,241,.12);border-radius:4px;padding:2px 5px">'+empOffDaysThisMonth+'</span>':'—')+'</td>'
+        +'<td style="text-align:center;font-weight:700;font-size:12px;color:'+(empOffDaysThisMonth>0?'#6366f1':'var(--text3)')+';width:'+(isMobile?36:48)+'px;max-width:'+(isMobile?36:48)+'px;overflow:hidden;padding:3px 2px;position:sticky;right:'+(isMobile?36:42)+'px;z-index:2;background:var(--bg2);border-left:1px solid var(--border);box-shadow:-2px 0 4px rgba(0,0,0,.06)">'+(empOffDaysThisMonth>0?'<span style="background:rgba(99,102,241,.12);border-radius:4px;padding:2px 5px">'+empOffDaysThisMonth+'</span>':'—')+'</td>'
         +'<td style="text-align:center;width:'+(isMobile?36:42)+'px;max-width:'+(isMobile?36:42)+'px;overflow:hidden;position:sticky;right:0;z-index:1;background:var(--bg2);box-shadow:-2px 0 5px rgba(0,0,0,.12)"><button class="btn btn-outline btn-sm" style="font-size:11px;padding:2px 4px;min-width:0;width:100%" onclick="applyAbsenceDeduction('+emp.id+',\''+emp.name+'\','+absent+','+overAbsent+','+deduction+',\''+currentMonth+'\','+offBonus+')">💸</button></td>'
         +'</tr>';
     }).join('');
@@ -2634,7 +2634,7 @@ async function renderMonthlyAttendance(month='') {
           +'<th style="width:'+COL_OFF+'px;text-align:center;font-size:11px;'+(isMobile?'':'position:sticky;left:'+S_OFF+'px;z-index:5;box-shadow:3px 0 6px rgba(0,0,0,.2);')+';background:var(--bg2);padding:3px 2px;color:#f59e0b" rowspan="2" title="🌟 OFF">🌟OFF</th>'
           +dayThs
           +'<th style="width:'+(isMobile?36:42)+'px;text-align:center;padding:3px 2px;font-size:11px;color:var(--success);position:sticky;right:'+(isMobile?72:90)+'px;z-index:5;background:var(--bg2);box-shadow:-2px 0 4px rgba(0,0,0,.1)" rowspan="2" title="ធ្វើការ">📅<br/><span style="font-size:10px">ធ្វើ</span></th>'
-          +'<th style="width:'+(isMobile?36:48)+'px;text-align:center;padding:3px 2px;font-size:11px;color:#6366f1;position:sticky;right:'+(isMobile?36:42)+'px;z-index:5;background:var(--bg2);border-left:1px solid var(--border);overflow:hidden;max-width:'+(isMobile?36:48)+'px" rowspan="2" title="📅 OFF ខែ"><span style="display:block;font-size:11px;font-weight:700;line-height:1.3">OFF</span><span style="display:block;font-size:10px;line-height:1.2;color:var(--text3)">ខែ</span></th>'
+          +'<th style="width:'+(isMobile?36:48)+'px;text-align:center;padding:3px 2px;font-size:11px;color:#6366f1;position:sticky;right:'+(isMobile?36:42)+'px;z-index:6;background:var(--bg2);border-left:1px solid var(--border);overflow:hidden;max-width:'+(isMobile?36:48)+'px;box-shadow:-2px 0 4px rgba(0,0,0,.08)" rowspan="2" title="📅 OFF ខែ"><span style="display:block;font-size:11px;font-weight:700;line-height:1.3">OFF</span><span style="display:block;font-size:10px;line-height:1.2;color:var(--text3)">ខែ</span></th>'
           +'<th style="width:'+(isMobile?36:42)+'px;text-align:center;padding:3px 2px;font-size:11px;position:sticky;right:0;z-index:5;background:var(--bg2);box-shadow:-2px 0 5px rgba(0,0,0,.15)" rowspan="2">សកម្ម</th>'
           +'</tr>'
           +'<tr style="position:sticky;top:26px;z-index:4;background:var(--bg2);height:18px">'+wdThs+'</tr>'
@@ -2705,7 +2705,7 @@ async function renderMonthlyAttendance(month='') {
               +'<div style="font-size:11px;font-weight:700;color:var(--success);line-height:1.4">'+totalWD+'</div>'
               +'<div style="font-size:10px;color:var(--text3);line-height:1.2">ថ្ងៃ</div>'
               +'</td>'
-              +'<td style="background:var(--bg3);position:sticky;right:'+(isMobile?36:42)+'px;z-index:4;width:'+(isMobile?36:48)+'px;text-align:center;padding:2px 1px;border-left:1px solid var(--border)">'
+              +'<td style="background:var(--bg3);position:sticky;right:'+(isMobile?36:42)+'px;z-index:4;width:'+(isMobile?36:48)+'px;text-align:center;padding:2px 1px;border-left:1px solid var(--border);box-shadow:-2px 0 4px rgba(0,0,0,.06)">'
               +'<div style="font-size:11px;font-weight:700;color:#6366f1;line-height:1.4">'+totalOff+'</div>'
               +(totalOW>0?'<div style="font-size:9px;font-weight:700;color:#d97706;line-height:1.3">🌟'+totalOW+'</div>':'')
               +'</td>'
