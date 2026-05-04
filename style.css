@@ -2098,13 +2098,16 @@ input, select, textarea { font-size: max(14px, 1em); }
 .monthly-att-wrap td:nth-last-child(2) {
   max-width: 32px !important;
   width: 32px !important;
+  min-width: 0 !important;
   overflow: hidden !important;
-  white-space: nowrap !important;
+  word-break: break-all !important;
+  white-space: normal !important;
 }
 @media (max-width: 700px) {
   .monthly-att-wrap th:nth-last-child(2),
   .monthly-att-wrap td:nth-last-child(2) {
     max-width: 28px !important;
     width: 28px !important;
+    min-width: 0 !important;
   }
 }
