@@ -1601,7 +1601,12 @@ async function loadSalaryIncreaseHistory(empId) {
             +'<span style="color:var(--text2)">$'+parseFloat(r.salary_before||0).toFixed(2)+' → <strong style="color:var(--success)">$'+parseFloat(r.salary_after||0).toFixed(2)+'</strong></span>'
             +'<span style="color:var(--success);font-weight:700">+$'+parseFloat(r.amount).toFixed(2)
               +(r.reason?' <span style="color:var(--text3);font-weight:400">('+r.reason+')</span>':'')+'</span>'
-            +(canEdit()?'<button onclick="deleteSalaryIncrease('+r.id+','+empId+')" style="background:none;border:none;cursor:pointer;color:var(--danger);font-size:13px;padding:0 4px" title="លុប">🗑️</button>':'<span></span>')
+            +(canEdit()
+              ?'<div style="display:flex;gap:2px">'
+              +'<button onclick="editSalaryIncrease('+r.id+','+empId+')" style="background:none;border:none;cursor:pointer;color:var(--primary);font-size:13px;padding:0 4px" title="កែប្រែ">✏️</button>'
+              +'<button onclick="deleteSalaryIncrease('+r.id+','+empId+')" style="background:none;border:none;cursor:pointer;color:var(--danger);font-size:13px;padding:0 4px" title="លុប">🗑️</button>'
+              +'</div>'
+              :'<span></span>')
             +'</div>';
         }).join('');
   } catch(e) {
@@ -1674,6 +1679,76 @@ async function saveSalaryIncrease() {
     }
     showToast('បន្ថែមប្រាក់ខែ និងអាប់ដេតប្រាក់ខែគោលបានជោគជ័យ!', 'success');
     openEmployeeModal(state._salIncEmpId);
+  } catch(e) {
+    showToast('បញ្ហា: '+e.message,'error');
+  }
+}
+
+async function editSalaryIncrease(id, empId) {
+  // Fetch the record
+  let rec = null;
+  try {
+    const list = await api('GET', '/salary-increases?employee_id=' + empId);
+    rec = list.find(r => r.id === id);
+  } catch(e) { showToast('Error: '+e.message,'error'); return; }
+  if (!rec) { showToast('រកមិនឃើញ!','error'); return; }
+
+  state._salIncEmpId = empId;
+  state._salIncEditId = id;
+  state._salIncOrigAmount = parseFloat(rec.amount||0);
+  state._salIncOrigBefore = parseFloat(rec.salary_before||0);
+
+  $('modal-title').textContent = '✏️ កែប្រែប្រាក់ខែបន្ថែម';
+  $('modal-body').innerHTML =
+    '<div style="padding:4px 0">'
+    +'<div style="display:flex;align-items:center;gap:12px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:12px">'
+    +'<div style="font-size:12px;color:var(--text3)">ប្រាក់ខែគោល (មុន)</div>'
+    +'<div style="font-size:16px;font-weight:700;color:var(--text)">$'+parseFloat(rec.salary_before||0).toFixed(2)+'</div>'
+    +'<div style="font-size:12px;color:var(--text3);margin-left:auto">បន្ទាប់ពីកែ → <span id="si-preview" style="color:var(--primary);font-weight:700">$'+parseFloat(rec.salary_after||0).toFixed(2)+'</span></div>'
+    +'</div>'
+    +'<div class="form-grid-3" style="grid-template-columns:1fr 1fr">'
+    +'<div class="form-group"><label class="form-label">💵 ចំនួនបន្ថែម (USD) *</label>'
+    +'<input class="form-control" id="si-amount" type="number" min="0" step="0.01" value="'+parseFloat(rec.amount||0).toFixed(2)+'" oninput="updateSalaryIncreasePreview('+parseFloat(rec.salary_before||0)+')" /></div>'
+    +'<div class="form-group"><label class="form-label">📅 ថ្ងៃចូលជាធរមាន *</label>'
+    +'<input class="form-control" id="si-date" type="date" value="'+rec.effective_date+'" /></div>'
+    +'</div>'
+    +'<div class="form-group"><label class="form-label">📌 មូលហេតុ</label>'
+    +'<input class="form-control" id="si-reason" value="'+(rec.reason||'')+'" placeholder="ឧ. ការងារល្អ / ឡើងតំណែង..." /></div>'
+    +'<div class="form-group"><label class="form-label">📝 កំណត់ចំណាំ</label>'
+    +'<input class="form-control" id="si-note" value="'+(rec.note||'')+'" placeholder="(ស្រេចចិត្ត)" /></div>'
+    +'<div class="form-actions">'
+    +'<button class="btn btn-outline" onclick="openEmployeeModal('+empId+')">← ត្រឡប់</button>'
+    +'<button class="btn btn-primary" onclick="updateSalaryIncrease()">✅ រក្សាទុក</button>'
+    +'</div>'
+    +'</div>';
+  openModal();
+}
+
+async function updateSalaryIncrease() {
+  const id     = state._salIncEditId;
+  const empId  = state._salIncEmpId;
+  const amount = parseFloat($('si-amount')?.value);
+  const date   = $('si-date')?.value;
+  if (!amount || amount <= 0 || !date) { showToast('សូមបំពេញចំនួនបន្ថែម និងថ្ងៃ!','error'); return; }
+
+  const salaryBefore = state._salIncOrigBefore;
+  const salaryAfter  = salaryBefore + amount;
+
+  try {
+    // Update salary increase record via API
+    await api('PUT', '/salary-increases/' + id, {
+      amount,
+      salary_before: salaryBefore,
+      salary_after:  salaryAfter,
+      effective_date: date,
+      reason: $('si-reason')?.value.trim(),
+      note:   $('si-note')?.value.trim(),
+    });
+    // Update employee base salary to new salary_after
+    const emp = await api('GET', '/employees/' + empId);
+    await api('PUT', '/employees/' + empId, { ...emp, salary: salaryAfter });
+    showToast('កែប្រែបានជោគជ័យ!', 'success');
+    openEmployeeModal(empId);
   } catch(e) {
     showToast('បញ្ហា: '+e.message,'error');
   }

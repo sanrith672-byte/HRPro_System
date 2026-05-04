@@ -298,6 +298,15 @@ async function handleRequest(request, env) {
         await env.DB.prepare('DELETE FROM salary_increases WHERE id=?').bind(id).run();
         return json({ message: 'Deleted' });
       }
+      if (method === 'PUT') {
+        const body = await request.json();
+        const { amount, salary_before, salary_after, reason, effective_date, note } = body;
+        if (!amount || !effective_date) return error('amount, effective_date required');
+        await env.DB.prepare(
+          `UPDATE salary_increases SET amount=?, salary_before=?, salary_after=?, reason=?, effective_date=?, note=? WHERE id=?`
+        ).bind(parseFloat(amount), parseFloat(salary_before||0), parseFloat(salary_after||0), reason||'', effective_date, note||'', id).run();
+        return json({ message: 'Updated', salary_after: parseFloat(salary_after||0) });
+      }
     }
 
     // ===== INIT DB =====
