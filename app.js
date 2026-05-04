@@ -1087,6 +1087,7 @@ async function renderEmployees(filter='', dept='', status='') {
     if (filter) params.set('search', filter);
     if (dept) params.set('department', dept);
     if (status) params.set('status', status);
+    params.set('_t', Date.now());
     const [empData, deptData] = await Promise.all([api('GET', `/employees?${params}`), api('GET', '/departments')]);
     state.employees = empData.employees;
     state.departments = deptData;
