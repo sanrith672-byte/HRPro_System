@@ -2859,7 +2859,7 @@ async function renderMonthlyAttendance(month='') {
         // Build per-day working/off summary footer
         const totalEmps = renderEmps.length;
         const footCells = allDays.map(({dd, wd}) => {
-          let working = 0, offCount = 0, offWorked = 0;
+          let working = 0, lateCount = 0, offCount = 0, offWorked = 0;
           renderSummaries.forEach(({emp}) => {
             const empOff = parseOffDays(emp);
             const swapRec = (swapMap[emp.id]||{})[dd];
@@ -2870,9 +2870,9 @@ async function renderMonthlyAttendance(month='') {
               if (swapRec) {
                 const isCompOff = swapRec.off_date && swapRec.off_date.trim() !== '';
                 if (isCompOff) { offCount++; } // OFF+ជំនួស → off
-                else { working++; offWorked++; } // OFF ធ្វើការ → working + offWorked
+                else { working++; offWorked++; if (attRec && attRec.status==='late') lateCount++; } // OFF ធ្វើការ
               } else if (attRec && (attRec.status==='present'||attRec.status==='late')) {
-                working++; offWorked++; // direct att on OFF day
+                working++; offWorked++; if (attRec.status==='late') lateCount++; // direct att on OFF day
               } else {
                 offCount++;
               }
@@ -2882,6 +2882,7 @@ async function renderMonthlyAttendance(month='') {
               // Working day
               if (attRec && (attRec.status==='present'||attRec.status==='late')) {
                 working++;
+                if (attRec.status==='late') lateCount++;
               } else {
                 // absent or future day → count as offCount so 0 shows correctly
                 offCount++;
@@ -2891,8 +2892,10 @@ async function renderMonthlyAttendance(month='') {
           const isSun = wd===0, isSat = wd===6;
           const bg = isSun ? 'background:rgba(220,38,38,0.12);' : isSat ? 'background:rgba(180,83,9,0.12);' : '';
           const offWorkedStr = offWorked > 0 ? '<div style="color:#d97706;font-weight:700;font-size:9px;line-height:1.3">🌟'+offWorked+'</div>' : '';
+          const lateStr = lateCount > 0 ? '<div style="color:var(--warning);font-weight:700;font-size:9px;line-height:1.3">⏰'+lateCount+'</div>' : '';
           return '<td style="width:26px;min-width:26px;max-width:26px;text-align:center;padding:2px 1px;font-size:10px;'+bg+'">'
             +'<div style="color:var(--success);font-weight:700;line-height:1.4">'+working+'</div>'
+            +lateStr
             +'<div style="color:var(--danger);font-weight:600;line-height:1.4">'+offCount+'</div>'
             +offWorkedStr
             +'</td>';
@@ -2901,6 +2904,7 @@ async function renderMonthlyAttendance(month='') {
         return '<tfoot><tr style="position:sticky;bottom:0;z-index:3;background:var(--bg3);border-top:2px solid var(--border)">'
           +'<td style="position:sticky;left:0;z-index:4;background:var(--bg3);box-shadow:2px 0 5px rgba(0,0,0,.12);padding:4px 8px;font-size:11px;font-weight:700;white-space:nowrap">'
           +'<div style="color:var(--success);line-height:1.5;font-size:10px">✅ ធ្វើការ (នាក់)</div>'
+          +'<div style="color:var(--warning);line-height:1.3;font-size:9px">⏰ ចូលយឺត (នាក់)</div>'
           +'<div style="color:var(--danger);line-height:1.5;font-size:10px">🔴 Off (នាក់)</div>'
           +'<div style="color:#d97706;line-height:1.3;font-size:9px">🌟 OFF ធ្វើការ</div>'
           +'</td>'
@@ -2915,10 +2919,12 @@ async function renderMonthlyAttendance(month='') {
           +footCells
           +(()=>{
             const totalWD  = renderSummaries.reduce((s,r)=>s+(r.present+r.late||0),0);
+            const totalLate = renderSummaries.reduce((s,r)=>s+(r.late||0),0);
             const totalOff = renderSummaries.reduce((s,r)=>s+(r.empOffDaysThisMonth||0),0);
             const totalOW  = renderSummaries.reduce((s,r)=>s+(r.offDaysWorked||0),0);
             return '<td style="background:var(--bg3);position:sticky;right:'+(isMobile?84:100)+'px;z-index:4;width:'+(isMobile?36:42)+'px;text-align:center;padding:2px 1px;border-left:1px solid var(--border)">'
               +'<div style="font-size:11px;font-weight:700;color:var(--success);line-height:1.4">'+totalWD+'</div>'
+              +(totalLate>0?'<div style="font-size:9px;font-weight:700;color:var(--warning);line-height:1.3">⏰'+totalLate+'</div>':'')
               +'<div style="font-size:10px;color:var(--text3);line-height:1.2">ថ្ងៃ</div>'
               +'</td>'
               +'<td style="background:var(--bg3);position:sticky;right:'+(isMobile?36:42)+'px;z-index:4;width:'+(isMobile?36:48)+'px;text-align:center;padding:2px 1px;border-left:1px solid var(--border);box-shadow:-2px 0 4px rgba(0,0,0,.06)">'
