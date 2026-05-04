@@ -2815,8 +2815,8 @@ function printMonthlyAttendance() {
       if (isOff) {
         if (swapRec) {
           const hasComp = swapRec.off_date && swapRec.off_date.trim() !== '';
-          if (hasComp) return `<td style="text-align:center;font-size:8px;color:#374151;background:#e5e7eb;font-weight:600;">OFF</td>`;
-          return `<td style="text-align:center;font-size:9px;color:#4338ca;background:#ede9fe;font-weight:700;">🔄</td>`;
+          if (hasComp) return `<td style="text-align:center;font-size:9px;color:#92400e;background:#fde68a;font-weight:700;" title="OFF+ជំនួស (មិនគិតប្រាក់)">🔄</td>`;
+          return `<td style="text-align:center;font-size:9px;color:#4338ca;background:#ede9fe;font-weight:700;" title="OFF ធ្វើការ (គិតប្រាក់)">🔄</td>`;
         }
         // Direct attendance on OFF day (no dayswap) → 🌟 OFF worked
         if (a && (a.status === 'present' || a.status === 'late')) {
@@ -2825,8 +2825,8 @@ function printMonthlyAttendance() {
         }
         return `<td style="text-align:center;font-size:8px;color:#374151;background:#e5e7eb;font-weight:600;">OFF</td>`;
       }
-      // Compensation OFF day (OFF+)
-      if (compSwap) return `<td style="text-align:center;font-size:8px;font-weight:700;color:#92400e;background:#fde68a;">OFF+</td>`;
+      // Compensation OFF day (OFF+) — working day but employee takes as comp day off
+      if (compSwap) return `<td style="text-align:center;font-size:8px;font-weight:700;color:#15803d;background:#bbf7d0;" title="OFF+ ថ្ងៃជំនួស">OFF+</td>`;
       // Leave
       if (lv) {
         const isPending = lv.status === 'pending';
@@ -3049,8 +3049,8 @@ function saveMonthlyAttendanceAsImage() {
       if (isOff) {
         if (swapRec) {
           const hasComp = swapRec.off_date && swapRec.off_date.trim() !== '';
-          if (hasComp) return `<td style="text-align:center;font-size:10px;background:#e5e7eb;color:#374151;font-weight:700;">OFF</td>`;
-          return `<td style="text-align:center;font-size:11px;background:#ede9fe;color:#4338ca;font-weight:700;">🔄</td>`;
+          if (hasComp) return `<td style="text-align:center;font-size:11px;background:#fde68a;color:#92400e;font-weight:700;" title="OFF+ជំនួស (មិនគិតប្រាក់)">🔄</td>`;
+          return `<td style="text-align:center;font-size:11px;background:#ede9fe;color:#4338ca;font-weight:700;" title="OFF ធ្វើការ (គិតប្រាក់)">🔄</td>`;
         }
         // Direct attendance on OFF day (no dayswap) → 🌟 OFF worked
         if (a && (a.status === 'present' || a.status === 'late')) {
@@ -3059,7 +3059,7 @@ function saveMonthlyAttendanceAsImage() {
         }
         return `<td style="text-align:center;font-size:10px;background:#e5e7eb;color:#374151;font-weight:700;">OFF</td>`;
       }
-      if (compSwap) return `<td style="text-align:center;font-size:10px;background:#fde68a;color:#92400e;font-weight:700;">OFF+</td>`;
+      if (compSwap) return `<td style="text-align:center;font-size:10px;background:#bbf7d0;color:#15803d;font-weight:700;" title="OFF+ ថ្ងៃជំនួស">OFF+</td>`;
       if (lv) {
         const lbg = lv.status==='pending' ? 'background:#ddd6fe;color:#5b21b6;' : 'background:#bbf7d0;color:#15803d;';
         return `<td style="text-align:center;font-size:11px;font-weight:700;${lbg}">🌴</td>`;
@@ -3178,10 +3178,11 @@ function saveMonthlyAttendanceAsImage() {
     <span style="background:#dcfce7;color:#15803d;">✔ វត្តមាន</span>
     <span style="background:#fef9c3;color:#92400e;">⏰ យឺត</span>
     <span style="background:#fee2e2;color:#dc2626;">— អវត្តមាន</span>
-    <span style="background:#ede9fe;color:#4f46e5;">🔄 ប្ដូរ</span>
+    <span style="background:#fde68a;color:#92400e;">🔄 OFF+ជំនួស (មិនគិតប្រាក់)</span>
+    <span style="background:#ede9fe;color:#4f46e5;">🔄 OFF ធ្វើការ (គិតប្រាក់)</span>
     <span style="background:#bbf7d0;color:#15803d;">🌴 ច្បាប់</span>
     <span style="background:#e5e7eb;color:#374151;">OFF ឈប់</span>
-    <span style="background:#fde68a;color:#92400e;">OFF+ សង</span>
+    <span style="background:#bbf7d0;color:#15803d;">OFF+ ថ្ងៃជំនួស</span>
     <span style="background:#fffbeb;color:#d97706;">🌟✔ OFF ធ្វើការ</span>
     <span style="background:#ede9fe;color:#7c3aed;">🎉 ថ្ងៃបុណ្យ</span>
   </div>
