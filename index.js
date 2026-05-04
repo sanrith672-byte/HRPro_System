@@ -293,7 +293,7 @@ async function getEmployees(request, env) {
 
   const selectCols = `
     e.id, e.name, e.gender, e.position, e.department_id, e.phone, e.email,
-    e.salary, e.hire_date, e.status, e.created_at, e.updated_at,
+    e.salary, COALESCE(e.allowance,0) as allowance, e.hire_date, e.status, e.created_at, e.updated_at,
     COALESCE(e.custom_id,'') as custom_id,
     COALESCE(e.bank,'') as bank,
     COALESCE(e.bank_account,'') as bank_account,
@@ -344,11 +344,12 @@ async function getEmployee(id, env) {
     env.DB.prepare(`ALTER TABLE employees ADD COLUMN termination_date TEXT DEFAULT ''`).run(),
     env.DB.prepare(`ALTER TABLE employees ADD COLUMN work_history TEXT DEFAULT ''`).run(),
     env.DB.prepare(`ALTER TABLE employees ADD COLUMN off_days TEXT DEFAULT '[]'`).run(),
+    env.DB.prepare(`ALTER TABLE employees ADD COLUMN allowance REAL DEFAULT 0`).run(),
   ]);
 
   const emp = await env.DB.prepare(`
     SELECT e.id, e.name, e.gender, e.position, e.department_id, e.phone, e.email,
-           e.salary, e.hire_date, e.status, e.created_at, e.updated_at,
+           e.salary, COALESCE(e.allowance,0) as allowance, e.hire_date, e.status, e.created_at, e.updated_at,
            COALESCE(e.custom_id,'') as custom_id,
            COALESCE(e.bank,'') as bank,
            COALESCE(e.bank_account,'') as bank_account,
@@ -397,6 +398,9 @@ async function createEmployee(request, env) {
 async function updateEmployee(id, request, env) {
   const body = await request.json();
   const { name, position, department_id, phone, email, salary, hire_date, status, gender, custom_id, bank, bank_account, bank_holder, termination_date, work_history } = body;
+
+  // Ensure allowance column exists
+  await env.DB.prepare(`ALTER TABLE employees ADD COLUMN allowance REAL DEFAULT 0`).run().catch(()=>{});
 
   const existing = await env.DB.prepare('SELECT id FROM employees WHERE id = ?').bind(id).first();
   if (!existing) return error('Employee not found', 404);
