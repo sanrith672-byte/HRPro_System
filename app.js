@@ -1678,6 +1678,11 @@ async function saveSalaryIncrease() {
         ...emp,
         salary: newSalary,
       });
+      // Update state.employees cache so list reflects new salary immediately
+      if (state.employees) {
+        const idx = state.employees.findIndex(e => e.id === state._salIncEmpId);
+        if (idx !== -1) state.employees[idx] = { ...state.employees[idx], salary: newSalary };
+      }
     }
     showToast('បន្ថែមប្រាក់ខែ និងអាប់ដេតប្រាក់ខែគោលបានជោគជ័យ!', 'success');
     openEmployeeModal(state._salIncEmpId);
@@ -1749,6 +1754,11 @@ async function updateSalaryIncrease() {
     // Update employee base salary to new salary_after
     const emp = await api('GET', '/employees/' + empId);
     await api('PUT', '/employees/' + empId, { ...emp, salary: salaryAfter });
+    // Update state.employees cache so list reflects updated salary immediately
+    if (state.employees) {
+      const idx = state.employees.findIndex(e => e.id === empId);
+      if (idx !== -1) state.employees[idx] = { ...state.employees[idx], salary: salaryAfter };
+    }
     showToast('កែប្រែបានជោគជ័យ!', 'success');
     openEmployeeModal(empId);
   } catch(e) {
@@ -1769,10 +1779,16 @@ async function deleteSalaryIncrease(id, empId) {
     // 3. Revert employee salary back to salary_before
     if (rec && rec.salary_before != null) {
       const emp = await api('GET', '/employees/' + empId);
-      await api('PUT', '/employees/' + empId, {
-        ...emp,
-        salary: parseFloat(rec.salary_before),
-      });
+      const updatedEmp = { ...emp, salary: parseFloat(rec.salary_before) };
+      await api('PUT', '/employees/' + empId, updatedEmp);
+
+      // 4. Update state.employees cache so the list shows correct salary
+      if (state.employees) {
+        const idx = state.employees.findIndex(e => e.id === empId);
+        if (idx !== -1) {
+          state.employees[idx] = { ...state.employees[idx], salary: parseFloat(rec.salary_before) };
+        }
+      }
     }
 
     showToast('លុបបានជោគជ័យ! ប្រាក់ខែបានវិលទៅតម្លៃមុន!', 'success');
