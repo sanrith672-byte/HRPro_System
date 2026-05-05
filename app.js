@@ -2940,7 +2940,7 @@ async function renderMonthlyAttendance(month='') {
 
         // Compute per-day stats
         const footData = allDays.map(({dd, wd}) => {
-          let working = 0, presentOnly = 0, lateCount = 0, offCount = 0, offWorked = 0;
+          let working = 0, presentOnly = 0, lateCount = 0, offCount = 0, offWorked = 0, swapCount = 0;
           renderSummaries.forEach(({emp}) => {
             const empOff = parseOffDays(emp);
             const swapRec = (swapMap[emp.id]||{})[dd];
@@ -2953,6 +2953,7 @@ async function renderMonthlyAttendance(month='') {
                 working++;
                 if (attRec && attRec.status==='late') lateCount++;
                 offWorked++;
+                swapCount++;
               } else if (attRec && (attRec.status==='present'||attRec.status==='late')) {
                 // OFF ធ្វើការដោយខ្លួនឯង (គ្មានជំនួស) → មិនរាប់ ✅ ធ្វើការ
                 working++; offWorked++;
@@ -2979,7 +2980,9 @@ async function renderMonthlyAttendance(month='') {
           });
           const isSun = wd===0, isSat = wd===6;
           const bg = isSun ? 'background:rgba(220,38,38,0.12);' : isSat ? 'background:rgba(180,83,9,0.12);' : '';
-          return { working, presentOnly, lateCount, offCount, offWorked, bg };
+          // totalCount = presentOnly + lateCount + offWorked (swapCount included inside offWorked)
+          const totalCount = presentOnly + lateCount + offWorked;
+          return { working, presentOnly, lateCount, offCount, offWorked, swapCount, totalCount, bg };
         });
 
         // Shared cell width style
@@ -3004,6 +3007,13 @@ async function renderMonthlyAttendance(month='') {
         const row4Cells = footData.map(({offWorked,bg}) =>
           '<td style="'+TDW+bg+'color:#d97706">'+(offWorked>0?offWorked:'—')+'</td>'
         ).join('');
+
+        // Row 5: 🔢 Total (present + late + offWorked per day)
+        const row5Cells = footData.map(({totalCount,bg}) =>
+          '<td style="'+TDW+bg+'color:#7c3aed;font-weight:900">'+(totalCount>0?totalCount:'—')+'</td>'
+        ).join('');
+
+        const totalWorking = renderSummaries.reduce((s,r)=>s+(r.present||0)+(r.late||0)+(r.offDaysWorked||0),0);
 
         // Grand totals (sticky right)
         const totalWD   = renderSummaries.reduce((s,r)=>s+(r.present||0),0);
@@ -3063,6 +3073,14 @@ async function renderMonthlyAttendance(month='') {
           +blankTd+blankObTd
           +row4Cells
           +stickyTd(totalOW,'#d97706')
+          +'</tr>'
+          // ── Row 5: 🔢 Total (✅+⏰+🌟) ──────────────────────────────────────
+          +'<tr style="'+trStyle+';border-top:2px solid #7c3aed;background:rgba(124,58,237,0.07)">'
+          +labelTd('🔢','Total (នាក់)','#7c3aed')
+          +'<td colspan="6" style="background:rgba(124,58,237,0.07);padding:4px 2px;text-align:center;font-size:10px;color:#7c3aed;font-weight:600">✅+⏰+🌟</td>'
+          +blankObTd
+          +row5Cells
+          +stickyTd(totalWorking,'#7c3aed')
           +'</tr>'
           +'</tfoot>';
       })()
