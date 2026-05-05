@@ -3788,7 +3788,7 @@ async function exportMonthlyAttendanceExcel() {
       return {presentOnly,lateCount,offCount,offWorked,totalCount:presentOnly+lateCount+offWorked};
     });
     // Prefix cols: label + 11 blank stat cols (matches matrixHeaders prefix length)
-    const _pfx = (label) => ['', label, '', '', '', '', '', '', '', '', '', '', ''];
+    const _pfx = (label) => ['', label, '', '', '', '', '', '', '', '', ''];
     const workingRow   = _pfx('✅ ធ្វើការ (នាក់)');
     const lateRow      = _pfx('⏰ ចូលយឺត (នាក់)');
     const offWorkedRow = _pfx('🌟 OFF ធ្វើការ (នាក់)');
