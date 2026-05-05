@@ -3060,19 +3060,19 @@ async function renderMonthlyAttendance(month='') {
           +row2Cells
           +stickyTd(totalLate,'var(--warning)')
           +'</tr>'
-          // ── Row 3: 🔴 Off ──────────────────────────────────────────────────
-          +'<tr style="'+trStyle+'">'
-          +labelTd('🔴','Off (នាក់)','var(--danger)')
-          +blankTd+blankObTd
-          +row3Cells
-          +stickyTd(totalOff,'var(--danger)')
-          +'</tr>'
-          // ── Row 4: 🌟 OFF ធ្វើការ ──────────────────────────────────────────
+          // ── Row 3: 🌟 OFF ធ្វើការ ──────────────────────────────────────────
           +'<tr style="'+trStyle+'">'
           +labelTd('🌟','OFF ធ្វើការ (នាក់)','#d97706')
           +blankTd+blankObTd
           +row4Cells
           +stickyTd(totalOW,'#d97706')
+          +'</tr>'
+          // ── Row 4: 🔴 Off ──────────────────────────────────────────────────
+          +'<tr style="'+trStyle+'">'
+          +labelTd('🔴','Off (នាក់)','var(--danger)')
+          +blankTd+blankObTd
+          +row3Cells
+          +stickyTd(totalOff,'var(--danger)')
           +'</tr>'
           // ── Row 5: 🔢 Total (✅+⏰+🌟) ──────────────────────────────────────
           +'<tr style="'+trStyle+';border-top:2px solid #7c3aed;background:rgba(124,58,237,0.07)">'
@@ -3326,15 +3326,15 @@ function printMonthlyAttendance() {
         <td colspan="7"></td>
         ${footWorkHTML}
       </tr>
-      <tr style="background:#fff1f2;">
-        <td style="padding:3px 5px;font-size:10px;font-weight:700;color:#991b1b;white-space:nowrap" colspan="2">🔴 Off (នាក់)</td>
-        <td colspan="7"></td>
-        ${footOffHTML}
-      </tr>
       <tr style="background:#fffbeb;">
         <td style="padding:3px 5px;font-size:10px;font-weight:700;color:#92400e;white-space:nowrap" colspan="2">🌟 OFF ធ្វើការ (នាក់)</td>
         <td colspan="7"></td>
         ${footOWHTML}
+      </tr>
+      <tr style="background:#fff1f2;">
+        <td style="padding:3px 5px;font-size:10px;font-weight:700;color:#991b1b;white-space:nowrap" colspan="2">🔴 Off (នាក់)</td>
+        <td colspan="7"></td>
+        ${footOffHTML}
       </tr>
     </tfoot>
   </table>
@@ -3590,15 +3590,15 @@ function saveMonthlyAttendanceAsImage() {
         <td colspan="7"></td>
         ${pngFootWorkHTML}
       </tr>
-      <tr style="background:#fff1f2;">
-        <td style="padding:4px 8px;font-size:11px;font-weight:700;color:#991b1b;white-space:nowrap" colspan="2">🔴 Off (នាក់)</td>
-        <td colspan="7"></td>
-        ${pngFootOffHTML}
-      </tr>
       <tr style="background:#fffbeb;">
         <td style="padding:4px 8px;font-size:11px;font-weight:700;color:#92400e;white-space:nowrap" colspan="2">🌟 OFF ធ្វើការ (នាក់)</td>
         <td colspan="7"></td>
         ${pngFootOWHTML}
+      </tr>
+      <tr style="background:#fff1f2;">
+        <td style="padding:4px 8px;font-size:11px;font-weight:700;color:#991b1b;white-space:nowrap" colspan="2">🔴 Off (នាក់)</td>
+        <td colspan="7"></td>
+        ${pngFootOffHTML}
       </tr>
   </table>
   <div class="sig">
@@ -3760,7 +3760,6 @@ async function exportMonthlyAttendanceExcel() {
       offRow.push(o);
     });
     matrixRows.push(workingRow);
-    matrixRows.push(offRow);
 
     // OFF worked per day row
     const offWorkedRow = ['', '🌟 OFF ធ្វើការ (នាក់)', '', '', '', '', '', '', '', '', '', '', ''];
@@ -3779,6 +3778,7 @@ async function exportMonthlyAttendanceExcel() {
       offWorkedRow.push(ow > 0 ? ow : '');
     });
     matrixRows.push(offWorkedRow);
+    matrixRows.push(offRow);
 
     // Total working days & OFF days summary
     const totalWorkingDays = summaries.reduce((s,r)=>s+(r.workingDaysCount||0),0);
