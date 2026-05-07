@@ -2986,8 +2986,8 @@ async function renderMonthlyAttendance(month='') {
           });
           const isSun = wd===0, isSat = wd===6;
           const bg = isSun ? 'background:rgba(220,38,38,0.12);' : isSat ? 'background:rgba(180,83,9,0.12);' : '';
-          // totalCount = presentOnly + lateCount + offWorked (swapCount included inside offWorked)
-          const totalCount = presentOnly + lateCount + offWorked;
+          // totalCount = presentOnly + lateCount + offWorked + halfDayCount
+          const totalCount = presentOnly + lateCount + offWorked + halfDayCount;
           return { working, presentOnly, lateCount, offCount, offWorked, swapCount, totalCount, halfDayCount, bg };
         });
 
