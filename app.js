@@ -2453,7 +2453,7 @@ async function renderAttendance(date='') {
             +'<td>'+(a.work_location?'<span style="font-size:12px;display:inline-flex;align-items:center;gap:3px;background:var(--bg3);padding:2px 8px;border-radius:12px;color:var(--text2)">📍 '+a.work_location+'</span>':'<span style="color:var(--text3)">—</span>')+'</td>'
             +'<td><span style="font-family:var(--mono);color:var(--success)">'+(a.check_in||'—')+'</span></td>'
             +'<td><span style="font-family:var(--mono);color:var(--text3)">'+(a.check_out||'—')+'</span></td>'
-            +'<td>'+(a.status==='present'?'<span class="badge badge-green">✅ វត្តមាន</span>':a.status==='late'?'<span class="badge badge-yellow">⏰ យឺត</span>':'<span class="badge badge-red">❌ អវត្តមាន</span>')+'</td>'
+            +'<td>'+(a.status==='present'?'<span class="badge badge-green">✅ វត្តមាន</span>':a.status==='late'?'<span class="badge badge-yellow">⏰ យឺត</span>':a.status==='half_day_am'?'<span class="badge" style="background:rgba(8,145,178,.15);color:#0891b2">🌤 កន្លះថ្ងៃ (ព្រឹក)</span>':a.status==='half_day_pm'?'<span class="badge" style="background:rgba(124,58,237,.15);color:#7c3aed">🌅 កន្លះថ្ងៃ (ល្ងាច)</span>':'<span class="badge badge-red">❌ អវត្តមាន</span>')+'</td>'
             +(!isQR
               ? '<td><div class="action-btns">'
                 +'<button class="btn btn-outline btn-sm" onclick="openEditAttModal('+a.id+',\''+a.employee_name+'\')">✏️</button>'
@@ -2660,7 +2660,7 @@ async function renderMonthlyAttendance(month='') {
     const summaries = emps.map(emp => {
       const rec = attMap[emp.id] || {};
       const empDays = getEmpWorkDays(emp);
-      let present=0, late=0, absent=0, swap=0, onLeave=0;
+      let present=0, late=0, absent=0, swap=0, onLeave=0, halfDayCount=0;
       empDays.forEach(({dd}) => {
         // Skip if this working day is a compensation OFF day (OFF+)
         const compSwap = (offDateMap[emp.id]||{})[dd];
@@ -2674,6 +2674,7 @@ async function renderMonthlyAttendance(month='') {
           else if (a.status==='late') late++;
           else if (a.status==='holiday') { /* ថ្ងៃឈប់សម្រាក — មិនគិតជា absent */ }
           else if (a.status==='absent') absent++;
+          else if (a.status==='half_day_am' || a.status==='half_day_pm') { present+=0.5; absent+=0.5; halfDayCount++; }
         } else {
           absent++;
         }
@@ -2752,7 +2753,7 @@ async function renderMonthlyAttendance(month='') {
       const _rules = getSalaryRules();
       const _offMult = (_rules.off_bonus_enabled !== false) ? (_rules.off_day_multiplier || 1.0) : 0;
       const offBonus = parseFloat((offDaysWorked * offDailyRate * _offMult).toFixed(2));
-      return { emp, present, late, absent, swap, onLeave, overAbsent, deduction, dailyRate, offDailyRate, workingDaysCount, offBonus, offDaysWorked, empOffDaysThisMonth };
+      return { emp, present, late, absent, swap, onLeave, overAbsent, deduction, dailyRate, offDailyRate, workingDaysCount, offBonus, offDaysWorked, empOffDaysThisMonth, halfDayCount };
     });
 
     // Apply department filter
@@ -2760,7 +2761,7 @@ async function renderMonthlyAttendance(month='') {
     const selectedDept = (document.getElementById('att-dept-filter') || {}).value || '';
     const filteredEmps = selectedDept ? emps.filter(e => (e.department||e.department_name||'') === selectedDept) : emps;
     const filteredSummaries = summaries.filter(s => !selectedDept || (s.emp.department||s.emp.department_name||'') === selectedDept);
-    const filteredTotals = filteredSummaries.reduce((t,s)=>({ p:t.p+s.present, l:t.l+s.late, a:t.a+s.absent, sw:t.sw+s.swap, lv:t.lv+s.onLeave, d:t.d+s.deduction, ob:t.ob+(s.offBonus||0) }),{p:0,l:0,a:0,sw:0,lv:0,d:0,ob:0});
+    const filteredTotals = filteredSummaries.reduce((t,s)=>({ p:t.p+s.present, l:t.l+s.late, a:t.a+s.absent, sw:t.sw+s.swap, lv:t.lv+s.onLeave, d:t.d+s.deduction, ob:t.ob+(s.offBonus||0), hd:t.hd+(s.halfDayCount||0) }),{p:0,l:0,a:0,sw:0,lv:0,d:0,ob:0,hd:0});
     const renderSummaries = filteredSummaries;
     const renderEmps = filteredEmps;
     const renderTotals = filteredTotals;
@@ -2789,7 +2790,7 @@ async function renderMonthlyAttendance(month='') {
       return '<th style="width:30px;min-width:30px;max-width:30px;padding:0;height:18px;font-size:'+(isMobile?'9px':'11px')+';text-align:center;font-weight:600;vertical-align:middle;line-height:18px;'+color+'">' + wdNames[wd] + '</th>';
     }).join('');
 
-    const dayRows = filteredSummaries.map(({emp, present, late, absent, swap, overAbsent, deduction, offBonus, offDaysWorked, empOffDaysThisMonth, workingDaysCount}) => {
+    const dayRows = filteredSummaries.map(({emp, present, late, absent, swap, overAbsent, deduction, offBonus, offDaysWorked, empOffDaysThisMonth, workingDaysCount, halfDayCount}) => {
       const rec = attMap[emp.id] || {};
       const empOff = parseOffDays(emp);
       const cells = allDays.map(({dd, wd}) => {
@@ -2839,6 +2840,8 @@ async function renderMonthlyAttendance(month='') {
         if (!a) return '<td style="'+W+'text-align:center;font-size:12px;padding:2px 0;color:var(--danger)">—</td>';
         if (a.status==='present') return '<td style="'+W+'text-align:center;font-size:13px;padding:2px 0;color:var(--success)">✔</td>';
         if (a.status==='late') return '<td style="'+W+'text-align:center;font-size:12px;padding:2px 0;color:var(--warning)">⏰</td>';
+        if (a.status==='half_day_am') return '<td style="'+W+'text-align:center;font-size:11px;padding:1px 0;font-weight:700;color:#0891b2;background:rgba(8,145,178,.1)" title="កន្លះថ្ងៃ ព្រឹក">½P</td>';
+        if (a.status==='half_day_pm') return '<td style="'+W+'text-align:center;font-size:11px;padding:1px 0;font-weight:700;color:#7c3aed;background:rgba(124,58,237,.1)" title="កន្លះថ្ងៃ ល្ងាច">½L</td>';
         return '<td style="'+W+'text-align:center;font-size:13px;padding:2px 0;color:var(--danger)">✗</td>';
       }).join('');
       const photo = getEmpPhoto(emp.id);
@@ -2853,7 +2856,7 @@ async function renderMonthlyAttendance(month='') {
         +'<td style="padding:'+(isMobile?'4px 4px':'6px 8px')+';white-space:nowrap;position:sticky;left:0;z-index:1;background:var(--bg2);box-shadow:2px 0 5px rgba(0,0,0,.12)"><div style="display:flex;align-items:center;gap:'+(isMobile?'3px':'6px')+';">'+av+'<span style="font-size:'+(isMobile?'11px':'12px')+';font-weight:600">'+emp.name+'</span></div></td>'
         +'<td style="text-align:center;font-weight:700;color:var(--success);font-size:'+(isMobile?'11px':'13px')+';width:'+COL_P+'px;position:sticky;left:'+S_P+'px;z-index:1;background:var(--bg2);padding:3px 0">'+(present+late)+'</td>'
         +'<td style="text-align:center;font-weight:700;color:var(--warning);font-size:'+(isMobile?'11px':'13px')+';width:'+COL_L+'px;background:var(--bg2);padding:3px 0">'+late+'</td>'
-        +'<td style="text-align:center;font-weight:700;color:var(--danger);font-size:'+(isMobile?'11px':'13px')+';width:'+COL_A+'px;background:var(--bg2);padding:3px 0">'+absent+'</td>'
+        +'<td style="text-align:center;font-weight:700;color:var(--danger);font-size:'+(isMobile?'11px':'13px')+';width:'+COL_A+'px;background:var(--bg2);padding:3px 0">'+(halfDayCount>0?'<span title="'+halfDayCount+' ថ្ងៃកន្លះ">'+absent+'</span>':absent)+'</td>'
         +'<td style="text-align:center;font-weight:700;color:var(--primary);font-size:'+(isMobile?'11px':'13px')+';width:'+COL_SW+'px;background:var(--bg2);padding:3px 0">'+(swap>0?'<span style="background:rgba(99,102,241,.15);border-radius:4px;padding:1px 4px">'+swap+'</span>':'<span style="color:var(--text3)">0</span>')+'</td>'
         +'<td style="text-align:center;font-weight:700;color:'+(overAbsent>0?'var(--danger)':'var(--text3)')+';font-size:11px;background:var(--bg2);width:'+COL_OVER+'px;padding:3px 1px">'+overAbsent+'</td>'
         +(overAbsent>0?'<td style="text-align:center;font-weight:700;color:var(--danger);font-size:11px;background:var(--bg2);width:'+COL_DED+'px;padding:3px 2px">-$'+deduction.toFixed(0)+'</td>':'<td style="text-align:center;color:var(--success);font-size:11px;background:var(--bg2);width:'+COL_DED+'px;padding:3px 2px">—</td>')
@@ -2888,6 +2891,7 @@ async function renderMonthlyAttendance(month='') {
       +'<div class="att-box"><div class="att-num" style="color:var(--success)">'+(renderTotals.p+renderTotals.l)+'</div><div class="att-lbl">✅ វត្តមាន</div></div>'
       +'<div class="att-box"><div class="att-num" style="color:var(--warning)">'+renderTotals.l+'</div><div class="att-lbl">⏰ យឺត</div></div>'
       +'<div class="att-box"><div class="att-num" style="color:var(--danger)">'+renderTotals.a+'</div><div class="att-lbl">❌ អវត្តមាន</div></div>'
+      +'<div class="att-box" style="background:rgba(8,145,178,.08);border:1px solid rgba(8,145,178,.25)"><div class="att-num" style="color:#0891b2">'+renderTotals.hd+'</div><div class="att-lbl" style="color:#0891b2">½ កន្លះថ្ងៃ</div></div>'
       +'<div class="att-box"><div class="att-num" style="color:var(--primary)">'+renderTotals.sw+'</div><div class="att-lbl">🔄 ជំនួស</div></div>'
       +'<div class="att-box"><div class="att-num" style="color:var(--success)">'+renderTotals.lv+'</div><div class="att-lbl">🌴 ច្បាប់</div></div>'
       +'<div class="att-box"><div class="att-num" style="color:var(--danger)">'+renderSummaries.filter(s=>s.overAbsent>0).length+'</div><div class="att-lbl">⚠️ លើសថ្ងៃ</div></div>'
@@ -3202,6 +3206,8 @@ function printMonthlyAttendance() {
       if (!a) return `<td style="text-align:center;font-size:10px;color:#dc2626;font-weight:600;">—</td>`;
       if (a.status==='present') return `<td style="text-align:center;font-size:10px;color:#16a34a;font-weight:700;">✔</td>`;
       if (a.status==='late')    return `<td style="text-align:center;font-size:10px;color:#d97706;font-weight:700;">⏰</td>`;
+      if (a.status==='half_day_am') return `<td style="text-align:center;font-size:9px;color:#0891b2;font-weight:700;background:rgba(8,145,178,.1);">½P</td>`;
+      if (a.status==='half_day_pm') return `<td style="text-align:center;font-size:9px;color:#7c3aed;font-weight:700;background:rgba(124,58,237,.1);">½L</td>`;
       return `<td style="text-align:center;font-size:10px;color:#dc2626;font-weight:700;">✗</td>`;
     }).join('');
     const rowBg = idx % 2 === 0 ? '' : 'background:#f9fafb;';
@@ -3281,6 +3287,8 @@ function printMonthlyAttendance() {
     <span style="background:#f3f4f6;color:#9ca3af">OFF ឈប់</span>
     <span style="background:#fffbeb;color:#d97706">🌟✔ OFF ធ្វើការ</span>
     <span style="color:#9333ea">🎉 ថ្ងៃឈប់</span>
+    <span style="background:rgba(8,145,178,.15);color:#0891b2">½P កន្លះថ្ងៃព្រឹក</span>
+    <span style="background:rgba(124,58,237,.15);color:#7c3aed">½L កន្លះថ្ងៃល្ងាច</span>
   </div>
   <table>
     <thead>
@@ -3443,6 +3451,8 @@ function saveMonthlyAttendanceAsImage() {
       if (!a) return `<td style="text-align:center;font-size:12px;color:#dc2626;font-weight:700;">—</td>`;
       if (a.status==='present') return `<td style="text-align:center;font-size:12px;color:#16a34a;font-weight:700;">✔</td>`;
       if (a.status==='late')    return `<td style="text-align:center;font-size:12px;color:#d97706;font-weight:700;">⏰</td>`;
+      if (a.status==='half_day_am') return `<td style="text-align:center;font-size:10px;color:#0891b2;font-weight:700;background:rgba(8,145,178,.1);">½P</td>`;
+      if (a.status==='half_day_pm') return `<td style="text-align:center;font-size:10px;color:#7c3aed;font-weight:700;background:rgba(124,58,237,.1);">½L</td>`;
       return `<td style="text-align:center;font-size:12px;color:#dc2626;font-weight:700;">✗</td>`;
     }).join('');
     const rowBg = idx % 2 === 0 ? '#ffffff' : '#f9fafb';
@@ -3560,6 +3570,8 @@ function saveMonthlyAttendanceAsImage() {
     <span style="background:#fde68a;color:#92400e;">OFF+ សង</span>
     <span style="background:#fffbeb;color:#d97706;">🌟✔ OFF ធ្វើការ</span>
     <span style="background:#ede9fe;color:#7c3aed;">🎉 ថ្ងៃបុណ្យ</span>
+    <span style="background:rgba(8,145,178,.15);color:#0891b2;">½P កន្លះព្រឹក</span>
+    <span style="background:rgba(124,58,237,.15);color:#7c3aed;">½L កន្លះល្ងាច</span>
   </div>
   <table>
     <thead>
@@ -3690,14 +3702,15 @@ async function exportMonthlyAttendanceExcel() {
     // ── Sheet 1: Matrix (ដូច PDF) ────────────────────────────────
     const dayLabels = allDays.map(({d, wd}) => d + '(' + wdNames[wd] + ')');
 
-    const matrixHeaders = ['#', 'ឈ្មោះបុគ្គលិក', 'នាយកដ្ឋាន', '✅ វត្តមាន', '⏰ យឺត', '❌ អវត្តមាន', '🔄 ជំនួស', '🌴 ច្បាប់', 'លើសថ្ងៃ', 'កាត់ ($)', '🌟 OFF Bonus ($)', ...dayLabels, '📅 ធ្វើការ', '📅 OFFខែ'];
+    const matrixHeaders = ['#', 'ឈ្មោះបុគ្គលិក', 'នាយកដ្ឋាន', '✅ វត្តមាន', '⏰ យឺត', '❌ អវត្តមាន', '½ កន្លះថ្ងៃ', '🔄 ជំនួស', '🌴 ច្បាប់', 'លើសថ្ងៃ', 'កាត់ ($)', '🌟 OFF Bonus ($)', ...dayLabels, '📅 ធ្វើការ', '📅 OFFខែ'];
 
     // Sub-header row: weekday names aligned to day columns
     const subHeaderRow = ['', '', '', '', '', '', '', '', '', '', '', ...allDays.map(({wd}) => wdNames[wd]), '', ''];
 
     const matrixRows = [subHeaderRow];
 
-    summaries.forEach(({emp, present, late, absent, swap, onLeave, overAbsent, deduction, offBonus, workingDaysCount, empOffDaysThisMonth}, i) => {
+    summaries.forEach((s, i) => {
+      const {emp, present, late, absent, swap, onLeave, overAbsent, deduction, offBonus, workingDaysCount, empOffDaysThisMonth} = s;
       const attMap     = d._attMap   || {};
       const lvMap      = d._leaveMap || {};
       const empOffDays = typeof parseOffDays === 'function' ? parseOffDays(emp) : [];
@@ -3731,6 +3744,8 @@ async function exportMonthlyAttendanceExcel() {
         if (a.status === 'present') return '✔';
         if (a.status === 'late')    return '⏰';
         if (a.status === 'absent')  return '✗';
+        if (a.status === 'half_day_am') return '½ ព្រឹក';
+        if (a.status === 'half_day_pm') return '½ ល្ងាច';
         return '✗';
       });
 
@@ -3741,6 +3756,7 @@ async function exportMonthlyAttendanceExcel() {
         present + late,
         late,
         absent,
+        s.halfDayCount || 0,
         swap || 0,
         onLeave || 0,
         overAbsent,
@@ -3818,14 +3834,15 @@ async function exportMonthlyAttendanceExcel() {
     matrixRows.push(['', '🌟 OFF ធ្វើការ (សរុប)', '', totalOffWorked + ' ថ្ងៃ', '', '', '', '', '', '', '', ...allDays.map(()=>''), '', '']);
 
     // ── Sheet 2: Detail Summary ───────────────────────────────────
-    const summaryHeaders = ['#', 'ឈ្មោះបុគ្គលិក', 'នាយកដ្ឋាន', '✅ វត្តមាន', '⏰ យឺត', '❌ អវត្តមាន', '🔄 ជំនួស', '🌴 ច្បាប់', 'ថ្ងៃធ្វើការ', 'ថ្ងៃ OFF', '🌟 OFF ធ្វើការ', 'ថ្ងៃលើស', 'អត្រាថ្ងៃ ($)', 'កាត់ ($)', '🌟 OFF Bonus ($)'];
-    const summaryRows = summaries.map(({emp, present, late, absent, swap, onLeave, overAbsent, deduction, dailyRate, workingDaysCount, offBonus, offDaysWorked, empOffDaysThisMonth}, i) => [
+    const summaryHeaders = ['#', 'ឈ្មោះបុគ្គលិក', 'នាយកដ្ឋាន', '✅ វត្តមាន', '⏰ យឺត', '❌ អវត្តមាន', '½ កន្លះថ្ងៃ', '🔄 ជំនួស', '🌴 ច្បាប់', 'ថ្ងៃធ្វើការ', 'ថ្ងៃ OFF', '🌟 OFF ធ្វើការ', 'ថ្ងៃលើស', 'អត្រាថ្ងៃ ($)', 'កាត់ ($)', '🌟 OFF Bonus ($)'];
+    const summaryRows = summaries.map(({emp, present, late, absent, swap, onLeave, overAbsent, deduction, dailyRate, workingDaysCount, offBonus, offDaysWorked, empOffDaysThisMonth, halfDayCount}, i) => [
       i + 1,
       emp.name,
       emp.department || '',
       present + late,
       late,
       absent,
+      halfDayCount || 0,
       swap || 0,
       onLeave || 0,
       present + late,
@@ -4984,7 +5001,7 @@ function openAttModal(dateVal, mode) {
     +'<div class="form-group"><label class="form-label">ថ្ងៃខែ</label><input class="form-control" id="a-date" type="date" value="'+d+'" /></div>'
     +'<div class="form-group"><label class="form-label">ម៉ោងចូល</label><input class="form-control" id="a-in" type="time" value="'+defaultIn+'" /></div>'
     +'<div class="form-group"><label class="form-label">ម៉ោងចេញ</label><input class="form-control" id="a-out" type="time" value="'+defaultOut+'" /></div>'
-    +'<div class="form-group"><label class="form-label">ស្ថានភាព</label><select class="form-control" id="a-status"><option value="present">✅ វត្តមាន</option><option value="late">⏰ យឺត</option><option value="absent">❌ អវត្តមាន</option></select></div>'
+    +'<div class="form-group"><label class="form-label">ស្ថានភាព</label><select class="form-control" id="a-status"><option value="present">✅ វត្តមាន</option><option value="late">⏰ យឺត</option><option value="absent">❌ អវត្តមាន</option><option value="half_day_am">🌤 កន្លះថ្ងៃ (ព្រឹក)</option><option value="half_day_pm">🌅 កន្លះថ្ងៃ (ល្ងាច)</option></select></div>'
     +'</div>';
 
   if (isBulk) {
@@ -8664,6 +8681,8 @@ async function openEditAttModal(attId, empName) {
       +'<option value="present"'+(r.status==='present'?' selected':'')+'>✅ វត្តមាន</option>'
       +'<option value="late"'+(r.status==='late'?' selected':'')+'>⏰ យឺត</option>'
       +'<option value="absent"'+(r.status==='absent'?' selected':'')+'>❌ អវត្តមាន</option>'
+      +'<option value="half_day_am"'+(r.status==='half_day_am'?' selected':'')+'>🌤 កន្លះថ្ងៃ (ព្រឹក)</option>'
+      +'<option value="half_day_pm"'+(r.status==='half_day_pm'?' selected':'')+'>🌅 កន្លះថ្ងៃ (ល្ងាច)</option>'
       +'</select></div>'
       +'</div>'
       +'<div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">បោះបង់</button>'
