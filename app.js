@@ -2944,7 +2944,7 @@ async function renderMonthlyAttendance(month='') {
 
         // Compute per-day stats
         const footData = allDays.map(({dd, wd}) => {
-          let working = 0, presentOnly = 0, lateCount = 0, offCount = 0, offWorked = 0, swapCount = 0;
+          let working = 0, presentOnly = 0, lateCount = 0, offCount = 0, offWorked = 0, swapCount = 0, halfDayCount = 0;
           renderSummaries.forEach(({emp}) => {
             const empOff = parseOffDays(emp);
             const swapRec = (swapMap[emp.id]||{})[dd];
@@ -2977,6 +2977,8 @@ async function renderMonthlyAttendance(month='') {
                 working++;
                 lateCount++;
                 // presentOnly មិនរាប់ late
+              } else if (attRec && (attRec.status==='half_day_am'||attRec.status==='half_day_pm')) {
+                halfDayCount++;
               } else {
                 offCount++;
               }
@@ -2986,7 +2988,7 @@ async function renderMonthlyAttendance(month='') {
           const bg = isSun ? 'background:rgba(220,38,38,0.12);' : isSat ? 'background:rgba(180,83,9,0.12);' : '';
           // totalCount = presentOnly + lateCount + offWorked (swapCount included inside offWorked)
           const totalCount = presentOnly + lateCount + offWorked;
-          return { working, presentOnly, lateCount, offCount, offWorked, swapCount, totalCount, bg };
+          return { working, presentOnly, lateCount, offCount, offWorked, swapCount, totalCount, halfDayCount, bg };
         });
 
         // Shared cell width style
@@ -3007,6 +3009,11 @@ async function renderMonthlyAttendance(month='') {
           '<td style="'+TDW+bg+'color:var(--danger)">'+offCount+'</td>'
         ).join('');
 
+        // Row ½: កន្លះថ្ងៃ
+        const rowHDCells = footData.map(({halfDayCount,bg}) =>
+          '<td style="'+TDW+bg+'color:#0891b2">'+(halfDayCount>0?halfDayCount:'—')+'</td>'
+        ).join('');
+
         // Row 4: 🌟 OFF ធ្វើការ
         const row4Cells = footData.map(({offWorked,bg}) =>
           '<td style="'+TDW+bg+'color:#d97706">'+(offWorked>0?offWorked:'—')+'</td>'
@@ -3021,6 +3028,7 @@ async function renderMonthlyAttendance(month='') {
 
         // Grand totals (sticky right)
         const totalWD   = renderSummaries.reduce((s,r)=>s+(r.present||0),0);
+        const totalHD   = renderSummaries.reduce((s,r)=>s+(r.halfDayCount||0),0);
         const totalLate = renderSummaries.reduce((s,r)=>s+(r.late||0),0);
         const totalOff  = renderSummaries.reduce((s,r)=>s+(r.empOffDaysThisMonth||0),0);
         const totalOW   = renderSummaries.reduce((s,r)=>s+(r.offDaysWorked||0),0);
@@ -3064,7 +3072,8 @@ async function renderMonthlyAttendance(month='') {
           +row2Cells
           +stickyTd(totalLate,'var(--warning)')
           +'</tr>'
-          // ── Row 3: 🌟 OFF ធ្វើការ ──────────────────────────────────────────
+          // ── Row ½: កន្លះថ្ងៃ ─────────────────────────────────────────────
+          +'<tr style="'+trStyle+'">'          +labelTd('½','កន្លះថ្ងៃ (នាក់)','#0891b2')          +blankTd+blankObTd          +rowHDCells          +stickyTd(totalHD,'#0891b2')          +'</tr>'          // ── Row 3: 🌟 OFF ធ្វើការ ──────────────────────────────────────────
           +'<tr style="'+trStyle+'">'
           +labelTd('🌟','OFF ធ្វើការ (នាក់)','#d97706')
           +blankTd+blankObTd
