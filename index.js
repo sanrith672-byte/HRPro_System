@@ -82,25 +82,48 @@ async function handleRequest(request, env) {
       return json({ message: 'DB fix done', results: summary });
     }
 
+    // ===== MIGRATE ATTENDANCE TABLE — remove old CHECK constraint =====
+    if (path === '/migrate-attendance' && method === 'POST') {
+      try {
+        // Step 1: rename old table
+        await env.DB.prepare('ALTER TABLE attendance RENAME TO attendance_old').run().catch(()=>{});
+        // Step 2: create new table without CHECK constraint
+        await env.DB.prepare(`CREATE TABLE IF NOT EXISTS attendance (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          employee_id INTEGER NOT NULL REFERENCES employees(id),
+          date TEXT NOT NULL,
+          check_in TEXT DEFAULT '',
+          check_out TEXT DEFAULT '',
+          status TEXT DEFAULT 'present',
+          notes TEXT DEFAULT '',
+          scanner_id INTEGER DEFAULT NULL,
+          created_at TEXT,
+          UNIQUE(employee_id, date)
+        )`).run();
+        // Step 3: copy data, mapping old statuses
+        await env.DB.prepare(`INSERT OR IGNORE INTO attendance (id,employee_id,date,check_in,check_out,status,notes,scanner_id,created_at)
+          SELECT id, employee_id, date,
+            COALESCE(check_in,''), COALESCE(check_out,''),
+            CASE WHEN status IN ('present','late','absent','holiday','half_day_am','half_day_pm') THEN status ELSE 'present' END,
+            COALESCE(notes,''), scanner_id, created_at
+          FROM attendance_old`).run();
+        // Step 4: drop old table
+        await env.DB.prepare('DROP TABLE IF EXISTS attendance_old').run();
+        const cnt = await env.DB.prepare('SELECT COUNT(*) as n FROM attendance').first();
+        return json({ message: 'Migration done! Attendance table recreated without CHECK constraint.', rows: cnt.n });
+      } catch(e) {
+        return json({ error: e.message }, 500);
+      }
+    }
+
     // ===== DEBUG ATTENDANCE =====
     if (path === '/debug-attendance' && method === 'GET') {
       try {
         const cols = await env.DB.prepare("PRAGMA table_info(attendance)").all();
         const empCols = await env.DB.prepare("PRAGMA table_info(employees)").all();
-        const sample = await env.DB.prepare("SELECT * FROM attendance ORDER BY id DESC LIMIT 3").all();
         const count = await env.DB.prepare("SELECT COUNT(*) as total FROM attendance").first();
         const empCount = await env.DB.prepare("SELECT COUNT(*) as total FROM employees").first();
-        const firstEmp = await env.DB.prepare("SELECT id FROM employees LIMIT 1").first();
-        let testInsert = null;
-        if (firstEmp) {
-          try {
-            await env.DB.prepare("INSERT OR REPLACE INTO attendance (employee_id,date,check_in,check_out,status,created_at) VALUES (?,?,?,?,?,datetime("now"))")
-              .bind(firstEmp.id,"2099-01-01","08:00","17:00","present").run();
-            await env.DB.prepare("DELETE FROM attendance WHERE date="2099-01-01"").run();
-            testInsert = "success";
-          } catch(e2) { testInsert = "FAILED: " + e2.message; }
-        }
-        return json({ att_columns: cols.results.map(c=>c.name), emp_columns: empCols.results.map(c=>c.name), att_total: count.total, emp_total: empCount.total, first_emp_id: firstEmp ? firstEmp.id : null, test_insert: testInsert });
+        return json({ att_columns: cols.results.map(c=>c.name), emp_columns: empCols.results.map(c=>c.name), att_total: count.total, emp_total: empCount.total });
       } catch(e) {
         return json({ error: e.message });
       }
