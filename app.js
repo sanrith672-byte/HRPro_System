@@ -4723,12 +4723,42 @@ async function processQRScan_continue(emp, raw, date) {
   const _limitMin = _startParts[0] * 60 + _startParts[1] + _graceMin;
   const _nowMin = now.getHours() * 60 + now.getMinutes();
   const isLate = type === 'in' && (_nowMin > _limitMin);
-  const status = type === 'in' ? (isLate ? 'late' : 'present') : 'present';
+
+  // ── Auto Half-Day Detection (QR Scanner) ─────────────────────────────
+  // Half-day AM : Scan-In  07:00–11:59  AND  Scan-Out 11:00–12:59
+  // Half-day PM : Scan-In  13:00–17:59  AND  Scan-Out 17:00–18:59
+  // When scanning OUT, look up existing check_in from server to decide.
+  let _autoHalfDay = null; // 'half_day_am' | 'half_day_pm' | null
+  if (type === 'out') {
+    try {
+      const _todayAtt = await api('GET', '/attendance?employee_id=' + emp.id + '&date=' + date).catch(() => null);
+      const _existRec = (_todayAtt && (_todayAtt.records || _todayAtt.attendance || [])).find(
+        r => (r.employee_id === emp.id || r.employee_id === String(emp.id)) && r.date === date
+      );
+      if (_existRec && _existRec.check_in) {
+        const _ciParts  = _existRec.check_in.split(':').map(Number);
+        const _ciMin    = _ciParts[0] * 60 + (_ciParts[1] || 0);
+        // AM session: check-in 07:00–11:59 (420–719), check-out 11:00–12:59 (660–779)
+        const _amIn  = _ciMin >= 420 && _ciMin <= 719;
+        const _amOut = _nowMin >= 660 && _nowMin <= 779;
+        // PM session: check-in 13:00–17:59 (780–1079), check-out 17:00–18:59 (1020–1139)
+        const _pmIn  = _ciMin >= 780 && _ciMin <= 1079;
+        const _pmOut = _nowMin >= 1020 && _nowMin <= 1139;
+        if (_amIn && _amOut)       _autoHalfDay = 'half_day_am';
+        else if (_pmIn && _pmOut)  _autoHalfDay = 'half_day_pm';
+      }
+    } catch(_) {}
+  }
+  // ─────────────────────────────────────────────────────────────────────
+
+  const status = type === 'in'
+    ? (isLate ? 'late' : 'present')
+    : (_autoHalfDay || 'present');
 
   const _sess = getSession();
   const payload = { employee_id: emp.id, date };
   if (type === 'in')  { payload.check_in  = time; payload.status = status; }
-  else                { payload.check_out = time; }
+  else                { payload.check_out = time; if (_autoHalfDay) payload.status = _autoHalfDay; }
   // Attach scanner_id from logged-in user
   if (_sess && _sess.id) payload.scanner_id = _sess.id;
   // Attach location to notes if available
@@ -4822,6 +4852,12 @@ async function processQRScan_continue(emp, raw, date) {
         +'<div style="font-size:20px;font-weight:900;color:'+(type==='in'?'var(--success)':'var(--primary)')+'">'+time+(isLate?' ⏰':'')+'</div>'
         +'</div></div>'
         +'<div style="font-size:13px;color:var(--text3);margin-top:8px">'+(emp.custom_id||emp.department_name||'')+'</div>'
+        // ── Auto Half-Day Badge ──
+        +(_autoHalfDay==='half_day_am'
+          ? '<div style="margin-top:10px;padding:8px 18px;background:rgba(8,145,178,.12);border:1.5px solid rgba(8,145,178,.4);border-radius:10px;font-size:14px;font-weight:700;color:#0891b2">🌤 Auto: កន្លះថ្ងៃ ព្រឹក</div>'
+          : _autoHalfDay==='half_day_pm'
+          ? '<div style="margin-top:10px;padding:8px 18px;background:rgba(124,58,237,.12);border:1.5px solid rgba(124,58,237,.4);border-radius:10px;font-size:14px;font-weight:700;color:#7c3aed">🌅 Auto: កន្លះថ្ងៃ ល្ងាច</div>'
+          : '')
         // ── Day Swap Badge (ថ្ងៃប្ដូរ) ──
         + _dayswapBadge
         // QR Scanner operator info
@@ -4867,7 +4903,7 @@ async function processQRScan_continue(emp, raw, date) {
         + '</div>'
         + '<div style="margin-left:auto;text-align:right;flex-shrink:0">'
         + '<div style="font-size:15px;font-weight:800;color:'+textColor+'">'+(type==='in'?'▶ ':'◀ ')+time+'</div>'
-        + '<div style="font-size:11px;color:var(--text3)">'+(type==='in'?(isLate?'⏰ យឺត':'✅ ទាន់'):'🚪 ចេញ')+'</div>'
+        + '<div style="font-size:11px;color:var(--text3)">'+(type==='in'?(isLate?'⏰ យឺត':'✅ ទាន់'):(_autoHalfDay==='half_day_am'?'🌤 កន្លះថ្ងៃ ព្រឹក':_autoHalfDay==='half_day_pm'?'🌅 កន្លះថ្ងៃ ល្ងាច':'🚪 ចេញ'))+'</div>'
         + '</div></div>'
         + log.innerHTML;
     }
