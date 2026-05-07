@@ -61,6 +61,18 @@ async function handleRequest(request, env) {
       if (method === 'POST') return saveEmpMedia(id,'qr_data',request,env);
       if (method === 'DELETE') return deleteEmpMedia(id,'qr_data',env);
     }
+    // ===== DEBUG ATTENDANCE =====
+    if (path === '/debug-attendance' && method === 'GET') {
+      try {
+        const cols = await env.DB.prepare("PRAGMA table_info(attendance)").all();
+        const sample = await env.DB.prepare("SELECT * FROM attendance ORDER BY id DESC LIMIT 5").all();
+        const count = await env.DB.prepare("SELECT COUNT(*) as total FROM attendance").first();
+        return json({ columns: cols.results.map(c=>c.name), sample: sample.results, total: count.total });
+      } catch(e) {
+        return json({ error: e.message });
+      }
+    }
+
     // ===== DEBUG DB CHECK =====
     if (path === '/check-db' && method === 'GET') {
       try {
@@ -607,54 +619,81 @@ async function getAttendance(request, env) {
   const present = result.results.filter(r => r.status === 'present').length;
   const late = result.results.filter(r => r.status === 'late').length;
   const absent = result.results.filter(r => r.status === 'absent').length;
+  const half_day = result.results.filter(r => r.status === 'half_day_am' || r.status === 'half_day_pm').length;
   const checked_in = result.results.filter(r => r.check_in).length;
   const checked_out = result.results.filter(r => r.check_out).length;
   const not_scanned = result.results.filter(r => !r.check_in).length;
 
-  return json({ records: result.results, stats: { present, late, absent, total: result.results.length, checked_in, checked_out, not_scanned } });
+  return json({ records: result.results, stats: { present, late, absent, half_day, total: result.results.length, checked_in, checked_out, not_scanned } });
 }
 
 async function updateAttendance(id, request, env) {
-  const existing = await env.DB.prepare('SELECT id FROM attendance WHERE id = ?').bind(id).first();
-  if (!existing) return error('Attendance record not found', 404);
-  const { date, check_in, check_out, status } = await request.json();
-  await env.DB.prepare(`UPDATE attendance SET date=COALESCE(?,date), check_in=COALESCE(?,check_in), check_out=COALESCE(?,check_out), status=COALESCE(?,status) WHERE id=?`)
-    .bind(date||null, check_in||null, check_out||null, status||null, id).run();
-  return json({ message: 'Attendance updated' });
+  try {
+    const existing = await env.DB.prepare('SELECT id FROM attendance WHERE id = ?').bind(id).first();
+    if (!existing) return error('Attendance record not found', 404);
+    const body = await request.json();
+    const { date, check_in, check_out, notes } = body;
+    const validStatuses = ['present','late','absent','holiday','half_day_am','half_day_pm'];
+    const status = validStatuses.includes(body.status) ? body.status : null;
+    await env.DB.prepare('UPDATE attendance SET date=COALESCE(?,date), check_in=COALESCE(?,check_in), check_out=COALESCE(?,check_out), status=COALESCE(?,status), notes=COALESCE(?,notes) WHERE id=?')
+      .bind(date||null, check_in||null, check_out||null, status||null, notes||null, id).run();
+    return json({ message: 'Attendance updated' });
+  } catch(e) {
+    console.error('updateAttendance error:', e.message);
+    return new Response(JSON.stringify({ error: 'DB error', message: e.message }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, Authorization' }
+    });
+  }
 }
 
 async function createAttendance(request, env) {
   let body;
-  try { body = await request.json(); } catch(_) { return error('Invalid JSON body'); }
+  try { body = await request.json(); } catch(e) { return error('Invalid JSON body: ' + e.message); }
 
   const { employee_id, date, check_in, check_out, status, notes, scanner_id } = body || {};
 
   if (!employee_id) return error('employee_id is required');
 
   const attDate = date || new Date().toISOString().split('T')[0];
+  // Validate status — accept all known values including half_day
+  const validStatuses = ['present','late','absent','holiday','half_day_am','half_day_pm'];
+  const safeStatus = validStatuses.includes(status) ? status : 'present';
 
-  // Check if record already exists for this employee+date
-  const existing = await env.DB.prepare(
-    'SELECT id, check_in FROM attendance WHERE employee_id = ? AND date = ?'
-  ).bind(parseInt(employee_id), attDate).first();
+  try {
+    // Ensure scanner_id column exists (migration guard)
+    await env.DB.prepare('ALTER TABLE attendance ADD COLUMN scanner_id INTEGER DEFAULT NULL').run().catch(()=>{});
+    await env.DB.prepare('ALTER TABLE attendance ADD COLUMN notes TEXT DEFAULT \'\'').run().catch(()=>{});
 
-  if (existing) {
-    // Update existing — preserve check_in if not provided
-    const newCheckIn = check_in || existing.check_in || '';
-    const newCheckOut = check_out || '';
-    const newStatus = status || 'present';
-    await env.DB.prepare(
-      'UPDATE attendance SET check_in=?, check_out=?, status=?, notes=?, scanner_id=COALESCE(?,scanner_id) WHERE id=?'
-    ).bind(newCheckIn, newCheckOut, newStatus, notes||'', scanner_id||null, existing.id).run();
-    return json({ message: 'Attendance updated', id: existing.id });
+    // Check if record already exists for this employee+date
+    const existing = await env.DB.prepare(
+      'SELECT id, check_in FROM attendance WHERE employee_id = ? AND date = ?'
+    ).bind(parseInt(employee_id), attDate).first();
+
+    if (existing) {
+      // Update existing — preserve check_in if not provided
+      const newCheckIn = check_in || existing.check_in || '';
+      const newCheckOut = check_out || '';
+      await env.DB.prepare(
+        'UPDATE attendance SET check_in=?, check_out=?, status=?, notes=?, scanner_id=COALESCE(?,scanner_id) WHERE id=?'
+      ).bind(newCheckIn, newCheckOut, safeStatus, notes||'', scanner_id||null, existing.id).run();
+      return json({ message: 'Attendance updated', id: existing.id });
+    }
+
+    // Insert new record
+    const result = await env.DB.prepare(
+      'INSERT INTO attendance (employee_id, date, check_in, check_out, status, notes, scanner_id, created_at) VALUES (?,?,?,?,?,?,?,datetime(\'now\'))'
+    ).bind(parseInt(employee_id), attDate, check_in||'', check_out||'', safeStatus, notes||'', scanner_id||null).run();
+
+    return json({ message: 'Attendance recorded', id: result.meta.last_row_id }, 201);
+
+  } catch(e) {
+    console.error('createAttendance error:', e.message, e.stack);
+    return new Response(JSON.stringify({ error: 'DB error', message: e.message, employee_id, date: attDate }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, Authorization' }
+    });
   }
-
-  // Insert new record
-  const result = await env.DB.prepare(
-    'INSERT INTO attendance (employee_id, date, check_in, check_out, status, notes, scanner_id, created_at) VALUES (?,?,?,?,?,?,?,datetime(\'now\'))'
-  ).bind(parseInt(employee_id), attDate, check_in||'', check_out||'', status||'present', notes||'', scanner_id||null).run();
-
-  return json({ message: 'Attendance recorded', id: result.meta.last_row_id }, 201);
 }
 
 // ============================================================
