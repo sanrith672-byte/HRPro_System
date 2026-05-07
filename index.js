@@ -61,6 +61,27 @@ async function handleRequest(request, env) {
       if (method === 'POST') return saveEmpMedia(id,'qr_data',request,env);
       if (method === 'DELETE') return deleteEmpMedia(id,'qr_data',env);
     }
+    // ===== FIX DB — force run all column migrations =====
+    if (path === '/fix-db' && method === 'POST') {
+      const results = await Promise.allSettled([
+        env.DB.prepare("ALTER TABLE attendance ADD COLUMN scanner_id INTEGER DEFAULT NULL").run(),
+        env.DB.prepare("ALTER TABLE attendance ADD COLUMN notes TEXT DEFAULT ''").run(),
+        env.DB.prepare("ALTER TABLE employees ADD COLUMN custom_id TEXT DEFAULT ''").run(),
+        env.DB.prepare("ALTER TABLE employees ADD COLUMN bank TEXT DEFAULT ''").run(),
+        env.DB.prepare("ALTER TABLE employees ADD COLUMN bank_account TEXT DEFAULT ''").run(),
+        env.DB.prepare("ALTER TABLE employees ADD COLUMN bank_holder TEXT DEFAULT ''").run(),
+        env.DB.prepare("ALTER TABLE employees ADD COLUMN photo_data TEXT DEFAULT ''").run(),
+        env.DB.prepare("ALTER TABLE employees ADD COLUMN qr_data TEXT DEFAULT ''").run(),
+        env.DB.prepare("ALTER TABLE employees ADD COLUMN termination_date TEXT DEFAULT ''").run(),
+        env.DB.prepare("ALTER TABLE employees ADD COLUMN work_history TEXT DEFAULT ''").run(),
+        env.DB.prepare("ALTER TABLE employees ADD COLUMN off_days TEXT DEFAULT '[]'").run(),
+        env.DB.prepare("ALTER TABLE employees ADD COLUMN work_location TEXT DEFAULT ''").run(),
+        env.DB.prepare("ALTER TABLE employees ADD COLUMN allowance REAL DEFAULT 0").run(),
+      ]);
+      const summary = results.map((r,i) => r.status === 'fulfilled' ? 'ok' : 'skip');
+      return json({ message: 'DB fix done', results: summary });
+    }
+
     // ===== DEBUG ATTENDANCE =====
     if (path === '/debug-attendance' && method === 'GET') {
       try {
@@ -367,6 +388,7 @@ async function getEmployees(request, env) {
     `ALTER TABLE employees ADD COLUMN photo_data TEXT DEFAULT ''`,
     `ALTER TABLE employees ADD COLUMN qr_data TEXT DEFAULT ''`,
     `ALTER TABLE attendance ADD COLUMN scanner_id INTEGER DEFAULT NULL`,
+    `ALTER TABLE attendance ADD COLUMN notes TEXT DEFAULT ''`,
     `ALTER TABLE employees ADD COLUMN termination_date TEXT DEFAULT ''`,
     `ALTER TABLE employees ADD COLUMN work_history TEXT DEFAULT ''`,
     `ALTER TABLE employees ADD COLUMN off_days TEXT DEFAULT '[]'`,
@@ -635,8 +657,14 @@ async function updateAttendance(id, request, env) {
     const { date, check_in, check_out, notes } = body;
     const validStatuses = ['present','late','absent','holiday','half_day_am','half_day_pm'];
     const status = validStatuses.includes(body.status) ? body.status : null;
-    await env.DB.prepare('UPDATE attendance SET date=COALESCE(?,date), check_in=COALESCE(?,check_in), check_out=COALESCE(?,check_out), status=COALESCE(?,status), notes=COALESCE(?,notes) WHERE id=?')
-      .bind(date||null, check_in||null, check_out||null, status||null, notes||null, id).run();
+    // Try with notes column, fall back without
+    try {
+      await env.DB.prepare('UPDATE attendance SET date=COALESCE(?,date), check_in=COALESCE(?,check_in), check_out=COALESCE(?,check_out), status=COALESCE(?,status), notes=COALESCE(?,notes) WHERE id=?')
+        .bind(date||null, check_in||null, check_out||null, status||null, notes||null, id).run();
+    } catch(_) {
+      await env.DB.prepare('UPDATE attendance SET date=COALESCE(?,date), check_in=COALESCE(?,check_in), check_out=COALESCE(?,check_out), status=COALESCE(?,status) WHERE id=?')
+        .bind(date||null, check_in||null, check_out||null, status||null, id).run();
+    }
     return json({ message: 'Attendance updated' });
   } catch(e) {
     console.error('updateAttendance error:', e.message);
@@ -660,11 +688,13 @@ async function createAttendance(request, env) {
   const validStatuses = ['present','late','absent','holiday','half_day_am','half_day_pm'];
   const safeStatus = validStatuses.includes(status) ? status : 'present';
 
-  try {
-    // Ensure scanner_id column exists (migration guard)
-    await env.DB.prepare('ALTER TABLE attendance ADD COLUMN scanner_id INTEGER DEFAULT NULL').run().catch(()=>{});
-    await env.DB.prepare('ALTER TABLE attendance ADD COLUMN notes TEXT DEFAULT \'\'').run().catch(()=>{});
+  // Run attendance column migrations every time (safe — silently ignores if already exists)
+  await Promise.allSettled([
+    env.DB.prepare('ALTER TABLE attendance ADD COLUMN scanner_id INTEGER DEFAULT NULL').run(),
+    env.DB.prepare("ALTER TABLE attendance ADD COLUMN notes TEXT DEFAULT ''").run(),
+  ]);
 
+  try {
     // Check if record already exists for this employee+date
     const existing = await env.DB.prepare(
       'SELECT id, check_in FROM attendance WHERE employee_id = ? AND date = ?'
@@ -674,18 +704,34 @@ async function createAttendance(request, env) {
       // Update existing — preserve check_in if not provided
       const newCheckIn = check_in || existing.check_in || '';
       const newCheckOut = check_out || '';
-      await env.DB.prepare(
-        'UPDATE attendance SET check_in=?, check_out=?, status=?, notes=?, scanner_id=COALESCE(?,scanner_id) WHERE id=?'
-      ).bind(newCheckIn, newCheckOut, safeStatus, notes||'', scanner_id||null, existing.id).run();
+      // Try with notes first, fall back without if column missing
+      try {
+        await env.DB.prepare(
+          'UPDATE attendance SET check_in=?, check_out=?, status=?, notes=?, scanner_id=COALESCE(?,scanner_id) WHERE id=?'
+        ).bind(newCheckIn, newCheckOut, safeStatus, notes||'', scanner_id||null, existing.id).run();
+      } catch(_) {
+        await env.DB.prepare(
+          'UPDATE attendance SET check_in=?, check_out=?, status=?, scanner_id=COALESCE(?,scanner_id) WHERE id=?'
+        ).bind(newCheckIn, newCheckOut, safeStatus, scanner_id||null, existing.id).run();
+      }
       return json({ message: 'Attendance updated', id: existing.id });
     }
 
-    // Insert new record
-    const result = await env.DB.prepare(
-      'INSERT INTO attendance (employee_id, date, check_in, check_out, status, notes, scanner_id, created_at) VALUES (?,?,?,?,?,?,?,datetime(\'now\'))'
-    ).bind(parseInt(employee_id), attDate, check_in||'', check_out||'', safeStatus, notes||'', scanner_id||null).run();
-
-    return json({ message: 'Attendance recorded', id: result.meta.last_row_id }, 201);
+    // Insert new record — try with notes, fall back without
+    let insertId;
+    try {
+      const result = await env.DB.prepare(
+        "INSERT INTO attendance (employee_id, date, check_in, check_out, status, notes, scanner_id, created_at) VALUES (?,?,?,?,?,?,?,datetime('now'))"
+      ).bind(parseInt(employee_id), attDate, check_in||'', check_out||'', safeStatus, notes||'', scanner_id||null).run();
+      insertId = result.meta.last_row_id;
+    } catch(_) {
+      // Fallback: insert without notes/scanner_id columns (old DB schema)
+      const result2 = await env.DB.prepare(
+        "INSERT INTO attendance (employee_id, date, check_in, check_out, status, created_at) VALUES (?,?,?,?,?,datetime('now'))"
+      ).bind(parseInt(employee_id), attDate, check_in||'', check_out||'', safeStatus).run();
+      insertId = result2.meta.last_row_id;
+    }
+    return json({ message: 'Attendance recorded', id: insertId }, 201);
 
   } catch(e) {
     console.error('createAttendance error:', e.message, e.stack);

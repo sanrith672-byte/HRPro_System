@@ -9555,6 +9555,8 @@ function renderSettings() {
             <div style="border-top:1px solid var(--border);padding-top:16px;margin-top:16px">
               <div style="font-size:14px;color:var(--text3);margin-bottom:10px">Initialize Database (បង្កើត Tables ដំបូង)</div>
               <button class="btn btn-outline" style="width:100%" onclick="initWorkerDB()">🗃️ Initialize D1 Database</button>
+              <div style="font-size:12px;color:var(--text3);margin:10px 0 6px">⚠️ ប្រសិន POST Attendance fail — ចុចនេះ:</div>
+              <button class="btn btn-outline" style="width:100%;border-color:var(--warning);color:var(--warning)" onclick="fixWorkerDB()">🔧 Fix DB Columns</button>
             </div>`:''}
           </div>
         </div>
@@ -10592,6 +10594,14 @@ async function initWorkerDB() {
     await api('POST','/init');
     showToast('Initialize Database បានជោគជ័យ! 🗃️','success');
   } catch(e) { showToast('Error: '+e.message,'error'); }
+}
+
+async function fixWorkerDB() {
+  try {
+    showToast('កំពុង Fix DB...','info');
+    const res = await api('POST','/fix-db');
+    showToast('Fix DB ជោគជ័យ! ✅ សាកល្បងម្ដងទៀត','success');
+  } catch(e) { showToast('Fix DB Error: '+e.message,'error'); }
 }
 
 // ── User account photo ──
