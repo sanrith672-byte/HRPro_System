@@ -654,9 +654,27 @@ async function updateAttendance(id, request, env) {
     const existing = await env.DB.prepare('SELECT id FROM attendance WHERE id = ?').bind(id).first();
     if (!existing) return error('Attendance record not found', 404);
     const body = await request.json();
-    const { date, check_in, check_out, notes } = body;
+    const { date, notes } = body;
     const validStatuses = ['present','late','absent','holiday','half_day_am','half_day_pm'];
     const status = validStatuses.includes(body.status) ? body.status : null;
+    // Normalize time values — strip AM/PM if browser sends 12h format
+    function normalizeTime(t) {
+      if (!t) return null;
+      t = String(t).trim();
+      if (/^\d{1,2}:\d{2}$/.test(t)) return t;
+      const m = t.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+      if (m) {
+        let h = parseInt(m[1]);
+        const min = m[2];
+        const ampm = m[3].toUpperCase();
+        if (ampm === 'AM' && h === 12) h = 0;
+        if (ampm === 'PM' && h !== 12) h += 12;
+        return String(h).padStart(2,'0') + ':' + min;
+      }
+      return t;
+    }
+    const check_in  = normalizeTime(body.check_in);
+    const check_out = normalizeTime(body.check_out);
     // Try with notes column, fall back without
     try {
       await env.DB.prepare('UPDATE attendance SET date=COALESCE(?,date), check_in=COALESCE(?,check_in), check_out=COALESCE(?,check_out), status=COALESCE(?,status), notes=COALESCE(?,notes) WHERE id=?')
@@ -688,6 +706,27 @@ async function createAttendance(request, env) {
   const validStatuses = ['present','late','absent','holiday','half_day_am','half_day_pm'];
   const safeStatus = validStatuses.includes(status) ? status : 'present';
 
+  // Normalize time values — strip any AM/PM suffix just in case browser sends it
+  function normalizeTime(t) {
+    if (!t) return '';
+    t = String(t).trim();
+    // Already HH:MM 24h format
+    if (/^\d{1,2}:\d{2}$/.test(t)) return t;
+    // Handle "HH:MM AM/PM" format
+    const m = t.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+    if (m) {
+      let h = parseInt(m[1]);
+      const min = m[2];
+      const ampm = m[3].toUpperCase();
+      if (ampm === 'AM' && h === 12) h = 0;
+      if (ampm === 'PM' && h !== 12) h += 12;
+      return String(h).padStart(2,'0') + ':' + min;
+    }
+    return t;
+  }
+  const safeCheckIn  = normalizeTime(check_in);
+  const safeCheckOut = normalizeTime(check_out);
+
   // Run attendance column migrations every time (safe — silently ignores if already exists)
   await Promise.allSettled([
     env.DB.prepare('ALTER TABLE attendance ADD COLUMN scanner_id INTEGER DEFAULT NULL').run(),
@@ -702,8 +741,8 @@ async function createAttendance(request, env) {
 
     if (existing) {
       // Update existing — preserve check_in if not provided
-      const newCheckIn = check_in || existing.check_in || '';
-      const newCheckOut = check_out || '';
+      const newCheckIn  = safeCheckIn  || existing.check_in || '';
+      const newCheckOut = safeCheckOut || '';
       // Try with notes first, fall back without if column missing
       try {
         await env.DB.prepare(
@@ -711,25 +750,41 @@ async function createAttendance(request, env) {
         ).bind(newCheckIn, newCheckOut, safeStatus, notes||'', scanner_id||null, existing.id).run();
       } catch(_) {
         await env.DB.prepare(
-          'UPDATE attendance SET check_in=?, check_out=?, status=?, scanner_id=COALESCE(?,scanner_id) WHERE id=?'
-        ).bind(newCheckIn, newCheckOut, safeStatus, scanner_id||null, existing.id).run();
+          'UPDATE attendance SET check_in=?, check_out=?, status=? WHERE id=?'
+        ).bind(newCheckIn, newCheckOut, safeStatus, existing.id).run();
       }
       return json({ message: 'Attendance updated', id: existing.id });
     }
 
-    // Insert new record — try with notes, fall back without
+    // Insert new record — try with notes/scanner_id, fall back to basic columns
     let insertId;
     try {
       const result = await env.DB.prepare(
         "INSERT INTO attendance (employee_id, date, check_in, check_out, status, notes, scanner_id, created_at) VALUES (?,?,?,?,?,?,?,datetime('now'))"
-      ).bind(parseInt(employee_id), attDate, check_in||'', check_out||'', safeStatus, notes||'', scanner_id||null).run();
+      ).bind(parseInt(employee_id), attDate, safeCheckIn, safeCheckOut, safeStatus, notes||'', scanner_id||null).run();
       insertId = result.meta.last_row_id;
-    } catch(_) {
-      // Fallback: insert without notes/scanner_id columns (old DB schema)
-      const result2 = await env.DB.prepare(
-        "INSERT INTO attendance (employee_id, date, check_in, check_out, status, created_at) VALUES (?,?,?,?,?,datetime('now'))"
-      ).bind(parseInt(employee_id), attDate, check_in||'', check_out||'', safeStatus).run();
-      insertId = result2.meta.last_row_id;
+    } catch(e1) {
+      try {
+        // Fallback: insert without notes/scanner_id columns (old DB schema)
+        const result2 = await env.DB.prepare(
+          "INSERT INTO attendance (employee_id, date, check_in, check_out, status, created_at) VALUES (?,?,?,?,?,datetime('now'))"
+        ).bind(parseInt(employee_id), attDate, safeCheckIn, safeCheckOut, safeStatus).run();
+        insertId = result2.meta.last_row_id;
+      } catch(e2) {
+        // Last resort: try INSERT OR REPLACE in case of UNIQUE conflict missed by SELECT
+        try {
+          const result3 = await env.DB.prepare(
+            "INSERT OR REPLACE INTO attendance (employee_id, date, check_in, check_out, status, created_at) VALUES (?,?,?,?,?,datetime('now'))"
+          ).bind(parseInt(employee_id), attDate, safeCheckIn, safeCheckOut, safeStatus).run();
+          insertId = result3.meta.last_row_id;
+        } catch(e3) {
+          console.error('createAttendance insert failed:', e1.message, '|', e2.message, '|', e3.message);
+          return new Response(JSON.stringify({ error: 'DB error', message: e3.message, detail: e1.message, employee_id, date: attDate }), {
+            status: 500,
+            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, Authorization' }
+          });
+        }
+      }
     }
     return json({ message: 'Attendance recorded', id: insertId }, 201);
 
