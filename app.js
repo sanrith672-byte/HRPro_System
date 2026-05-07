@@ -69,7 +69,7 @@ async function api(method, path, body = null) {
   try {
     const res = await fetch(base + path, opts);
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'API Error');
+    if (!res.ok) throw new Error((data.error || 'API Error') + (data.e1 ? ' | '+data.e1 : '') + (data.message ? ' | '+data.message : '') + (data.ci !== undefined ? ' [ci='+data.ci+',co='+data.co+',emp='+data.employee_id+']' : ''));
     return data;
   } catch(e) {
     // If CORS/network error, show helpful message

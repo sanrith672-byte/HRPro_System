@@ -86,9 +86,21 @@ async function handleRequest(request, env) {
     if (path === '/debug-attendance' && method === 'GET') {
       try {
         const cols = await env.DB.prepare("PRAGMA table_info(attendance)").all();
-        const sample = await env.DB.prepare("SELECT * FROM attendance ORDER BY id DESC LIMIT 5").all();
+        const empCols = await env.DB.prepare("PRAGMA table_info(employees)").all();
+        const sample = await env.DB.prepare("SELECT * FROM attendance ORDER BY id DESC LIMIT 3").all();
         const count = await env.DB.prepare("SELECT COUNT(*) as total FROM attendance").first();
-        return json({ columns: cols.results.map(c=>c.name), sample: sample.results, total: count.total });
+        const empCount = await env.DB.prepare("SELECT COUNT(*) as total FROM employees").first();
+        const firstEmp = await env.DB.prepare("SELECT id FROM employees LIMIT 1").first();
+        let testInsert = null;
+        if (firstEmp) {
+          try {
+            await env.DB.prepare("INSERT OR REPLACE INTO attendance (employee_id,date,check_in,check_out,status,created_at) VALUES (?,?,?,?,?,datetime("now"))")
+              .bind(firstEmp.id,"2099-01-01","08:00","17:00","present").run();
+            await env.DB.prepare("DELETE FROM attendance WHERE date="2099-01-01"").run();
+            testInsert = "success";
+          } catch(e2) { testInsert = "FAILED: " + e2.message; }
+        }
+        return json({ att_columns: cols.results.map(c=>c.name), emp_columns: empCols.results.map(c=>c.name), att_total: count.total, emp_total: empCount.total, first_emp_id: firstEmp ? firstEmp.id : null, test_insert: testInsert });
       } catch(e) {
         return json({ error: e.message });
       }
@@ -779,7 +791,7 @@ async function createAttendance(request, env) {
           insertId = result3.meta.last_row_id;
         } catch(e3) {
           console.error('createAttendance insert failed:', e1.message, '|', e2.message, '|', e3.message);
-          return new Response(JSON.stringify({ error: 'DB error', message: e3.message, detail: e1.message, employee_id, date: attDate }), {
+          return new Response(JSON.stringify({ error: 'DB error', e1: e1.message, e2: e2.message, e3: e3.message, employee_id, date: attDate, ci: safeCheckIn, co: safeCheckOut, st: safeStatus }), {
             status: 500,
             headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, Authorization' }
           });
