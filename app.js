@@ -5163,7 +5163,7 @@ async function renderSalary(month='') {
       try { const ed = await api('GET','/employees?limit=500'); state.employees = ed.employees||[]; } catch(_){}
     }
 
-    // ── Compute real-time OFF bonus from attendance ──────────────────────
+    // ── Compute real-time OFF bonus from attendance (same logic as monthly attendance) ──
     const _offBonusMap = {}; // employee_id -> computed off bonus
     try {
       const [y, m] = currentMonth.split('-').map(Number);
@@ -5174,9 +5174,15 @@ async function renderSalary(month='') {
         const _wd = new Date(y, m-1, d).getDay();
         _allDays.push({ dd: _dd, wd: _wd });
       }
-      const _attRes = await api('GET', '/attendance?month=' + currentMonth).catch(() => ({ records: [] }));
+      // Load attendance + dayswap in parallel
+      const [_attRes, _dsRes] = await Promise.all([
+        api('GET', '/attendance?month=' + currentMonth).catch(() => ({ records: [] })),
+        api('GET', '/dayswap').catch(() => ({ records: [] })),
+      ]);
       const _attRecs = _attRes.records || [];
-      // build map empId -> { dd -> record }
+      const _dsRecs  = (_dsRes.records || []).filter(r => r.status === 'approved');
+
+      // build map empId -> { dd -> attendance record }
       const _attMap = {};
       _attRecs.forEach(a => {
         const _eId = a.employee_id;
@@ -5184,18 +5190,51 @@ async function renderSalary(month='') {
         if (!_attMap[_eId]) _attMap[_eId] = {};
         _attMap[_eId][_dd] = a;
       });
+
+      // build dayswap maps per employee:
+      // _swapDayMap[empId][dd] = dayswap record where swap_date == that dd (OFF day worked)
+      // _offDateMap[empId][dd] = true where off_date == that dd (compensation day — NOT paid)
+      const _swapDayMap = {};
+      const _offDateMap = {};
+      _dsRecs.forEach(r => {
+        const _eId = r.employee_id;
+        if (r.swap_date) {
+          const _dd = r.swap_date.slice(8, 10);
+          if (!_swapDayMap[_eId]) _swapDayMap[_eId] = {};
+          _swapDayMap[_eId][_dd] = r;
+        }
+        if (r.off_date) {
+          const _dd = r.off_date.slice(8, 10);
+          if (!_offDateMap[_eId]) _offDateMap[_eId] = {};
+          _offDateMap[_eId][_dd] = true;
+        }
+      });
+
       const _rules  = getSalaryRules();
       const _offMul = (_rules.off_bonus_enabled !== false) ? (_rules.off_day_multiplier || 1.0) : 0;
+
       (state.employees || []).forEach(e => {
         const _offDays = parseOffDays(e);
         if (!_offDays.length) return;
         const _offRate = _dim > 0 ? (e.salary || 0) / _dim : 0;
         let _worked = 0;
         _allDays.forEach(x => {
-          if (_offDays.indexOf(x.wd) !== -1) {
-            const a = (_attMap[e.id] || {})[x.dd];
-            if (a && (a.status === 'present' || a.status === 'late')) _worked++;
+          // Only consider this employee's OFF days
+          if (_offDays.indexOf(x.wd) === -1) return;
+          // OFF+ compensation day (off_date) → skip, not paid
+          if ((_offDateMap[e.id] || {})[x.dd]) return;
+          // Dayswap: swap_date = this OFF day
+          const _swapRec = (_swapDayMap[e.id] || {})[x.dd];
+          if (_swapRec) {
+            // Has compensation off_date → OFF+ជំនួស → NOT paid
+            if (_swapRec.off_date && _swapRec.off_date.trim() !== '') return;
+            // Dayswap approved without off_date → paid
+            _worked++;
+            return;
           }
+          // Direct attendance on OFF day (no dayswap) → paid if present/late
+          const _att = (_attMap[e.id] || {})[x.dd];
+          if (_att && (_att.status === 'present' || _att.status === 'late')) _worked++;
         });
         if (_worked > 0) _offBonusMap[e.id] = parseFloat((_worked * _offRate * _offMul).toFixed(2));
       });
