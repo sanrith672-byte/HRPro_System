@@ -2632,11 +2632,9 @@ async function renderMonthlyAttendance(month='') {
       }
     });
     // Fetch all attendance records for the month using month param (primary)
-    const _mSess = getSession();
-    const _mScanParam = (_mSess?.role === 'QR Scanner' && _mSess?.id) ? '&scanner_id='+_mSess.id : '';
     let allRecords = [];
     try {
-      const r1 = await api('GET','/attendance?month='+currentMonth+'&limit=9999'+_mScanParam);
+      const r1 = await api('GET','/attendance?month='+currentMonth+'&limit=9999');
       allRecords = r1.records || [];
     } catch(_) {}
     // Fallback: fetch day-by-day if month query returned nothing
@@ -2644,7 +2642,7 @@ async function renderMonthlyAttendance(month='') {
       const promises = [];
       for (let d=1; d<=daysInMonth; d++) {
         const dd = String(d).padStart(2,'0');
-        promises.push(api('GET','/attendance?date='+currentMonth+'-'+dd+'&limit=9999'+_mScanParam).catch(()=>({records:[]})));
+        promises.push(api('GET','/attendance?date='+currentMonth+'-'+dd+'&limit=9999').catch(()=>({records:[]})));
       }
       const results = await Promise.all(promises);
       results.forEach(r => { allRecords = allRecords.concat(r.records||[]); });
