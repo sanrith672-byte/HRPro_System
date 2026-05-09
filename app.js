@@ -5194,7 +5194,9 @@ async function renderSalary(month='') {
             +'<td><div class="employee-cell">'+av+'<div class="emp-name">'+r.employee_name+'</div></div></td>'
             +'<td>'+(r.department||'—')+'</td>'
             +'<td style="font-family:var(--mono)">$'+r.base_salary+'</td>'
-            +(r.bonus>0?'<td style="font-family:var(--mono);color:#d97706;font-weight:700">+$'+r.bonus+'</td>':'<td style="color:var(--text3);text-align:center">—</td>')
+            +(r.bonus>0
+              ?'<td style="font-family:var(--mono);font-weight:700;color:#d97706;text-align:center;background:rgba(251,191,36,.08)">+$'+r.bonus+'</td>'
+              :'<td style="color:var(--text3);text-align:center">—</td>')
             +'<td style="font-family:var(--mono);color:var(--danger)">-$'+r.deduction+'</td>'
             +'<td style="font-family:var(--mono);font-weight:700;color:var(--text)">$'+r.net_salary+'</td>'
             +qrCell
@@ -5226,7 +5228,7 @@ async function renderSalary(month='') {
       +'<div class="salary-box"><div class="lbl">✅ បង់ / សរុប</div><div class="val" style="color:var(--info)">'+(data.summary.paid||0)+' / '+data.records.length+'</div></div>'
       +'</div>'
       +'<div class="card"><div class="table-container"><table>'
-      +'<thead><tr><th>បុគ្គលិក</th><th>នាយកដ្ឋាន</th><th>មូលដ្ឋាន</th><th style="color:#f59e0b">🌟 OFF</th><th>រង្វាន់</th><th>កាត់</th><th>សុទ្ធ</th><th style="text-align:center">QR ធនាគារ</th><th>ស្ថានភាព</th><th>សកម្មភាព</th></tr></thead>'
+      +'<thead><tr><th>បុគ្គលិក</th><th>នាយកដ្ឋាន</th><th>មូលដ្ឋាន</th><th style="color:#f59e0b;text-align:center" title="ប្រាក់ OFF ធ្វើការ">🌟 OFF</th><th>កាត់</th><th>សុទ្ធ</th><th style="text-align:center">QR ធនាគារ</th><th>ស្ថានភាព</th><th>សកម្មភាព</th></tr></thead>'
       +'<tbody>'+rows+'</tbody>'
       +'</table></div></div>';
   } catch(e) { showError(e.message); }
