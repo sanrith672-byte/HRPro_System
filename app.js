@@ -2641,12 +2641,7 @@ async function renderMonthlyAttendance(month='') {
       results.forEach(r => { allRecords = allRecords.concat(r.records||[]); });
     }
 
-    let emps = empData.employees || [];
-    // QR Scanner: show only own employee row (match by name)
-    if (_maSelfOnly) {
-      const _myName = (_maSess?.name || '').trim().toLowerCase();
-      emps = emps.filter(e => (e.name||'').trim().toLowerCase() === _myName);
-    }
+    const emps = empData.employees || [];
     // Build map: empId -> { dayStr -> record }
     const attMap = {};
     allRecords.forEach(a => {
@@ -2891,7 +2886,6 @@ async function renderMonthlyAttendance(month='') {
       '<div class="page-header">'
       +'<div>'
       +'<h2>📊 តារាងវត្តមានប្រចាំខែ</h2>'
-      +(_maSelfOnly ? '<p style="font-size:13px;color:var(--text3);margin:2px 0 0">👤 វត្តមានរបស់ '+(_maSess?.name||'')+'</p>' : '')
       +'</div>'
       +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
       +'<input class="filter-input" id="att-month-input" type="month" value="'+currentMonth+'" onchange="renderMonthlyAttendance(this.value)" />'
@@ -2904,7 +2898,7 @@ async function renderMonthlyAttendance(month='') {
         +'<button class="btn btn-outline" onclick="exportMonthlyAttendanceExcel()" style="border-color:var(--info);color:var(--info);font-size:12px;padding:5px 12px">📊 Excel</button>'
         +'</div>' : '')
       +'</div></div>'
-      +(_maSelfOnly ? '<div style="background:linear-gradient(135deg,rgba(99,102,241,.12),rgba(139,92,246,.08));border:1.5px solid rgba(99,102,241,.3);border-radius:12px;padding:12px 18px;margin-bottom:14px;display:flex;align-items:center;gap:12px"><span style="font-size:26px">📅</span><div><div style="font-weight:700;font-size:14px;color:var(--primary)">វត្តមានប្រចាំខែ — ខ្ញុំ</div><div style="font-size:12px;color:var(--text3)">បង្ហាញតែថ្ងៃវត្តមានរបស់ '+(_maSess?.name||'QR Scanner')+'</div></div></div>' : '')
+
       +'<div class="att-summary">'
       +'<div class="att-box"><div class="att-num" style="color:var(--success)">'+(renderTotals.p+renderTotals.l)+'</div><div class="att-lbl">✅ វត្តមាន</div></div>'
       +'<div class="att-box"><div class="att-num" style="color:var(--warning)">'+renderTotals.l+'</div><div class="att-lbl">⏰ យឺត</div></div>'
