@@ -5296,12 +5296,7 @@ async function renderSalary(month='') {
               ?'<td style="font-family:var(--mono);font-weight:700;color:#6366f1;text-align:center;background:rgba(99,102,241,.08)">+$'+(_otMap[r.employee_id]).toFixed(0)+'</td>'
               :'<td style="color:var(--text3);text-align:center">—</td>')
             +'<td style="font-family:var(--mono);color:var(--danger)">-$'+r.deduction+'</td>'
-            +(()=>{
-  // Net authoritative = ពី DB (user saved manually or via applyDeduction)
-  // OFF+OT columns above are informational indicators only
-  const _dbNet = parseFloat(r.net_salary||0);
-  return '<td style="font-family:var(--mono);font-weight:700;color:var(--success);font-size:15px">$'+_dbNet.toFixed(2)+'</td>';
-})()
+            +(()=>{ const _realNet = parseFloat(r.base_salary||0) + parseFloat(r.bonus||0) + parseFloat(_offBonusMap[r.employee_id]||0) + parseFloat(_otMap[r.employee_id]||0) - parseFloat(r.deduction||0); const _hasExtra = (_offBonusMap[r.employee_id]||0)>0 || (_otMap[r.employee_id]||0)>0; return '<td style="font-family:var(--mono);font-weight:700;color:var(--success);font-size:15px">$'+_realNet.toFixed(2)+(_hasExtra?'<div style="font-size:10px;color:var(--text3);font-weight:400">base+OFF+OT</div>':'')+'</td>'; })()
             +qrCell
             +'<td>'+(r.status==='paid'?'<span class="badge badge-green">✅ បានបង់</span>':'<span class="badge badge-yellow">⏳ រង់ចាំ</span>')+'</td>'
             +'<td><div class="action-btns">'
@@ -11339,8 +11334,7 @@ async function printPayroll() {
   const tableBody = records.map((r, i) => {
     const offAmt = parseFloat(_pOffMap[r.employee_id] || 0);
     const otAmt  = parseFloat(_pOtMap[r.employee_id]  || 0);
-    // Net authoritative: DB net_salary (confirmed by user)
-    const realNet = parseFloat(r.net_salary||0);
+    const realNet = parseFloat(r.base_salary||0) + offAmt + otAmt + parseFloat(r.bonus||0) - parseFloat(r.deduction||0);
     totalBase   += parseFloat(r.base_salary) || 0;
     totalOff    += offAmt;
     totalOT     += otAmt;
