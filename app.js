@@ -2717,8 +2717,7 @@ async function renderMonthlyAttendance(month='') {
       const workingDaysCount = empDays.length;
       const dailyRate = (emp.salary || 0) / 30; // Fixed 30-day standard
       const deduction = parseFloat((overAbsent * dailyRate).toFixed(2));
-      // ប្រាក់បន្ថែមថ្ងៃ OFF ប្រើ salary/daysInMonth (ថ្ងៃសរុបក្នុងខែ) ជំនួស salary/workingDays
-      // ដើម្បីឱ្យត្រឹមត្រូវ: $500/31 = $16.13/ថ្ងៃ (មិនមែន $500/26 = $19.23/ថ្ងៃ)
+      // OFF bonus ប្រើ salary/30 (Fixed 30-day standard) ទោះខែ 28/31 ថ្ងៃ
       const offDailyRate = (emp.salary || 0) / 30; // Fixed 30-day standard
       // ប្រាក់បន្ថែមថ្ងៃ OFF:
       // វិធី ១: attendance record (present/late) ត្រង់ថ្ងៃ OFF → គិតប្រាក់
@@ -4021,7 +4020,7 @@ async function applyAllAbsenceDeductions(month) {
       const over=Math.max(0,absent-maxAbsent);
       const dailyRate = (emp.salary||0) / 30; // Fixed 30-day standard
       const deduction = parseFloat((over * dailyRate).toFixed(2));
-      // OFF bonus ប្រើ salary/daysInMonth (មិនមែន salary/workingDays)
+      // OFF bonus ប្រើ salary/30 (Fixed 30-day standard)
       const offDailyRate = (emp.salary||0) / 30; // Fixed 30-day standard
       // Count OFF days worked (direct attendance on OFF days, no compensation swap)
       let offDaysWorked = 0;
@@ -10732,7 +10731,7 @@ async function runAutoPayrollNow() {
       const overAbsent = Math.max(0, absent - maxAbsent);
       const dailyRate = base / 30; // Fixed 30-day standard
       const deduction = parseFloat((overAbsent * dailyRate).toFixed(2));
-      // OFF bonus ប្រើ salary/daysInMonth (មិនមែន salary/workingDays)
+      // OFF bonus ប្រើ salary/30 (Fixed 30-day standard)
       const offDailyRate = base / 30; // Fixed 30-day standard
       // Count OFF days worked (for OFF Bonus)
       let offDaysWorked = 0;
@@ -11313,7 +11312,7 @@ async function printPayroll() {
         });
         Object.values(empMap).forEach(e=>{
           const od=parseOffDays(e); if(!od.length) return;
-          const rate=_dim>0?(e.salary||0)/_dim:0; let w=0;
+          const rate=(e.salary||0)/30; let w=0; // Fixed 30-day standard
           _days.forEach(x=>{
             if(od.indexOf(x.wd)===-1) return;
             if((_odMap[e.id]||{})[x.dd]) return;
