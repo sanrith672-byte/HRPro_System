@@ -5968,112 +5968,142 @@ function downloadBlob(blob, filename) {
 
 async function exportPayrollExcel() {
   const month = $('rpt-month')?.value || thisMonth();
-  showToast('កំពុង Export Excel...','info');
+  showToast('កំពុង Export Excel... ⏳','info');
   try {
-    const [data, empData, alData] = await Promise.all([
-      api('GET', `/salary?month=${month}`),
+    // ── Fetch all data in parallel (always fresh, never rely on cache) ──
+    const [salRes, empRes, alRes, otRes, attRes, dsRes] = await Promise.all([
+      api('GET', '/salary?month=' + month),
       api('GET', '/employees?limit=500').catch(() => ({ employees: [] })),
       api('GET', '/allowances').catch(() => ({ records: [] })),
+      api('GET', '/overtime').catch(() => ({ records: [] })),
+      api('GET', '/attendance?month=' + month).catch(() => ({ records: [] })),
+      api('GET', '/dayswap').catch(() => ({ records: [] })),
     ]);
-    const records = data.records || [];
-    const rules = getSalaryRules();
-    const cfg = getCompanyConfig();
+
+    const records = salRes.records || [];
+    const emps    = empRes.employees || [];
+    const rules   = getSalaryRules();
+    const cfg     = getCompanyConfig();
     const companyName = cfg.company_name || 'HR Pro';
 
-    // Build allowance map for this month
+    // ── 1. Allowance map (employee_id -> total for this month) ──
     const allowMap = {};
-    (alData.records || []).filter(r => (r.month || '').startsWith(month)).forEach(r => {
-      allowMap[r.employee_id] = (allowMap[r.employee_id] || 0) + (r.amount || 0);
-    });
+    (alRes.records || [])
+      .filter(r => (r.month || '').startsWith(month))
+      .forEach(r => { allowMap[r.employee_id] = (allowMap[r.employee_id] || 0) + (r.amount || 0); });
 
-    // Reuse cached OFF/OT maps from renderSalary if available
-    const offMap = window._cachedOffBonusMap ? Object.assign({}, window._cachedOffBonusMap) : {};
-    const otMap  = window._cachedOtMap       ? Object.assign({}, window._cachedOtMap)       : {};
+    // ── 2. OT map (employee_id -> total OT pay this month) ──
+    const otMap = {};
+    (otRes.records || [])
+      .filter(r => (r.date || '').startsWith(month))
+      .forEach(r => { otMap[r.employee_id] = (otMap[r.employee_id] || 0) + (r.pay || 0); });
 
-    // Load OFF bonus if cache empty
-    if (!Object.keys(offMap).length) {
-      try {
-        const _rls = getSalaryRules();
-        const _mul = (_rls.off_bonus_enabled !== false) ? (_rls.off_day_multiplier||1.0) : 0;
-        const [_y,_m] = month.split('-').map(Number);
-        const _dim = new Date(_y,_m,0).getDate();
-        const _days = [];
-        for(let d=1;d<=_dim;d++) _days.push({dd:String(d).padStart(2,'0'),wd:new Date(_y,_m-1,d).getDay()});
-        const empMap = {};
-        (empData.employees||[]).forEach(e=>{ empMap[e.id]=e; });
-        const [_aRes,_dRes] = await Promise.all([
-          api('GET','/attendance?month='+month).catch(()=>({records:[]})),
-          api('GET','/dayswap').catch(()=>({records:[]})),
-        ]);
-        const _aMap={};
-        (_aRes.records||[]).forEach(a=>{ if(!_aMap[a.employee_id])_aMap[a.employee_id]={}; _aMap[a.employee_id][(a.date||'').slice(8,10)]=a; });
-        const _sMap={},_odMap={};
-        ((_dRes.records||[]).filter(r=>r.status==='approved')).forEach(r=>{
-          if(r.swap_date){const dd=r.swap_date.slice(8,10);if(!_sMap[r.employee_id])_sMap[r.employee_id]={};_sMap[r.employee_id][dd]=r;}
-          if(r.off_date){const dd=r.off_date.slice(8,10);if(!_odMap[r.employee_id])_odMap[r.employee_id]={};_odMap[r.employee_id][dd]=true;}
+    // ── 3. OFF Bonus map (compute from attendance, same logic as renderSalary) ──
+    const offMap = {};
+    try {
+      const _rls = getSalaryRules();
+      const _mul = (_rls.off_bonus_enabled !== false) ? (_rls.off_day_multiplier || 1.0) : 0;
+      if (_mul > 0) {
+        const [_y, _m] = month.split('-').map(Number);
+        const _dim = new Date(_y, _m, 0).getDate();
+        const allDays = [];
+        for (let d = 1; d <= _dim; d++)
+          allDays.push({ dd: String(d).padStart(2,'0'), wd: new Date(_y, _m-1, d).getDay() });
+
+        // attendance map: empId -> { dd -> record }
+        const attMap = {};
+        (attRes.records || []).forEach(a => {
+          const dd = (a.date || '').slice(8, 10);
+          if (!attMap[a.employee_id]) attMap[a.employee_id] = {};
+          attMap[a.employee_id][dd] = a;
         });
-        Object.values(empMap).forEach(e=>{
-          const od=parseOffDays(e); if(!od.length) return;
-          const rate=(e.salary||0)/30; let w=0;
-          _days.forEach(x=>{
-            if(od.indexOf(x.wd)===-1) return;
-            if((_odMap[e.id]||{})[x.dd]) return;
-            const sr=(_sMap[e.id]||{})[x.dd];
-            if(sr){if(sr.off_date&&sr.off_date.trim()!=='') return; w++; return;}
-            const a=(_aMap[e.id]||{})[x.dd];
-            if(a&&(a.status==='present'||a.status==='late')) w++;
+
+        // dayswap maps
+        const swapMap = {}, offDateMap = {};
+        (dsRes.records || []).filter(r => r.status === 'approved').forEach(r => {
+          if (r.swap_date) {
+            const dd = r.swap_date.slice(8, 10);
+            if (!swapMap[r.employee_id]) swapMap[r.employee_id] = {};
+            swapMap[r.employee_id][dd] = r;
+          }
+          if (r.off_date) {
+            const dd = r.off_date.slice(8, 10);
+            if (!offDateMap[r.employee_id]) offDateMap[r.employee_id] = {};
+            offDateMap[r.employee_id][dd] = true;
+          }
+        });
+
+        emps.forEach(e => {
+          const offDays = parseOffDays(e);
+          if (!offDays.length) return;
+          const rate = (e.salary || 0) / 30;
+          let worked = 0;
+          allDays.forEach(x => {
+            if (offDays.indexOf(x.wd) === -1) return;
+            if ((offDateMap[e.id] || {})[x.dd]) return;
+            const sr = (swapMap[e.id] || {})[x.dd];
+            if (sr) { if (sr.off_date && sr.off_date.trim() !== '') return; worked++; return; }
+            const att = (attMap[e.id] || {})[x.dd];
+            if (att && (att.status === 'present' || att.status === 'late')) worked++;
           });
-          if(w>0) offMap[e.id]=parseFloat((w*rate*_mul).toFixed(2));
+          if (worked > 0) offMap[e.id] = parseFloat((worked * rate * _mul).toFixed(2));
         });
-      } catch(_) {}
-    }
+      }
+    } catch(_) {}
 
-    // Load OT if cache empty
-    if (!Object.keys(otMap).length) {
-      try {
-        const otRes = await api('GET', '/overtime').catch(() => ({ records: [] }));
-        (otRes.records || []).filter(r => (r.date || '').startsWith(month)).forEach(r => {
-          otMap[r.employee_id] = (otMap[r.employee_id] || 0) + (r.pay || 0);
-        });
-      } catch(_) {}
-    }
-
-    const headers = ['#','ឈ្មោះ','នាយកដ្ឋាន','ប្រាក់មូលដ្ឋាន','🎁 ប្រាក់ឧបត្ថម្ភ','🌟 OFF Bonus','⏱ OT','ប្រាក់កាត់','NSSF','Tax','Net Salary','ខែ','ស្ថានភាព'];
-    const rows = records.map((r,i)=>{
+    // ── Build rows ──
+    const headers = ['#','ឈ្មោះ','នាយកដ្ឋាន','ប្រាក់មូលដ្ឋាន','🎁 ឧបត្ថម្ភ','🌟 OFF Bonus','⏱ OT','ប្រាក់កាត់','NSSF','Tax','Net Salary','ខែ','ស្ថានភាព'];
+    const dataRows = records.map((r, i) => {
       const alAmt  = +(allowMap[r.employee_id] || 0);
       const offAmt = +(offMap[r.employee_id]   || 0);
       const otAmt  = +(otMap[r.employee_id]    || 0);
-      const nssf = +((r.base_salary||0)*(rules.nssf_employee||0)/100).toFixed(2);
-      const taxable = Math.max(0,(r.base_salary||0)-(rules.income_tax_threshold||0));
-      const tax = +(taxable*(rules.tax_rate||0)/100).toFixed(2);
-      const realNet = parseFloat(r.base_salary||0) + alAmt + offAmt + otAmt + parseFloat(r.bonus||0) - parseFloat(r.deduction||0);
+      const base   = parseFloat(r.base_salary  || 0);
+      const deduct = parseFloat(r.deduction    || 0);
+      const bonus  = parseFloat(r.bonus        || 0);
+      const nssf   = +((base) * (rules.nssf_employee || 0) / 100).toFixed(2);
+      const taxable= Math.max(0, base - (rules.income_tax_threshold || 0));
+      const tax    = +(taxable * (rules.tax_rate || 0) / 100).toFixed(2);
+      const realNet= +(base + alAmt + offAmt + otAmt + bonus - deduct).toFixed(2);
       return [
-        i+1, r.employee_name||'', r.department||'',
-        r.base_salary||0, alAmt, offAmt, otAmt,
-        r.deduction||0, nssf, tax, +realNet.toFixed(2),
-        r.month||month, r.status==='paid'?'បានបង់':'រង់ចាំ',
+        i + 1,
+        r.employee_name || '',
+        r.department    || '',
+        base,
+        alAmt,
+        offAmt,
+        otAmt,
+        deduct,
+        nssf,
+        tax,
+        realNet,
+        r.month || month,
+        r.status === 'paid' ? 'បានបង់' : 'រង់ចាំ',
       ];
     });
 
-    // Summary rows
-    const totBase  = records.reduce((s,r)=>s+(r.base_salary||0),0);
-    const totAllow = Object.values(allowMap).reduce((s,v)=>s+v,0);
-    const totOff   = Object.values(offMap).reduce((s,v)=>s+v,0);
-    const totOT    = Object.values(otMap).reduce((s,v)=>s+v,0);
-    const totDeduct= records.reduce((s,r)=>s+(r.deduction||0),0);
-    const totNet   = rows.reduce((s,r)=>s+(r[10]||0),0);
-    rows.push(Array(13).fill(''));
-    rows.push(['','','សរុប (Summary)','','','','','','','','','','']);
-    rows.push(['','','ប្រាក់មូលដ្ឋានសរុប', +totBase.toFixed(2),
-               +totAllow.toFixed(2), +totOff.toFixed(2), +totOT.toFixed(2),
-               +totDeduct.toFixed(2), '','', +totNet.toFixed(2),'','']);
+    // ── Summary ──
+    const totBase   = dataRows.reduce((s, r) => s + (r[3]  || 0), 0);
+    const totAllow  = dataRows.reduce((s, r) => s + (r[4]  || 0), 0);
+    const totOff    = dataRows.reduce((s, r) => s + (r[5]  || 0), 0);
+    const totOT     = dataRows.reduce((s, r) => s + (r[6]  || 0), 0);
+    const totDeduct = dataRows.reduce((s, r) => s + (r[7]  || 0), 0);
+    const totNSSF   = dataRows.reduce((s, r) => s + (r[8]  || 0), 0);
+    const totTax    = dataRows.reduce((s, r) => s + (r[9]  || 0), 0);
+    const totNet    = dataRows.reduce((s, r) => s + (r[10] || 0), 0);
 
-    const blob = buildXLSX([
-      { name:`Payroll ${month}`, headers, rows },
-    ]);
-    downloadBlob(blob, `${companyName}_Payroll_${month}.xlsx`);
-    showToast('Download Excel បានជោគជ័យ! ✅','success');
-  } catch(e) { showToast('Error: '+e.message,'error'); }
+    const rows = [
+      ...dataRows,
+      Array(13).fill(''),
+      ['','','សរុប (Summary)',
+        +totBase.toFixed(2), +totAllow.toFixed(2), +totOff.toFixed(2), +totOT.toFixed(2),
+        +totDeduct.toFixed(2), +totNSSF.toFixed(2), +totTax.toFixed(2), +totNet.toFixed(2),
+        '',''],
+    ];
+
+    const blob = buildXLSX([{ name: 'Payroll ' + month, headers, rows }]);
+    downloadBlob(blob, companyName + '_Payroll_' + month + '.xlsx');
+    showToast('Download Excel បានជោគជ័យ! ✅', 'success');
+  } catch(e) { showToast('Error: ' + e.message, 'error'); }
 }
 
 async function exportEmployeeExcel() {
