@@ -10913,6 +10913,16 @@ async function loadAccountsFromAPI() {
     window._accountsCache = [...accounts, adminsupport];
     // Keep localStorage in sync so getUsers()/login works
     saveUsers([...accounts, adminsupport]);
+    // ── Populate photoCache with user photos from API ──
+    for (const u of accounts) {
+      if (u.photo) photoCache['user_' + u.id] = u.photo;
+    }
+    // ── Update sidebar avatar if logged-in user photo was just loaded ──
+    const _sess = getSession();
+    if (_sess) {
+      const _sPhoto = photoCache['user_' + _sess.id] || '';
+      updateSidebarAvatar(_sPhoto, _sess.name || _sess.username);
+    }
   } catch(e) {
     console.warn('[loadAccountsFromAPI]', e.message);
     window._accountsCache = getUsers().filter(u =>
@@ -12214,14 +12224,18 @@ async function initApp() {
   // Ensure adminsupport account exists
   ensureAdminSupport();
 
-  Promise.all([isDemoMode() ? Promise.resolve() : loadCompanyConfig(), loadAllPhotos()]).then(async () => {
+  Promise.all([
+    isDemoMode() ? Promise.resolve() : loadCompanyConfig(),
+    loadAllPhotos(),
+    isDemoMode() ? Promise.resolve() : loadAccountsFromAPI(),
+  ]).then(async () => {
     const session = getSession();
     if (session) {
       const uname = $('sidebar-user-name');
       const urole = $('sidebar-user-role');
       if (uname) uname.textContent = session.name || session.username;
       if (urole) urole.textContent = session.role || '';
-      // Load user photo
+      // Load user photo (populated by loadAccountsFromAPI above)
       const uPhoto = photoCache['user_' + session.id] || '';
       updateSidebarAvatar(uPhoto, session.name || session.username);
     }
