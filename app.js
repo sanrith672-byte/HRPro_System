@@ -5241,6 +5241,18 @@ async function renderSalary(month='') {
     } catch(_) {}
     // ────────────────────────────────────────────────────────────────────
 
+    // ── Load Overtime data for the month ────────────────────────────────
+    const _otMap = {}; // employee_id -> total OT pay this month
+    try {
+      const _otRes = await api('GET', '/overtime').catch(() => ({ records: [] }));
+      const _otRecs = (_otRes.records || []).filter(r => (r.date || '').startsWith(currentMonth));
+      _otRecs.forEach(r => {
+        const _eid = r.employee_id;
+        _otMap[_eid] = (_otMap[_eid] || 0) + (r.pay || 0);
+      });
+    } catch(_) {}
+    // ────────────────────────────────────────────────────────────────────
+
     const rows = data.records.length===0
       ? '<tr><td colspan="9"><div class="empty-state" style="padding:30px"><p>មិនទាន់មានកំណត់ត្រាបៀវត្សសម្រាប់ខែនេះ</p></div></td></tr>'
       : data.records.map(r => {
@@ -5276,6 +5288,9 @@ async function renderSalary(month='') {
             +((_offBonusMap[r.employee_id]||0)>0
               ?'<td style="font-family:var(--mono);font-weight:700;color:#d97706;text-align:center;background:rgba(251,191,36,.08)">+$'+(_offBonusMap[r.employee_id]).toFixed(0)+'</td>'
               :'<td style="color:var(--text3);text-align:center">—</td>')
+            +((_otMap[r.employee_id]||0)>0
+              ?'<td style="font-family:var(--mono);font-weight:700;color:#6366f1;text-align:center;background:rgba(99,102,241,.08)">+$'+(_otMap[r.employee_id]).toFixed(0)+'</td>'
+              :'<td style="color:var(--text3);text-align:center">—</td>')
             +'<td style="font-family:var(--mono);color:var(--danger)">-$'+r.deduction+'</td>'
             +'<td style="font-family:var(--mono);font-weight:700;color:var(--text)">$'+r.net_salary+'</td>'
             +qrCell
@@ -5304,10 +5319,11 @@ async function renderSalary(month='') {
       +'<div class="salary-box"><div class="lbl">💵 Net សរុប</div><div class="val">$'+(data.summary.total_net||0).toLocaleString()+'</div></div>'
       +'<div class="salary-box"><div class="lbl">💰 មូលដ្ឋាន</div><div class="val" style="color:var(--warning)">$'+(data.summary.total_base||0).toLocaleString()+'</div></div>'
       +(Object.values(_offBonusMap).some(v=>v>0)?'<div class="salary-box" style="background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.3)"><div class="lbl" style="color:#d97706">🌟 OFF Bonus</div><div class="val" style="color:#d97706">+$'+Object.values(_offBonusMap).reduce((s,v)=>s+v,0).toLocaleString()+'</div></div>':'')
+      +(Object.values(_otMap).some(v=>v>0)?'<div class="salary-box" style="background:rgba(99,102,241,.1);border:1px solid rgba(99,102,241,.3)"><div class="lbl" style="color:#6366f1">⏱ ថែមម៉ោង OT</div><div class="val" style="color:#6366f1">+$'+Object.values(_otMap).reduce((s,v)=>s+v,0).toLocaleString()+'</div></div>':'')
       +'<div class="salary-box"><div class="lbl">✅ បង់ / សរុប</div><div class="val" style="color:var(--info)">'+(data.summary.paid||0)+' / '+data.records.length+'</div></div>'
       +'</div>'
       +'<div class="card"><div class="table-container"><table>'
-      +'<thead><tr><th>បុគ្គលិក</th><th>នាយកដ្ឋាន</th><th>មូលដ្ឋាន</th><th style="color:#f59e0b;text-align:center" title="ប្រាក់ OFF ធ្វើការ">🌟 OFF</th><th>កាត់</th><th>សុទ្ធ</th><th style="text-align:center">QR ធនាគារ</th><th>ស្ថានភាព</th><th>សកម្មភាព</th></tr></thead>'
+      +'<thead><tr><th>បុគ្គលិក</th><th>នាយកដ្ឋាន</th><th>មូលដ្ឋាន</th><th style="color:#f59e0b;text-align:center" title="ប្រាក់ OFF ធ្វើការ">🌟 OFF</th><th style="color:#6366f1;text-align:center" title="ប្រាក់ថែមម៉ោង">⏱ OT</th><th>កាត់</th><th>សុទ្ធ</th><th style="text-align:center">QR ធនាគារ</th><th>ស្ថានភាព</th><th>សកម្មភាព</th></tr></thead>'
       +'<tbody>'+rows+'</tbody>'
       +'</table></div></div>';
   } catch(e) { showError(e.message); }
