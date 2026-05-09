@@ -5289,7 +5289,7 @@ async function renderSalary(month='') {
             +'<td>'+(r.department||'—')+'</td>'
             +'<td style="font-family:var(--mono)">$'+r.base_salary+'</td>'
             +((_offBonusMap[r.employee_id]||0)>0
-              ?'<td style="font-family:var(--mono);font-weight:700;color:#d97706;text-align:center;background:rgba(251,191,36,.08)">+$'+(_offBonusMap[r.employee_id]).toFixed(0)+'</td>'
+              ?'<td style="font-family:var(--mono);font-weight:700;color:#d97706;text-align:center;background:rgba(251,191,36,.08)">+$'+(_offBonusMap[r.employee_id]).toFixed(2)+'</td>'
               :'<td style="color:var(--text3);text-align:center">—</td>')
             +((_otMap[r.employee_id]||0)>0
               ?'<td style="font-family:var(--mono);font-weight:700;color:#6366f1;text-align:center;background:rgba(99,102,241,.08)">+$'+(_otMap[r.employee_id]).toFixed(0)+'</td>'
@@ -5321,7 +5321,7 @@ async function renderSalary(month='') {
       +'<div class="salary-summary">'
       +'<div class="salary-box"><div class="lbl">💵 Net សរុប</div><div class="val">$'+(data.summary.total_net||0).toLocaleString()+'</div></div>'
       +'<div class="salary-box"><div class="lbl">💰 មូលដ្ឋាន</div><div class="val" style="color:var(--warning)">$'+(data.summary.total_base||0).toLocaleString()+'</div></div>'
-      +(Object.values(_offBonusMap).some(v=>v>0)?'<div class="salary-box" style="background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.3)"><div class="lbl" style="color:#d97706">🌟 OFF Bonus</div><div class="val" style="color:#d97706">+$'+Object.values(_offBonusMap).reduce((s,v)=>s+v,0).toLocaleString()+'</div></div>':'')
+      +(Object.values(_offBonusMap).some(v=>v>0)?'<div class="salary-box" style="background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.3)"><div class="lbl" style="color:#d97706">🌟 OFF Bonus</div><div class="val" style="color:#d97706">+$'+Object.values(_offBonusMap).reduce((s,v)=>s+v,0).toFixed(2)+'</div></div>':'')
       +(Object.values(_otMap).some(v=>v>0)?'<div class="salary-box" style="background:rgba(99,102,241,.1);border:1px solid rgba(99,102,241,.3)"><div class="lbl" style="color:#6366f1">⏱ ថែមម៉ោង OT</div><div class="val" style="color:#6366f1">+$'+Object.values(_otMap).reduce((s,v)=>s+v,0).toLocaleString()+'</div></div>':'')
       +'<div class="salary-box"><div class="lbl">✅ បង់ / សរុប</div><div class="val" style="color:var(--info)">'+(data.summary.paid||0)+' / '+data.records.length+'</div></div>'
       +'</div>'
