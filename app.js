@@ -11421,16 +11421,29 @@ async function printPayroll() {
         });
       } catch(_) {}
     }
-  } catch(e) { showToast('Error: ' + e.message, 'error'); return; }
+   } catch(e) { showToast('Error: ' + e.message, 'error'); return; }
+
+  // Load allowance map for this month
+  const _pAllowMap = window._cachedAllowMap ? Object.assign({}, window._cachedAllowMap) : {};
+  if (!Object.keys(_pAllowMap).length) {
+    try {
+      const alRes = await api('GET', '/allowances').catch(() => ({ records: [] }));
+      (alRes.records || []).filter(r => (r.month || '').startsWith(month)).forEach(r => {
+        _pAllowMap[r.employee_id] = (_pAllowMap[r.employee_id] || 0) + (r.amount || 0);
+      });
+    } catch(_) {}
+  }
 
   if (!records.length) { showToast('មិនទាន់មានទិន្នន័យ!', 'error'); return; }
 
-  let totalNet = 0, totalBase = 0, totalOff = 0, totalOT = 0, totalDeduct = 0;
+  let totalNet = 0, totalBase = 0, totalAllow = 0, totalOff = 0, totalOT = 0, totalDeduct = 0;
   const tableBody = records.map((r, i) => {
+    const alAmt  = parseFloat(_pAllowMap[r.employee_id] || 0);
     const offAmt = parseFloat(_pOffMap[r.employee_id] || 0);
     const otAmt  = parseFloat(_pOtMap[r.employee_id]  || 0);
-    const realNet = parseFloat(r.base_salary||0) + offAmt + otAmt + parseFloat(r.bonus||0) - parseFloat(r.deduction||0);
+    const realNet = parseFloat(r.base_salary||0) + alAmt + offAmt + otAmt + parseFloat(r.bonus||0) - parseFloat(r.deduction||0);
     totalBase   += parseFloat(r.base_salary) || 0;
+    totalAllow  += alAmt;
     totalOff    += offAmt;
     totalOT     += otAmt;
     totalDeduct += parseFloat(r.deduction) || 0;
@@ -11443,6 +11456,7 @@ async function printPayroll() {
       +'<td style="font-weight:600">'+(r.employee_name||'—')+'</td>'
       +'<td style="font-size:12px;color:#64748b">'+(r.department||'—')+'</td>'
       +'<td style="font-family:monospace;text-align:right">'+sym+(r.base_salary||0)+'</td>'
+      +(alAmt>0?'<td style="font-family:monospace;color:#16a34a;font-weight:700;text-align:center">+'+sym+alAmt.toFixed(2)+'</td>':'<td style="color:#9ca3af;text-align:center">—</td>')
       +(offAmt>0?'<td style="font-family:monospace;color:#d97706;font-weight:700;text-align:center">+'+sym+offAmt.toFixed(2)+'</td>':'<td style="color:#9ca3af;text-align:center">—</td>')
       +(otAmt>0?'<td style="font-family:monospace;color:#6366f1;font-weight:700;text-align:center">+'+sym+otAmt.toFixed(2)+'</td>':'<td style="color:#9ca3af;text-align:center">—</td>')
       +'<td style="font-family:monospace;color:#dc2626;text-align:center">-'+sym+(r.deduction||0)+'</td>'
@@ -11453,6 +11467,7 @@ async function printPayroll() {
   const totalRow = '<tr style="background:#dbeafe;border-top:2px solid #1a3a8f">'
     +'<td colspan="3" style="text-align:right;font-weight:700;padding:8px 6px">សរុប:</td>'
     +'<td style="font-family:monospace;font-weight:700;text-align:right">'+sym+totalBase.toFixed(2)+'</td>'
+    +(totalAllow>0?'<td style="font-family:monospace;font-weight:700;color:#16a34a;text-align:center">+'+sym+totalAllow.toFixed(2)+'</td>':'<td style="color:#9ca3af;text-align:center">—</td>')
     +(totalOff>0?'<td style="font-family:monospace;font-weight:700;color:#d97706;text-align:center">+'+sym+totalOff.toFixed(2)+'</td>':'<td style="color:#9ca3af;text-align:center">—</td>')
     +(totalOT>0?'<td style="font-family:monospace;font-weight:700;color:#6366f1;text-align:center">+'+sym+totalOT.toFixed(2)+'</td>':'<td style="color:#9ca3af;text-align:center">—</td>')
     +'<td style="font-family:monospace;font-weight:700;color:#dc2626;text-align:center">-'+sym+totalDeduct.toFixed(2)+'</td>'
@@ -11486,7 +11501,7 @@ const logoHtml = cfg.logo_url
     +'</div></div>'
     +'<table><thead><tr>'
     +'<th style="width:28px">លេខ</th><th>ឈ្មោះ</th><th>នាយកដ្ឋាន</th>'
-    +'<th style="text-align:right">មូលដ្ឋាន</th><th style="color:#fbbf24;text-align:center">🌟 OFF</th><th style="color:#a5b4fc;text-align:center">⏱ OT</th><th style="color:#fca5a5;text-align:center">កាត់</th><th style="text-align:right">Net</th><th>ស្ថានភាព</th>'
+    +'<th style="text-align:right">មូលដ្ឋាន</th><th style="color:#86efac;text-align:center">🎁 ឧបត្ថម្ភ</th><th style="color:#fbbf24;text-align:center">🌟 OFF</th><th style="color:#a5b4fc;text-align:center">⏱ OT</th><th style="color:#fca5a5;text-align:center">កាត់</th><th style="text-align:right">Net</th><th>ស្ថានភាព</th>'
     +'</tr></thead><tbody>'+tableBody+totalRow+'</tbody></table>'
     +'<div class="footer">'
     +'<div class="sign">ហត្ថលេខាអ្នកត្រួតពិនិត្យ</div>'
