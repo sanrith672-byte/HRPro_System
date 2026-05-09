@@ -333,6 +333,7 @@ const PAGE_PERMS = {
   employees:       'employees_view',
   departments:     'departments_view',
   attendance:      'attendance_view',
+  monthly_attendance: 'attendance_view',
   qr_scan:         'attendance_scan',
   salary:          'salary_view',
   overtime:        'overtime_view',
@@ -359,6 +360,10 @@ function updateNavVisibility() {
     if (isQRScanner && (page === 'dashboard' || page === 'attendance')) {
       el.style.display = 'none'; return;
     }
+    // QR Scanner: always show monthly_attendance
+    if (isQRScanner && page === 'monthly_attendance') {
+      el.style.display = ''; return;
+    }
     const permKey = PAGE_PERMS[page];
     const allowed = !permKey || hasPerm(permKey);
     el.style.display = allowed ? '' : 'none';
@@ -371,6 +376,10 @@ function updateNavVisibility() {
     // Hide dashboard & attendance for QR Scanner
     if (isQRScanner && (page === 'dashboard' || page === 'attendance')) {
       el.style.display = 'none'; return;
+    }
+    // QR Scanner: always show monthly_attendance
+    if (isQRScanner && page === 'monthly_attendance') {
+      el.style.display = ''; return;
     }
     const permKey = PAGE_PERMS[page];
     const allowed = !permKey || hasPerm(permKey);
@@ -396,7 +405,7 @@ function navigate(page) {
   document.querySelector(`[data-page="${page}"]`)?.classList.add('active');
   const titles = {
     dashboard:'ទំព័រដើម', employees:'គ្រប់គ្រងបុគ្គលិក', departments:'នាយកដ្ឋាន',
-    attendance:'វត្តមានប្រចាំថ្ងៃ', qr_scan:'ស្កេន QR — វត្តមាន', salary:'គ្រប់គ្រងបៀវត្ស', reports:'របាយការណ៍',
+    attendance:'វត្តមានប្រចាំថ្ងៃ', monthly_attendance:'📊 តារាងវត្តមានប្រចាំខែ', qr_scan:'ស្កេន QR — វត្តមាន', salary:'គ្រប់គ្រងបៀវត្ស', reports:'របាយការណ៍',
     overtime:'ថែមម៉ោង', allowance:'ប្រាក់ឧបត្ថម្ភ', loans:'ប្រាក់ខ្ចីបុគ្គលិក',
     expenses:'ស្នើរប្រាក់ចំណាយ', general_expense:'ការចំណាយទូទៅ',
     id_card:'កាតសម្គាល់ខ្លួនបុគ្គលិក', leave:'ច្បាប់ឈប់សម្រាក',
@@ -410,7 +419,7 @@ function navigate(page) {
   if (sb && window.innerWidth <= 900) sb.classList.remove('open');
   ({
     dashboard:renderDashboard, employees:renderEmployees, departments:renderDepartments,
-    attendance:renderAttendance, qr_scan:renderQRScanPage, salary:renderSalary, reports:renderReports,
+    attendance:renderAttendance, monthly_attendance:renderMonthlyAttendance, qr_scan:renderQRScanPage, salary:renderSalary, reports:renderReports,
     overtime:renderOvertime, allowance:renderAllowance, loans:renderLoans,
     expenses:renderExpenses, general_expense:renderGeneralExpense,
     id_card:renderIdCard, leave:renderLeave, dayswap:renderDaySwap, settings:renderSettings,
@@ -2543,6 +2552,16 @@ async function deleteAttendance(id, date) {
 // ===== MONTHLY ATTENDANCE TABLE =====
 async function renderMonthlyAttendance(month='') {
   showLoading();
+  // === QR Scanner: hide action buttons ===
+  const _maSess = getSession();
+  const _maIsQR = _maSess?.role === 'QR Scanner';
+  const _maIsAdmin = _maSess && (
+    _maSess.role === 'អ្នកគ្រប់គ្រង' ||
+    _maSess.role?.toLowerCase() === 'admin' ||
+    _maSess.username === 'admin' ||
+    _maSess.username === 'adminsupport'
+  );
+  const _maSelfOnly = _maIsQR && !_maIsAdmin; // QR Scanner: hide all action buttons
   const currentMonth = month || thisMonth();
   const [y, m] = currentMonth.split('-').map(Number);
   const daysInMonth = new Date(y, m, 0).getDate();
@@ -2863,7 +2882,7 @@ async function renderMonthlyAttendance(month='') {
         +cells
         +'<td style="text-align:center;font-weight:700;font-size:12px;color:var(--success);width:'+(isMobile?36:42)+'px;padding:3px 2px;position:sticky;right:'+(isMobile?84:100)+'px;z-index:1;background:var(--bg2);box-shadow:-2px 0 4px rgba(0,0,0,.08)">'+(present+late)+'<span style="font-size:10px;font-weight:400;color:var(--text3);display:block">ថ្ងៃ</span></td>'
         +'<td style="text-align:center;font-weight:700;font-size:12px;color:'+(empOffDaysThisMonth>0?'#6366f1':'var(--text3)')+';width:'+(isMobile?36:48)+'px;max-width:'+(isMobile?36:48)+'px;overflow:hidden;padding:3px 2px;position:sticky;right:'+(isMobile?36:42)+'px;z-index:2;background:var(--bg2);border-left:1px solid var(--border);box-shadow:-2px 0 4px rgba(0,0,0,.06)">'+(empOffDaysThisMonth>0?'<span style="background:rgba(99,102,241,.12);border-radius:4px;padding:2px 5px">'+empOffDaysThisMonth+'</span>':'—')+'</td>'
-        +'<td style="text-align:center;width:'+(isMobile?48:52)+'px;max-width:'+(isMobile?48:52)+'px;overflow:hidden;position:sticky;right:0;z-index:1;background:var(--bg2);box-shadow:-2px 0 5px rgba(0,0,0,.12);padding:2px"><button class="btn btn-outline btn-sm" style="font-size:10px;padding:2px 3px;min-width:0;width:100%;line-height:1.3;display:flex;flex-direction:column;align-items:center;gap:0" onclick="applyAbsenceDeduction('+emp.id+',\''+emp.name+'\','+absent+','+overAbsent+','+deduction+',\''+currentMonth+'\','+offBonus+')"><span style="font-size:12px">💸</span><span style="font-size:9px;font-weight:600;color:var(--danger)">កាត់</span></button></td>'
+        +'<td style="text-align:center;width:'+(isMobile?48:52)+'px;max-width:'+(isMobile?48:52)+'px;overflow:hidden;position:sticky;right:0;z-index:1;background:var(--bg2);box-shadow:-2px 0 5px rgba(0,0,0,.12);padding:2px">'+(!_maSelfOnly ? '<button class="btn btn-outline btn-sm" style="font-size:10px;padding:2px 3px;min-width:0;width:100%;line-height:1.3;display:flex;flex-direction:column;align-items:center;gap:0" onclick="applyAbsenceDeduction('+emp.id+',\''+emp.name+'\','+absent+','+overAbsent+','+deduction+',\''+currentMonth+'\','+offBonus+')"><span style="font-size:12px">💸</span><span style="font-size:9px;font-weight:600;color:var(--danger)">កាត់</span></button>' : '')+'</td>'
         +'</tr>';
     }).join('');
 
@@ -2874,18 +2893,21 @@ async function renderMonthlyAttendance(month='') {
 
     contentArea().innerHTML =
       '<div class="page-header">'
-      +'<div><h2>📊 តារាងវត្តមានប្រចាំខែ</h2></div>'
+      +'<div>'
+      +'<h2>📊 តារាងវត្តមានប្រចាំខែ</h2>'
+      +'</div>'
       +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
       +'<input class="filter-input" id="att-month-input" type="month" value="'+currentMonth+'" onchange="renderMonthlyAttendance(this.value)" />'
-      +(function(){ const allE = (window._monthlyAttData && window._monthlyAttData.allEmps) || (window._monthlyAttData && window._monthlyAttData.emps) || []; const depts = [...new Set(allE.map(e=>e.department||e.department_name||'').filter(Boolean))]; const sel = (window._monthlyAttData && window._monthlyAttData.selectedDept) || ''; return '<select class="filter-input" id="att-dept-filter" style="min-width:120px" onchange="renderMonthlyAttendance(document.getElementById(\'att-month-input\').value)"><option value="">នាយកដ្ឋានទាំងអស់</option>'+depts.map(d=>'<option value="'+d+'"'+(sel===d?' selected':'')+'>'+d+'</option>').join('')+'</select>'; })()
-      +'<button class="btn btn-primary" onclick="applyAllAbsenceDeductions(\''+currentMonth+'\')">💸 កាត់ប្រាក់ទាំងអស់</button>'
-      +'<button class="btn btn-outline" onclick="renderAttendance(today())" style="border-color:var(--success);color:var(--success)">📅 ថ្ងៃទៅថ្ងៃ</button>'
-      +'<div class="monthly-att-actions" style="display:flex;gap:6px;flex-wrap:wrap">'
-      +'<button class="btn btn-outline" onclick="printMonthlyAttendance()" style="border-color:var(--primary);color:var(--primary);font-size:12px;padding:5px 12px">🖨️ PDF</button>'
-      +'<button class="btn btn-outline" onclick="saveMonthlyAttendanceAsImage()" style="border-color:#8b5cf6;color:#8b5cf6;font-size:12px;padding:5px 12px">📷 PNG</button>'
-      +'<button class="btn btn-outline" onclick="exportMonthlyAttendanceExcel()" style="border-color:var(--info);color:var(--info);font-size:12px;padding:5px 12px">📊 Excel</button>'
-      +'</div>'
+      +(!_maSelfOnly ? (function(){ const allE = (window._monthlyAttData && window._monthlyAttData.allEmps) || (window._monthlyAttData && window._monthlyAttData.emps) || []; const depts = [...new Set(allE.map(e=>e.department||e.department_name||'').filter(Boolean))]; const sel = (window._monthlyAttData && window._monthlyAttData.selectedDept) || ''; return '<select class="filter-input" id="att-dept-filter" style="min-width:120px" onchange="renderMonthlyAttendance(document.getElementById(\'att-month-input\').value)"><option value="">នាយកដ្ឋានទាំងអស់</option>'+depts.map(d=>'<option value="'+d+'"'+(sel===d?' selected':'')+'>'+d+'</option>').join('')+'</select>'; })() : '')
+      +(!_maSelfOnly ? '<button class="btn btn-primary" onclick="applyAllAbsenceDeductions(\''+currentMonth+'\')">💸 កាត់ប្រាក់ទាំងអស់</button>' : '')
+      +(!_maSelfOnly ? '<button class="btn btn-outline" onclick="renderAttendance(today())" style="border-color:var(--success);color:var(--success)">📅 ថ្ងៃទៅថ្ងៃ</button>' : '')
+      +(!_maSelfOnly ? '<div class="monthly-att-actions" style="display:flex;gap:6px;flex-wrap:wrap">'
+        +'<button class="btn btn-outline" onclick="printMonthlyAttendance()" style="border-color:var(--primary);color:var(--primary);font-size:12px;padding:5px 12px">🖨️ PDF</button>'
+        +'<button class="btn btn-outline" onclick="saveMonthlyAttendanceAsImage()" style="border-color:#8b5cf6;color:#8b5cf6;font-size:12px;padding:5px 12px">📷 PNG</button>'
+        +'<button class="btn btn-outline" onclick="exportMonthlyAttendanceExcel()" style="border-color:var(--info);color:var(--info);font-size:12px;padding:5px 12px">📊 Excel</button>'
+        +'</div>' : '')
       +'</div></div>'
+
       +'<div class="att-summary">'
       +'<div class="att-box"><div class="att-num" style="color:var(--success)">'+(renderTotals.p+renderTotals.l)+'</div><div class="att-lbl">✅ វត្តមាន</div></div>'
       +'<div class="att-box"><div class="att-num" style="color:var(--warning)">'+renderTotals.l+'</div><div class="att-lbl">⏰ យឺត</div></div>'
@@ -2897,13 +2919,13 @@ async function renderMonthlyAttendance(month='') {
       +'<div class="att-box" style="background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.3)"><div class="att-num" style="color:#d97706">$'+(renderTotals.ob||0).toFixed(2)+'</div><div class="att-lbl" style="color:#d97706">🌟 OFF Bonus</div></div>'
 
       +'</div>'
-      +'<div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:8px 14px;margin-bottom:6px;display:flex;gap:16px;flex-wrap:wrap;align-items:center">'
+      +(!_maSelfOnly ? '<div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:8px 14px;margin-bottom:6px;display:flex;gap:16px;flex-wrap:wrap;align-items:center">'
       +'<span style="font-size:12px;color:var(--text3)">⚙️ ច្បាប់:</span>'
       +'<span style="font-size:12px">ថ្ងៃអវត្តមានអនុញ្ញាត: <b style="color:var(--primary)">'+maxAbsent+' ថ្ងៃ/ខែ</b></span>'
       +'<span style="font-size:12px">ម៉ោងចូល: <b style="color:var(--warning)">'+(rules.work_start_time||'08:00')+'</b> <span style="color:var(--text3)">(grace '+(rules.late_grace_minutes||15)+' នាទី)</span></span>'
       +'<span style="font-size:12px">រូបមន្ត: <b style="color:var(--danger)">ប្រាក់ខែ ÷ ថ្ងៃធ្វើការ × ថ្ងៃលើស</b></span>'
       +'<button class="btn btn-outline btn-sm" style="font-size:11px" onclick="openAbsenceRulesModal()">✏️ កែច្បាប់</button>'
-      +'</div>'
+      +'</div>' : '')
       +'<div class="card" style="padding:0"><div style="overflow-x:scroll;overflow-y:auto;max-height:calc(100vh - 265px);will-change:scroll-position;-webkit-overflow-scrolling:touch"><table class="monthly-att-wrap" style="min-width:max-content;border-collapse:collapse;table-layout:auto">'
       +'<colgroup>'
       +'<col style="width:'+COL_NAME+'px"/>'
@@ -2932,7 +2954,7 @@ async function renderMonthlyAttendance(month='') {
           +dayThs
           +'<th style="width:'+(isMobile?36:42)+'px;text-align:center;padding:3px 2px;font-size:11px;color:var(--success);position:sticky;right:'+(isMobile?84:100)+'px;z-index:5;background:var(--bg2);box-shadow:-2px 0 4px rgba(0,0,0,.1)" rowspan="2" title="ធ្វើការ">📅<br/><span style="font-size:10px">ធ្វើ</span></th>'
           +'<th style="width:'+(isMobile?36:48)+'px;text-align:center;padding:3px 2px;font-size:11px;color:#6366f1;position:sticky;right:'+(isMobile?36:42)+'px;z-index:6;background:var(--bg2);border-left:1px solid var(--border);overflow:hidden;max-width:'+(isMobile?36:48)+'px;box-shadow:-2px 0 4px rgba(0,0,0,.08)" rowspan="2" title="📅 OFF ខែ"><span style="display:block;font-size:11px;font-weight:700;line-height:1.3">OFF</span><span style="display:block;font-size:10px;line-height:1.2;color:var(--text3)">ខែ</span></th>'
-          +'<th style="width:'+(isMobile?48:52)+'px;text-align:center;padding:3px 2px;font-size:11px;position:sticky;right:0;z-index:5;background:var(--bg2);box-shadow:-2px 0 5px rgba(0,0,0,.15)" rowspan="2">សកម្ម</th>'
+          +(!_maSelfOnly ? '<th style="width:'+(isMobile?48:52)+'px;text-align:center;padding:3px 2px;font-size:11px;position:sticky;right:0;z-index:5;background:var(--bg2);box-shadow:-2px 0 5px rgba(0,0,0,.15)" rowspan="2">សកម្ម</th>' : '')
           +'</tr>'
           +'<tr style="position:sticky;top:26px;z-index:4;background:var(--bg2);height:18px">'+wdThs+'</tr>'
       +'</thead>'
