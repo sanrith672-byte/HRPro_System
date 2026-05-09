@@ -5253,6 +5253,10 @@ async function renderSalary(month='') {
     } catch(_) {}
     // ────────────────────────────────────────────────────────────────────
 
+    // Cache maps globally so openSalaryModal can auto-fill
+    window._cachedOffBonusMap = _offBonusMap;
+    window._cachedOtMap = _otMap;
+
     const rows = data.records.length===0
       ? '<tr><td colspan="9"><div class="empty-state" style="padding:30px"><p>មិនទាន់មានកំណត់ត្រាបៀវត្សសម្រាប់ខែនេះ</p></div></td></tr>'
       : data.records.map(r => {
@@ -5292,7 +5296,7 @@ async function renderSalary(month='') {
               ?'<td style="font-family:var(--mono);font-weight:700;color:#6366f1;text-align:center;background:rgba(99,102,241,.08)">+$'+(_otMap[r.employee_id]).toFixed(0)+'</td>'
               :'<td style="color:var(--text3);text-align:center">—</td>')
             +'<td style="font-family:var(--mono);color:var(--danger)">-$'+r.deduction+'</td>'
-            +'<td style="font-family:var(--mono);font-weight:700;color:var(--text)">$'+r.net_salary+'</td>'
+            +(()=>{ const _realNet = parseFloat(r.base_salary||0) + parseFloat(r.bonus||0) + parseFloat(_offBonusMap[r.employee_id]||0) + parseFloat(_otMap[r.employee_id]||0) - parseFloat(r.deduction||0); const _hasExtra = (_offBonusMap[r.employee_id]||0)>0 || (_otMap[r.employee_id]||0)>0; return '<td style="font-family:var(--mono);font-weight:700;color:var(--success);font-size:15px">$'+_realNet.toFixed(2)+(_hasExtra?'<div style="font-size:10px;color:var(--text3);font-weight:400">base+OFF+OT</div>':'')+'</td>'; })()
             +qrCell
             +'<td>'+(r.status==='paid'?'<span class="badge badge-green">✅ បានបង់</span>':'<span class="badge badge-yellow">⏳ រង់ចាំ</span>')+'</td>'
             +'<td><div class="action-btns">'
@@ -5338,36 +5342,58 @@ async function openEditSalaryModal(id, month) {
     $('modal-body').innerHTML =
       '<div class="form-grid">'
       +'<div class="form-group"><label class="form-label">មូលដ្ឋាន (USD)</label><input class="form-control" id="es-base" type="number" value="'+r.base_salary+'" /></div>'
-      +'<div class="form-group"><label class="form-label">រង្វាន់ (USD)</label><input class="form-control" id="es-bonus" type="number" value="'+r.bonus+'" /></div>'
-      +'<div class="form-group"><label class="form-label">កាត់ (USD)</label><input class="form-control" id="es-deduct" type="number" value="'+r.deduction+'" /></div>'
-      +'<div class="form-group"><label class="form-label">ចំណាំ</label><input class="form-control" id="es-note" value="'+(r.notes||'')+'" /></div>'
-      +'</div>'
-      +'<div id="es-preview" style="margin:12px 0;padding:12px;background:var(--bg3);border-radius:8px;font-family:var(--mono);text-align:center;font-size:16px;font-weight:700;color:var(--success)">Net: $'+r.net_salary+'</div>'
+      +'<div class="form-group"><label class="form-label">🌟 OFF Bonus (USD)</label><input class="form-control" id="es-off" type="number" value="0" oninput="esCalcNet()" style="border-color:#f59e0b;border-width:2px" /></div>'
+      +'<div class="form-group"><label class="form-label">⏱ OT ថែមម៉ោង (USD)</label><input class="form-control" id="es-ot" type="number" value="0" oninput="esCalcNet()" style="border-color:#6366f1;border-width:2px" /></div>'
+      +'<div class="form-group"><label class="form-label">រង្វាន់ (USD)</label><input class="form-control" id="es-bonus" type="number" value="\'+r.bonus+\'" oninput="esCalcNet()" /></div>\'\n      +\'<div class="form-group"><label class="form-label">កាត់ (USD)</label><input class="form-control" id="es-deduct" type="number" value="\'+r.deduction+\'" oninput="esCalcNet()" /></div>\'\n      +\'<div class="form-group"><label class="form-label">ចំណាំ</label><input class="form-control" id="es-note" value="\'+(r.notes||\'\')+\'" /></div>\'\n      +\'</div>\'\n      +\'<div id="es-preview" style="margin:12px 0;padding:12px;background:var(--bg3);border-radius:8px;font-fam-radius:8px;font-family:var(--mono);text-align:center;font-size:16px;font-weight:700;color:var(--success)">Net: $'+r.net_salary+'</div>'
       +'<div class="form-actions">'
       +'<button class="btn btn-outline" onclick="closeModal()">បោះបង់</button>'
       +'<button class="btn btn-primary" onclick="saveEditSalary('+id+',\''+month+'\')">💾 រក្សាទុក</button>'
       +'</div>';
     // Live preview
-    ['es-base','es-bonus','es-deduct'].forEach(fid => {
-      const el = $(fid);
-      if (el) el.addEventListener('input', () => {
-        const net = (parseFloat($('es-base')?.value)||0) + (parseFloat($('es-bonus')?.value)||0) - (parseFloat($('es-deduct')?.value)||0);
-        const prev = $('es-preview');
-        if (prev) prev.textContent = 'Net: $' + net.toFixed(2);
-      });
+    ['es-base','es-off','es-ot','es-bonus','es-deduct'].forEach(fid => {
+      const el = document.getElementById(fid);
+      if (el) el.addEventListener('input', esCalcNet);
     });
+    // Initial calculation
+    setTimeout(esCalcNet, 50);
     openModal();
   } catch(e) { showToast('Error: '+e.message,'error'); }
 }
 
+function esCalcNet() {
+  const base   = parseFloat(document.getElementById('es-base')?.value)||0;
+  const off    = parseFloat(document.getElementById('es-off')?.value)||0;
+  const ot     = parseFloat(document.getElementById('es-ot')?.value)||0;
+  const bonus  = parseFloat(document.getElementById('es-bonus')?.value)||0;
+  const deduct = parseFloat(document.getElementById('es-deduct')?.value)||0;
+  const net = base + off + ot + bonus - deduct;
+  const p = document.getElementById('es-preview');
+  if (p) {
+    let bd = '$'+base.toFixed(2);
+    if (off>0) bd += ' + 🌟$'+off.toFixed(2);
+    if (ot>0)  bd += ' + ⏱$'+ot.toFixed(2);
+    if (bonus>0) bd += ' + 🎁$'+bonus.toFixed(2);
+    if (deduct>0) bd += ' - 🔻$'+deduct.toFixed(2);
+    p.innerHTML = '<div style="font-size:11px;color:var(--text3)">'+bd+'</div><div>Net: $'+net.toFixed(2)+'</div>';
+  }
+}
+
 async function saveEditSalary(id, month) {
   const base = parseFloat($('es-base')?.value)||0;
+  const off  = parseFloat($('es-off')?.value)||0;
+  const ot   = parseFloat($('es-ot')?.value)||0;
   const bonus = parseFloat($('es-bonus')?.value)||0;
   const deduction = parseFloat($('es-deduct')?.value)||0;
-  const net = base + bonus - deduction;
+  const net = base + off + ot + bonus - deduction;
+  const totalBonus = off + ot + bonus;
+  const noteArr = [];
+  if (off > 0) noteArr.push('🌟 OFF Bonus +$' + off.toFixed(2));
+  if (ot > 0)  noteArr.push('⏱ OT +$' + ot.toFixed(2));
+  const existingNote = $('es-note')?.value || '';
+  const finalNote = noteArr.length > 0 ? (existingNote ? existingNote + ' | ' : '') + noteArr.join(' | ') : existingNote;
   try {
-    await api('PUT', '/salary/'+id, { base_salary:base, bonus, deduction, net_salary:net, notes:$('es-note')?.value });
-    showToast('កែប្រែបៀវត្សបានជោគជ័យ!','success');
+    await api('PUT', '/salary/'+id, { base_salary:base, bonus:totalBonus, deduction, net_salary:net, notes:finalNote });
+    showToast('កែប្រែបៀវត្សបានជោគជ័យ! Net: $'+net.toFixed(2),'success');
     closeModal(); renderSalary(month);
   } catch(e) { showToast('Error: '+e.message,'error'); }
 }
@@ -5398,6 +5424,8 @@ async function openSalaryModal(month) {
     +'<div class="form-group full-width"><label class="form-label">បុគ្គលិក *</label>'
     +'<select class="form-control" id="s-emp" onchange="autoFillSalary(this.value)">'+state.employees.map(e=>'<option value="'+e.id+'" data-salary="'+(e.salary||0)+'">'+e.name+'</option>').join('')+'</select></div>'
     +'<div class="form-group"><label class="form-label">មូលដ្ឋាន (USD) *</label><input class="form-control" id="s-base" type="number" placeholder="1000" oninput="calcSalNet()" /></div>'
+    +'<div class="form-group"><label class="form-label">🌟 OFF Bonus (USD)</label><input class="form-control" id="s-off" type="number" placeholder="0" value="0" oninput="calcSalNet()" style="border-color:#f59e0b;border-width:2px" /></div>'
+    +'<div class="form-group"><label class="form-label">⏱ OT ថែមម៉ោង (USD)</label><input class="form-control" id="s-ot" type="number" placeholder="0" value="0" oninput="calcSalNet()" style="border-color:#6366f1;border-width:2px" /></div>'
     +'<div class="form-group"><label class="form-label">រង្វាន់ (USD)</label><input class="form-control" id="s-bonus" type="number" placeholder="0" value="0" oninput="calcSalNet()" /></div>'
     +'<div class="form-group"><label class="form-label">កាត់ (USD)</label><input class="form-control" id="s-deduct" type="number" placeholder="0" value="0" oninput="calcSalNet()" /></div>'
     +'<div class="form-group full-width">'
@@ -5468,22 +5496,47 @@ function switchSalTab(tab) {
   }
 }
 
-function autoFillSalary(empId) {
+async function autoFillSalary(empId) {
   const sel = document.getElementById('s-emp');
   if (!sel) return;
   const opt = sel.options[sel.selectedIndex];
   const sal = opt ? (parseFloat(opt.dataset.salary)||0) : 0;
   const baseEl = document.getElementById('s-base');
-  if (baseEl) { baseEl.value = sal || ''; calcSalNet(); }
+  if (baseEl) { baseEl.value = sal || ''; }
+
+  // Auto-fill OFF bonus from _offBonusMap (already computed in renderSalary scope — use window cache)
+  const offEl = document.getElementById('s-off');
+  const otEl  = document.getElementById('s-ot');
+  const id = parseInt(empId);
+
+  // Try to read from cached maps set on window by renderSalary
+  if (offEl && window._cachedOffBonusMap) {
+    const offVal = window._cachedOffBonusMap[id] || 0;
+    offEl.value = offVal > 0 ? offVal.toFixed(2) : 0;
+  }
+  if (otEl && window._cachedOtMap) {
+    const otVal = window._cachedOtMap[id] || 0;
+    otEl.value = otVal > 0 ? otVal.toFixed(2) : 0;
+  }
+  calcSalNet();
 }
 
 function calcSalNet() {
   const base   = parseFloat(document.getElementById('s-base')?.value)||0;
+  const off    = parseFloat(document.getElementById('s-off')?.value)||0;
+  const ot     = parseFloat(document.getElementById('s-ot')?.value)||0;
   const bonus  = parseFloat(document.getElementById('s-bonus')?.value)||0;
   const deduct = parseFloat(document.getElementById('s-deduct')?.value)||0;
-  const net = base + bonus - deduct;
+  const net = base + off + ot + bonus - deduct;
   const p = document.getElementById('sal-net-preview');
-  if (p) p.textContent = 'Net: $' + net.toFixed(2);
+  if (p) {
+    let breakdown = '$' + base.toFixed(2);
+    if (off > 0) breakdown += ' + 🌟$' + off.toFixed(2);
+    if (ot > 0)  breakdown += ' + ⏱$' + ot.toFixed(2);
+    if (bonus > 0) breakdown += ' + 🎁$' + bonus.toFixed(2);
+    if (deduct > 0) breakdown += ' - 🔻$' + deduct.toFixed(2);
+    p.innerHTML = '<div style="font-size:12px;color:var(--text3);margin-bottom:4px">' + breakdown + '</div><div style="font-size:18px;color:var(--success)">Net: $' + net.toFixed(2) + '</div>';
+  }
 }
 
 async function saveBulkSalary(month) {
@@ -5514,8 +5567,26 @@ async function saveBulkSalary(month) {
 async function saveSalary(month) {
   const btn=$('save-sal-btn'); btn.disabled=true; btn.textContent='កំពុងរក្សា...';
   try {
-    await api('POST','/salary',{ employee_id:parseInt($('s-emp').value), month, base_salary:parseFloat($('s-base').value)||0, bonus:parseFloat($('s-bonus').value)||0, deduction:parseFloat($('s-deduct').value)||0 });
-    showToast('បន្ថែមបៀវត្សបានជោគជ័យ!','success'); closeModal(); renderSalary(month);
+    const base   = parseFloat($('s-base')?.value)||0;
+    const off    = parseFloat($('s-off')?.value)||0;
+    const ot     = parseFloat($('s-ot')?.value)||0;
+    const bonus  = parseFloat($('s-bonus')?.value)||0;
+    const deduct = parseFloat($('s-deduct')?.value)||0;
+    const net    = base + off + ot + bonus - deduct;
+    const noteArr = [];
+    if (off > 0) noteArr.push('🌟 OFF Bonus +$' + off.toFixed(2));
+    if (ot > 0)  noteArr.push('⏱ OT +$' + ot.toFixed(2));
+    await api('POST','/salary',{
+      employee_id: parseInt($('s-emp').value),
+      month,
+      base_salary: base,
+      bonus: off + ot + bonus,
+      deduction: deduct,
+      net_salary: net,
+      notes: noteArr.join(' | ')
+    });
+    showToast('បន្ថែមបៀវត្សបានជោគជ័យ! Net: $' + net.toFixed(2),'success');
+    closeModal(); renderSalary(month);
   } catch(e) { showToast('បញ្ហា: '+e.message,'error'); btn.disabled=false; btn.textContent='រក្សាទុក'; }
 }
 
