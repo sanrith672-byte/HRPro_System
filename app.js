@@ -2650,7 +2650,12 @@ async function renderMonthlyAttendance(month='') {
       results.forEach(r => { allRecords = allRecords.concat(r.records||[]); });
     }
 
-    const emps = empData.employees || [];
+    let emps = empData.employees || [];
+    // QR Scanner: show only own row (filter by name match)
+    if (_maSelfOnly) {
+      const _myName = (_maSess?.name || '').trim().toLowerCase();
+      emps = emps.filter(e => (e.name || '').trim().toLowerCase() === _myName);
+    }
     // Build map: empId -> { dayStr -> record }
     const attMap = {};
     allRecords.forEach(a => {
