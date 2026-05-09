@@ -693,7 +693,7 @@ select.form-control option { background: var(--bg3); }
 .att-lbl { font-size: 11px; color: var(--text3); margin-top: 2px; }
 
 /* ===== SALARY ===== */
-.salary-summary { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; margin-bottom: 24px; }
+.salary-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; margin-bottom: 24px; }
 .salary-box {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -1114,7 +1114,7 @@ textarea.form-control { resize: vertical; min-height: 80px; }
   .stats-grid        { grid-template-columns: 1fr 1fr; gap: 10px; }
   .form-grid         { grid-template-columns: 1fr; }
   .report-grid       { grid-template-columns: 1fr; }
-  .salary-summary    { grid-template-columns: 1fr 1fr; }
+  .salary-summary    { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
   .att-summary       { grid-template-columns: 1fr 1fr; }
   .dept-grid         { grid-template-columns: 1fr 1fr; gap: 12px; }
   .salary-rules-grid { grid-template-columns: 1fr; }
@@ -1217,7 +1217,7 @@ textarea.form-control { resize: vertical; min-height: 80px; }
   .att-box { padding: 12px 8px; }
 
   /* Salary */
-  .salary-summary { grid-template-columns: 1fr; }
+  .salary-summary { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); }
   .salary-box .val { font-size: 18px; }
 
   /* Sidebar compact */
@@ -1591,7 +1591,7 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 
 /* ── Salary / Attendance summary boxes: 2x2 on mobile ── */
 @media (max-width: 480px) {
-  .salary-summary { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .salary-summary { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; }
   .salary-box { padding: 14px 12px; }
   .salary-box .val { font-size: 17px; }
   .att-summary { grid-template-columns: 1fr 1fr; gap: 8px; }
@@ -1847,10 +1847,10 @@ input, select, textarea { font-size: max(14px, 1em); }
   .filter-bar select { flex-shrink: 0; font-size: 12px; }
 }
 
-/* ── Salary summary: 2-col grid ── */
+/* ── Salary summary: auto-fit on all sizes ── */
 @media (max-width: 700px) {
   .salary-summary {
-    grid-template-columns: 1fr 1fr !important;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)) !important;
     gap: 8px;
   }
   .salary-box .val { font-size: 18px; }
