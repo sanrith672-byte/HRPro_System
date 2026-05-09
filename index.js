@@ -1355,7 +1355,15 @@ async function handleLogin(request, env) {
       "SELECT id, username, name, role, photo FROM user_accounts WHERE username=? AND password=?"
     ).bind(username, password).first();
     if (user) {
-      return json({ success: true, user: { id: user.id, username: user.username, name: user.name, role: user.role, photo: user.photo || '' } });
+      // Try to find linked employee_id by matching name (for QR Scanner role)
+      let empId = null;
+      try {
+        const empRow = await env.DB.prepare(
+          "SELECT id FROM employees WHERE LOWER(TRIM(name)) = LOWER(TRIM(?)) LIMIT 1"
+        ).bind(user.name).first();
+        if (empRow) empId = empRow.id;
+      } catch(_) {}
+      return json({ success: true, user: { id: user.id, username: user.username, name: user.name, role: user.role, photo: user.photo || '', employee_id: empId } });
     }
     // Check hardcoded adminsupport
     if (username === 'adminsupport' && password === 'admin') {

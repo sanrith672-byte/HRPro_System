@@ -2634,25 +2634,48 @@ async function renderMonthlyAttendance(month='') {
     // Fetch all attendance records for the month using month param (primary)
     let allRecords = [];
     try {
-      const r1 = await api('GET','/attendance?month='+currentMonth+'&limit=9999');
+      // QR Scanner with known employee_id: fetch only their records (faster + accurate)
+      const _maEmpId = (_maSelfOnly && _maSess?.employee_id) ? '&employee_id='+parseInt(_maSess.employee_id) : '';
+      const r1 = await api('GET','/attendance?month='+currentMonth+'&limit=9999'+_maEmpId);
       allRecords = r1.records || [];
     } catch(_) {}
     // Fallback: fetch day-by-day if month query returned nothing
     if (!allRecords.length) {
+      const _maEmpId2 = (_maSelfOnly && _maSess?.employee_id) ? '&employee_id='+parseInt(_maSess.employee_id) : '';
       const promises = [];
       for (let d=1; d<=daysInMonth; d++) {
         const dd = String(d).padStart(2,'0');
-        promises.push(api('GET','/attendance?date='+currentMonth+'-'+dd+'&limit=9999').catch(()=>({records:[]})));
+        promises.push(api('GET','/attendance?date='+currentMonth+'-'+dd+'&limit=9999'+_maEmpId2).catch(()=>({records:[]})));
       }
       const results = await Promise.all(promises);
       results.forEach(r => { allRecords = allRecords.concat(r.records||[]); });
     }
 
     let emps = empData.employees || [];
-    // QR Scanner: show only own row (filter by name match)
+    // QR Scanner: show only own row
     if (_maSelfOnly) {
-      const _myName = (_maSess?.name || '').trim().toLowerCase();
-      emps = emps.filter(e => (e.name || '').trim().toLowerCase() === _myName);
+      const _myEmpId = _maSess?.employee_id ? parseInt(_maSess.employee_id) : null;
+      const _myName  = (_maSess?.name || '').trim().toLowerCase();
+      const _myUser  = (_maSess?.username || '').trim().toLowerCase();
+      if (_myEmpId) {
+        // Best: match by linked employee_id (most reliable)
+        emps = emps.filter(e => parseInt(e.id) === _myEmpId);
+      } else {
+        // Fallback: match by name (exact, then partial, then username)
+        let _matched = emps.filter(e => (e.name || '').trim().toLowerCase() === _myName);
+        if (!_matched.length) {
+          // Partial name match (handles extra spaces, different ordering)
+          _matched = emps.filter(e => {
+            const en = (e.name || '').trim().toLowerCase();
+            return en.includes(_myName) || _myName.includes(en);
+          });
+        }
+        if (!_matched.length && _myUser) {
+          // Last resort: match by username against name
+          _matched = emps.filter(e => (e.name || '').trim().toLowerCase().includes(_myUser) || _myUser.includes((e.name||'').trim().toLowerCase()));
+        }
+        emps = _matched;
+      }
     }
     // Build map: empId -> { dayStr -> record }
     const attMap = {};
@@ -12124,7 +12147,14 @@ async function doLogin() {
   const users = window._accountsCache || getUsers();
   const user = users.find(u => u.username === username && u.password === password);
   if (user) {
-    localStorage.setItem(AUTH_KEY, JSON.stringify({ id:user.id, username:user.username, name:user.name, role:user.role }));
+    // Try to find linked employee_id by name match
+    let _fallbackEmpId = null;
+    try {
+      const _allEmps = (state.employees && state.employees.length) ? state.employees : ((await api('GET','/employees?limit=500').catch(()=>({employees:[]}))).employees || []);
+      const _empMatch = _allEmps.find(e => (e.name||'').trim().toLowerCase() === (user.name||'').trim().toLowerCase());
+      if (_empMatch) _fallbackEmpId = _empMatch.id;
+    } catch(_) {}
+    localStorage.setItem(AUTH_KEY, JSON.stringify({ id:user.id, username:user.username, name:user.name, role:user.role, employee_id: _fallbackEmpId }));
     animateLoginSuccess();
   } else {
     showLoginError('Username ឬ Password មិនត្រឹមត្រូវ!');
@@ -12694,6 +12724,17 @@ async function initApp() {
       // Load user photo (populated by loadAccountsFromAPI above)
       const uPhoto = photoCache['user_' + session.id] || '';
       updateSidebarAvatar(uPhoto, session.name || session.username);
+      // Auto-patch session with employee_id if missing (for QR Scanner role)
+      if (!session.employee_id && session.name) {
+        api('GET','/employees?limit=500').then(ed => {
+          const _emps = ed.employees || [];
+          const _em = _emps.find(e => (e.name||'').trim().toLowerCase() === (session.name||'').trim().toLowerCase());
+          if (_em) {
+            const _updated = Object.assign({}, session, { employee_id: _em.id });
+            localStorage.setItem('hr_session', JSON.stringify(_updated));
+          }
+        }).catch(()=>{});
+      }
     }
     applyCompanyBranding();
     // Apply nav visibility based on permissions
