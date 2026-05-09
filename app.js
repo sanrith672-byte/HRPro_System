@@ -2910,7 +2910,7 @@ async function renderMonthlyAttendance(month='') {
       +'<div class="att-box" style="background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.3)"><div class="att-num" style="color:#d97706">$'+(renderTotals.ob||0).toFixed(2)+'</div><div class="att-lbl" style="color:#d97706">🌟 OFF Bonus</div></div>'
 
       +'</div>'
-      (!_maSelfOnly ? +'<div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:8px 14px;margin-bottom:6px;display:flex;gap:16px;flex-wrap:wrap;align-items:center">'
+      +(!_maSelfOnly ? '<div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:8px 14px;margin-bottom:6px;display:flex;gap:16px;flex-wrap:wrap;align-items:center">'
       +'<span style="font-size:12px;color:var(--text3)">⚙️ ច្បាប់:</span>'
       +'<span style="font-size:12px">ថ្ងៃអវត្តមានអនុញ្ញាត: <b style="color:var(--primary)">'+maxAbsent+' ថ្ងៃ/ខែ</b></span>'
       +'<span style="font-size:12px">ម៉ោងចូល: <b style="color:var(--warning)">'+(rules.work_start_time||'08:00')+'</b> <span style="color:var(--text3)">(grace '+(rules.late_grace_minutes||15)+' នាទី)</span></span>'
@@ -2945,7 +2945,7 @@ async function renderMonthlyAttendance(month='') {
           +dayThs
           +'<th style="width:'+(isMobile?36:42)+'px;text-align:center;padding:3px 2px;font-size:11px;color:var(--success);position:sticky;right:'+(isMobile?84:100)+'px;z-index:5;background:var(--bg2);box-shadow:-2px 0 4px rgba(0,0,0,.1)" rowspan="2" title="ធ្វើការ">📅<br/><span style="font-size:10px">ធ្វើ</span></th>'
           +'<th style="width:'+(isMobile?36:48)+'px;text-align:center;padding:3px 2px;font-size:11px;color:#6366f1;position:sticky;right:'+(isMobile?36:42)+'px;z-index:6;background:var(--bg2);border-left:1px solid var(--border);overflow:hidden;max-width:'+(isMobile?36:48)+'px;box-shadow:-2px 0 4px rgba(0,0,0,.08)" rowspan="2" title="📅 OFF ខែ"><span style="display:block;font-size:11px;font-weight:700;line-height:1.3">OFF</span><span style="display:block;font-size:10px;line-height:1.2;color:var(--text3)">ខែ</span></th>'
-          (!_maSelfOnly ? +'<th style="width:'+(isMobile?48:52)+'px;text-align:center;padding:3px 2px;font-size:11px;position:sticky;right:0;z-index:5;background:var(--bg2);box-shadow:-2px 0 5px rgba(0,0,0,.15)" rowspan="2">សកម្ម</th>' : '')
+          +(!_maSelfOnly ? '<th style="width:'+(isMobile?48:52)+'px;text-align:center;padding:3px 2px;font-size:11px;position:sticky;right:0;z-index:5;background:var(--bg2);box-shadow:-2px 0 5px rgba(0,0,0,.15)" rowspan="2">សកម្ម</th>' : '')
           +'</tr>'
           +'<tr style="position:sticky;top:26px;z-index:4;background:var(--bg2);height:18px">'+wdThs+'</tr>'
       +'</thead>'
