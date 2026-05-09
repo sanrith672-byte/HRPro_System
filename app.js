@@ -5622,18 +5622,79 @@ async function renderReports() {
     const rules = getSalaryRules();
     const sym = rules.currency_symbol || '$';
 
+    // ── Compute real-time OFF bonus (same logic as renderSalary) ──
+    const _offBonusMap = {};
+    try {
+      if (!state.employees || !state.employees.length) state.employees = empData.employees || [];
+      const [y, m] = month.split('-').map(Number);
+      const _dim = new Date(y, m, 0).getDate();
+      const _allDays = [];
+      for (let d = 1; d <= _dim; d++) {
+        _allDays.push({ dd: String(d).padStart(2,'0'), wd: new Date(y, m-1, d).getDay() });
+      }
+      const [_attRes, _dsRes] = await Promise.all([
+        api('GET', '/attendance?month=' + month).catch(() => ({ records: [] })),
+        api('GET', '/dayswap').catch(() => ({ records: [] })),
+      ]);
+      const _attMap = {};
+      (_attRes.records || []).forEach(a => {
+        if (!_attMap[a.employee_id]) _attMap[a.employee_id] = {};
+        _attMap[a.employee_id][(a.date||'').slice(8,10)] = a;
+      });
+      const _swapDayMap = {}, _offDateMap = {};
+      ((_dsRes.records||[]).filter(r=>r.status==='approved')).forEach(r => {
+        if (r.swap_date) { const dd=r.swap_date.slice(8,10); if(!_swapDayMap[r.employee_id])_swapDayMap[r.employee_id]={}; _swapDayMap[r.employee_id][dd]=r; }
+        if (r.off_date)  { const dd=r.off_date.slice(8,10);  if(!_offDateMap[r.employee_id])_offDateMap[r.employee_id]={}; _offDateMap[r.employee_id][dd]=true; }
+      });
+      const _offMul = (rules.off_bonus_enabled !== false) ? (rules.off_day_multiplier || 1.0) : 0;
+      (state.employees || []).forEach(e => {
+        const _offDays = parseOffDays(e);
+        if (!_offDays.length) return;
+        const _offRate = (e.salary || 0) / 30;
+        let _worked = 0;
+        _allDays.forEach(x => {
+          if (_offDays.indexOf(x.wd) === -1) return;
+          if ((_offDateMap[e.id]||{})[x.dd]) return;
+          const _sr = (_swapDayMap[e.id]||{})[x.dd];
+          if (_sr) { if (_sr.off_date && _sr.off_date.trim() !== '') return; _worked++; return; }
+          const _att = (_attMap[e.id]||{})[x.dd];
+          if (_att && (_att.status==='present'||_att.status==='late')) _worked++;
+        });
+        if (_worked > 0) _offBonusMap[e.id] = parseFloat((_worked * _offRate * _offMul).toFixed(2));
+      });
+    } catch(_) {}
+
+    // ── Load OT data ──
+    const _otMap = {};
+    try {
+      const _otRes = await api('GET', '/overtime').catch(() => ({ records: [] }));
+      (_otRes.records||[]).filter(r=>(r.date||'').startsWith(month)).forEach(r => {
+        _otMap[r.employee_id] = (_otMap[r.employee_id]||0) + (r.pay||0);
+      });
+    } catch(_) {}
+
     // Build preview rows HTML
     let previewRows = '';
     if (salData.records.length === 0) {
       previewRows = '<tr><td colspan="11"><div class="empty-state" style="padding:24px"><p>មិនទាន់មានទិន្នន័យប្រាក់ខែ ' + month + '</p></div></td></tr>';
     } else {
       salData.records.forEach((r,i) => {
+        const offBonus = _offBonusMap[r.employee_id] || 0;
+        const otPay    = _otMap[r.employee_id] || 0;
+        const realBonus = offBonus + otPay;
+        const realNet   = parseFloat(r.base_salary||0) + offBonus + otPay - parseFloat(r.deduction||0);
         const nssf = ((r.base_salary||0)*(rules.nssf_employee||0)/100).toFixed(2);
         const taxable = Math.max(0,(r.base_salary||0)-(rules.income_tax_threshold||0));
         const tax = (taxable*(rules.tax_rate||0)/100).toFixed(2);
         const statusBadge = r.status==='paid'
           ? '<span class="badge badge-green">✅</span>'
           : '<span class="badge badge-yellow">⏳</span>';
+        const bonusCell = offBonus > 0
+          ? '<td style="font-family:var(--mono);color:#d97706;font-weight:700">+' + sym + offBonus.toFixed(2) + '</td>'
+          : '<td style="font-family:var(--mono);color:var(--text3)">—</td>';
+        const otCell = otPay > 0
+          ? '<td style="font-family:var(--mono);color:#6366f1;font-weight:700">+' + sym + otPay.toFixed(2) + '</td>'
+          : '<td style="font-family:var(--mono);color:var(--text3)">—</td>';
         previewRows += '<tr>'
           + '<td style="font-family:var(--mono);color:var(--text3)">' + (i+1) + '</td>'
           + '<td><div class="employee-cell">'
@@ -5641,12 +5702,12 @@ async function renderReports() {
           + '<span style="font-weight:500">' + (r.employee_name||'') + '</span></div></td>'
           + '<td>' + (r.department||'—') + '</td>'
           + '<td style="font-family:var(--mono)">' + sym + (r.base_salary||0) + '</td>'
-          + '<td style="font-family:var(--mono);color:var(--primary)">' + sym + (r.overtime_pay||0) + '</td>'
-          + '<td style="font-family:var(--mono);color:var(--success)">' + sym + (r.bonus||0) + '</td>'
+          + otCell
+          + bonusCell
           + '<td style="font-family:var(--mono);color:var(--danger)">-' + sym + (r.deduction||0) + '</td>'
           + '<td style="font-family:var(--mono);color:var(--danger)">-' + sym + nssf + '</td>'
           + '<td style="font-family:var(--mono);color:var(--danger)">-' + sym + tax + '</td>'
-          + '<td style="font-family:var(--mono);font-weight:700;color:var(--text)">' + sym + (r.net_salary||0) + '</td>'
+          + '<td style="font-family:var(--mono);font-weight:700;color:var(--success)">' + sym + realNet.toFixed(2) + '</td>'
           + '<td>' + statusBadge + '</td>'
           + '</tr>';
       });
@@ -5681,12 +5742,14 @@ async function renderReports() {
       + '</div>'
       + '<div class="table-container" style="max-height:340px;overflow-y:auto">'
       + '<table>'
-      + '<thead><tr><th>លេខ</th><th>ឈ្មោះ</th><th>នាយកដ្ឋាន</th><th>មូលដ្ឋាន</th><th>OT</th><th>រង្វាន់</th><th>កាត់</th><th>NSSF</th><th>Tax</th><th>Net</th><th>ស្ថានភាព</th></tr></thead>'
+      + '<thead><tr><th>លេខ</th><th>ឈ្មោះ</th><th>នាយកដ្ឋាន</th><th>មូលដ្ឋាន</th><th>⏱ OT</th><th>🌟 OFF</th><th>កាត់</th><th>NSSF</th><th>Tax</th><th>Net</th><th>ស្ថានភាព</th></tr></thead>'
       + '<tbody>' + previewRows + '</tbody>'
       + '</table></div></div></div>';
 
     window._payrollRecords = salData.records;
     window._allEmployees = empData.employees || [];
+    window._rptOffBonusMap = _offBonusMap;
+    window._rptOtMap = _otMap;
 
   } catch(e) { showError(e.message); }
 }
