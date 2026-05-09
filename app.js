@@ -9674,13 +9674,13 @@ function renderSettings() {
                 if (staffUsers.length) {
                   out += '<div style="background:var(--bg3);border:1px solid var(--border);border-radius:12px;margin-bottom:14px;overflow:hidden">';
                   out += grpHdr('បុគ្គលិក / Admin','👥','rgba(99,102,241,.18)',staffUsers.length);
-                  out += staffUsers.map(buildItem).join('');
+                  out += [...staffUsers].sort((a,b) => a.id - b.id).map(buildItem).join('');
                   out += '</div>';
                 }
                 if (qrUsers.length) {
                   out += '<div style="background:var(--bg3);border:2px solid rgba(16,185,129,.35);border-radius:12px;margin-bottom:14px;overflow:hidden">';
                   out += grpHdr('QR Scanner','📷','rgba(16,185,129,.22)',qrUsers.length);
-                  out += qrUsers.map(buildItem).join('');
+                  out += [...qrUsers].sort((a,b) => a.id - b.id).map(buildItem).join('');
                   out += '<div style="padding:10px 14px 12px"><button class="btn btn-outline btn-sm" style="border-color:var(--success);color:var(--success);width:100%" onclick="openAddQRScannerModal()">＋ បន្ថែម QR Scanner</button></div>';
                   out += '</div>';
                 } else {
@@ -10156,7 +10156,7 @@ function refreshAccountList() {
   if (staffUsers.length) {
     html += '<div style="background:var(--bg3);border:1px solid var(--border);border-radius:12px;margin-bottom:14px;overflow:hidden">';
     html += _buildGroupHeader('បុគ្គលិក / Admin', '👥', 'rgba(99,102,241,.18)', staffUsers.length);
-    html += staffUsers.map(_buildAccountItemHTML).join('');
+    html += [...staffUsers].sort((a,b) => a.id - b.id).map(_buildAccountItemHTML).join('');
     html += '</div>';
   }
 
@@ -10164,7 +10164,7 @@ function refreshAccountList() {
   if (qrUsers.length) {
     html += '<div style="background:var(--bg3);border:2px solid rgba(16,185,129,.35);border-radius:12px;margin-bottom:14px;overflow:hidden;box-shadow:0 0 0 1px rgba(16,185,129,.10)">';
     html += _buildGroupHeader('QR Scanner', '📷', 'rgba(16,185,129,.22)', qrUsers.length);
-    html += qrUsers.map(_buildAccountItemHTML).join('');
+    html += [...qrUsers].sort((a,b) => a.id - b.id).map(_buildAccountItemHTML).join('');
     // Quick-add QR Scanner button inside the group
     html += '<div style="padding:10px 14px 12px">'
       + '<button class="btn btn-outline btn-sm" style="border-color:var(--success);color:var(--success);width:100%;" onclick="openAddQRScannerModal()">＋ បន្ថែម QR Scanner</button>'
