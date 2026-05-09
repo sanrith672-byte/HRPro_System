@@ -353,17 +353,15 @@ function updateNavVisibility() {
   const session = getSession();
   const isQRScanner = session && session.role === 'QR Scanner';
 
+  // Pages to always hide for QR Scanner (UX — not permission-based)
+  const qrHidePages = new Set(['dashboard', 'attendance']);
+  // Pages QR Scanner always sees (their home view — tied to attendance_view perm below anyway)
+  const qrAlwaysShow = new Set(['monthly_attendance', 'qr_scan']);
+
   // Sidebar nav
   document.querySelectorAll('.nav-item[data-page]').forEach(el => {
     const page = el.dataset.page;
-    // Hide dashboard & attendance for QR Scanner
-    if (isQRScanner && (page === 'dashboard' || page === 'attendance')) {
-      el.style.display = 'none'; return;
-    }
-    // QR Scanner: always show monthly_attendance
-    if (isQRScanner && page === 'monthly_attendance') {
-      el.style.display = ''; return;
-    }
+    if (isQRScanner && qrHidePages.has(page)) { el.style.display = 'none'; return; }
     const permKey = PAGE_PERMS[page];
     const allowed = !permKey || hasPerm(permKey);
     el.style.display = allowed ? '' : 'none';
@@ -373,14 +371,7 @@ function updateNavVisibility() {
   document.querySelectorAll('.mob-nav-btn[data-mob-page]').forEach(el => {
     const page = el.dataset.mobPage;
     if (page === 'more') return;
-    // Hide dashboard & attendance for QR Scanner
-    if (isQRScanner && (page === 'dashboard' || page === 'attendance')) {
-      el.style.display = 'none'; return;
-    }
-    // QR Scanner: always show monthly_attendance
-    if (isQRScanner && page === 'monthly_attendance') {
-      el.style.display = ''; return;
-    }
+    if (isQRScanner && qrHidePages.has(page)) { el.style.display = 'none'; return; }
     const permKey = PAGE_PERMS[page];
     const allowed = !permKey || hasPerm(permKey);
     el.style.display = allowed ? '' : 'none';
@@ -391,8 +382,18 @@ function navigate(page) {
   // Permission check
   const permKey = PAGE_PERMS[page];
   if (permKey && !hasPerm(permKey)) {
-    showToast('⛔ អ្នកគ្មានសិទ្ធចូល "'+page+'" !', 'error');
-    page = 'dashboard';
+    showToast('⛔ អ្នកគ្មានសិទ្ធចូល!', 'error');
+    // QR Scanner: redirect to best available page
+    const _navSess = getSession();
+    if (_navSess && _navSess.role === 'QR Scanner') {
+      if (hasPerm('attendance_scan'))   { page = 'qr_scan'; }
+      else if (hasPerm('attendance_view')) { page = 'monthly_attendance'; }
+      else if (hasPerm('leave_view'))   { page = 'leave'; }
+      else if (hasPerm('dayswap_view')) { page = 'dayswap'; }
+      else { page = 'monthly_attendance'; }
+    } else {
+      page = 'dashboard';
+    }
   }
 
   state.currentPage = page;
@@ -2558,7 +2559,7 @@ async function deleteAttendance(id, date) {
 // ===== MONTHLY ATTENDANCE TABLE =====
 async function renderMonthlyAttendance(month='') {
   showLoading();
-  // === QR Scanner: hide action buttons ===
+  // === QR Scanner: restrict to own row only, hide admin actions ===
   const _maSess = getSession();
   const _maIsQR = _maSess?.role === 'QR Scanner';
   const _maIsAdmin = _maSess && (
@@ -2567,7 +2568,10 @@ async function renderMonthlyAttendance(month='') {
     _maSess.username === 'admin' ||
     _maSess.username === 'adminsupport'
   );
-  const _maSelfOnly = _maIsQR && !_maIsAdmin; // QR Scanner: hide all action buttons
+  // QR Scanner with NO edit/approve permissions → show own row only + hide action buttons
+  // If admin gave QR Scanner edit perms, they can see all rows
+  const _maHasEdit = hasPerm('attendance_edit') || hasPerm('leave_approve') || hasPerm('dayswap_approve');
+  const _maSelfOnly = _maIsQR && !_maIsAdmin && !_maHasEdit;
   const currentMonth = month || thisMonth();
   const [y, m] = currentMonth.split('-').map(Number);
   const daysInMonth = new Date(y, m, 0).getDate();
@@ -8812,8 +8816,8 @@ async function renderLeave() {
       session.username === 'adminsupport'
     );
     const isQRScanner = session?.role === 'QR Scanner';
-    // Non-admin, non-HR roles only see their own records
-    const selfOnly = isQRScanner && !isAdminRole;
+    // Show only own records if: QR Scanner without approve/edit perms (respects admin-granted permissions)
+    const selfOnly = isQRScanner && !isAdminRole && !hasPerm('leave_approve');
 
     const data = await api('GET','/leave');
     let records = data.records || [];
@@ -8880,9 +8884,7 @@ async function openLeaveModal() {
     session.username === 'adminsupport'
   );
   const isQRScanner = session?.role === 'QR Scanner';
-  const selfOnly = isQRScanner && !isAdminRole;
-
-  // Find matched employee by session name
+  const selfOnly = isQRScanner && !isAdminRole && !hasPerm('leave_approve');
   const sessionName = (session?.name || '').trim().toLowerCase();
   const matchedEmp = state.employees.find(e => (e.name||'').trim().toLowerCase() === sessionName);
 
@@ -12802,10 +12804,16 @@ async function initApp() {
     if (!getApiBase() && localStorage.getItem(DEMO_MODE_KEY) !== '1') {
       showFirstRunSetup();
     } else {
-      // QR Scanner role → go directly to QR scan page
+      // QR Scanner role → go to QR scan page if allowed, else monthly attendance
       const sess = getSession();
       if (sess && sess.role === 'QR Scanner') {
-        navigate('qr_scan');
+        if (hasPerm('attendance_scan')) {
+          navigate('qr_scan');
+        } else if (hasPerm('attendance_view')) {
+          navigate('monthly_attendance');
+        } else {
+          navigate('leave'); // fallback to whatever they have access to
+        }
       } else {
         navigate('dashboard');
       }
