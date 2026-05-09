@@ -2715,11 +2715,11 @@ async function renderMonthlyAttendance(month='') {
       });
       const overAbsent = Math.max(0, absent - maxAbsent);
       const workingDaysCount = empDays.length;
-      const dailyRate = workingDaysCount > 0 ? (emp.salary || 0) / workingDaysCount : 0;
+      const dailyRate = (emp.salary || 0) / 30; // Fixed 30-day standard
       const deduction = parseFloat((overAbsent * dailyRate).toFixed(2));
       // ប្រាក់បន្ថែមថ្ងៃ OFF ប្រើ salary/daysInMonth (ថ្ងៃសរុបក្នុងខែ) ជំនួស salary/workingDays
       // ដើម្បីឱ្យត្រឹមត្រូវ: $500/31 = $16.13/ថ្ងៃ (មិនមែន $500/26 = $19.23/ថ្ងៃ)
-      const offDailyRate = daysInMonth > 0 ? (emp.salary || 0) / daysInMonth : 0;
+      const offDailyRate = (emp.salary || 0) / 30; // Fixed 30-day standard
       // ប្រាក់បន្ថែមថ្ងៃ OFF:
       // វិធី ១: attendance record (present/late) ត្រង់ថ្ងៃ OFF → គិតប្រាក់
       // វិធី ២: dayswap approved (swap_date) ដែល off_date ទំនេរ → គិតប្រាក់
@@ -4019,10 +4019,10 @@ async function applyAllAbsenceDeductions(month) {
       const rec=attMap[emp.id]||{}; let absent=0;
       empDays.forEach(x=>{ const a=rec[x.dd]; if(!a||a.status==='absent') absent++; });
       const over=Math.max(0,absent-maxAbsent);
-      const dailyRate = workingDaysCount > 0 ? (emp.salary||0) / workingDaysCount : 0;
+      const dailyRate = (emp.salary||0) / 30; // Fixed 30-day standard
       const deduction = parseFloat((over * dailyRate).toFixed(2));
       // OFF bonus ប្រើ salary/daysInMonth (មិនមែន salary/workingDays)
-      const offDailyRate = daysInMonth > 0 ? (emp.salary||0) / daysInMonth : 0;
+      const offDailyRate = (emp.salary||0) / 30; // Fixed 30-day standard
       // Count OFF days worked (direct attendance on OFF days, no compensation swap)
       let offDaysWorked = 0;
       allMonthDaysArr.forEach(x=>{
@@ -5216,7 +5216,7 @@ async function renderSalary(month='') {
       (state.employees || []).forEach(e => {
         const _offDays = parseOffDays(e);
         if (!_offDays.length) return;
-        const _offRate = _dim > 0 ? (e.salary || 0) / _dim : 0;
+        const _offRate = (e.salary || 0) / 30; // Fixed 30-day standard
         let _worked = 0;
         _allDays.forEach(x => {
           // Only consider this employee's OFF days
@@ -10730,10 +10730,10 @@ async function runAutoPayrollNow() {
       const empAtt = attMap[e.id] || {};
       empWorkDays.forEach(function(x) { const a = empAtt[x.dd]; if (!a || a.status === 'absent') absent++; });
       const overAbsent = Math.max(0, absent - maxAbsent);
-      const dailyRate = workingDaysCount > 0 ? base / workingDaysCount : 0;
+      const dailyRate = base / 30; // Fixed 30-day standard
       const deduction = parseFloat((overAbsent * dailyRate).toFixed(2));
       // OFF bonus ប្រើ salary/daysInMonth (មិនមែន salary/workingDays)
-      const offDailyRate = daysInMonth > 0 ? base / daysInMonth : 0;
+      const offDailyRate = base / 30; // Fixed 30-day standard
       // Count OFF days worked (for OFF Bonus)
       let offDaysWorked = 0;
       allMonthDays.forEach(function(x) {
