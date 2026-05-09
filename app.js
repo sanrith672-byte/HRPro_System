@@ -5162,6 +5162,46 @@ async function renderSalary(month='') {
     if (!state.employees || state.employees.length === 0) {
       try { const ed = await api('GET','/employees?limit=500'); state.employees = ed.employees||[]; } catch(_){}
     }
+
+    // ── Compute real-time OFF bonus from attendance ──────────────────────
+    const _offBonusMap = {}; // employee_id -> computed off bonus
+    try {
+      const [y, m] = currentMonth.split('-').map(Number);
+      const _dim = new Date(y, m, 0).getDate();
+      const _allDays = [];
+      for (let d = 1; d <= _dim; d++) {
+        const _dd = String(d).padStart(2,'0');
+        const _wd = new Date(y, m-1, d).getDay();
+        _allDays.push({ dd: _dd, wd: _wd });
+      }
+      const _attRes = await api('GET', '/attendance?month=' + currentMonth).catch(() => ({ records: [] }));
+      const _attRecs = _attRes.records || [];
+      // build map empId -> { dd -> record }
+      const _attMap = {};
+      _attRecs.forEach(a => {
+        const _eId = a.employee_id;
+        const _dd  = (a.date || '').slice(8, 10);
+        if (!_attMap[_eId]) _attMap[_eId] = {};
+        _attMap[_eId][_dd] = a;
+      });
+      const _rules  = getSalaryRules();
+      const _offMul = (_rules.off_bonus_enabled !== false) ? (_rules.off_day_multiplier || 1.0) : 0;
+      (state.employees || []).forEach(e => {
+        const _offDays = parseOffDays(e);
+        if (!_offDays.length) return;
+        const _offRate = _dim > 0 ? (e.salary || 0) / _dim : 0;
+        let _worked = 0;
+        _allDays.forEach(x => {
+          if (_offDays.indexOf(x.wd) !== -1) {
+            const a = (_attMap[e.id] || {})[x.dd];
+            if (a && (a.status === 'present' || a.status === 'late')) _worked++;
+          }
+        });
+        if (_worked > 0) _offBonusMap[e.id] = parseFloat((_worked * _offRate * _offMul).toFixed(2));
+      });
+    } catch(_) {}
+    // ────────────────────────────────────────────────────────────────────
+
     const rows = data.records.length===0
       ? '<tr><td colspan="9"><div class="empty-state" style="padding:30px"><p>មិនទាន់មានកំណត់ត្រាបៀវត្សសម្រាប់ខែនេះ</p></div></td></tr>'
       : data.records.map(r => {
@@ -5194,8 +5234,8 @@ async function renderSalary(month='') {
             +'<td><div class="employee-cell">'+av+'<div class="emp-name">'+r.employee_name+'</div></div></td>'
             +'<td>'+(r.department||'—')+'</td>'
             +'<td style="font-family:var(--mono)">$'+r.base_salary+'</td>'
-            +(r.bonus>0
-              ?'<td style="font-family:var(--mono);font-weight:700;color:#d97706;text-align:center;background:rgba(251,191,36,.08)">+$'+r.bonus+'</td>'
+            +((_offBonusMap[r.employee_id]||0)>0
+              ?'<td style="font-family:var(--mono);font-weight:700;color:#d97706;text-align:center;background:rgba(251,191,36,.08)">+$'+(_offBonusMap[r.employee_id]).toFixed(0)+'</td>'
               :'<td style="color:var(--text3);text-align:center">—</td>')
             +'<td style="font-family:var(--mono);color:var(--danger)">-$'+r.deduction+'</td>'
             +'<td style="font-family:var(--mono);font-weight:700;color:var(--text)">$'+r.net_salary+'</td>'
@@ -5224,7 +5264,7 @@ async function renderSalary(month='') {
       +'<div class="salary-summary">'
       +'<div class="salary-box"><div class="lbl">💵 Net សរុប</div><div class="val">$'+(data.summary.total_net||0).toLocaleString()+'</div></div>'
       +'<div class="salary-box"><div class="lbl">💰 មូលដ្ឋាន</div><div class="val" style="color:var(--warning)">$'+(data.summary.total_base||0).toLocaleString()+'</div></div>'
-      +(data.records.some(r=>r.bonus>0)?'<div class="salary-box" style="background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.3)"><div class="lbl" style="color:#d97706">🌟 OFF Bonus</div><div class="val" style="color:#d97706">+$'+data.records.reduce((s,r)=>s+(r.bonus||0),0).toLocaleString()+'</div></div>':'')
+      +(Object.values(_offBonusMap).some(v=>v>0)?'<div class="salary-box" style="background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.3)"><div class="lbl" style="color:#d97706">🌟 OFF Bonus</div><div class="val" style="color:#d97706">+$'+Object.values(_offBonusMap).reduce((s,v)=>s+v,0).toLocaleString()+'</div></div>':'')
       +'<div class="salary-box"><div class="lbl">✅ បង់ / សរុប</div><div class="val" style="color:var(--info)">'+(data.summary.paid||0)+' / '+data.records.length+'</div></div>'
       +'</div>'
       +'<div class="card"><div class="table-container"><table>'
