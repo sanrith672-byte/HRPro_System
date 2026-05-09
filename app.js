@@ -5252,12 +5252,25 @@ async function renderSalary(month='') {
     } catch(_) {}
     // ────────────────────────────────────────────────────────────────────
 
+    // ── Load Allowance data for the month ──────────────────────────────
+    const _allowMap = {}; // employee_id -> total allowance this month
+    try {
+      const _alRes = await api('GET', '/allowances').catch(() => ({ records: [] }));
+      const _alRecs = (_alRes.records || []).filter(r => (r.month || '').startsWith(currentMonth));
+      _alRecs.forEach(r => {
+        const _eid = r.employee_id;
+        _allowMap[_eid] = (_allowMap[_eid] || 0) + (r.amount || 0);
+      });
+    } catch(_) {}
+    // ────────────────────────────────────────────────────────────────────
+
     // Cache maps globally so openSalaryModal can auto-fill
     window._cachedOffBonusMap = _offBonusMap;
     window._cachedOtMap = _otMap;
+    window._cachedAllowMap = _allowMap;
 
     const rows = data.records.length===0
-      ? '<tr><td colspan="9"><div class="empty-state" style="padding:30px"><p>មិនទាន់មានកំណត់ត្រាបៀវត្សសម្រាប់ខែនេះ</p></div></td></tr>'
+      ? '<tr><td colspan="10"><div class="empty-state" style="padding:30px"><p>មិនទាន់មានកំណត់ត្រាបៀវត្សសម្រាប់ខែនេះ</p></div></td></tr>'
       : data.records.map(r => {
           const photo  = getEmpPhoto(r.employee_id);
           const qrData = photoCache['qr_' + r.employee_id] || '';
@@ -5288,6 +5301,9 @@ async function renderSalary(month='') {
             +'<td><div class="employee-cell">'+av+'<div class="emp-name">'+r.employee_name+'</div></div></td>'
             +'<td>'+(r.department||'—')+'</td>'
             +'<td style="font-family:var(--mono)">$'+r.base_salary+'</td>'
+            +((_allowMap[r.employee_id]||0)>0
+              ?'<td style="font-family:var(--mono);font-weight:700;color:#22c55e;text-align:center;background:rgba(34,197,94,.08)">+$'+(_allowMap[r.employee_id]).toFixed(2)+'</td>'
+              :'<td style="color:var(--text3);text-align:center">—</td>')
             +((_offBonusMap[r.employee_id]||0)>0
               ?'<td style="font-family:var(--mono);font-weight:700;color:#d97706;text-align:center;background:rgba(251,191,36,.08)">+$'+(_offBonusMap[r.employee_id]).toFixed(2)+'</td>'
               :'<td style="color:var(--text3);text-align:center">—</td>')
@@ -5295,7 +5311,7 @@ async function renderSalary(month='') {
               ?'<td style="font-family:var(--mono);font-weight:700;color:#6366f1;text-align:center;background:rgba(99,102,241,.08)">+$'+(_otMap[r.employee_id]).toFixed(0)+'</td>'
               :'<td style="color:var(--text3);text-align:center">—</td>')
             +'<td style="font-family:var(--mono);color:var(--danger)">-$'+r.deduction+'</td>'
-            +(()=>{ const _realNet = parseFloat(r.base_salary||0) + parseFloat(r.bonus||0) + parseFloat(_offBonusMap[r.employee_id]||0) + parseFloat(_otMap[r.employee_id]||0) - parseFloat(r.deduction||0); const _hasExtra = (_offBonusMap[r.employee_id]||0)>0 || (_otMap[r.employee_id]||0)>0; return '<td style="font-family:var(--mono);font-weight:700;color:var(--success);font-size:15px">$'+_realNet.toFixed(2)+(_hasExtra?'<div style="font-size:10px;color:var(--text3);font-weight:400">base+OFF+OT</div>':'')+'</td>'; })()
+            +(()=>{ const _realNet = parseFloat(r.base_salary||0) + parseFloat(r.bonus||0) + parseFloat(_allowMap[r.employee_id]||0) + parseFloat(_offBonusMap[r.employee_id]||0) + parseFloat(_otMap[r.employee_id]||0) - parseFloat(r.deduction||0); const _hasExtra = (_allowMap[r.employee_id]||0)>0 || (_offBonusMap[r.employee_id]||0)>0 || (_otMap[r.employee_id]||0)>0; return '<td style="font-family:var(--mono);font-weight:700;color:var(--success);font-size:15px">$'+_realNet.toFixed(2)+(_hasExtra?'<div style="font-size:10px;color:var(--text3);font-weight:400">base+AL+OFF+OT</div>':'')+'</td>'; })()
             +qrCell
             +'<td>'+(r.status==='paid'?'<span class="badge badge-green">✅ បានបង់</span>':'<span class="badge badge-yellow">⏳ រង់ចាំ</span>')+'</td>'
             +'<td><div class="action-btns">'
@@ -5321,12 +5337,13 @@ async function renderSalary(month='') {
       +'<div class="salary-summary">'
       +'<div class="salary-box"><div class="lbl">💵 Net សរុប</div><div class="val">$'+(data.summary.total_net||0).toLocaleString()+'</div></div>'
       +'<div class="salary-box"><div class="lbl">💰 មូលដ្ឋាន</div><div class="val" style="color:var(--warning)">$'+(data.summary.total_base||0).toLocaleString()+'</div></div>'
+      +(Object.values(_allowMap).some(v=>v>0)?'<div class="salary-box" style="background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3)"><div class="lbl" style="color:#22c55e">🎁 ប្រាក់ឧបត្ថម្ភ</div><div class="val" style="color:#22c55e">+$'+Object.values(_allowMap).reduce((s,v)=>s+v,0).toFixed(2)+'</div></div>':'')
       +(Object.values(_offBonusMap).some(v=>v>0)?'<div class="salary-box" style="background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.3)"><div class="lbl" style="color:#d97706">🌟 OFF Bonus</div><div class="val" style="color:#d97706">+$'+Object.values(_offBonusMap).reduce((s,v)=>s+v,0).toFixed(2)+'</div></div>':'')
       +(Object.values(_otMap).some(v=>v>0)?'<div class="salary-box" style="background:rgba(99,102,241,.1);border:1px solid rgba(99,102,241,.3)"><div class="lbl" style="color:#6366f1">⏱ ថែមម៉ោង OT</div><div class="val" style="color:#6366f1">+$'+Object.values(_otMap).reduce((s,v)=>s+v,0).toLocaleString()+'</div></div>':'')
       +'<div class="salary-box"><div class="lbl">✅ បង់ / សរុប</div><div class="val" style="color:var(--info)">'+(data.summary.paid||0)+' / '+data.records.length+'</div></div>'
       +'</div>'
       +'<div class="card"><div class="table-container"><table>'
-      +'<thead><tr><th>បុគ្គលិក</th><th>នាយកដ្ឋាន</th><th>មូលដ្ឋាន</th><th style="color:#f59e0b;text-align:center" title="ប្រាក់ OFF ធ្វើការ">🌟 OFF</th><th style="color:#6366f1;text-align:center" title="ប្រាក់ថែមម៉ោង">⏱ OT</th><th>កាត់</th><th>សុទ្ធ</th><th style="text-align:center">QR ធនាគារ</th><th>ស្ថានភាព</th><th>សកម្មភាព</th></tr></thead>'
+      +'<thead><tr><th>បុគ្គលិក</th><th>នាយកដ្ឋាន</th><th>មូលដ្ឋាន</th><th style="color:#22c55e;text-align:center" title="ប្រាក់ឧបត្ថម្ភ">🎁 ឧបត្ថម្ភ</th><th style="color:#f59e0b;text-align:center" title="ប្រាក់ OFF ធ្វើការ">🌟 OFF</th><th style="color:#6366f1;text-align:center" title="ប្រាក់ថែមម៉ោង">⏱ OT</th><th>កាត់</th><th>សុទ្ធ</th><th style="text-align:center">QR ធនាគារ</th><th>ស្ថានភាព</th><th>សកម្មភាព</th></tr></thead>'
       +'<tbody>'+rows+'</tbody>'
       +'</table></div></div>';
   } catch(e) { showError(e.message); }
@@ -5341,6 +5358,7 @@ async function openEditSalaryModal(id, month) {
     $('modal-body').innerHTML =
       '<div class="form-grid">'
       +'<div class="form-group"><label class="form-label">មូលដ្ឋាន (USD)</label><input class="form-control" id="es-base" type="number" value="'+r.base_salary+'" /></div>'
+      +'<div class="form-group"><label class="form-label">🎁 ប្រាក់ឧបត្ថម្ភ (USD)</label><input class="form-control" id="es-allow" type="number" value="'+(window._cachedAllowMap&&window._cachedAllowMap[r.employee_id]?window._cachedAllowMap[r.employee_id]:0)+'" oninput="esCalcNet()" style="border-color:#22c55e;border-width:2px" /></div>'
       +'<div class="form-group"><label class="form-label">🌟 OFF Bonus (USD)</label><input class="form-control" id="es-off" type="number" value="0" oninput="esCalcNet()" style="border-color:#f59e0b;border-width:2px" /></div>'
       +'<div class="form-group"><label class="form-label">⏱ OT ថែមម៉ោង (USD)</label><input class="form-control" id="es-ot" type="number" value="0" oninput="esCalcNet()" style="border-color:#6366f1;border-width:2px" /></div>'
       +'<div class="form-group"><label class="form-label">រង្វាន់ (USD)</label><input class="form-control" id="es-bonus" type="number" value="\'+r.bonus+\'" oninput="esCalcNet()" /></div>\'\n      +\'<div class="form-group"><label class="form-label">កាត់ (USD)</label><input class="form-control" id="es-deduct" type="number" value="\'+r.deduction+\'" oninput="esCalcNet()" /></div>\'\n      +\'<div class="form-group"><label class="form-label">ចំណាំ</label><input class="form-control" id="es-note" value="\'+(r.notes||\'\')+\'" /></div>\'\n      +\'</div>\'\n      +\'<div id="es-preview" style="margin:12px 0;padding:12px;background:var(--bg3);border-radius:8px;font-fam-radius:8px;font-family:var(--mono);text-align:center;font-size:16px;font-weight:700;color:var(--success)">Net: $'+r.net_salary+'</div>'
@@ -5349,7 +5367,7 @@ async function openEditSalaryModal(id, month) {
       +'<button class="btn btn-primary" onclick="saveEditSalary('+id+',\''+month+'\')">💾 រក្សាទុក</button>'
       +'</div>';
     // Live preview
-    ['es-base','es-off','es-ot','es-bonus','es-deduct'].forEach(fid => {
+    ['es-base','es-allow','es-off','es-ot','es-bonus','es-deduct'].forEach(fid => {
       const el = document.getElementById(fid);
       if (el) el.addEventListener('input', esCalcNet);
     });
@@ -5361,31 +5379,35 @@ async function openEditSalaryModal(id, month) {
 
 function esCalcNet() {
   const base   = parseFloat(document.getElementById('es-base')?.value)||0;
+  const allow  = parseFloat(document.getElementById('es-allow')?.value)||0;
   const off    = parseFloat(document.getElementById('es-off')?.value)||0;
   const ot     = parseFloat(document.getElementById('es-ot')?.value)||0;
   const bonus  = parseFloat(document.getElementById('es-bonus')?.value)||0;
   const deduct = parseFloat(document.getElementById('es-deduct')?.value)||0;
-  const net = base + off + ot + bonus - deduct;
+  const net = base + allow + off + ot + bonus - deduct;
   const p = document.getElementById('es-preview');
   if (p) {
     let bd = '$'+base.toFixed(2);
+    if (allow>0) bd += ' + 🎁$'+allow.toFixed(2);
     if (off>0) bd += ' + 🌟$'+off.toFixed(2);
     if (ot>0)  bd += ' + ⏱$'+ot.toFixed(2);
-    if (bonus>0) bd += ' + 🎁$'+bonus.toFixed(2);
+    if (bonus>0) bd += ' + 🎖$'+bonus.toFixed(2);
     if (deduct>0) bd += ' - 🔻$'+deduct.toFixed(2);
     p.innerHTML = '<div style="font-size:11px;color:var(--text3)">'+bd+'</div><div>Net: $'+net.toFixed(2)+'</div>';
   }
 }
 
 async function saveEditSalary(id, month) {
-  const base = parseFloat($('es-base')?.value)||0;
-  const off  = parseFloat($('es-off')?.value)||0;
-  const ot   = parseFloat($('es-ot')?.value)||0;
+  const base  = parseFloat($('es-base')?.value)||0;
+  const allow = parseFloat($('es-allow')?.value)||0;
+  const off   = parseFloat($('es-off')?.value)||0;
+  const ot    = parseFloat($('es-ot')?.value)||0;
   const bonus = parseFloat($('es-bonus')?.value)||0;
   const deduction = parseFloat($('es-deduct')?.value)||0;
-  const net = base + off + ot + bonus - deduction;
-  const totalBonus = off + ot + bonus;
+  const net = base + allow + off + ot + bonus - deduction;
+  const totalBonus = allow + off + ot + bonus;
   const noteArr = [];
+  if (allow > 0) noteArr.push('🎁 ឧបត្ថម្ភ +$' + allow.toFixed(2));
   if (off > 0) noteArr.push('🌟 OFF Bonus +$' + off.toFixed(2));
   if (ot > 0)  noteArr.push('⏱ OT +$' + ot.toFixed(2));
   const existingNote = $('es-note')?.value || '';
@@ -5423,6 +5445,7 @@ async function openSalaryModal(month) {
     +'<div class="form-group full-width"><label class="form-label">បុគ្គលិក *</label>'
     +'<select class="form-control" id="s-emp" onchange="autoFillSalary(this.value)">'+state.employees.map(e=>'<option value="'+e.id+'" data-salary="'+(e.salary||0)+'">'+e.name+'</option>').join('')+'</select></div>'
     +'<div class="form-group"><label class="form-label">មូលដ្ឋាន (USD) *</label><input class="form-control" id="s-base" type="number" placeholder="1000" oninput="calcSalNet()" /></div>'
+    +'<div class="form-group"><label class="form-label">🎁 ប្រាក់ឧបត្ថម្ភ (USD)</label><input class="form-control" id="s-allow" type="number" placeholder="0" value="0" oninput="calcSalNet()" style="border-color:#22c55e;border-width:2px" /></div>'
     +'<div class="form-group"><label class="form-label">🌟 OFF Bonus (USD)</label><input class="form-control" id="s-off" type="number" placeholder="0" value="0" oninput="calcSalNet()" style="border-color:#f59e0b;border-width:2px" /></div>'
     +'<div class="form-group"><label class="form-label">⏱ OT ថែមម៉ោង (USD)</label><input class="form-control" id="s-ot" type="number" placeholder="0" value="0" oninput="calcSalNet()" style="border-color:#6366f1;border-width:2px" /></div>'
     +'<div class="form-group"><label class="form-label">រង្វាន់ (USD)</label><input class="form-control" id="s-bonus" type="number" placeholder="0" value="0" oninput="calcSalNet()" /></div>'
@@ -5517,22 +5540,30 @@ async function autoFillSalary(empId) {
     const otVal = window._cachedOtMap[id] || 0;
     otEl.value = otVal > 0 ? otVal.toFixed(2) : 0;
   }
+  // Auto-fill allowance from _cachedAllowMap
+  const allowEl = document.getElementById('s-allow');
+  if (allowEl && window._cachedAllowMap) {
+    const alVal = window._cachedAllowMap[id] || 0;
+    allowEl.value = alVal > 0 ? alVal.toFixed(2) : 0;
+  }
   calcSalNet();
 }
 
 function calcSalNet() {
   const base   = parseFloat(document.getElementById('s-base')?.value)||0;
+  const allow  = parseFloat(document.getElementById('s-allow')?.value)||0;
   const off    = parseFloat(document.getElementById('s-off')?.value)||0;
   const ot     = parseFloat(document.getElementById('s-ot')?.value)||0;
   const bonus  = parseFloat(document.getElementById('s-bonus')?.value)||0;
   const deduct = parseFloat(document.getElementById('s-deduct')?.value)||0;
-  const net = base + off + ot + bonus - deduct;
+  const net = base + allow + off + ot + bonus - deduct;
   const p = document.getElementById('sal-net-preview');
   if (p) {
     let breakdown = '$' + base.toFixed(2);
+    if (allow > 0) breakdown += ' + 🎁$' + allow.toFixed(2);
     if (off > 0) breakdown += ' + 🌟$' + off.toFixed(2);
     if (ot > 0)  breakdown += ' + ⏱$' + ot.toFixed(2);
-    if (bonus > 0) breakdown += ' + 🎁$' + bonus.toFixed(2);
+    if (bonus > 0) breakdown += ' + 🎖$' + bonus.toFixed(2);
     if (deduct > 0) breakdown += ' - 🔻$' + deduct.toFixed(2);
     p.innerHTML = '<div style="font-size:12px;color:var(--text3);margin-bottom:4px">' + breakdown + '</div><div style="font-size:18px;color:var(--success)">Net: $' + net.toFixed(2) + '</div>';
   }
@@ -5567,19 +5598,21 @@ async function saveSalary(month) {
   const btn=$('save-sal-btn'); btn.disabled=true; btn.textContent='កំពុងរក្សា...';
   try {
     const base   = parseFloat($('s-base')?.value)||0;
+    const allow  = parseFloat($('s-allow')?.value)||0;
     const off    = parseFloat($('s-off')?.value)||0;
     const ot     = parseFloat($('s-ot')?.value)||0;
     const bonus  = parseFloat($('s-bonus')?.value)||0;
     const deduct = parseFloat($('s-deduct')?.value)||0;
-    const net    = base + off + ot + bonus - deduct;
+    const net    = base + allow + off + ot + bonus - deduct;
     const noteArr = [];
+    if (allow > 0) noteArr.push('🎁 ឧបត្ថម្ភ +$' + allow.toFixed(2));
     if (off > 0) noteArr.push('🌟 OFF Bonus +$' + off.toFixed(2));
     if (ot > 0)  noteArr.push('⏱ OT +$' + ot.toFixed(2));
     await api('POST','/salary',{
       employee_id: parseInt($('s-emp').value),
       month,
       base_salary: base,
-      bonus: off + ot + bonus,
+      bonus: allow + off + ot + bonus,
       deduction: deduct,
       net_salary: net,
       notes: noteArr.join(' | ')
