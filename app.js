@@ -2859,7 +2859,7 @@ async function renderMonthlyAttendance(month='') {
         +'<td style="text-align:center;font-weight:700;color:var(--primary);font-size:'+(isMobile?'11px':'13px')+';width:'+COL_SW+'px;background:var(--bg2);padding:3px 0">'+(swap>0?'<span style="background:rgba(99,102,241,.15);border-radius:4px;padding:1px 4px">'+swap+'</span>':'<span style="color:var(--text3)">0</span>')+'</td>'
         +'<td style="text-align:center;font-weight:700;color:'+(overAbsent>0?'var(--danger)':'var(--text3)')+';font-size:11px;background:var(--bg2);width:'+COL_OVER+'px;padding:3px 1px">'+overAbsent+'</td>'
         +(overAbsent>0?'<td style="text-align:center;font-weight:700;color:var(--danger);font-size:11px;background:var(--bg2);width:'+COL_DED+'px;padding:3px 2px">-$'+deduction.toFixed(0)+'</td>':'<td style="text-align:center;color:var(--success);font-size:11px;background:var(--bg2);width:'+COL_DED+'px;padding:3px 2px">—</td>')
-        +(offBonus>0?'<td style="text-align:center;font-weight:700;color:#d97706;font-size:11px;background:rgba(251,191,36,.08);width:'+COL_OFF+'px;padding:3px 2px" title="🌟 OFF">+$'+offBonus.toFixed(0)+'</td>':'<td style="text-align:center;color:var(--text3);font-size:11px;background:var(--bg2);width:'+COL_OFF+'px;padding:3px 2px">—</td>')
+        +(offBonus>0?'<td style="text-align:center;font-weight:700;color:#d97706;font-size:11px;background:rgba(251,191,36,.08);width:'+COL_OFF+'px;padding:3px 2px" title="🌟 OFF">+$'+offBonus.toFixed(2)+'</td>':'<td style="text-align:center;color:var(--text3);font-size:11px;background:var(--bg2);width:'+COL_OFF+'px;padding:3px 2px">—</td>')
         +cells
         +'<td style="text-align:center;font-weight:700;font-size:12px;color:var(--success);width:'+(isMobile?36:42)+'px;padding:3px 2px;position:sticky;right:'+(isMobile?84:100)+'px;z-index:1;background:var(--bg2);box-shadow:-2px 0 4px rgba(0,0,0,.08)">'+(present+late)+'<span style="font-size:10px;font-weight:400;color:var(--text3);display:block">ថ្ងៃ</span></td>'
         +'<td style="text-align:center;font-weight:700;font-size:12px;color:'+(empOffDaysThisMonth>0?'#6366f1':'var(--text3)')+';width:'+(isMobile?36:48)+'px;max-width:'+(isMobile?36:48)+'px;overflow:hidden;padding:3px 2px;position:sticky;right:'+(isMobile?36:42)+'px;z-index:2;background:var(--bg2);border-left:1px solid var(--border);box-shadow:-2px 0 4px rgba(0,0,0,.06)">'+(empOffDaysThisMonth>0?'<span style="background:rgba(99,102,241,.12);border-radius:4px;padding:2px 5px">'+empOffDaysThisMonth+'</span>':'—')+'</td>'
@@ -2894,7 +2894,7 @@ async function renderMonthlyAttendance(month='') {
       +'<div class="att-box"><div class="att-num" style="color:var(--primary)">'+renderTotals.sw+'</div><div class="att-lbl">🔄 ជំនួស</div></div>'
       +'<div class="att-box"><div class="att-num" style="color:var(--success)">'+renderTotals.lv+'</div><div class="att-lbl">🌴 ច្បាប់</div></div>'
       +'<div class="att-box"><div class="att-num" style="color:var(--danger)">'+renderSummaries.filter(s=>s.overAbsent>0).length+'</div><div class="att-lbl">⚠️ លើសថ្ងៃ</div></div>'
-      +'<div class="att-box" style="background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.3)"><div class="att-num" style="color:#d97706">$'+(renderTotals.ob||0).toFixed(0)+'</div><div class="att-lbl" style="color:#d97706">🌟 OFF Bonus</div></div>'
+      +'<div class="att-box" style="background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.3)"><div class="att-num" style="color:#d97706">$'+(renderTotals.ob||0).toFixed(2)+'</div><div class="att-lbl" style="color:#d97706">🌟 OFF Bonus</div></div>'
 
       +'</div>'
       +'<div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:8px 14px;margin-bottom:6px;display:flex;gap:16px;flex-wrap:wrap;align-items:center">'
@@ -3049,7 +3049,7 @@ async function renderMonthlyAttendance(month='') {
           '<td colspan="6" style="background:var(--bg3);padding:0"></td>';
 
         const obTd = renderTotals.ob>0
-          ? '<td style="background:rgba(251,191,36,.12);padding:4px 2px;text-align:center;font-weight:700;color:#d97706;font-size:12px" title="🌟 OFF">+$'+renderTotals.ob.toFixed(0)+'</td>'
+          ? '<td style="background:rgba(251,191,36,.12);padding:4px 2px;text-align:center;font-weight:700;color:#d97706;font-size:12px" title="🌟 OFF">+$'+renderTotals.ob.toFixed(2)+'</td>'
           : '<td style="background:var(--bg3);padding:4px 2px;text-align:center;color:var(--text3);font-size:11px">—</td>';
 
         const blankObTd = '<td style="background:var(--bg3);padding:0"></td>';
@@ -3235,7 +3235,7 @@ function printMonthlyAttendance() {
       <td style="text-align:center;font-weight:700;color:#4f46e5;font-size:11px">${swap||0}</td>
       <td style="text-align:center;font-weight:700;color:#15803d;font-size:11px">${onLeave||0}</td>
       <td style="text-align:center;font-weight:700;color:${overAbsent>0?'#dc2626':'#9ca3af'};font-size:11px">${overAbsent}</td>
-      <td style="text-align:center;font-weight:700;color:${offBonus>0?'#d97706':'#9ca3af'};font-size:11px;background:${offBonus>0?'rgba(251,191,36,.1)':''}">${offBonus>0?'+$'+offBonus.toFixed(0):'—'}</td>
+      <td style="text-align:center;font-weight:700;color:${offBonus>0?'#d97706':'#9ca3af'};font-size:11px;background:${offBonus>0?'rgba(251,191,36,.1)':''}">${offBonus>0?'+$'+offBonus.toFixed(2):'—'}</td>
       ${cells}
       <td style="text-align:center;font-weight:800;font-size:12px;color:#16a34a;background:#f0fdf4;border-left:2px solid #86efac;white-space:nowrap;padding:2px 4px">${_wdCount}<span style="font-size:8px;font-weight:400;color:#6b7280"> ថ្ងៃ</span></td>
       <td style="text-align:center;font-weight:800;font-size:12px;color:#6366f1;background:#f5f3ff;white-space:nowrap;padding:2px 4px">${_offCount>0?_offCount:'—'}<span style="font-size:8px;font-weight:400;color:#6b7280">${_offCount>0?' ថ្ងៃ':''}</span></td>
@@ -3287,7 +3287,7 @@ function printMonthlyAttendance() {
     <span class="summary-box" style="background:#fee2e2;color:#ef4444">❌ អវត្តមាន: ${totals.a}</span>
     <span class="summary-box" style="background:#ede9fe;color:#6366f1">🔄 ជំនួស: ${totals.sw}</span>
     <span class="summary-box" style="background:#dcfce7;color:#15803d">🌴 ច្បាប់: ${totals.lv}</span>
-    <span class="summary-box" style="background:#fef9c3;color:#d97706">🌟 OFF Bonus: $${(totals.ob||0).toFixed(0)}</span>
+    <span class="summary-box" style="background:#fef9c3;color:#d97706">🌟 OFF Bonus: $${(totals.ob||0).toFixed(2)}</span>
   </div>
   <div class="legend">
     <b>សញ្ញា:</b>
@@ -3330,7 +3330,7 @@ function printMonthlyAttendance() {
         <td style="text-align:center;color:#6366f1">${totals.sw}</td>
         <td style="text-align:center;color:#15803d">${totals.lv}</td>
         <td style="text-align:center;color:#ef4444">${totalOver}</td>
-        <td style="text-align:center;color:#d97706;font-weight:700">${(totals.ob||0)>0?'+$'+(totals.ob).toFixed(0):'—'}</td>
+        <td style="text-align:center;color:#d97706;font-weight:700">${(totals.ob||0)>0?'+$'+(totals.ob).toFixed(2):'—'}</td>
         ${allDays.map(()=>'<td></td>').join('')}
         <td style="text-align:center;font-weight:700;color:#16a34a;background:#f0fdf4">${summaries.reduce((s,r)=>s+(r.present+r.late||0),0)}</td>
         <td style="text-align:center;font-weight:700;color:#6366f1;background:#f5f3ff">${summaries.reduce((s,r)=>s+(r.empOffDaysThisMonth||0),0)}</td>
@@ -3485,7 +3485,7 @@ function saveMonthlyAttendanceAsImage() {
       <td style="text-align:center;font-weight:800;color:#4f46e5;font-size:12px;">${swap||0}</td>
       <td style="text-align:center;font-weight:800;color:#15803d;font-size:12px;">${onLeave||0}</td>
       <td style="text-align:center;font-weight:800;color:${overAbsent>0?'#dc2626':'#9ca3af'};font-size:12px;">${overAbsent}</td>
-      <td style="text-align:center;font-weight:800;color:${offBonus>0?'#d97706':'#9ca3af'};font-size:12px;background:${offBonus>0?'rgba(251,191,36,.12)':''}">${offBonus>0?'+$'+offBonus.toFixed(0):'—'}</td>
+      <td style="text-align:center;font-weight:800;color:${offBonus>0?'#d97706':'#9ca3af'};font-size:12px;background:${offBonus>0?'rgba(251,191,36,.12)':''}">${offBonus>0?'+$'+offBonus.toFixed(2):'—'}</td>
       ${cells}
       <td style="text-align:center;font-weight:800;font-size:13px;color:#16a34a;background:#f0fdf4;border-left:2px solid #86efac;white-space:nowrap;padding:3px 5px">${_wdCount}<span style="font-size:9px;font-weight:400;color:#6b7280"> ថ្ងៃ</span></td>
       <td style="text-align:center;font-weight:800;font-size:13px;color:#6366f1;background:#f5f3ff;white-space:nowrap;padding:3px 5px">${_offCount>0?_offCount:'—'}<span style="font-size:9px;font-weight:400;color:#6b7280">${_offCount>0?' ថ្ងៃ':''}</span></td>
@@ -3579,7 +3579,7 @@ function saveMonthlyAttendanceAsImage() {
     <span class="sbox" style="background:#fee2e2;color:#dc2626;">❌ អវត្តមាន: ${totals.a}</span>
     <span class="sbox" style="background:#ede9fe;color:#4f46e5;">🔄 ជំនួស: ${totals.sw}</span>
     <span class="sbox" style="background:#dcfce7;color:#15803d;">🌴 ច្បាប់: ${totals.lv}</span>
-    <span class="sbox" style="background:#fef9c3;color:#d97706;">🌟 OFF Bonus: $${(totals.ob||0).toFixed(0)}</span>
+    <span class="sbox" style="background:#fef9c3;color:#d97706;">🌟 OFF Bonus: $${(totals.ob||0).toFixed(2)}</span>
   </div>
   <div class="legend">
     <b>សញ្ញា:</b>
@@ -3623,7 +3623,7 @@ function saveMonthlyAttendanceAsImage() {
         <td style="text-align:center;color:#4f46e5;">${totals.sw}</td>
         <td style="text-align:center;color:#15803d;">${totals.lv}</td>
         <td style="text-align:center;color:#dc2626;">${totalOver}</td>
-        <td style="text-align:center;color:#d97706;font-weight:800;">${(totals.ob||0)>0?'+$'+(totals.ob).toFixed(0):'—'}</td>
+        <td style="text-align:center;color:#d97706;font-weight:800;">${(totals.ob||0)>0?'+$'+(totals.ob).toFixed(2):'—'}</td>
         ${allDays.map(()=>'<td></td>').join('')}
         <td style="text-align:center;font-weight:800;color:#16a34a;background:#f0fdf4">${summaries.reduce((s,r)=>s+(r.present+r.late||0),0)}</td>
         <td style="text-align:center;font-weight:800;color:#6366f1;background:#f5f3ff">${summaries.reduce((s,r)=>s+(r.empOffDaysThisMonth||0),0)}</td>
@@ -3789,7 +3789,7 @@ async function exportMonthlyAttendanceExcel() {
         onLeave || 0,
         overAbsent,
         overAbsent > 0 ? -deduction : 0,
-        offBonus > 0 ? +offBonus.toFixed(2) : 0,
+        offBonus > 0 ? offBonus : 0,
         ...dayCells,
         present + late,
         empOffDaysThisMonth || 0
@@ -3884,7 +3884,7 @@ async function exportMonthlyAttendanceExcel() {
       overAbsent,
       dailyRate ? +dailyRate.toFixed(2) : 0,
       overAbsent > 0 ? -deduction : 0,
-      offBonus > 0 ? +offBonus.toFixed(2) : 0
+      offBonus > 0 ? offBonus : 0
     ]);
     summaryRows.push(['', '', '']);
     summaryRows.push(['', 'សរុប (Total)', '', totals.p+totals.l, totals.l, totals.a, totals.sw, totals.lv,
