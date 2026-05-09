@@ -9674,13 +9674,13 @@ function renderSettings() {
                 if (staffUsers.length) {
                   out += '<div style="background:var(--bg3);border:1px solid var(--border);border-radius:12px;margin-bottom:14px;overflow:hidden">';
                   out += grpHdr('បុគ្គលិក / Admin','👥','rgba(99,102,241,.18)',staffUsers.length);
-                  out += [...staffUsers].sort((a,b) => a.id - b.id).map(buildItem).join('');
+                  out += _sortByUsername(staffUsers).map(buildItem).join('');
                   out += '</div>';
                 }
                 if (qrUsers.length) {
                   out += '<div style="background:var(--bg3);border:2px solid rgba(16,185,129,.35);border-radius:12px;margin-bottom:14px;overflow:hidden">';
                   out += grpHdr('QR Scanner','📷','rgba(16,185,129,.22)',qrUsers.length);
-                  out += [...qrUsers].sort((a,b) => a.id - b.id).map(buildItem).join('');
+                  out += _sortByUsername(qrUsers).map(buildItem).join('');
                   out += '<div style="padding:10px 14px 12px"><button class="btn btn-outline btn-sm" style="border-color:var(--success);color:var(--success);width:100%" onclick="openAddQRScannerModal()">＋ បន្ថែម QR Scanner</button></div>';
                   out += '</div>';
                 } else {
@@ -10102,6 +10102,15 @@ async function syncAndRefreshAccounts() {
   }
 }
 
+// Extract trailing number from username for sorting (e.g. "QR7"→7, "emp012"→12, "emp005"→5)
+function _usernameNum(u) {
+  const m = (u.username || '').match(/(\d+)\s*$/);
+  return m ? parseInt(m[1], 10) : 0;
+}
+function _sortByUsername(arr) {
+  return [...arr].sort((a, b) => _usernameNum(a) - _usernameNum(b));
+}
+
 function _buildAccountItemHTML(u) {
   const uPhoto = u.photo || photoCache['user_' + u.id] || '';
   const avatarEl = uPhoto
@@ -10156,7 +10165,7 @@ function refreshAccountList() {
   if (staffUsers.length) {
     html += '<div style="background:var(--bg3);border:1px solid var(--border);border-radius:12px;margin-bottom:14px;overflow:hidden">';
     html += _buildGroupHeader('បុគ្គលិក / Admin', '👥', 'rgba(99,102,241,.18)', staffUsers.length);
-    html += [...staffUsers].sort((a,b) => a.id - b.id).map(_buildAccountItemHTML).join('');
+    html += _sortByUsername(staffUsers).map(_buildAccountItemHTML).join('');
     html += '</div>';
   }
 
@@ -10164,7 +10173,7 @@ function refreshAccountList() {
   if (qrUsers.length) {
     html += '<div style="background:var(--bg3);border:2px solid rgba(16,185,129,.35);border-radius:12px;margin-bottom:14px;overflow:hidden;box-shadow:0 0 0 1px rgba(16,185,129,.10)">';
     html += _buildGroupHeader('QR Scanner', '📷', 'rgba(16,185,129,.22)', qrUsers.length);
-    html += [...qrUsers].sort((a,b) => a.id - b.id).map(_buildAccountItemHTML).join('');
+    html += _sortByUsername(qrUsers).map(_buildAccountItemHTML).join('');
     // Quick-add QR Scanner button inside the group
     html += '<div style="padding:10px 14px 12px">'
       + '<button class="btn btn-outline btn-sm" style="border-color:var(--success);color:var(--success);width:100%;" onclick="openAddQRScannerModal()">＋ បន្ថែម QR Scanner</button>'
