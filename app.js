@@ -11272,6 +11272,9 @@ async function printPayroll() {
   showToast('⏳ កំពុងរៀបចំ...', 'info');
 
   let records = [], empMap = {};
+  // Reuse cached OFF/OT maps from renderSalary if available, else load fresh
+  const _pOffMap = window._cachedOffBonusMap ? Object.assign({}, window._cachedOffBonusMap) : {};
+  const _pOtMap  = window._cachedOtMap       ? Object.assign({}, window._cachedOtMap)       : {};
   try {
     const [salData, empData] = await Promise.all([
       api('GET', '/salary?month=' + month),
@@ -11279,16 +11282,64 @@ async function printPayroll() {
     ]);
     records = salData.records || [];
     (empData.employees || []).forEach(e => { empMap[e.id] = e; });
+    // Load OT if cache is empty
+    if (!Object.keys(_pOtMap).length) {
+      try {
+        const otRes = await api('GET', '/overtime').catch(() => ({ records: [] }));
+        (otRes.records || []).filter(r => (r.date || '').startsWith(month)).forEach(r => {
+          _pOtMap[r.employee_id] = (_pOtMap[r.employee_id] || 0) + (r.pay || 0);
+        });
+      } catch(_) {}
+    }
+    // Load OFF bonus if cache is empty
+    if (!Object.keys(_pOffMap).length) {
+      try {
+        const _rls = getSalaryRules();
+        const _mul = (_rls.off_bonus_enabled !== false) ? (_rls.off_day_multiplier||1.0) : 0;
+        const [_y,_m] = month.split('-').map(Number);
+        const _dim = new Date(_y,_m,0).getDate();
+        const _days = [];
+        for(let d=1;d<=_dim;d++) _days.push({dd:String(d).padStart(2,'0'),wd:new Date(_y,_m-1,d).getDay()});
+        const [_aRes,_dRes] = await Promise.all([
+          api('GET','/attendance?month='+month).catch(()=>({records:[]})),
+          api('GET','/dayswap').catch(()=>({records:[]})),
+        ]);
+        const _aMap={};
+        (_aRes.records||[]).forEach(a=>{ if(!_aMap[a.employee_id])_aMap[a.employee_id]={}; _aMap[a.employee_id][(a.date||'').slice(8,10)]=a; });
+        const _sMap={},_odMap={};
+        ((_dRes.records||[]).filter(r=>r.status==='approved')).forEach(r=>{
+          if(r.swap_date){const dd=r.swap_date.slice(8,10);if(!_sMap[r.employee_id])_sMap[r.employee_id]={};_sMap[r.employee_id][dd]=r;}
+          if(r.off_date){const dd=r.off_date.slice(8,10);if(!_odMap[r.employee_id])_odMap[r.employee_id]={};_odMap[r.employee_id][dd]=true;}
+        });
+        Object.values(empMap).forEach(e=>{
+          const od=parseOffDays(e); if(!od.length) return;
+          const rate=_dim>0?(e.salary||0)/_dim:0; let w=0;
+          _days.forEach(x=>{
+            if(od.indexOf(x.wd)===-1) return;
+            if((_odMap[e.id]||{})[x.dd]) return;
+            const sr=(_sMap[e.id]||{})[x.dd];
+            if(sr){if(sr.off_date&&sr.off_date.trim()!=='') return; w++; return;}
+            const a=(_aMap[e.id]||{})[x.dd];
+            if(a&&(a.status==='present'||a.status==='late')) w++;
+          });
+          if(w>0) _pOffMap[e.id]=parseFloat((w*rate*_mul).toFixed(2));
+        });
+      } catch(_) {}
+    }
   } catch(e) { showToast('Error: ' + e.message, 'error'); return; }
 
   if (!records.length) { showToast('មិនទាន់មានទិន្នន័យ!', 'error'); return; }
 
-  let totalNet = 0, totalBase = 0, totalBonus = 0;
+  let totalNet = 0, totalBase = 0, totalOff = 0, totalOT = 0, totalDeduct = 0;
   const tableBody = records.map((r, i) => {
-    const emp  = empMap[r.employee_id] || {};
-    totalNet  += parseFloat(r.net_salary)  || 0;
-    totalBase += parseFloat(r.base_salary) || 0;
-    totalBonus += parseFloat(r.bonus) || 0;
+    const offAmt = parseFloat(_pOffMap[r.employee_id] || 0);
+    const otAmt  = parseFloat(_pOtMap[r.employee_id]  || 0);
+    const realNet = parseFloat(r.base_salary||0) + offAmt + otAmt + parseFloat(r.bonus||0) - parseFloat(r.deduction||0);
+    totalBase   += parseFloat(r.base_salary) || 0;
+    totalOff    += offAmt;
+    totalOT     += otAmt;
+    totalDeduct += parseFloat(r.deduction) || 0;
+    totalNet    += realNet;
     const statusHtml = r.status === 'paid'
       ? '<span style="color:#16a34a;font-weight:700">✅ បានបង់</span>'
       : '<span style="color:#d97706;font-weight:700">⏳ រង់ចាំ</span>';
@@ -11296,22 +11347,24 @@ async function printPayroll() {
       +'<td style="text-align:center;color:#666">'+(i+1)+'</td>'
       +'<td style="font-weight:600">'+(r.employee_name||'—')+'</td>'
       +'<td style="font-size:12px;color:#64748b">'+(r.department||'—')+'</td>'
-      +'<td style="font-family:monospace">'+sym+(r.base_salary||0)+'</td>'
-      +(((r.bonus||0)>0)?'<td style="font-family:monospace;color:#d97706;font-weight:700">+'+sym+(r.bonus||0)+'</td>':'<td style="color:#9ca3af;text-align:center">—</td>')
-      +'<td style="font-family:monospace;color:#dc2626">-'+sym+(r.deduction||0)+'</td>'
-      +'<td style="font-family:monospace;font-weight:800;color:#1d4ed8">'+sym+(r.net_salary||0)+'</td>'
+      +'<td style="font-family:monospace;text-align:right">'+sym+(r.base_salary||0)+'</td>'
+      +(offAmt>0?'<td style="font-family:monospace;color:#d97706;font-weight:700;text-align:center">+'+sym+offAmt.toFixed(2)+'</td>':'<td style="color:#9ca3af;text-align:center">—</td>')
+      +(otAmt>0?'<td style="font-family:monospace;color:#6366f1;font-weight:700;text-align:center">+'+sym+otAmt.toFixed(2)+'</td>':'<td style="color:#9ca3af;text-align:center">—</td>')
+      +'<td style="font-family:monospace;color:#dc2626;text-align:center">-'+sym+(r.deduction||0)+'</td>'
+      +'<td style="font-family:monospace;font-weight:800;color:#1d4ed8;text-align:right">'+sym+realNet.toFixed(2)+'</td>'
       +'<td>'+statusHtml+'</td>'
       +'</tr>';
   }).join('');
   const totalRow = '<tr style="background:#dbeafe;border-top:2px solid #1a3a8f">'
     +'<td colspan="3" style="text-align:right;font-weight:700;padding:8px 6px">សរុប:</td>'
-    +'<td style="font-family:monospace;font-weight:700">'+sym+totalBase.toFixed(2)+'</td>'
-    +(totalBonus>0?'<td style="font-family:monospace;font-weight:700;color:#d97706">+'+sym+totalBonus.toFixed(2)+'</td>':'<td></td>')
-    +'<td></td>'
-    +'<td style="font-family:monospace;font-weight:800;color:#1a3a8f">'+sym+totalNet.toFixed(2)+'</td>'
+    +'<td style="font-family:monospace;font-weight:700;text-align:right">'+sym+totalBase.toFixed(2)+'</td>'
+    +(totalOff>0?'<td style="font-family:monospace;font-weight:700;color:#d97706;text-align:center">+'+sym+totalOff.toFixed(2)+'</td>':'<td style="color:#9ca3af;text-align:center">—</td>')
+    +(totalOT>0?'<td style="font-family:monospace;font-weight:700;color:#6366f1;text-align:center">+'+sym+totalOT.toFixed(2)+'</td>':'<td style="color:#9ca3af;text-align:center">—</td>')
+    +'<td style="font-family:monospace;font-weight:700;color:#dc2626;text-align:center">-'+sym+totalDeduct.toFixed(2)+'</td>'
+    +'<td style="font-family:monospace;font-weight:800;color:#1a3a8f;text-align:right">'+sym+totalNet.toFixed(2)+'</td>'
     +'<td></td></tr>';
 
-  const logoHtml = cfg.logo_url
+const logoHtml = cfg.logo_url
     ? '<img src="'+cfg.logo_url+'" style="width:48px;height:48px;object-fit:contain;border-radius:6px;margin-right:12px" />'
     : '<div style="width:48px;height:48px;background:#1a3a8f;border-radius:6px;display:flex;align-items:center;justify-content:center;color:white;font-weight:800;font-size:18px;margin-right:12px">HR</div>';
 
@@ -11338,7 +11391,7 @@ async function printPayroll() {
     +'</div></div>'
     +'<table><thead><tr>'
     +'<th style="width:28px">លេខ</th><th>ឈ្មោះ</th><th>នាយកដ្ឋាន</th>'
-    +'<th>មូលដ្ឋាន</th><th style="color:#fbbf24">🌟 OFF</th><th>កាត់</th><th>Net</th><th>ស្ថានភាព</th>'
+    +'<th style="text-align:right">មូលដ្ឋាន</th><th style="color:#fbbf24;text-align:center">🌟 OFF</th><th style="color:#a5b4fc;text-align:center">⏱ OT</th><th style="color:#fca5a5;text-align:center">កាត់</th><th style="text-align:right">Net</th><th>ស្ថានភាព</th>'
     +'</tr></thead><tbody>'+tableBody+totalRow+'</tbody></table>'
     +'<div class="footer">'
     +'<div class="sign">ហត្ថលេខាអ្នកត្រួតពិនិត្យ</div>'
