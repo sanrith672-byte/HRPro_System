@@ -806,19 +806,23 @@ function updatePermission(role, key, value) {
   if (!perms[role]) perms[role] = {};
   perms[role][key] = value;
   savePermissions(perms);
+  // Auto-sync to API silently (no toast — user still clicks Save for explicit confirmation)
+  if (!isDemoMode()) {
+    api('POST', '/config', { key: 'hr_permissions', value: JSON.stringify(perms) }).catch(() => {});
+  }
+  updateNavVisibility();
 }
 
 async function savePermissionsToAPI() {
   const perms = getPermissions();
+  updateNavVisibility();
   if (!isDemoMode()) {
     try {
       await api('POST', '/config', { key: 'hr_permissions', value: JSON.stringify(perms) });
-      updateNavVisibility();
-      showToast('រក្សាទុក & Sync សិទ្ធបានជោគជ័យ! ✅', 'success');
-    } catch(e) { showToast('Error sync: '+e.message, 'error'); }
+      showToast('💾 Sync សិទ្ធបានជោគជ័យ! Users ចូលថ្មីនឹងទទួលបាន។ ✅', 'success');
+    } catch(e) { showToast('Error sync: '+e.message+' (saved locally)', 'error'); }
   } else {
-    updateNavVisibility();
-    showToast('រក្សាទុកសិទ្ធបានជោគជ័យ! ✅', 'success');
+    showToast('💾 រក្សាទុកសិទ្ធបានជោគជ័យ! ✅', 'success');
   }
 }
 
@@ -836,9 +840,11 @@ async function loadPermissionsFromAPI() {
 function resetPermissions() {
   if (!confirm('Reset សិទ្ធទៅ Default?')) return;
   localStorage.removeItem(PERM_KEY);
-  showToast('Reset រួច!', 'success');
+  updateNavVisibility();
+  showToast('Reset Default រួច! ✅', 'success');
+  // Re-render settings but stay on permissions tab
   renderSettings();
-  setTimeout(() => switchSettingsTab('permissions', document.querySelector('.settings-tab:nth-child(6)')), 50);
+  setTimeout(() => switchSettingsTab('permissions', document.querySelector('.settings-tab[onclick*="\'permissions\'"]')), 60);
 }
 
 // Override canEdit to use new permission system
@@ -11384,10 +11390,18 @@ async function saveEditAccount(id) {
   const users = window._accountsCache || getUsers();
   const user = users.find(u => u.id === id);
   if (!user) return;
-  const pwd  = $('eacc-pwd')?.value;
-  const name = $('eacc-name')?.value.trim() || user.name;
+  const pwd      = $('eacc-pwd')?.value;
+  const name     = $('eacc-name')?.value.trim() || user.name;
+  const username = ($('eacc-user')?.value.trim() || user.username);
   const role = $('eacc-role')?.value || user.role;
   let photo  = user.photo || '';
+  // Validate username uniqueness (skip if unchanged)
+  if (username !== user.username) {
+    const cache = window._accountsCache || getUsers();
+    if (cache.find(u => u.id !== id && u.username === username)) {
+      showToast('Username "'+username+'" មានរួចហើយ!', 'error'); return;
+    }
+  }
 
   if (window._editAccPhoto === '__remove__') {
     photo = '';
@@ -11409,16 +11423,26 @@ async function saveEditAccount(id) {
       const allUsers = getUsers();
       const idx = allUsers.findIndex(u => u.id === id);
       if (idx >= 0) {
-        allUsers[idx] = { ...allUsers[idx], name, role, photo };
+        allUsers[idx] = { ...allUsers[idx], name, username, role, photo };
         if (pwd) allUsers[idx].password = pwd;
         saveUsers(allUsers);
       }
       window._accountsCache = allUsers.filter(u => u.username !== 'adminsupport' && !DEMO_USERNAMES.includes(u.username.toLowerCase()));
     } else {
-      await api('PUT', '/accounts/' + id, { name, role, photo, ...(pwd ? { password: pwd } : {}) });
+      await api('PUT', '/accounts/' + id, { name, username, role, photo, ...(pwd ? { password: pwd } : {}) });
       await loadAccountsFromAPI();
     }
     showToast('កែប្រែ Account បានជោគជ័យ! ✅', 'success');
+    // If editing own account, refresh session so name/username/role show correctly
+    const _sess = getSession();
+    if (_sess && _sess.id === id) {
+      const _updated = Object.assign({}, _sess, { name, username, role });
+      localStorage.setItem('hr_session', JSON.stringify(_updated));
+      const uname = document.getElementById('sidebar-user-name');
+      const urole = document.getElementById('sidebar-user-role');
+      if (uname) uname.textContent = name;
+      if (urole) urole.textContent = role;
+    }
   } catch(e) {
     showToast('Error: ' + e.message, 'error');
     await loadAccountsFromAPI();
@@ -11446,26 +11470,50 @@ async function deleteAccount(id) {
   refreshAccountList();
 }
 
-function changePassword() {
+async function changePassword() {
   const oldPwd = $('chpwd-old')?.value;
   const newPwd = $('chpwd-new')?.value;
-  const confirm = $('chpwd-confirm')?.value;
+  const cfm    = $('chpwd-confirm')?.value;
   const session = getSession();
   if (!session) return;
-  if (!oldPwd || !newPwd || !confirm) { showToast('សូមបំពេញឱ្យគ្រប់!', 'error'); return; }
-  if (newPwd !== confirm) { showToast('Password ថ្មីមិនដូចគ្នា!', 'error'); return; }
-  if (newPwd.length < 6) { showToast('Password ត្រូវតែ ≥ 6 អក្សរ!', 'error'); return; }
-  const users = getUsers();
+  if (!oldPwd || !newPwd || !cfm) { showToast('សូមបំពេញឱ្យគ្រប់!', 'error'); return; }
+  if (newPwd !== cfm) { showToast('Password ថ្មីមិនដូចគ្នា!', 'error'); return; }
+  if (newPwd.length < 4) { showToast('Password ត្រូវតែ ≥ 4 អក្សរ!', 'error'); return; }
+
+  // Verify old password — check cache first, then API
+  const users = window._accountsCache || getUsers();
   const user = users.find(u => u.id === session.id);
-  if (!user || user.password !== oldPwd) { showToast('Password ចាស់មិនត្រឹមត្រូវ!', 'error'); return; }
-  // Update local
-  user.password = newPwd;
-  saveUsers(users);
-  // Sync to D1
-  if (!isDemoMode()) {
-    api('PUT', '/accounts/' + session.id, { password: newPwd }).catch(() => {});
+  const localMatch = user && user.password === oldPwd;
+
+  if (!localMatch && !isDemoMode()) {
+    // Try verify via login API as fallback
+    try {
+      const res = await api('POST', '/login-verify', { id: session.id, password: oldPwd }).catch(() => null);
+      if (!res || !res.valid) { showToast('Password ចាស់មិនត្រឹមត្រូវ!', 'error'); return; }
+    } catch(_) {
+      if (!localMatch) { showToast('Password ចាស់មិនត្រឹមត្រូវ!', 'error'); return; }
+    }
+  } else if (!localMatch) {
+    showToast('Password ចាស់មិនត្រឹមត្រូវ!', 'error'); return;
   }
-  showToast('ផ្លាស់ Password បានជោគជ័យ! 🔑', 'success');
+
+  // Update local cache
+  if (user) {
+    user.password = newPwd;
+    saveUsers(users);
+  }
+  // Sync to API
+  if (!isDemoMode()) {
+    try {
+      await api('PUT', '/accounts/' + session.id, { password: newPwd });
+      await loadAccountsFromAPI();
+      showToast('ផ្លាស់ Password បានជោគជ័យ! 🔑', 'success');
+    } catch(e) {
+      showToast('Error sync: ' + e.message, 'error'); return;
+    }
+  } else {
+    showToast('ផ្លាស់ Password បានជោគជ័យ! 🔑', 'success');
+  }
   if ($('chpwd-old')) $('chpwd-old').value = '';
   if ($('chpwd-new')) $('chpwd-new').value = '';
   if ($('chpwd-confirm')) $('chpwd-confirm').value = '';

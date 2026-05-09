@@ -150,6 +150,15 @@ async function handleRequest(request, env) {
 
     // ===== AUTH =====
     if (path === '/login' && method === 'POST') return handleLogin(request, env);
+    if (path === '/login-verify' && method === 'POST') {
+      try {
+        const body = await request.json();
+        const { id, password } = body || {};
+        if (!id || !password) return json({ valid: false });
+        const user = await env.DB.prepare("SELECT id FROM user_accounts WHERE id=? AND password=?").bind(parseInt(id), password).first();
+        return json({ valid: !!user });
+      } catch(e) { return json({ valid: false }); }
+    }
 
     // ===== USER ACCOUNTS =====
     if (path === '/accounts') {
@@ -1086,15 +1095,22 @@ async function updateAccount(id, request, env) {
   try {
     await ensureAccountsTable(env);
     const body = await request.json();
-    const { password, name, role, photo } = body;
+    const { password, name, role, photo, username } = body;
     const now = new Date().toISOString();
     const existing = await env.DB.prepare("SELECT * FROM user_accounts WHERE id=?").bind(id).first();
     if (!existing) return error('Account not found', 404);
+    // Check username uniqueness if changing
+    if (username && username !== existing.username) {
+      const conflict = await env.DB.prepare("SELECT id FROM user_accounts WHERE username=? AND id!=?").bind(username, id).first();
+      if (conflict) return error('Username នេះមានរួចហើយ!', 409);
+    }
+    const newUsername = username || existing.username;
     await env.DB.prepare(
-      "UPDATE user_accounts SET name=?,role=?,photo=?,updated_at=?" +
+      "UPDATE user_accounts SET username=?,name=?,role=?,photo=?,updated_at=?" +
       (password ? ",password=?" : "") +
       " WHERE id=?"
     ).bind(
+      newUsername,
       name || existing.name,
       role || existing.role,
       photo !== undefined ? photo : existing.photo,
@@ -1103,7 +1119,10 @@ async function updateAccount(id, request, env) {
       id
     ).run();
     return json({ message: 'updated', id });
-  } catch(e) { return error(e.message); }
+  } catch(e) {
+    if (e.message && e.message.includes('UNIQUE')) return error('Username នេះមានរួចហើយ!', 409);
+    return error(e.message);
+  }
 }
 
 async function deleteAccount(id, env) {
