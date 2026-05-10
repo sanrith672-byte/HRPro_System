@@ -681,6 +681,22 @@ async function getAttendance(request, env) {
 
   const result = await env.DB.prepare(query).bind(...params).all();
 
+  // Auto-correct: if check_in early (before noon) AND check_out before 13:00 → half_day_am
+  // This fixes records saved with wrong status (e.g. early check-in like 06:53 + check-out 11:27)
+  for (const r of result.results) {
+    if (r.check_in && r.check_out && (r.status === 'present' || r.status === 'late')) {
+      const [coH, coM] = r.check_out.split(':').map(Number);
+      const coMin = coH * 60 + (coM || 0);
+      const [ciH, ciM] = r.check_in.split(':').map(Number);
+      const ciMin = ciH * 60 + (ciM || 0);
+      // check_in before noon AND check_out before 13:00 → half_day_am
+      if (ciMin < 780 && coMin < 780) {
+        r.status = 'half_day_am';
+      }
+      // check_in after noon AND check_out before 19:00 but worked < 4hrs → half_day_pm (optional safety)
+    }
+  }
+
   // Stats
   const present = result.results.filter(r => r.status === 'present').length;
   const late = result.results.filter(r => r.status === 'late').length;
