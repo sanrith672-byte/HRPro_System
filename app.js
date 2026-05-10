@@ -9398,19 +9398,19 @@ async function openDaySwapModal(id = null) {
         <!-- ===== ប្រភេទការប្តូរ ===== -->
         <div class="form-group full-width">
           <label class="form-label" style="font-weight:700">⏱ ប្រភេទការប្តូរ *</label>
-          <div id="ds-swap-type-group" data-val="${(!rec?.swap_type||rec?.swap_type==='full')?'full':rec.swap_type}" style="display:flex;gap:10px;flex-wrap:wrap">
-            <div style="flex:1;min-width:100px;cursor:pointer" onclick="dsSelectSwapType('full')">
-              <div id="ds-type-full-btn" style="border:2px solid var(--border);border-radius:10px;padding:10px 14px;text-align:center;font-size:14px;font-weight:600;transition:.2s;cursor:pointer;${(!rec?.swap_type||rec?.swap_type==='full')?'border-color:var(--primary);background:rgba(139,92,246,.12);color:var(--primary)':'color:var(--text2)'}">
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <div style="flex:1;min-width:100px" onclick="dsSelectSwapType('full')" id="ds-btn-full">
+              <div style="border:2px solid;border-radius:10px;padding:10px 14px;text-align:center;font-size:14px;font-weight:600;transition:.2s;cursor:pointer">
                 📅 ១ ថ្ងៃ<div style="font-size:11px;font-weight:400;margin-top:2px;opacity:.75">Full Day</div>
               </div>
             </div>
-            <div style="flex:1;min-width:100px;cursor:pointer" onclick="dsSelectSwapType('half_am')">
-              <div id="ds-type-am-btn" style="border:2px solid var(--border);border-radius:10px;padding:10px 14px;text-align:center;font-size:14px;font-weight:600;transition:.2s;cursor:pointer;${rec?.swap_type==='half_am'?'border-color:#0891b2;background:rgba(8,145,178,.12);color:#0891b2':'color:var(--text2)'}">
+            <div style="flex:1;min-width:100px" onclick="dsSelectSwapType('half_am')" id="ds-btn-half-am">
+              <div style="border:2px solid;border-radius:10px;padding:10px 14px;text-align:center;font-size:14px;font-weight:600;transition:.2s;cursor:pointer">
                 🌤 កន្លះថ្ងៃ ព្រឹក<div style="font-size:11px;font-weight:400;margin-top:2px;opacity:.75">Half Day (AM)</div>
               </div>
             </div>
-            <div style="flex:1;min-width:100px;cursor:pointer" onclick="dsSelectSwapType('half_pm')">
-              <div id="ds-type-pm-btn" style="border:2px solid var(--border);border-radius:10px;padding:10px 14px;text-align:center;font-size:14px;font-weight:600;transition:.2s;cursor:pointer;${rec?.swap_type==='half_pm'?'border-color:#7c3aed;background:rgba(124,58,237,.12);color:#7c3aed':'color:var(--text2)'}">
+            <div style="flex:1;min-width:100px" onclick="dsSelectSwapType('half_pm')" id="ds-btn-half-pm">
+              <div style="border:2px solid;border-radius:10px;padding:10px 14px;text-align:center;font-size:14px;font-weight:600;transition:.2s;cursor:pointer">
                 🌅 កន្លះថ្ងៃ ល្ងាច<div style="font-size:11px;font-weight:400;margin-top:2px;opacity:.75">Half Day (PM)</div>
               </div>
             </div>
@@ -9456,6 +9456,9 @@ async function openDaySwapModal(id = null) {
         </button>
       </div>`;
     openModal();
+    // Init swap type global + highlight correct button
+    _dsSwapType = (rec && rec.swap_type) ? rec.swap_type : 'full';
+    dsSelectSwapType(_dsSwapType);
     // Auto-fill work_day from locked employee off_days if needed
     const dsEmpEl = $('ds-emp');
     if (dsEmpEl && dsEmpEl.tagName === 'SELECT') {
@@ -9485,8 +9488,7 @@ async function saveDaySwap(id = null) {
   const offDate    = $('ds-off-date')?.value;    // ថ្ងៃធ្វើការ ដែល OFF ជំនួស
   const reason     = $('ds-reason')?.value.trim();
 
-  const swapTypeGrp = document.getElementById('ds-swap-type-group');
-  const swapType = (swapTypeGrp && swapTypeGrp.dataset.val) ? swapTypeGrp.dataset.val : 'full';
+  const swapType = (typeof _dsSwapType !== 'undefined') ? _dsSwapType : 'full';
   const isHalfDay = swapType === 'half_am' || swapType === 'half_pm';
 
   // Basic required fields
@@ -9608,36 +9610,41 @@ function dsOnOffDateChange(val) {
   if (sel) { sel.value = String(wd); dsFilterOffDate(); }
 }
 // Update swap type button visual states
-function dsSelectSwapType(val) {
-  // Store selected value in data attribute on the group container
-  const grp = document.getElementById("ds-swap-type-group");
-  if (grp) grp.dataset.val = val;
-  dsOnSwapTypeChange();
-}
+// Global variable to track selected swap type — simple and reliable
+var _dsSwapType = 'full';
 
-function dsOnSwapTypeChange() {
-  const grp = document.getElementById("ds-swap-type-group");
-  const sel = (grp && grp.dataset.val) ? grp.dataset.val : "full";
-  const types = ["full","half_am","half_pm"];
-  const colors = { full: "var(--primary)", half_am: "#0891b2", half_pm: "#7c3aed" };
-  const bgs    = { full: "rgba(139,92,246,.12)", half_am: "rgba(8,145,178,.12)", half_pm: "rgba(124,58,237,.12)" };
-  types.forEach(t => {
-    const btn = document.getElementById("ds-type-"+t+"-btn");
-    if (!btn) return;
-    if (t === sel) {
-      btn.style.borderColor = colors[t]; btn.style.background = bgs[t]; btn.style.color = colors[t];
-    } else {
-      btn.style.borderColor = "var(--border)"; btn.style.background = ""; btn.style.color = "var(--text2)";
-    }
+function dsSelectSwapType(val) {
+  _dsSwapType = val;
+  // Style config
+  const cfg = {
+    full:    { id:'ds-btn-full',    border:'var(--primary)', bg:'rgba(139,92,246,.12)', color:'var(--primary)' },
+    half_am: { id:'ds-btn-half-am', border:'#0891b2',        bg:'rgba(8,145,178,.12)',  color:'#0891b2' },
+    half_pm: { id:'ds-btn-half-pm', border:'#7c3aed',        bg:'rgba(124,58,237,.12)', color:'#7c3aed' },
+  };
+  // Reset all buttons first
+  ['ds-btn-full','ds-btn-half-am','ds-btn-half-pm'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    var inner = el.querySelector('div');
+    if (inner) { inner.style.borderColor='var(--border)'; inner.style.background=''; inner.style.color='var(--text2)'; }
   });
-  // Show/hide off_day + off_date row: half day = optional, full = required
-  const isHalfDay = sel === "half_am" || sel === "half_pm";
-  const offDayRow = document.getElementById("ds-off-day-row");
-  const offHint   = document.getElementById("ds-off-hint");
-  if (offDayRow) offDayRow.style.opacity = isHalfDay ? "0.5" : "1";
+  // Highlight selected
+  var chosen = cfg[val];
+  if (chosen) {
+    var el = document.getElementById(chosen.id);
+    if (el) {
+      var inner = el.querySelector('div');
+      if (inner) { inner.style.borderColor=chosen.border; inner.style.background=chosen.bg; inner.style.color=chosen.color; }
+    }
+  }
+  // off_day row hint
+  var isHalfDay = val === 'half_am' || val === 'half_pm';
+  var offDayRow = document.getElementById('ds-off-day-row');
+  var offHint   = document.getElementById('ds-off-hint');
+  if (offDayRow) offDayRow.style.opacity = isHalfDay ? '0.5' : '1';
   if (offHint)   offHint.textContent = isHalfDay
-    ? "កន្លះថ្ងៃ — ថ្ងៃ OFF ជំនួស optional (ទុក​ blank បានដែរ)"
-    : "ជ្រើសថ្ងៃធ្វើការ ដែលត្រូវឈប់ជំនួស";
+    ? 'កន្លះថ្ងៃ — ថ្ងៃ OFF ជំនួស optional (ទុក blank បានដែរ)'
+    : 'ជ្រើសថ្ងៃធ្វើការ ដែលត្រូវឈប់ជំនួស';
 }
 
 
