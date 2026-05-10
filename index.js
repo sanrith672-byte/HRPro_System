@@ -290,10 +290,9 @@ async function handleRequest(request, env) {
         status TEXT DEFAULT 'pending',
         created_at TEXT, updated_at TEXT
       )`).run();
-      // Migrate: add off_date column if missing (for existing DBs)
-      try {
-        await env.DB.prepare(`ALTER TABLE day_swaps ADD COLUMN off_date TEXT`).run();
-      } catch(_) { /* column already exists */ }
+      // Migrate: add columns if missing (for existing DBs)
+      try { await env.DB.prepare(`ALTER TABLE day_swaps ADD COLUMN off_date TEXT`).run(); } catch(_) {}
+      try { await env.DB.prepare(`ALTER TABLE day_swaps ADD COLUMN swap_type TEXT DEFAULT 'full'`).run(); } catch(_) {}
     }
     if (path === '/dayswap') {
       if (method === 'GET') return getAll(env, 'day_swaps', 'ds.*, e.name as employee_name', 'day_swaps ds JOIN employees e ON ds.employee_id=e.id', 'ds.created_at DESC');
@@ -1066,8 +1065,22 @@ async function insertRecord(request, env, table, fields) {
 
 async function updateRecord(id, request, env, table) {
   const body = await request.json();
-  const sets = Object.keys(body).map(k=>`${k}=?`).join(', ');
-  const values = [...Object.values(body), id];
+  // Allowed columns per table — prevents 500 from unknown fields sent by client
+  const allowedCols = {
+    day_swaps: ['employee_id','work_day','off_day','swap_date','off_date','swap_type','reason','status'],
+    leave_requests: ['employee_id','leave_type','start_date','end_date','days','reason','status'],
+    overtime: ['employee_id','date','hours','rate','pay','reason','status'],
+    expense_requests: ['employee_id','category','amount','request_date','description','status'],
+    general_expenses: ['title','category','amount','expense_date','responsible','status','note'],
+    scan_locations: ['name','address','lat','lng','notes','active'],
+  };
+  const whitelist = allowedCols[table];
+  const filteredBody = whitelist
+    ? Object.fromEntries(Object.entries(body).filter(([k]) => whitelist.includes(k)))
+    : body;
+  const sets = Object.keys(filteredBody).map(k=>`${k}=?`).join(', ');
+  const values = [...Object.values(filteredBody), id];
+  if (!sets) return json({ message: 'Nothing to update' });
   await env.DB.prepare(`UPDATE ${table} SET ${sets}, updated_at=datetime('now') WHERE id=?`).bind(...values).run();
   return json({ message: 'Updated' });
 }
