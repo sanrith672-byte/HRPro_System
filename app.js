@@ -7230,7 +7230,7 @@ async function renderExpenses() {
       +'<div class="card"><div class="table-container"><table>'
       +'<thead><tr><th>បុគ្គលិក</th><th>ប្រភេទ</th><th>ចំណូល ($)</th><th>កាលបរិច្ឆេទ</th><th>ការពិពណ៌នា</th><th>ស្ថានភាព</th><th>សកម្មភាព</th></tr></thead>'
       +'<tbody>'+( records.length===0
-        ? '<tr><td colspan="7"><div class="empty-state" style="padding:30px"><p>មិនទាន់មានការស្នើ</p></div></td></tr>'
+        ? '<tr><td colspan="8"><div class="empty-state" style="padding:30px"><p>មិនទាន់មានការស្នើ</p></div></td></tr>'
         : records.map(r=>{
             const photo = getEmpPhoto(r.employee_id);
             const av = photo
@@ -9268,6 +9268,7 @@ async function renderDaySwap() {
       <div class="card"><div class="table-container"><table>
         <thead><tr>
           <th>បុគ្គលិក</th>
+          <th>ប្រភេទ</th>
           <th>ថ្ងៃ OFF ដែលធ្វើការ</th>
           <th>ធ្វើការជំនួស</th>
           <th>កាលបរិច្ឆេទ</th>
@@ -9276,7 +9277,7 @@ async function renderDaySwap() {
           <th>សកម្មភាព</th>
         </tr></thead>
         <tbody>${records.length === 0
-          ? `<tr><td colspan="7"><div class="empty-state" style="padding:30px"><p>មិនទាន់មានការស្នើ</p></div></td></tr>`
+          ? `<tr><td colspan="8"><div class="empty-state" style="padding:30px"><p>មិនទាន់មានការស្នើ</p></div></td></tr>`
           : records.map(r => {
               const workDay  = wdNames[r.work_day]  || r.work_day;
               const offDay   = wdNames[r.off_day]   || r.off_day;
@@ -9384,6 +9385,31 @@ async function openDaySwapModal(id = null) {
           }
         </div>
 
+        <!-- ===== ប្រភេទការប្តូរ ===== -->
+        <div class="form-group full-width">
+          <label class="form-label" style="font-weight:700">⏱ ប្រភេទការប្តូរ *</label>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <label style="flex:1;min-width:100px;cursor:pointer">
+              <input type="radio" name="ds-swap-type" id="ds-type-full" value="full" ${(!rec?.swap_type||rec?.swap_type==='full')?'checked':''} style="display:none" onchange="dsOnSwapTypeChange()"/>
+              <div class="ds-type-btn" id="ds-type-full-btn" style="border:2px solid var(--border);border-radius:10px;padding:10px 14px;text-align:center;font-size:14px;font-weight:600;transition:.2s;cursor:pointer;${(!rec?.swap_type||rec?.swap_type==='full')?'border-color:var(--primary);background:rgba(139,92,246,.12);color:var(--primary)':'color:var(--text2)'}">
+                📅 ១ ថ្ងៃ<div style="font-size:11px;font-weight:400;margin-top:2px;opacity:.75">Full Day</div>
+              </div>
+            </label>
+            <label style="flex:1;min-width:100px;cursor:pointer">
+              <input type="radio" name="ds-swap-type" id="ds-type-am" value="half_am" ${rec?.swap_type==='half_am'?'checked':''} style="display:none" onchange="dsOnSwapTypeChange()"/>
+              <div class="ds-type-btn" id="ds-type-am-btn" style="border:2px solid var(--border);border-radius:10px;padding:10px 14px;text-align:center;font-size:14px;font-weight:600;transition:.2s;cursor:pointer;${rec?.swap_type==='half_am'?'border-color:#0891b2;background:rgba(8,145,178,.12);color:#0891b2':'color:var(--text2)'}">
+                🌤 កន្លះថ្ងៃ ព្រឹក<div style="font-size:11px;font-weight:400;margin-top:2px;opacity:.75">Half Day (AM)</div>
+              </div>
+            </label>
+            <label style="flex:1;min-width:100px;cursor:pointer">
+              <input type="radio" name="ds-swap-type" id="ds-type-pm" value="half_pm" ${rec?.swap_type==='half_pm'?'checked':''} style="display:none" onchange="dsOnSwapTypeChange()"/>
+              <div class="ds-type-btn" id="ds-type-pm-btn" style="border:2px solid var(--border);border-radius:10px;padding:10px 14px;text-align:center;font-size:14px;font-weight:600;transition:.2s;cursor:pointer;${rec?.swap_type==='half_pm'?'border-color:#7c3aed;background:rgba(124,58,237,.12);color:#7c3aed':'color:var(--text2)'}">
+                🌅 កន្លះថ្ងៃ ល្ងាច<div style="font-size:11px;font-weight:400;margin-top:2px;opacity:.75">Half Day (PM)</div>
+              </div>
+            </label>
+          </div>
+        </div>
+
         <!-- ===== ថ្ងៃ OFF ដែលត្រូវធ្វើការ ===== -->
         <div class="form-group full-width">
           <label class="form-label" style="color:var(--danger);font-weight:700">📅 ថ្ងៃ OFF ដែលត្រូវធ្វើការ *</label>
@@ -9478,8 +9504,11 @@ async function saveDaySwap(id = null) {
     }
   }
 
+  const swapTypeEl = document.querySelector('input[name="ds-swap-type"]:checked');
+  const swapType = swapTypeEl ? swapTypeEl.value : 'full';
   const body = { employee_id: empId, work_day: workDay, off_day: offDay,
-                 swap_date: workDate, off_date: offDate || null, reason, status: 'pending' };
+                 swap_date: workDate, off_date: offDate || null, reason,
+                 swap_type: swapType, status: 'pending' };
   try {
     if (id) {
       await api('PUT', '/dayswap/' + id, body);
@@ -9565,6 +9594,23 @@ function dsOnOffDateChange(val) {
   const sel = $('ds-off-day');
   if (sel) { sel.value = String(wd); dsFilterOffDate(); }
 }
+// Update swap type button visual states
+function dsOnSwapTypeChange() {
+  const types = ["full","half_am","half_pm"];
+  const colors = { full: "var(--primary)", half_am: "#0891b2", half_pm: "#7c3aed" };
+  const bgs = { full: "rgba(139,92,246,.12)", half_am: "rgba(8,145,178,.12)", half_pm: "rgba(124,58,237,.12)" };
+  const sel = (document.querySelector("input[name=\"ds-swap-type\"]:checked")||{}).value || "full";
+  types.forEach(t => {
+    const btn = document.getElementById("ds-type-"+t+"-btn");
+    if (!btn) return;
+    if (t === sel) {
+      btn.style.borderColor = colors[t]; btn.style.background = bgs[t]; btn.style.color = colors[t];
+    } else {
+      btn.style.borderColor = "var(--border)"; btn.style.background = ""; btn.style.color = "var(--text2)";
+    }
+  });
+}
+
 
 // Get nearest upcoming date for a given weekday (0=Sun..6=Sat)
 function dsNextWeekday(wd) {
