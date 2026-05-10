@@ -2469,7 +2469,7 @@ async function renderAttendance(date='') {
             +'<td>'+(a.work_location?'<span style="font-size:12px;display:inline-flex;align-items:center;gap:3px;background:var(--bg3);padding:2px 8px;border-radius:12px;color:var(--text2)">📍 '+a.work_location+'</span>':'<span style="color:var(--text3)">—</span>')+'</td>'
             +'<td><span style="font-family:var(--mono);color:var(--success)">'+(a.check_in||'—')+'</span></td>'
             +'<td><span style="font-family:var(--mono);color:var(--text3)">'+(a.check_out||'—')+'</span></td>'
-            +'<td>'+(a.status==='present'?'<span class="badge badge-green">✅ វត្តមាន</span>':a.status==='late'?'<span class="badge badge-yellow">⏰ យឺត</span>':a.status==='half_day_am'?'<span class="badge" style="background:rgba(8,145,178,.15);color:#0891b2">🌤 កន្លះថ្ងៃ (ព្រឹក)</span>':a.status==='half_day_pm'?'<span class="badge" style="background:rgba(124,58,237,.15);color:#7c3aed">🌅 កន្លះថ្ងៃ (ល្ងាច)</span>':'<span class="badge badge-red">❌ អវត្តមាន</span>')+'</td>'
+            +'<td>'+((a.status==='present'||(a.check_in&&a.check_out&&(a.status==='half_day_am'||a.status==='half_day_pm')))?'<span class="badge badge-green">✅ វត្តមាន</span>':a.status==='late'?'<span class="badge badge-yellow">⏰ យឺត</span>':a.status==='half_day_am'?'<span class="badge" style="background:rgba(8,145,178,.15);color:#0891b2">🌤 កន្លះថ្ងៃ (ព្រឹក)</span>':a.status==='half_day_pm'?'<span class="badge" style="background:rgba(124,58,237,.15);color:#7c3aed">🌅 កន្លះថ្ងៃ (ល្ងាច)</span>':'<span class="badge badge-red">❌ អវត្តមាន</span>')+'</td>'
             +(!isQR
               ? '<td><div class="action-btns">'
                 +'<button class="btn btn-outline btn-sm" onclick="openEditAttModal('+a.id+',\''+a.employee_name+'\')">✏️</button>'
@@ -4795,8 +4795,9 @@ async function processQRScan_continue(emp, raw, date) {
       if (_existRec && _existRec.check_in) {
         const _ciParts  = _existRec.check_in.split(':').map(Number);
         const _ciMin    = _ciParts[0] * 60 + (_ciParts[1] || 0);
-        // AM session: check-in 07:00–11:59 (420–719), check-out 11:00–12:59 (660–779)
-        const _amIn  = _ciMin >= 420 && _ciMin <= 719;
+        // AM session: check-in 05:00–11:59 (300–719), check-out 11:00–12:59 (660–779)
+        // Early arrivals (e.g. 06:53) are still AM shift workers
+        const _amIn  = _ciMin >= 300 && _ciMin <= 719;
         const _amOut = _nowMin >= 660 && _nowMin <= 779;
         // PM session: check-in 13:00–17:59 (780–1079), check-out 17:00–18:59 (1020–1139)
         const _pmIn  = _ciMin >= 780 && _ciMin <= 1079;
