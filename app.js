@@ -482,6 +482,10 @@ async function renderDashboard() {
         <div class="card">
           <div class="card-header"><span class="card-title">ព័ត៌មានសង្ខេប</span></div>
           <div class="card-body">
+            <div id="dashboard-clock-box" style="background:linear-gradient(135deg,rgba(99,102,241,.12),rgba(6,214,160,.08));border:1px solid var(--border);border-radius:12px;padding:14px 18px;margin-bottom:16px;text-align:center">
+              <div id="db-clock" style="font-size:38px;font-weight:800;font-family:var(--mono);letter-spacing:3px;color:var(--primary);line-height:1">00:00:00</div>
+              <div id="db-date" style="font-size:13px;color:var(--text3);margin-top:4px;font-weight:500"></div>
+            </div>
             <div class="activity-list">
               ${[
                 {label:'វត្តមានថ្ងៃនេះ', val:`${stats.today_attendance} នាក់`, color:'var(--success)'},
@@ -501,6 +505,25 @@ async function renderDashboard() {
         </div>
       </div>`;
   } catch(e) { showError(e.message); }
+  // Start live clock
+  (function _startClock() {
+    if (window._dashClockTimer) clearInterval(window._dashClockTimer);
+    const khDays = ['អាទិត្យ','ច័ន្ទ','អង្គារ','ពុធ','ព្រហស្បតិ៍','សុក្រ','សៅរ៍'];
+    const khMonths = ['មករា','កុម្ភៈ','មីនា','មេសា','ឧសភា','មិថុនា','កក្កដា','សីហា','កញ្ញា','តុលា','វិច្ឆិកា','ធ្នូ'];
+    function tick() {
+      const el = document.getElementById('db-clock');
+      const dl = document.getElementById('db-date');
+      if (!el) { clearInterval(window._dashClockTimer); return; }
+      const now = new Date();
+      const hh = String(now.getHours()).padStart(2,'0');
+      const mm = String(now.getMinutes()).padStart(2,'0');
+      const ss = String(now.getSeconds()).padStart(2,'0');
+      el.textContent = hh+':'+mm+':'+ss;
+      if (dl) dl.textContent = khDays[now.getDay()]+' ទី'+now.getDate()+' '+khMonths[now.getMonth()]+' '+now.getFullYear();
+    }
+    tick();
+    window._dashClockTimer = setInterval(tick, 1000);
+  })();
 }
 
 // ============================================================
