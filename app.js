@@ -5841,7 +5841,7 @@ async function renderReports() {
       + '<div style="font-size:15px"><span style="color:var(--text3)">Net សរុប: </span><span style="font-weight:700;color:var(--success);font-family:var(--mono)">' + sym + (salData.summary.total_net||0).toLocaleString() + '</span></div>'
       + '<div style="font-size:15px"><span style="color:var(--text3)">បង់រួច: </span><span style="font-weight:700;color:var(--info)">' + (salData.summary.paid||0) + '/' + salData.records.length + '</span></div>'
       + '</div>'
-      + '<div class="table-container" style="max-height:340px;overflow-y:auto">'
+      + '<div class="table-container">'
       + '<table>'
       + '<thead><tr><th>លេខ</th><th>ឈ្មោះ</th><th>នាយកដ្ឋាន</th><th>មូលដ្ឋាន</th><th>⏱ OT</th><th>🌟 OFF</th><th>កាត់</th><th>NSSF</th><th>Tax</th><th>Net</th><th>ស្ថានភាព</th></tr></thead>'
       + '<tbody>' + previewRows + '</tbody>'
