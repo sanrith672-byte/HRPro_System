@@ -6904,8 +6904,9 @@ async function rejectOvertime(id) {
 async function renderAllowance() {
   showLoading();
   try {
-    const data = await api('GET','/allowances');
+    const [data, _alEmpData] = await Promise.all([api('GET','/allowances'), api('GET','/employees?limit=500')]);
     const records = data.records || [];
+    const _alEmps = _alEmpData.employees || [];
     const total = records.reduce((s,r)=>s+(r.amount||0),0);
     const types = [...new Set(records.map(r=>r.type))];
     contentArea().innerHTML = `
@@ -6930,7 +6931,7 @@ async function renderAllowance() {
         <tbody>${records.length===0
           ? `<tr><td colspan="6"><div class="empty-state" style="padding:30px"><p>មិនទាន់មានប្រាក់ឧបត្ថម្ភ</p></div></td></tr>`
           : records.map(r=>`<tr>
-            <td><div class="employee-cell"><div class="emp-avatar" style="background:${getColor(r.employee_name)}">${(r.employee_name||'?')[0]}</div><div class="emp-name">${r.employee_name}</div></div></td>
+            ${(()=>{const _e=_alEmps.find(e=>e.id===r.employee_id||e.id===parseInt(r.employee_id));const _p=getEmpPhoto(_e?.id||r.employee_id)||_e?.photo_data||'';return _p?'<td><div class="employee-cell"><img src="'+_p+'" style="width:36px;height:36px;border-radius:50%;object-fit:cover;flex-shrink:0" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'"/><div class="emp-avatar" style="display:none;background:'+getColor(r.employee_name)+'">'+((r.employee_name||'?')[0])+'</div><div class="emp-name">'+r.employee_name+'</div></div></td>':'<td><div class="employee-cell"><div class="emp-avatar" style="background:'+getColor(r.employee_name)+'">'+((r.employee_name||'?')[0])+'</div><div class="emp-name">'+r.employee_name+'</div></div></td>'})()}
             <td><span class="badge badge-blue">${r.type}</span></td>
             <td style="font-family:var(--mono);font-weight:700;color:var(--success)">$${r.amount}</td>
             <td style="font-family:var(--mono)">${r.month}</td>
@@ -8829,8 +8830,9 @@ async function renderLeave() {
     // Show only own records if: QR Scanner without approve/edit perms (respects admin-granted permissions)
     const selfOnly = isQRScanner && !isAdminRole && !hasPerm('leave_approve');
 
-    const data = await api('GET','/leave');
+    const [data, _lvEmpData] = await Promise.all([api('GET','/leave'), api('GET','/employees?limit=500')]);
     let records = data.records || [];
+    const _lvEmps = _lvEmpData.employees || [];
 
     // QR Scanner → show only own records (match by name)
     if (selfOnly) {
@@ -8864,7 +8866,7 @@ async function renderLeave() {
         <tbody>${records.length===0
           ? `<tr><td colspan="8"><div class="empty-state" style="padding:30px"><p>មិនទាន់មានការស្នើរ</p></div></td></tr>`
           : records.map(r=>`<tr>
-            <td><div class="employee-cell"><div class="emp-avatar" style="background:${getColor(r.employee_name)}">${(r.employee_name||'?')[0]}</div><div class="emp-name">${r.employee_name}</div></div></td>
+            ${(()=>{const _e=_lvEmps.find(e=>e.id===r.employee_id||e.id===parseInt(r.employee_id));const _p=getEmpPhoto(_e?.id||r.employee_id)||_e?.photo_data||'';return _p?'<td><div class="employee-cell"><img src="'+_p+'" style="width:36px;height:36px;border-radius:50%;object-fit:cover;flex-shrink:0" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'"/><div class="emp-avatar" style="display:none;background:'+getColor(r.employee_name)+'">'+((r.employee_name||'?')[0])+'</div><div class="emp-name">'+r.employee_name+'</div></div></td>':'<td><div class="employee-cell"><div class="emp-avatar" style="background:'+getColor(r.employee_name)+'">'+((r.employee_name||'?')[0])+'</div><div class="emp-name">'+r.employee_name+'</div></div></td>'})()}
             <td><span class="badge badge-blue">${r.leave_type}</span></td>
             <td style="font-family:var(--mono)">${r.start_date}</td>
             <td style="font-family:var(--mono)">${r.end_date}</td>
@@ -9294,7 +9296,7 @@ async function renderDaySwap() {
               const _dsEmp   = emps.find(e => e.id === r.employee_id || e.id === parseInt(r.employee_id));
               const _dsPhoto = getEmpPhoto(_dsEmp?.id || r.employee_id) || _dsEmp?.photo_data || _dsEmp?.photo || '';
               const _dsAvatarHtml = _dsPhoto
-                ? `<img src="${_dsPhoto}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;flex-shrink:0" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"/><div class="emp-avatar" style="display:none;background:${getColor(r.employee_name)}">${(r.employee_name||'?')[0]}</div>`
+                ? `<img src="${_dsPhoto}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;flex-shrink:0" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'"/><div class="emp-avatar" style="display:none;background:${getColor(r.employee_name)}">${(r.employee_name||'?')[0]}</div>`
                 : `<div class="emp-avatar" style="background:${getColor(r.employee_name)}">${(r.employee_name||'?')[0]}</div>`;
               return `<tr>
                 <td><div class="employee-cell">
