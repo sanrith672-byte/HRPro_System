@@ -6274,6 +6274,8 @@ async function renderOvertime() {
   showLoading();
   let currentMonth = (window._otMonth || thisMonth());
   try {
+    const _otSess   = getSession();
+    const _isQR     = _otSess && _otSess.role === 'QR Scanner';
     const [empData, otData] = await Promise.all([
       api('GET','/employees?limit=500'),
       api('GET','/overtime')
@@ -6358,7 +6360,3854 @@ async function renderOvertime() {
         +'<td style="text-align:center;font-weight:700;color:var(--success);font-size:14px;position:sticky;left:196px;z-index:1;background:var(--bg1);box-shadow:3px 0 6px rgba(0,0,0,.1);padding:3px 4px;white-space:nowrap">$'+empPay.toFixed(0)+'</td>'
         +cells
         +'<td style="text-align:center;padding:3px 6px">'
-        +'<button class="btn btn-outline btn-sm" style="font-size:12px;padding:2px 7px" onclick="renderOTDetailList('+emp.id+',\''+emp.name+'\',\''+currentMonth+'\')">📋</button>'
+        +(!_isQR ? '<button class="btn btn-outline btn-sm" style="font-size:12px;padding:2px 7px" onclick="renderOTDetailList('+emp.id+',\''+emp.name+'\',\''+currentMonth+'\')">📋</button>' : '')
+        +'</td>'
+        +'</tr>';
+    }).filter(Boolean).join('');
+
+    const emptyMsg = empRows.length === 0
+      ? '<tr><td colspan="'+(5+allDays.length)+'"><div class="empty-state" style="padding:30px"><p>មិនទាន់មានថែមម៉ោងខែ '+currentMonth+'</p></div></td></tr>'
+      : '';
+
+    contentArea().innerHTML =
+      '<div class="page-header">'
+      +'<div><h2>⏰ ថែមម៉ោង</h2><p>OT '+currentMonth+' — '+monthRecords.length+' កំណត់ត្រា</p></div>'
+      +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'      +'<input class="filter-input" type="month" value="'+currentMonth+'" onchange="window._otMonth=this.value;renderOvertime()" />'      +(!_isQR ? '<button class="btn btn-outline" onclick="renderOTListView(\''+currentMonth+'\')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg> បញ្ជី</button>' : '')      +(!_isQR ? '<button class="btn btn-outline" onclick="printOTReport(\''+currentMonth+'\')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> PDF</button>' : '')      +(!_isQR ? '<button class="btn btn-outline" onclick="exportOTExcel(\''+currentMonth+'\')" style="border-color:var(--success);color:var(--success)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg> Excel</button>' : '')      +(!_isQR ? '<button class="btn btn-primary" onclick="openOvertimeModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> បន្ថែម</button>' : '')      +'</div></div>'
+      +'<div class="att-summary">'
+      +'<div class="att-box"><div class="att-num" style="color:var(--success)">'+attData.stats.present+'</div><div class="att-lbl">✅ មានវត្តមាន</div></div>'
+      +'<div class="att-box"><div class="att-num" style="color:var(--warning)">'+attData.stats.late+'</div><div class="att-lbl">⏰ មកយឺត</div></div>'
+      +'<div class="att-box"><div class="att-num" style="color:var(--danger)">'+attData.stats.absent+'</div><div class="att-lbl">❌ អវត្តមាន</div></div>'
+      +'<div class="att-box"><div class="att-num" style="color:var(--info)">'+attData.stats.total+'</div><div class="att-lbl">👥 សរុប</div></div>'
+      +'<div class="att-box" style="border-top:2px solid var(--success)"><div class="att-num" style="color:var(--success)">'+attData.stats.checked_in+'</div><div class="att-lbl">🟢 ស្កេនចូល</div></div>'
+      +'<div class="att-box" style="border-top:2px solid var(--danger)"><div class="att-num" style="color:var(--danger)">'+attData.stats.not_scanned+'</div><div class="att-lbl">🔴 មិនទាន់ស្កេន</div></div>'
+      +'<div class="att-box" style="border-top:2px solid var(--info)"><div class="att-num" style="color:var(--info)">'+attData.stats.checked_out+'</div><div class="att-lbl">🔵 ស្កេនចេញ</div></div>'
+      +'</div>'
++ (()=>{
+        const checkinOnly = attData.records.filter(a => a.check_in && !a.check_out);
+        if (checkinOnly.length === 0) return '';
+        const rows = checkinOnly.map((a,i) => {
+          const photo = getEmpPhoto(a.employee_id);
+          const av = photo
+            ? '<div class="emp-avatar" style="width:32px;height:32px;min-width:32px;background:'+getColor(a.employee_name)+';overflow:hidden;padding:0"><img src="'+photo+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/></div>'
+            : '<div class="emp-avatar" style="width:32px;height:32px;min-width:32px;font-size:13px;background:'+getColor(a.employee_name)+'">'+(a.employee_name||'?')[0]+'</div>';
+          return '<tr>'
+            +'<td style="padding:8px 12px"><b style="color:var(--text3);font-size:12px">'+(i+1)+'</b></td>'
+            +'<td style="padding:8px 12px"><div class="employee-cell">'+av+'<div class="emp-name">'+a.employee_name+'</div></div></td>'
+            +'<td style="padding:8px 12px"><span style="color:var(--text3);font-size:12px">'+(a.department||'—')+'</span></td>'
+            +'<td style="padding:8px 12px">'+(a.work_location?'<span style="font-size:12px;display:inline-flex;align-items:center;gap:3px;background:var(--bg3);padding:2px 8px;border-radius:12px;color:var(--text2)">📍 '+a.work_location+'</span>':'<span style="color:var(--text3)">—</span>')+'</td>'
+            +'<td style="padding:8px 12px"><span style="font-family:var(--mono);color:var(--success);font-size:13px">'+(a.check_in||'—')+'</span></td>'
+            +'<td style="padding:8px 12px"><span style="font-family:var(--mono);color:var(--danger);font-size:13px">មិនទាន់ចេញ</span></td>'
+            +'</tr>';
+        }).join('');
+        return '<div class="card" style="border-left:4px solid var(--warning);margin-bottom:16px">'
+          +'<div class="card-header" style="background:rgba(234,179,8,.08)">'
+          +'<span class="card-title" style="color:var(--warning)">⚠️ បុគ្គលិកដែលមានតែ Check-In — មិនទាន់ស្កេនចេញ ('+checkinOnly.length+' នាក់)</span>'
+          +'</div>'
+          +'<div class="table-container"><table>'
+          +'<thead><tr><th style="width:40px">#</th><th>ឈ្មោះបុគ្គលិក</th><th>នាយកដ្ឋាន</th><th>📍 ទីតាំង</th><th>ម៉ោងចូល</th><th>ស្ថានភាព</th></tr></thead>'
+          +'<tbody>'+rows+'</tbody>'
+          +'</table></div></div>';
+      })()
+      +'<div class="card">'
+      +'<div class="card-header"><span class="card-title">ក្បាលបញ្ជីវត្តមាន</span></div>'
+      +'<div class="table-container"><table>'
+      +'<thead><tr>'+theadCols+'</tr></thead>'
+      +'<tbody>'+attRows+'</tbody>'
+      +'</table></div></div>';
+  } catch(e) { showError(e.message); }
+}
+
+async function deleteAttendance(id, date) {
+  if (!confirm('លុបកំណត់ត្រាវត្តមាននេះ?')) return;
+  try {
+    await api('DELETE', '/attendance/' + id);
+    showToast('លុបបានជោគជ័យ!', 'success');
+    renderAttendance(date);
+  } catch(e) { showToast('បញ្ហា: ' + e.message, 'error'); }
+}
+
+// ===== MONTHLY ATTENDANCE TABLE =====
+async function renderMonthlyAttendance(month='') {
+  showLoading();
+  // === QR Scanner: restrict to own row only, hide admin actions ===
+  const _maSess = getSession();
+  const _maIsQR = _maSess?.role === 'QR Scanner';
+  const _maIsAdmin = _maSess && (
+    _maSess.role === 'អ្នកគ្រប់គ្រង' ||
+    _maSess.role?.toLowerCase() === 'admin' ||
+    _maSess.username === 'admin' ||
+    _maSess.username === 'adminsupport'
+  );
+  // QR Scanner with NO edit/approve permissions → show own row only + hide action buttons
+  // If admin gave QR Scanner edit perms, they can see all rows
+  const _maHasEdit = hasPerm('attendance_edit') || hasPerm('leave_approve') || hasPerm('dayswap_approve');
+  const _maSelfOnly = _maIsQR && !_maIsAdmin && !_maHasEdit;
+  const currentMonth = month || thisMonth();
+  const [y, m] = currentMonth.split('-').map(Number);
+  const daysInMonth = new Date(y, m, 0).getDate();
+  // Mobile layout: narrow sticky columns so day-columns are visible
+  const isMobile = window.innerWidth <= 600;
+  // Mobile: name=110px, only name+✅ sticky. Desktop: full sticky columns.
+  const COL_NAME  = isMobile ? 110 : 160;
+  const COL_P     = isMobile ?  22 : 30;   // ✅
+  const COL_L     = isMobile ?  22 : 30;   // ⏰
+  const COL_A     = isMobile ?  22 : 30;   // ❌
+  const COL_SW    = isMobile ?  22 : 30;   // 🔄
+  const COL_OVER  = isMobile ?  28 : 36;   // លើស
+  const COL_DED   = isMobile ?  38 : 52;   // កាត់
+  const COL_OFF   = isMobile ?  44 : 60;   // 🌟OFF
+  // Cumulative left positions for sticky columns
+  const S_P    = COL_NAME;
+  const S_L    = S_P   + COL_P;
+  const S_A    = S_L   + COL_L;
+  const S_SW   = S_A   + COL_A;
+  const S_OVER = S_SW  + COL_SW;
+  const S_DED  = S_OVER + COL_OVER;
+  const S_OFF  = S_DED  + COL_DED;
+  // On mobile, only name column is sticky (save space for day columns)
+  const mobileNonSticky = isMobile ? 'position:relative;' : '';
+  const mobileNonStickyNoShadow = isMobile ? 'position:relative;box-shadow:none;' : '';
+  const rules = getSalaryRules();
+  const maxAbsent = rules.max_absent_days !== undefined ? rules.max_absent_days : 2;
+
+  try {
+    const [empData, swapDataRaw, leaveDataRaw] = await Promise.all([
+      api('GET','/employees?limit=500'),
+      api('GET','/dayswap').catch(()=>({records:[]})),
+      api('GET','/leave').catch(()=>({records:[]}))
+    ]);
+    // Build swap map: empId -> { dd -> swapRecord } keyed by swap_date (work date this month)
+    const swapMap = {};
+    // Build off-date map: empId -> { dd -> swapRecord } keyed by off_date (compensation OFF date)
+    const offDateMap = {};
+    (swapDataRaw.records||[]).forEach(s => {
+      if (s.status !== 'approved') return;
+      // swap_date = ថ្ងៃ OFF ដែលមកធ្វើការ
+      if (s.swap_date && s.swap_date.startsWith(currentMonth)) {
+        if (!swapMap[s.employee_id]) swapMap[s.employee_id] = {};
+        const dd = s.swap_date.slice(-2);
+        swapMap[s.employee_id][dd] = s;
+      }
+      // off_date = ថ្ងៃធ្វើការ ដែល OFF ជំនួស (exact date)
+      if (s.off_date && s.off_date.startsWith(currentMonth)) {
+        if (!offDateMap[s.employee_id]) offDateMap[s.employee_id] = {};
+        const dd = s.off_date.slice(-2);
+        offDateMap[s.employee_id][dd] = s;
+      }
+    });
+
+    // Build leave map: empId -> { dd -> leaveRecord } for approved/pending leaves this month
+    const leaveMap = {};
+    (leaveDataRaw.records||[]).forEach(lv => {
+      if (lv.status === 'rejected') return;
+      const start = new Date(lv.start_date + 'T00:00:00');
+      const end   = new Date(lv.end_date   + 'T00:00:00');
+      // Iterate each day of the leave and mark if falls in current month
+      for (let cur = new Date(start); cur <= end; cur.setDate(cur.getDate() + 1)) {
+        const iso = cur.toISOString().slice(0, 10); // YYYY-MM-DD
+        if (!iso.startsWith(currentMonth)) continue;
+        const dd = iso.slice(-2);
+        if (!leaveMap[lv.employee_id]) leaveMap[lv.employee_id] = {};
+        leaveMap[lv.employee_id][dd] = lv;
+      }
+    });
+    // Fetch all attendance records for the month using month param (primary)
+    let allRecords = [];
+    try {
+      // QR Scanner with known employee_id: fetch only their records (faster + accurate)
+      const _maEmpId = (_maSelfOnly && _maSess?.employee_id) ? '&employee_id='+parseInt(_maSess.employee_id) : '';
+      const r1 = await api('GET','/attendance?month='+currentMonth+'&limit=9999'+_maEmpId);
+      allRecords = r1.records || [];
+    } catch(_) {}
+    // Fallback: fetch day-by-day if month query returned nothing
+    if (!allRecords.length) {
+      const _maEmpId2 = (_maSelfOnly && _maSess?.employee_id) ? '&employee_id='+parseInt(_maSess.employee_id) : '';
+      const promises = [];
+      for (let d=1; d<=daysInMonth; d++) {
+        const dd = String(d).padStart(2,'0');
+        promises.push(api('GET','/attendance?date='+currentMonth+'-'+dd+'&limit=9999'+_maEmpId2).catch(()=>({records:[]})));
+      }
+      const results = await Promise.all(promises);
+      results.forEach(r => { allRecords = allRecords.concat(r.records||[]); });
+    }
+
+    let emps = empData.employees || [];
+    // QR Scanner: show only own row
+    if (_maSelfOnly) {
+      const _myEmpId = _maSess?.employee_id ? parseInt(_maSess.employee_id) : null;
+      const _myName  = (_maSess?.name || '').trim().toLowerCase();
+      const _myUser  = (_maSess?.username || '').trim().toLowerCase();
+      if (_myEmpId) {
+        // Best: match by linked employee_id (most reliable)
+        emps = emps.filter(e => parseInt(e.id) === _myEmpId);
+      } else {
+        // Fallback: match by name (exact, then partial, then username)
+        let _matched = emps.filter(e => (e.name || '').trim().toLowerCase() === _myName);
+        if (!_matched.length) {
+          // Partial name match (handles extra spaces, different ordering)
+          _matched = emps.filter(e => {
+            const en = (e.name || '').trim().toLowerCase();
+            return en.includes(_myName) || _myName.includes(en);
+          });
+        }
+        if (!_matched.length && _myUser) {
+          // Last resort: match by username against name
+          _matched = emps.filter(e => (e.name || '').trim().toLowerCase().includes(_myUser) || _myUser.includes((e.name||'').trim().toLowerCase()));
+        }
+        emps = _matched;
+      }
+    }
+    // Build map: empId -> { dayStr -> record }
+    const attMap = {};
+    allRecords.forEach(a => {
+      if (!attMap[a.employee_id]) attMap[a.employee_id] = {};
+      const day = (a.date||'').slice(-2);
+      attMap[a.employee_id][day] = a;
+    });
+
+    // Build ALL day columns for the month (used for table headers)
+    const allDays = [];
+    for (let d=1; d<=daysInMonth; d++) {
+      const dt = new Date(y, m-1, d);
+      const wd = dt.getDay();
+      allDays.push({ d, dd: String(d).padStart(2,'0'), wd });
+    }
+    // Show all days in header — OFF is per-employee based on their off_days
+    const days = allDays;
+
+    // Helper: get working days for a specific employee (exclude their personal off_days)
+    function getEmpWorkDays(emp) {
+      var offDays = parseOffDays(emp); // empty = work every day
+      return allDays.filter(function({wd}) { return offDays.indexOf(wd) === -1; });
+    }
+
+    // Summary per employee
+    const summaries = emps.map(emp => {
+      const rec = attMap[emp.id] || {};
+      const empDays = getEmpWorkDays(emp);
+      let present=0, late=0, absent=0, swap=0, onLeave=0, halfDayCount=0;
+      empDays.forEach(({dd}) => {
+        // Skip if this working day is a compensation OFF day (OFF+)
+        const compSwap = (offDateMap[emp.id]||{})[dd];
+        if (compSwap) return; // treated as OFF+, not absent
+        // Skip if employee has approved/pending leave on this day
+        const lv = (leaveMap[emp.id]||{})[dd];
+        if (lv) { onLeave++; return; } // count as leave, not absent
+        const a = rec[dd];
+        if (a) {
+          if (a.status==='present') present++;
+          else if (a.status==='late') late++;
+          else if (a.status==='holiday') { /* ថ្ងៃឈប់សម្រាក — មិនគិតជា absent */ }
+          else if (a.status==='absent') absent++;
+          else if (a.status==='half_day_am' || a.status==='half_day_pm') { present+=0.5; absent+=0.5; halfDayCount++; }
+        } else {
+          absent++;
+        }
+      });
+      // Count swap days: OFF days where employee came to work
+      // រាប់ទាំង dayswap approved AND attendance direct on OFF day
+      const empSwapDays = swapMap[emp.id] || {};
+      const empOffDateDays = offDateMap[emp.id] || {};
+      const empOffDaysSet = parseOffDays(emp);
+      const countedOffDays = new Set();
+      // dayswap approved records
+      Object.keys(empSwapDays).forEach(dd => {
+        if (countedOffDays.has(dd)) return;
+        countedOffDays.add(dd);
+        const sr = empSwapDays[dd];
+        const isCompOff = sr.off_date && sr.off_date.trim() !== '';
+        if (!isCompOff) {
+          // OFF ្នូវការ (គ្មានជានួស) — swap + present
+          swap++;
+          present++;
+        } else {
+          // OFF+្នួរជានួស — បុគ្គលិកបានមក្នូវការ្នូវការ — count present + swap
+          present++;
+          swap++;
+        }
+      });
+      // attendance records on OFF days (direct scan/add — no dayswap)
+      allDays.forEach(({dd, wd}) => {
+        if (empOffDaysSet.length === 0 || empOffDaysSet.indexOf(wd) === -1) return; // not an OFF day
+        if (countedOffDays.has(dd)) return; // already counted via dayswap
+        if ((offDateMap[emp.id]||{})[dd]) return; // OFF+ compensation — skip
+        const attRec = rec[dd];
+        if (attRec && (attRec.status === 'present' || attRec.status === 'late')) {
+          countedOffDays.add(dd);
+          swap++;
+          present++;
+        }
+      });
+      const overAbsent = Math.max(0, absent - maxAbsent);
+      const workingDaysCount = empDays.length;
+      const dailyRate = (emp.salary || 0) / 30; // Fixed 30-day standard
+      const deduction = parseFloat((overAbsent * dailyRate).toFixed(2));
+      // OFF bonus ប្រើ salary/30 (Fixed 30-day standard) ទោះខែ 28/31 ថ្ងៃ
+      const offDailyRate = (emp.salary || 0) / 30; // Fixed 30-day standard
+      // ប្រាក់បន្ថែមថ្ងៃ OFF:
+      // វិធី ១: attendance record (present/late) ត្រង់ថ្ងៃ OFF → គិតប្រាក់
+      // វិធី ២: dayswap approved (swap_date) ដែល off_date ទំនេរ → គិតប្រាក់
+      // OFF + ជំនួស (off_date ស្ថិតខែនេះ) → មិនគិតប្រាក់
+      const empOff = parseOffDays(emp);
+      // ថ្ងៃ OFF សរុបក្នុងខែ = ថ្ងៃទាំងអស់ដែលជា OFF day របស់បុគ្គលិក
+      const empOffDaysThisMonth = allDays.filter(({wd}) => empOff.length > 0 && empOff.indexOf(wd) !== -1).length;
+      const empOffDateDaysThisMonth = offDateMap[emp.id] || {};
+      const empAttRec = rec; // attMap[emp.id]
+      let offDaysWorked = 0;
+      allDays.forEach(({dd, wd}) => {
+        // ថ្ងៃ OFF របស់បុគ្គលិក?
+        if (empOff.length === 0 || empOff.indexOf(wd) === -1) return;
+        // OFF+ ជំនួស (off_date) → មិនគិតប្រាក់
+        if (empOffDateDaysThisMonth[dd]) return;
+        // ពិនិត្យ dayswap record: ប្រសិន swap_date=ថ្ងៃ OFF នេះ ហើយ off_date មាន → OFF+ជំនួស → skip
+        const swapRec = empSwapDays[dd];
+        if (swapRec) {
+          const hasCompOffDate = swapRec.off_date && swapRec.off_date.trim() !== '';
+          if (hasCompOffDate) return; // OFF+ជំនួស — មិនគិតប្រាក់
+          // dayswap approved ដោយគ្មាន off_date → គិតប្រាក់
+          offDaysWorked++;
+          return;
+        }
+        // មាន attendance record (present/late) ថ្ងៃ OFF ដោយ គ្មាន dayswap → គិតប្រាក់
+        const attRec = empAttRec[dd];
+        if (attRec && (attRec.status === 'present' || attRec.status === 'late')) {
+          offDaysWorked++;
+        }
+      });
+      const _rules = getSalaryRules();
+      const _offMult = (_rules.off_bonus_enabled !== false) ? (_rules.off_day_multiplier || 1.0) : 0;
+      const offBonus = parseFloat((offDaysWorked * offDailyRate * _offMult).toFixed(2));
+      return { emp, present, late, absent, swap, onLeave, overAbsent, deduction, dailyRate, offDailyRate, workingDaysCount, offBonus, offDaysWorked, empOffDaysThisMonth, halfDayCount };
+    });
+
+    // Apply department filter
+    const allEmpsForDept = emps;
+    const selectedDept = (document.getElementById('att-dept-filter') || {}).value || '';
+    const filteredEmps = selectedDept ? emps.filter(e => (e.department||e.department_name||'') === selectedDept) : emps;
+    const filteredSummaries = summaries.filter(s => !selectedDept || (s.emp.department||s.emp.department_name||'') === selectedDept);
+    const filteredTotals = filteredSummaries.reduce((t,s)=>({ p:t.p+s.present, l:t.l+s.late, a:t.a+s.absent, sw:t.sw+s.swap, lv:t.lv+s.onLeave, d:t.d+s.deduction, ob:t.ob+(s.offBonus||0), hd:t.hd+(s.halfDayCount||0) }),{p:0,l:0,a:0,sw:0,lv:0,d:0,ob:0,hd:0});
+    const renderSummaries = filteredSummaries;
+    const renderEmps = filteredEmps;
+    const renderTotals = filteredTotals;
+
+    // Build union of all employee off_days for header highlight
+    const allOffWds = new Set();
+    emps.forEach(function(e) { parseOffDays(e).forEach(function(w){ allOffWds.add(w); }); });
+
+    // Weekday short names in Khmer (0=Sun...6=Sat)
+    const wdNames = ['អា','ច','អ','ព','ព្រ','សុ','ស'];
+
+    // Table header row 1: day numbers
+    const dayThs = allDays.map(({d,wd}) => {
+      const isToday = (thisMonth()===currentMonth && new Date().getDate()===d);
+      const isSat = wd === 6; const isSun = wd === 0;
+      const isCommonOff = allOffWds.has(wd);
+      let bg = isToday ? 'background:var(--primary);color:white;' : isSun ? 'background:rgba(220,38,38,0.25);color:#f87171;' : isSat ? 'background:rgba(180,83,9,0.25);color:#fbbf24;' : isCommonOff ? 'background:var(--bg2);color:var(--text3);' : '';
+      return '<th style="width:30px;min-width:30px;max-width:30px;padding:0;height:26px;font-size:'+(isMobile?'11px':'13px')+';font-weight:700;text-align:center;vertical-align:middle;line-height:26px;'+bg+'">' + d + '</th>';
+    }).join('');
+
+    // Table header row 2: weekday names
+    const wdThs = allDays.map(({wd}) => {
+      const isSat = wd === 6; const isSun = wd === 0;
+      const isCommonOff = allOffWds.has(wd);
+      const color = isSun ? 'color:#f87171;' : isSat ? 'color:#fbbf24;' : 'color:var(--text);';
+      return '<th style="width:30px;min-width:30px;max-width:30px;padding:0;height:18px;font-size:'+(isMobile?'9px':'11px')+';text-align:center;font-weight:600;vertical-align:middle;line-height:18px;'+color+'">' + wdNames[wd] + '</th>';
+    }).join('');
+
+    const dayRows = filteredSummaries.map(({emp, present, late, absent, swap, overAbsent, deduction, offBonus, offDaysWorked, empOffDaysThisMonth, workingDaysCount, halfDayCount}) => {
+      const rec = attMap[emp.id] || {};
+      const empOff = parseOffDays(emp);
+      const cells = allDays.map(({dd, wd}) => {
+        const swapRec = (swapMap[emp.id]||{})[dd];
+        const a = (attMap[emp.id]||{})[dd];
+        const lv = (leaveMap[emp.id]||{})[dd];
+        const W = 'width:30px;min-width:30px;max-width:30px;overflow:hidden;';
+
+        // Check holiday first (overrides everything)
+        if (a && a.status === 'holiday') {
+          return '<td style="'+W+'text-align:center;font-size:11px;padding:1px 0" title="ថ្ងៃឈប់សម្រាក">🎉</td>';
+        }
+
+        // This day is employee's day off (only if off_days is set and includes this weekday)
+        if (empOff.length > 0 && empOff.indexOf(wd) !== -1) {
+          // ករណី dayswap: swap_date = ថ្ងៃ OFF ដែលមក
+          if (swapRec) {
+            const isCompOff = swapRec.off_date && swapRec.off_date.trim() !== '';
+            if (isCompOff) {
+              // OFF+ជំនួស — employee came but will take OFF later → show 🔄 (swap)
+              return '<td style="'+W+'text-align:center;font-size:13px;padding:1px 0;font-weight:700;color:#92400e;background:#fde68a" title="OFF+ជំនួស (មិនគិតប្រាក់)">🔄</td>';
+            }
+            // OFF ធ្វើការ គ្មានជំនួស → 🔄 primary
+            return '<td style="'+W+'text-align:center;font-size:13px;padding:1px 0;color:var(--primary)" title="OFF ធ្វើការ (គិតប្រាក់)">🔄</td>';
+          }
+          // attendance direct on OFF day (no dayswap)
+          if (a && (a.status === 'present' || a.status === 'late')) {
+            const icon = a.status === 'late' ? '⏰' : '✔';
+            const color = a.status === 'late' ? '#f59e0b' : '#d97706';
+            return '<td style="'+W+'text-align:center;font-size:12px;padding:1px 0;font-weight:700;color:'+color+';background:rgba(251,191,36,.15)" title="OFF ធ្វើការ (គិតប្រាក់)">'+icon+'</td>';
+          }
+          return '<td style="'+W+'text-align:center;font-size:11px;padding:2px 0;color:var(--text3);background:var(--bg2)">OFF</td>';
+        }
+        // Check if this working day is the exact compensation OFF date
+        const compSwap = (offDateMap[emp.id]||{})[dd];
+        if (compSwap) {
+          return '<td style="'+W+'text-align:center;font-size:10px;padding:2px 0;font-weight:700;color:var(--warning);background:rgba(255,190,11,.1)" title="OFF+">OFF+</td>';
+        }
+        // Leave day (approved or pending)
+        if (lv) {
+          const isPending = lv.status === 'pending';
+          const bg = isPending ? 'rgba(99,102,241,.12)' : 'rgba(6,214,160,.10)';
+          const color = isPending ? 'var(--primary)' : 'var(--success)';
+          const title = (lv.leave_type||'ច្បាប់') + (isPending ? ' (រង់ចាំ)' : ' (អនុម័ត)');
+          return `<td style="${W}text-align:center;font-size:11px;padding:2px 0;background:${bg};color:${color};font-weight:700" title="${title}">🌴</td>`;
+        }
+        if (!a) return '<td style="'+W+'text-align:center;font-size:12px;padding:2px 0;color:var(--danger)">—</td>';
+        if (a.status==='present') return '<td style="'+W+'text-align:center;font-size:13px;padding:2px 0;color:var(--success)">✔</td>';
+        if (a.status==='late') return '<td style="'+W+'text-align:center;font-size:12px;padding:2px 0;color:var(--warning)">⏰</td>';
+        if (a.status==='half_day_am') return '<td style="'+W+'text-align:center;font-size:11px;padding:1px 0;font-weight:700;color:#0891b2;background:rgba(8,145,178,.1)" title="កន្លះថ្ងៃ ព្រឹក">½P</td>';
+        if (a.status==='half_day_pm') return '<td style="'+W+'text-align:center;font-size:11px;padding:1px 0;font-weight:700;color:#7c3aed;background:rgba(124,58,237,.1)" title="កន្លះថ្ងៃ ល្ងាច">½L</td>';
+        return '<td style="'+W+'text-align:center;font-size:13px;padding:2px 0;color:var(--danger)">✗</td>';
+      }).join('');
+      const photo = getEmpPhoto(emp.id);
+      const av = photo
+        ? '<img src="'+photo+'" style="width:24px;height:24px;border-radius:50%;object-fit:cover;flex-shrink:0"/>'
+        : '<div style="width:20px;height:20px;border-radius:50%;background:'+getColor(emp.name)+';display:flex;align-items:center;justify-content:center;color:white;font-size:10px;font-weight:700;flex-shrink:0">'+emp.name[0]+'</div>';
+      const deductCell = overAbsent > 0
+        ? '<td style="text-align:center;font-weight:700;color:var(--danger);font-size:12px">-$'+deduction.toFixed(2)+'</td>'
+        : '<td style="text-align:center;color:var(--success);font-size:11px">—</td>';
+
+      return '<tr>'
+        +'<td style="padding:'+(isMobile?'4px 4px':'6px 8px')+';white-space:nowrap;position:sticky;left:0;z-index:1;background:var(--bg2);box-shadow:2px 0 5px rgba(0,0,0,.12)"><div style="display:flex;align-items:center;gap:'+(isMobile?'3px':'6px')+';">'+av+'<span style="font-size:'+(isMobile?'11px':'12px')+';font-weight:600">'+emp.name+'</span></div></td>'
+        +'<td style="text-align:center;font-weight:700;color:var(--success);font-size:'+(isMobile?'11px':'13px')+';width:'+COL_P+'px;position:sticky;left:'+S_P+'px;z-index:1;background:var(--bg2);padding:3px 0">'+(present+late)+'</td>'
+        +'<td style="text-align:center;font-weight:700;color:var(--warning);font-size:'+(isMobile?'11px':'13px')+';width:'+COL_L+'px;background:var(--bg2);padding:3px 0">'+late+'</td>'
+        +'<td style="text-align:center;font-weight:700;color:var(--danger);font-size:'+(isMobile?'11px':'13px')+';width:'+COL_A+'px;background:var(--bg2);padding:3px 0">'+(halfDayCount>0?'<span title="'+halfDayCount+' ថ្ងៃកន្លះ">'+absent+'</span>':absent)+'</td>'
+        +'<td style="text-align:center;font-weight:700;color:var(--primary);font-size:'+(isMobile?'11px':'13px')+';width:'+COL_SW+'px;background:var(--bg2);padding:3px 0">'+(swap>0?'<span style="background:rgba(99,102,241,.15);border-radius:4px;padding:1px 4px">'+swap+'</span>':'<span style="color:var(--text3)">0</span>')+'</td>'
+        +'<td style="text-align:center;font-weight:700;color:'+(overAbsent>0?'var(--danger)':'var(--text3)')+';font-size:11px;background:var(--bg2);width:'+COL_OVER+'px;padding:3px 1px">'+overAbsent+'</td>'
+        +(overAbsent>0?'<td style="text-align:center;font-weight:700;color:var(--danger);font-size:11px;background:var(--bg2);width:'+COL_DED+'px;padding:3px 2px">-$'+deduction.toFixed(2)+'</td>':'<td style="text-align:center;color:var(--success);font-size:11px;background:var(--bg2);width:'+COL_DED+'px;padding:3px 2px">—</td>')
+        +(offBonus>0?'<td style="text-align:center;font-weight:700;color:#d97706;font-size:11px;background:rgba(251,191,36,.08);width:'+COL_OFF+'px;padding:3px 2px" title="🌟 OFF">+$'+offBonus.toFixed(2)+'</td>':'<td style="text-align:center;color:var(--text3);font-size:11px;background:var(--bg2);width:'+COL_OFF+'px;padding:3px 2px">—</td>')
+        +cells
+        +'<td style="text-align:center;font-weight:700;font-size:12px;color:var(--success);width:'+(isMobile?36:42)+'px;padding:3px 2px;position:sticky;right:'+(isMobile?84:100)+'px;z-index:1;background:var(--bg2);box-shadow:-2px 0 4px rgba(0,0,0,.08)">'+(present+late)+'<span style="font-size:10px;font-weight:400;color:var(--text3);display:block">ថ្ងៃ</span></td>'
+        +'<td style="text-align:center;font-weight:700;font-size:12px;color:'+(empOffDaysThisMonth>0?'#6366f1':'var(--text3)')+';width:'+(isMobile?36:48)+'px;max-width:'+(isMobile?36:48)+'px;overflow:hidden;padding:3px 2px;position:sticky;right:'+(isMobile?36:42)+'px;z-index:2;background:var(--bg2);border-left:1px solid var(--border);box-shadow:-2px 0 4px rgba(0,0,0,.06)">'+(empOffDaysThisMonth>0?'<span style="background:rgba(99,102,241,.12);border-radius:4px;padding:2px 5px">'+empOffDaysThisMonth+'</span>':'—')+'</td>'
+        +'<td style="text-align:center;width:'+(isMobile?48:52)+'px;max-width:'+(isMobile?48:52)+'px;overflow:hidden;position:sticky;right:0;z-index:1;background:var(--bg2);box-shadow:-2px 0 5px rgba(0,0,0,.12);padding:2px">'+(!_maSelfOnly ? '<button class="btn btn-outline btn-sm" style="font-size:10px;padding:2px 3px;min-width:0;width:100%;line-height:1.3;display:flex;flex-direction:column;align-items:center;gap:0" onclick="applyAbsenceDeduction('+emp.id+',\''+emp.name+'\','+absent+','+overAbsent+','+deduction+',\''+currentMonth+'\','+offBonus+')"><span style="font-size:12px">💸</span><span style="font-size:9px;font-weight:600;color:var(--danger)">កាត់</span></button>' : '')+'</td>'
+        +'</tr>';
+    }).join('');
+
+    const totals = summaries.reduce((t,s)=>({ p:t.p+s.present, l:t.l+s.late, a:t.a+s.absent, sw:t.sw+s.swap, lv:t.lv+s.onLeave, d:t.d+s.deduction, ob:t.ob+(s.offBonus||0) }),{p:0,l:0,a:0,sw:0,lv:0,d:0,ob:0});
+
+    // Store data globally for print/export buttons
+    window._monthlyAttData = { summaries: filteredSummaries, allDays, currentMonth, emps: filteredEmps, allEmps: allEmpsForDept, totals: filteredTotals, maxAbsent, rules, selectedDept, _attMap: attMap, _leaveMap: leaveMap, _swapMap: swapMap, _offDateMap: offDateMap };
+
+    contentArea().innerHTML =
+      '<div class="page-header">'
+      +'<div>'
+      +'<h2>📊 តារាងវត្តមានប្រចាំខែ</h2>'
+      +'</div>'
+      +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
+      +'<input class="filter-input" id="att-month-input" type="month" value="'+currentMonth+'" onchange="renderMonthlyAttendance(this.value)" />'
+      +(!_maSelfOnly ? (function(){ const allE = (window._monthlyAttData && window._monthlyAttData.allEmps) || (window._monthlyAttData && window._monthlyAttData.emps) || []; const depts = [...new Set(allE.map(e=>e.department||e.department_name||'').filter(Boolean))]; const sel = (window._monthlyAttData && window._monthlyAttData.selectedDept) || ''; return '<select class="filter-input" id="att-dept-filter" style="min-width:120px" onchange="renderMonthlyAttendance(document.getElementById(\'att-month-input\').value)"><option value="">នាយកដ្ឋានទាំងអស់</option>'+depts.map(d=>'<option value="'+d+'"'+(sel===d?' selected':'')+'>'+d+'</option>').join('')+'</select>'; })() : '')
+      +(!_maSelfOnly ? '<button class="btn btn-primary" onclick="applyAllAbsenceDeductions(\''+currentMonth+'\')">💸 កាត់ប្រាក់ទាំងអស់</button>' : '')
+      +(!_maSelfOnly ? '<button class="btn btn-outline" onclick="renderAttendance(today())" style="border-color:var(--success);color:var(--success)">📅 ថ្ងៃទៅថ្ងៃ</button>' : '')
+      +(!_maSelfOnly ? '<div class="monthly-att-actions" style="display:flex;gap:6px;flex-wrap:wrap">'
+        +'<button class="btn btn-outline" onclick="printMonthlyAttendance()" style="border-color:var(--primary);color:var(--primary);font-size:12px;padding:5px 12px">🖨️ PDF</button>'
+        +'<button class="btn btn-outline" onclick="saveMonthlyAttendanceAsImage()" style="border-color:#8b5cf6;color:#8b5cf6;font-size:12px;padding:5px 12px">📷 PNG</button>'
+        +'<button class="btn btn-outline" onclick="exportMonthlyAttendanceExcel()" style="border-color:var(--info);color:var(--info);font-size:12px;padding:5px 12px">📊 Excel</button>'
+        +'</div>' : '')
+      +'</div></div>'
+
+      +'<div class="att-summary">'
+      +'<div class="att-box"><div class="att-num" style="color:var(--success)">'+(renderTotals.p+renderTotals.l)+'</div><div class="att-lbl">✅ វត្តមាន</div></div>'
+      +'<div class="att-box"><div class="att-num" style="color:var(--warning)">'+renderTotals.l+'</div><div class="att-lbl">⏰ យឺត</div></div>'
+      +'<div class="att-box"><div class="att-num" style="color:var(--danger)">'+renderTotals.a+'</div><div class="att-lbl">❌ អវត្តមាន</div></div>'
+      +'<div class="att-box" style="background:rgba(8,145,178,.08);border:1px solid rgba(8,145,178,.25)"><div class="att-num" style="color:#0891b2">'+renderTotals.hd+'</div><div class="att-lbl" style="color:#0891b2">½ កន្លះថ្ងៃ</div></div>'
+      +'<div class="att-box"><div class="att-num" style="color:var(--primary)">'+renderTotals.sw+'</div><div class="att-lbl">🔄 ជំនួស</div></div>'
+      +'<div class="att-box"><div class="att-num" style="color:var(--success)">'+renderTotals.lv+'</div><div class="att-lbl">🌴 ច្បាប់</div></div>'
+      +'<div class="att-box"><div class="att-num" style="color:var(--danger)">'+renderSummaries.filter(s=>s.overAbsent>0).length+'</div><div class="att-lbl">⚠️ លើសថ្ងៃ</div></div>'
+      +'<div class="att-box" style="background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.3)"><div class="att-num" style="color:#d97706">$'+(renderTotals.ob||0).toFixed(2)+'</div><div class="att-lbl" style="color:#d97706">🌟 OFF Bonus</div></div>'
+
+      +'</div>'
+      +(!_maSelfOnly ? '<div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:8px 14px;margin-bottom:6px;display:flex;gap:16px;flex-wrap:wrap;align-items:center">'
+      +'<span style="font-size:12px;color:var(--text3)">⚙️ ច្បាប់:</span>'
+      +'<span style="font-size:12px">ថ្ងៃអវត្តមានអនុញ្ញាត: <b style="color:var(--primary)">'+maxAbsent+' ថ្ងៃ/ខែ</b></span>'
+      +'<span style="font-size:12px">ម៉ោងចូល: <b style="color:var(--warning)">'+(rules.work_start_time||'08:00')+'</b> <span style="color:var(--text3)">(grace '+(rules.late_grace_minutes||15)+' នាទី)</span></span>'
+      +'<span style="font-size:12px">រូបមន្ត: <b style="color:var(--danger)">ប្រាក់ខែ ÷ ថ្ងៃធ្វើការ × ថ្ងៃលើស</b></span>'
+      +'<button class="btn btn-outline btn-sm" style="font-size:11px" onclick="openAbsenceRulesModal()">✏️ កែច្បាប់</button>'
+      +'</div>' : '')
+      +'<div class="card" style="padding:0"><div style="overflow-x:scroll;overflow-y:auto;max-height:calc(100vh - 265px);will-change:scroll-position;-webkit-overflow-scrolling:touch"><table class="monthly-att-wrap" style="min-width:max-content;border-collapse:collapse;table-layout:auto">'
+      +'<colgroup>'
+      +'<col style="width:'+COL_NAME+'px"/>'
+      +'<col style="width:'+COL_P+'px"/>'
+      +'<col style="width:'+COL_L+'px"/>'
+      +'<col style="width:'+COL_A+'px"/>'
+      +'<col style="width:'+COL_SW+'px"/>'
+      +'<col style="width:'+COL_OVER+'px"/>'
+      +'<col style="width:'+COL_DED+'px"/>'
+      +'<col style="width:'+COL_OFF+'px"/>'
+      +allDays.map(()=>'<col style="width:30px;min-width:30px;max-width:30px"/>').join('')
+      +'<col style="width:'+(isMobile?36:42)+'px"/>'
+      +'<col style="width:'+(isMobile?36:48)+'px"/>'
+      +'<col style="width:'+(isMobile?48:52)+'px"/>'
+      +'</colgroup>'
+      +'<thead>'
+      +'<tr style="position:sticky;top:0;z-index:4;background:var(--bg2);height:26px">'
+          +'<th style="width:'+COL_NAME+'px;text-align:left;position:sticky;left:0;z-index:5;background:var(--bg2);box-shadow:2px 0 5px rgba(0,0,0,.2);padding:'+(isMobile?'4px 4px':'6px 8px')+';font-size:'+(isMobile?'11px':'inherit')+'" rowspan="2">បុគ្គលិក</th>'
+          +'<th style="width:'+COL_P+'px;text-align:center;color:var(--success);position:sticky;left:'+S_P+'px;z-index:5;background:var(--bg2);padding:3px 0;font-size:'+(isMobile?'11px':'13px')+'" rowspan="2" title="វត្តមាន">✅</th>'
+          +'<th style="width:'+COL_L+'px;text-align:center;color:var(--warning);'+(isMobile?'':'position:sticky;left:'+S_L+'px;z-index:5;')+';background:var(--bg2);padding:3px 0;font-size:'+(isMobile?'11px':'13px')+'" rowspan="2" title="យឺត">⏰</th>'
+          +'<th style="width:'+COL_A+'px;text-align:center;color:var(--danger);'+(isMobile?'':'position:sticky;left:'+S_A+'px;z-index:5;')+';background:var(--bg2);padding:3px 0;font-size:'+(isMobile?'11px':'13px')+'" rowspan="2" title="អវត្តមាន">❌</th>'
+          +'<th style="width:'+COL_SW+'px;text-align:center;color:var(--primary);'+(isMobile?'':'position:sticky;left:'+S_SW+'px;z-index:5;')+';background:var(--bg2);padding:3px 0;font-size:'+(isMobile?'11px':'13px')+'" rowspan="2" title="ប្ដូរថ្ងៃ">🔄</th>'
+          +'<th style="width:'+COL_OVER+'px;text-align:center;font-size:11px;'+(isMobile?'':'position:sticky;left:'+S_OVER+'px;z-index:5;')+';background:var(--bg2);padding:3px 1px" rowspan="2" title="លើសថ្ងៃ">លើស</th>'
+          +'<th style="width:'+COL_DED+'px;text-align:center;font-size:11px;'+(isMobile?'':'position:sticky;left:'+S_DED+'px;z-index:5;')+';background:var(--bg2);padding:3px 2px" rowspan="2" title="កាត់ប្រាក់">កាត់</th>'
+          +'<th style="width:'+COL_OFF+'px;text-align:center;font-size:11px;'+(isMobile?'':'position:sticky;left:'+S_OFF+'px;z-index:5;box-shadow:3px 0 6px rgba(0,0,0,.2);')+';background:var(--bg2);padding:3px 2px;color:#f59e0b" rowspan="2" title="🌟 OFF">🌟OFF</th>'
+          +dayThs
+          +'<th style="width:'+(isMobile?36:42)+'px;text-align:center;padding:3px 2px;font-size:11px;color:var(--success);position:sticky;right:'+(isMobile?84:100)+'px;z-index:5;background:var(--bg2);box-shadow:-2px 0 4px rgba(0,0,0,.1)" rowspan="2" title="ធ្វើការ">📅<br/><span style="font-size:10px">ធ្វើ</span></th>'
+          +'<th style="width:'+(isMobile?36:48)+'px;text-align:center;padding:3px 2px;font-size:11px;color:#6366f1;position:sticky;right:'+(isMobile?36:42)+'px;z-index:6;background:var(--bg2);border-left:1px solid var(--border);overflow:hidden;max-width:'+(isMobile?36:48)+'px;box-shadow:-2px 0 4px rgba(0,0,0,.08)" rowspan="2" title="📅 OFF ខែ"><span style="display:block;font-size:11px;font-weight:700;line-height:1.3">OFF</span><span style="display:block;font-size:10px;line-height:1.2;color:var(--text3)">ខែ</span></th>'
+          +(!_maSelfOnly ? '<th style="width:'+(isMobile?48:52)+'px;text-align:center;padding:3px 2px;font-size:11px;position:sticky;right:0;z-index:5;background:var(--bg2);box-shadow:-2px 0 5px rgba(0,0,0,.15)" rowspan="2">សកម្ម</th>' : '')
+          +'</tr>'
+          +'<tr style="position:sticky;top:26px;z-index:4;background:var(--bg2);height:18px">'+wdThs+'</tr>'
+      +'</thead>'
+      +'<tbody>'+dayRows+'</tbody>'
+      +(()=>{
+        // Build per-day working/off summary footer — 4 separate rows
+        const totalEmps = renderEmps.length;
+
+        // Compute per-day stats
+        const footData = allDays.map(({dd, wd}) => {
+          let working = 0, presentOnly = 0, lateCount = 0, offCount = 0, offWorked = 0, swapCount = 0, halfDayCount = 0;
+          renderSummaries.forEach(({emp}) => {
+            const empOff = parseOffDays(emp);
+            const swapRec = (swapMap[emp.id]||{})[dd];
+            const compSwap = (offDateMap[emp.id]||{})[dd];
+            const attRec = (attMap[emp.id]||{})[dd];
+            if (empOff.length > 0 && empOff.indexOf(wd) !== -1) {
+              // ថ្ងៃ OFF
+              if (swapRec) {
+                // OFF+ជំនួស ឬ OFF ធ្វើការ → មិនរាប់ក្នុង ✅ ធ្វើការ
+                working++;
+                if (attRec && attRec.status==='late') lateCount++;
+                offWorked++;
+                swapCount++;
+              } else if (attRec && (attRec.status==='present'||attRec.status==='late')) {
+                // OFF ធ្វើការដោយខ្លួនឯង (គ្មានជំនួស) → មិនរាប់ ✅ ធ្វើការ
+                working++; offWorked++;
+                if (attRec.status==='late') lateCount++;
+              } else {
+                offCount++;
+              }
+            } else if (compSwap) {
+              // ថ្ងៃសម្រាក compensate → off
+              offCount++;
+            } else {
+              // ថ្ងៃធ្វើការធម្មតា → រាប់តែ present ប៉ុណ្ណោះ មិនរួម late និង ជំនួស
+              if (attRec && attRec.status==='present') {
+                working++;
+                presentOnly++;
+              } else if (attRec && attRec.status==='late') {
+                working++;
+                lateCount++;
+                // presentOnly មិនរាប់ late
+              } else if (attRec && (attRec.status==='half_day_am'||attRec.status==='half_day_pm')) {
+                halfDayCount++;
+              } else {
+                offCount++;
+              }
+            }
+          });
+          const isSun = wd===0, isSat = wd===6;
+          const bg = isSun ? 'background:rgba(220,38,38,0.12);' : isSat ? 'background:rgba(180,83,9,0.12);' : '';
+          // totalCount = presentOnly + lateCount + offWorked + halfDayCount
+          const totalCount = presentOnly + lateCount + offWorked + halfDayCount;
+          return { working, presentOnly, lateCount, offCount, offWorked, swapCount, totalCount, halfDayCount, bg };
+        });
+
+        // Shared cell width style
+        const TDW = 'width:26px;min-width:26px;max-width:26px;text-align:center;padding:3px 1px;font-size:11px;font-weight:700;';
+
+        // Row 1: ✅ ធ្វើការ
+        const row1Cells = footData.map(({presentOnly,bg}) =>
+          '<td style="'+TDW+bg+'color:var(--success)">'+(presentOnly||'—')+'</td>'
+        ).join('');
+
+        // Row 2: ⏰ ចូលយឺត
+        const row2Cells = footData.map(({lateCount,bg}) =>
+          '<td style="'+TDW+bg+'color:var(--warning)">'+(lateCount||'—')+'</td>'
+        ).join('');
+
+        // Row 3: 🔴 Off
+        const row3Cells = footData.map(({offCount,bg}) =>
+          '<td style="'+TDW+bg+'color:var(--danger)">'+offCount+'</td>'
+        ).join('');
+
+        // Row ½: កន្លះថ្ងៃ
+        const rowHDCells = footData.map(({halfDayCount,bg}) =>
+          '<td style="'+TDW+bg+'color:#0891b2">'+(halfDayCount>0?halfDayCount:'—')+'</td>'
+        ).join('');
+
+        // Row 4: 🌟 OFF ធ្វើការ
+        const row4Cells = footData.map(({offWorked,bg}) =>
+          '<td style="'+TDW+bg+'color:#d97706">'+(offWorked>0?offWorked:'—')+'</td>'
+        ).join('');
+
+        // Row 5: 🔢 Total (present + late + offWorked per day)
+        const row5Cells = footData.map(({totalCount,bg}) =>
+          '<td style="'+TDW+bg+'color:#7c3aed;font-weight:900">'+(totalCount>0?totalCount:'—')+'</td>'
+        ).join('');
+
+        const totalWorking = renderSummaries.reduce((s,r)=>s+(r.present||0)+(r.late||0)+(r.offDaysWorked||0),0);
+
+        // Grand totals (sticky right)
+        const totalWD   = renderSummaries.reduce((s,r)=>s+(r.present||0),0);
+        const totalHD   = renderSummaries.reduce((s,r)=>s+(r.halfDayCount||0),0);
+        const totalLate = renderSummaries.reduce((s,r)=>s+(r.late||0),0);
+        const totalOff  = renderSummaries.reduce((s,r)=>s+(r.empOffDaysThisMonth||0),0);
+        const totalOW   = renderSummaries.reduce((s,r)=>s+(r.offDaysWorked||0),0);
+
+        const stickyTd = (val, color) =>
+          '<td style="background:var(--bg3);position:sticky;right:0;z-index:4;width:'+(isMobile?48:52)+'px;'
+          +'text-align:center;padding:3px 4px;font-size:12px;font-weight:800;color:'+color+';'
+          +'border-left:2px solid var(--border)">'+val+'</td>';
+
+        const labelTd = (icon, label, color) =>
+          '<td style="background:var(--bg3);position:sticky;left:0;z-index:4;'
+          +'box-shadow:2px 0 5px rgba(0,0,0,.12);padding:5px 12px;font-size:11px;'
+          +'font-weight:700;white-space:nowrap;color:'+color+'">'+icon+' '+label+'</td>';
+
+        const infoTd = (extra) =>
+          '<td colspan="6" style="background:var(--bg3);padding:4px 2px;text-align:center;font-size:10px;color:var(--text3)">'+extra+'</td>';
+
+        const blankTd =
+          '<td colspan="6" style="background:var(--bg3);padding:0"></td>';
+
+        const obTd = renderTotals.ob>0
+          ? '<td style="background:rgba(251,191,36,.12);padding:4px 2px;text-align:center;font-weight:700;color:#d97706;font-size:12px" title="🌟 OFF">+$'+renderTotals.ob.toFixed(2)+'</td>'
+          : '<td style="background:var(--bg3);padding:4px 2px;text-align:center;color:var(--text3);font-size:11px">—</td>';
+
+        const blankObTd = '<td style="background:var(--bg3);padding:0"></td>';
+
+        const trStyle = 'background:var(--bg3);border-top:1px solid var(--border)';
+
+        return '<tfoot>'
+          // ── Row 1: ✅ ធ្វើការ ──────────────────────────────────────────────
+          +'<tr style="'+trStyle+';border-top:2px solid var(--border)">'
+          +labelTd('✅','ធ្វើការ (នាក់)','var(--success)')
+          +infoTd(totalEmps+' នាក់')+obTd
+          +row1Cells
+          +stickyTd(totalWD,'var(--success)')
+          +'</tr>'
+          // ── Row 2: ⏰ ចូលយឺត ───────────────────────────────────────────────
+          +'<tr style="'+trStyle+'">'
+          +labelTd('⏰','ចូលយឺត (នាក់)','var(--warning)')
+          +blankTd+blankObTd
+          +row2Cells
+          +stickyTd(totalLate,'var(--warning)')
+          +'</tr>'
+          // ── Row ½: កន្លះថ្ងៃ ─────────────────────────────────────────────
+          +'<tr style="'+trStyle+'">'          +labelTd('½','កន្លះថ្ងៃ (នាក់)','#0891b2')          +blankTd+blankObTd          +rowHDCells          +stickyTd(totalHD,'#0891b2')          +'</tr>'          // ── Row 3: 🌟 OFF ធ្វើការ ──────────────────────────────────────────
+          +'<tr style="'+trStyle+'">'
+          +labelTd('🌟','OFF ធ្វើការ (នាក់)','#d97706')
+          +blankTd+blankObTd
+          +row4Cells
+          +stickyTd(totalOW,'#d97706')
+          +'</tr>'
+          // ── Row 4: 🔴 Off ──────────────────────────────────────────────────
+          +'<tr style="'+trStyle+'">'
+          +labelTd('🔴','Off (នាក់)','var(--danger)')
+          +blankTd+blankObTd
+          +row3Cells
+          +stickyTd(totalOff,'var(--danger)')
+          +'</tr>'
+          // ── Row 5: 🔢 Total (✅+⏰+🌟) ──────────────────────────────────────
+          +'<tr style="'+trStyle+';border-top:2px solid #7c3aed;background:rgba(124,58,237,0.07)">'
+          +labelTd('🔢','Total (នាក់)','#7c3aed')
+          +'<td colspan="6" style="background:rgba(124,58,237,0.07);padding:4px 2px;text-align:center;font-size:10px;color:#7c3aed;font-weight:600">✅+⏰+🌟</td>'
+          +blankObTd
+          +row5Cells
+          +stickyTd(totalWorking,'#7c3aed')
+          +'</tr>'
+          +'</tfoot>';
+      })()
+      +'</table></div></div>';
+  } catch(e) { showError(e.message); }
+}
+
+
+// ── Monthly Attendance Print PDF ──
+function printMonthlyAttendance() {
+  const d = window._monthlyAttData;
+  if (!d) { showToast('សូមចាំ... ទំព័រមិនទាន់ Load ទេ', 'error'); return; }
+  const { summaries, allDays, currentMonth, totals, maxAbsent, rules, selectedDept } = d;
+  const cfg = getCompanyConfig();
+  const monthLabel = currentMonth;
+  const wdNames = ['អា','ច','អ','ព','ព្រ','សុ','ស'];
+
+  // Collect all unique days-off weekdays across all employees (for header highlighting)
+  const allOffWds = new Set();
+  summaries.forEach(function(s){ (parseOffDays(s.emp)||[]).forEach(function(w){ allOffWds.add(w); }); });
+
+  // Pre-compute footer rows — logic mirrors main-view footData exactly
+  const _attMapPDF  = d._attMap    || {};
+  const _swapMapPDF = d._swapMap   || {};
+  const _offDatePDF = d._offDateMap|| {};
+  // Build per-day stats identical to main view
+  const pdfFootData = allDays.map(({dd,wd})=>{
+    let presentOnly=0,lateCount=0,offCount=0,offWorked=0,halfDayCount=0;
+    summaries.forEach(({emp})=>{
+      const empOff=parseOffDays(emp),swapRec=(_swapMapPDF[emp.id]||{})[dd],
+            compSwap=(_offDatePDF[emp.id]||{})[dd],attRec=(_attMapPDF[emp.id]||{})[dd];
+      if(empOff.length>0&&empOff.indexOf(wd)!==-1){
+        if(swapRec){
+          if(attRec&&attRec.status==='late') lateCount++;
+          offWorked++;
+        } else if(attRec&&(attRec.status==='present'||attRec.status==='late')){
+          offWorked++;
+          if(attRec.status==='late') lateCount++;
+        } else { offCount++; }
+      } else if(compSwap){ offCount++; }
+      else {
+        if(attRec&&attRec.status==='present'){ presentOnly++; }
+        else if(attRec&&attRec.status==='late'){ lateCount++; }
+        else if(attRec&&(attRec.status==='half_day_am'||attRec.status==='half_day_pm')){ halfDayCount++; }
+        else { offCount++; }
+      }
+    });
+    const totalCount=presentOnly+lateCount+offWorked+halfDayCount;
+    const isSun=wd===0,isSat=wd===6;
+    const bg=isSun?'background:#fee2e2;':isSat?'background:#fef9c3;':'';
+    return {presentOnly,lateCount,offCount,offWorked,totalCount,halfDayCount,bg};
+  });
+  const footWorkHTML = pdfFootData.map(({presentOnly,bg})=>
+    `<td style="text-align:center;font-size:10px;font-weight:700;color:#16a34a;${bg}">${presentOnly||'—'}</td>`).join('');
+  const footLateHTML = pdfFootData.map(({lateCount,bg})=>
+    `<td style="text-align:center;font-size:10px;font-weight:700;color:#d97706;${bg}">${lateCount||'—'}</td>`).join('');
+  const footOWHTML   = pdfFootData.map(({offWorked,bg})=>
+    `<td style="text-align:center;font-size:10px;font-weight:700;color:#d97706;background:${offWorked>0?'#fffbeb':bg.replace('background:','').replace(';','')|| 'transparent'};">${offWorked>0?'🌟'+offWorked:'—'}</td>`).join('');
+  const footHDHTML   = pdfFootData.map(({halfDayCount,bg})=>
+    `<td style="text-align:center;font-size:10px;font-weight:700;color:#0891b2;${bg}">${halfDayCount>0?halfDayCount:'—'}</td>`).join('');
+  const footOffHTML  = pdfFootData.map(({offCount,bg})=>
+    `<td style="text-align:center;font-size:10px;font-weight:700;color:#dc2626;${bg}">${offCount}</td>`).join('');
+  const footTotalHTML= pdfFootData.map(({totalCount,bg})=>
+    `<td style="text-align:center;font-size:10px;font-weight:900;color:#7c3aed;${totalCount>0?'background:rgba(124,58,237,0.07);':bg}">${totalCount||'—'}</td>`).join('');
+  // Grand totals
+  const totalWDpdf   = summaries.reduce((s,r)=>s+(r.present||0),0);
+  const totalHDpdf   = summaries.reduce((s,r)=>s+(r.halfDayCount||0),0);
+  const totalLatePdf = summaries.reduce((s,r)=>s+(r.late||0),0);
+  const totalOFFpdf  = summaries.reduce((s,r)=>s+(r.empOffDaysThisMonth||0),0);
+  const totalOWpdf   = summaries.reduce((s,r)=>s+(r.offDaysWorked||0),0);
+  const totalAllPdf  = summaries.reduce((s,r)=>s+(r.present||0)+(r.late||0)+(r.offDaysWorked||0),0);
+
+  const thDays = allDays.map(({d, wd}) => {
+    const isSun = wd === 0; const isSat = wd === 6;
+    const isCommonOff = allOffWds.has(wd);
+    const bg = isSun ? 'background:#fee2e2;color:#dc2626;' : isSat ? 'background:#fef9c3;color:#b45309;' : isCommonOff ? 'background:#f3f4f6;color:#9ca3af;' : 'background:#1e3a5f;color:white;';
+    return `<th style="min-width:20px;padding:2px 1px;font-size:11px;font-weight:700;text-align:center;${bg}">${d}</th>`;
+  }).join('');
+  const thWds = allDays.map(({wd}) => {
+    const isSun = wd === 0; const isSat = wd === 6;
+    const isCommonOff = allOffWds.has(wd);
+    const style = isSun ? 'background:#fee2e2;color:#dc2626;' : isSat ? 'background:#fef9c3;color:#b45309;' : 'background:#1e3a5f;color:white;';
+    return `<th style="min-width:20px;padding:1px;font-size:10px;text-align:center;font-weight:600;${style}">${wdNames[wd]}</th>`;
+  }).join('');
+
+  const bodyRows = summaries.map(({emp, present, late, absent, swap, onLeave, overAbsent, deduction, offBonus, workingDaysCount, empOffDaysThisMonth}, idx) => {
+    const empOff = parseOffDays(emp);
+    const attMapData  = window._monthlyAttData._attMap     || {};
+    const lvMapData   = window._monthlyAttData._leaveMap   || {};
+    const swapMapData = window._monthlyAttData._swapMap    || {};
+    const offDateData = window._monthlyAttData._offDateMap || {};
+    const cells = allDays.map(({dd, wd}) => {
+      const a        = (attMapData[emp.id] ||{})[dd];
+      const lv       = (lvMapData[emp.id]  ||{})[dd];
+      const swapRec  = (swapMapData[emp.id]||{})[dd];   // employee worked on OFF day
+      const compSwap = (offDateData[emp.id]||{})[dd];   // compensation OFF day
+      const isOff    = empOff.length > 0 && empOff.indexOf(wd) !== -1;
+      const offBg    = isOff ? 'background:#f3f4f6;' : '';
+      // Holiday overrides everything
+      if (a && a.status === 'holiday') return `<td style="text-align:center;font-size:9px;color:#9333ea;background:#f5f3ff;">🎉</td>`;
+      // Employee OFF day
+      if (isOff) {
+        if (swapRec) {
+          const hasComp = swapRec.off_date && swapRec.off_date.trim() !== '';
+          if (hasComp) return `<td style="text-align:center;font-size:9px;color:#92400e;background:#fde68a;font-weight:700;">🔄</td>`;
+          return `<td style="text-align:center;font-size:9px;color:#4338ca;background:#ede9fe;font-weight:700;">🔄</td>`;
+        }
+        // Direct attendance on OFF day (no dayswap) → 🌟 OFF worked
+        if (a && (a.status === 'present' || a.status === 'late')) {
+          const sym = a.status === 'late' ? '⏰' : '✔';
+          return `<td style="text-align:center;font-size:9px;color:#d97706;background:#fffbeb;font-weight:700;">🌟${sym}</td>`;
+        }
+        return `<td style="text-align:center;font-size:8px;color:#374151;background:#e5e7eb;font-weight:600;">OFF</td>`;
+      }
+      // Compensation OFF day (OFF+)
+      if (compSwap) return `<td style="text-align:center;font-size:8px;font-weight:700;color:#92400e;background:#fde68a;">OFF+</td>`;
+      // Leave
+      if (lv) {
+        const isPending = lv.status === 'pending';
+        const lbg = isPending ? 'background:#ddd6fe;color:#5b21b6;' : 'background:#bbf7d0;color:#15803d;';
+        return `<td style="text-align:center;font-size:9px;font-weight:700;${lbg}">🌴</td>`;
+      }
+      if (!a) return `<td style="text-align:center;font-size:10px;color:#dc2626;font-weight:600;">—</td>`;
+      if (a.status==='present') return `<td style="text-align:center;font-size:10px;color:#16a34a;font-weight:700;">✔</td>`;
+      if (a.status==='late')    return `<td style="text-align:center;font-size:10px;color:#d97706;font-weight:700;">⏰</td>`;
+      if (a.status==='half_day_am') return `<td style="text-align:center;font-size:9px;color:#0891b2;font-weight:700;background:rgba(8,145,178,.1);">½P</td>`;
+      if (a.status==='half_day_pm') return `<td style="text-align:center;font-size:9px;color:#7c3aed;font-weight:700;background:rgba(124,58,237,.1);">½L</td>`;
+      return `<td style="text-align:center;font-size:10px;color:#dc2626;font-weight:700;">✗</td>`;
+    }).join('');
+    const rowBg = idx % 2 === 0 ? '' : 'background:#f9fafb;';
+    const dept = emp.department || '';
+    const _wdCount = present + late;
+    const _offCount = empOffDaysThisMonth || 0;
+    return `<tr style="${rowBg}">
+      <td style="padding:4px 6px;font-size:11px;font-weight:600;white-space:nowrap">${idx+1}. ${emp.name}</td>
+      <td style="padding:3px 4px;font-size:10px;color:#374151;white-space:nowrap">${dept}</td>
+      <td style="text-align:center;font-weight:700;color:#16a34a;font-size:11px">${present+late}</td>
+      <td style="text-align:center;font-weight:700;color:#d97706;font-size:11px">${late}</td>
+      <td style="text-align:center;font-weight:700;color:#dc2626;font-size:11px">${absent}</td>
+      <td style="text-align:center;font-weight:700;color:#4f46e5;font-size:11px">${swap||0}</td>
+      <td style="text-align:center;font-weight:700;color:#15803d;font-size:11px">${onLeave||0}</td>
+      <td style="text-align:center;font-weight:700;color:${overAbsent>0?'#dc2626':'#9ca3af'};font-size:11px">${overAbsent}</td>
+      <td style="text-align:center;font-weight:700;color:${offBonus>0?'#d97706':'#9ca3af'};font-size:11px;background:${offBonus>0?'rgba(251,191,36,.1)':''}">${offBonus>0?'+$'+offBonus.toFixed(2):'—'}</td>
+      ${cells}
+      <td style="text-align:center;font-weight:800;font-size:12px;color:#16a34a;background:#f0fdf4;border-left:2px solid #86efac;white-space:nowrap;padding:2px 4px">${_wdCount}<span style="font-size:8px;font-weight:400;color:#6b7280"> ថ្ងៃ</span></td>
+      <td style="text-align:center;font-weight:800;font-size:12px;color:#6366f1;background:#f5f3ff;white-space:nowrap;padding:2px 4px">${_offCount>0?_offCount:'—'}<span style="font-size:8px;font-weight:400;color:#6b7280">${_offCount>0?' ថ្ងៃ':''}</span></td>
+    </tr>`;
+  }).join('');
+
+  // Totals for new columns
+  const totalLeave = summaries.reduce((s,r)=>s+(r.onLeave||0),0);
+  const totalOver  = summaries.reduce((s,r)=>s+(r.overAbsent||0),0);
+
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <title>Monthly Attendance ${monthLabel}</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Hanuman',Arial,sans-serif;font-size:11px;color:#111;padding:8px;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    @media print{@page{size:A4 landscape;margin:5mm}body{padding:0}.no-print{display:none!important}}
+    .header{text-align:center;margin-bottom:8px}
+    .company{font-size:15px;font-weight:700;color:#1e3a5f}
+    .title{font-size:13px;font-weight:700;color:#374151;margin-top:2px}
+    .subtitle{font-size:10px;color:#6b7280;margin-top:2px}
+    table{width:100%;border-collapse:collapse;font-size:9.5px}
+    th{background:#1e3a5f;color:white;padding:3px 2px;border:1px solid #d1d5db;text-align:center}
+    td{border:1px solid #e5e7eb;padding:2px 2px}
+    .summary-row td{background:#f0f4ff!important;font-weight:700}
+    .summary-box{display:inline-block;margin:3px 6px;padding:3px 10px;border-radius:6px;font-size:10px;font-weight:700}
+    .legend{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:6px;font-size:9px;align-items:center}
+    .legend span{padding:2px 6px;border-radius:4px}
+    .sig{margin-top:24px;display:flex;justify-content:space-between;padding:0 30px}
+    .sig-col{text-align:center;min-width:150px}
+    .sig-line{border-top:1px solid #374151;margin-top:36px;padding-top:4px;font-size:10px}
+    .no-print{text-align:center;margin-bottom:10px}
+    .btn-print{background:#1e3a5f;color:white;border:none;padding:8px 22px;border-radius:6px;cursor:pointer;font-size:13px;margin:3px}
+  </style>
+  </head><body>
+  <div class="no-print">
+    <button class="btn-print" onclick="window.print()">🖨️ Print / Save PDF</button>
+    <button class="btn-print" style="background:#7c3aed" onclick="captureAsPNG()">📷 Save PNG</button>
+    <button class="btn-print" style="background:#0369a1" onclick="exportToExcel()">📊 Export Excel</button>
+    <button class="btn-print" style="background:#6b7280" onclick="window.close()">✕ បិទ</button>
+  </div>
+  <div class="header">
+    <div class="company">${cfg.company_name||'HR Pro System'}</div>
+    <div class="title">📊 តារាងវត្តមានប្រចាំខែ — ${monthLabel}${selectedDept ? ' · 🏢 ' + selectedDept : ''}</div>
+    <div class="subtitle">ម៉ោងចូល: ${rules&&rules.work_start_time||'08:00'} (grace ${rules&&rules.late_grace_minutes||15} នាទី) &nbsp;|&nbsp; ថ្ងៃអវត្តមានអនុញ្ញាត: ${maxAbsent} ថ្ងៃ/ខែ &nbsp;|&nbsp; បោះពុម្ពថ្ងៃទី: ${new Date().toLocaleDateString('km-KH')}${selectedDept ? ' &nbsp;|&nbsp; 🏢 នាយកដ្ឋាន: ' + selectedDept : ''}</div>
+  </div>
+  <div style="margin-bottom:6px;display:flex;gap:4px;flex-wrap:wrap">
+    <span class="summary-box" style="background:#dcfce7;color:#16a34a">✅ វត្តមាន: ${totals.p+totals.l}</span>
+    <span class="summary-box" style="background:#fef9c3;color:#92400e">⏰ យឺត: ${totals.l}</span>
+    <span class="summary-box" style="background:#fee2e2;color:#ef4444">❌ អវត្តមាន: ${totals.a}</span>
+    <span class="summary-box" style="background:#ede9fe;color:#6366f1">🔄 ជំនួស: ${totals.sw}</span>
+    <span class="summary-box" style="background:#dcfce7;color:#15803d">🌴 ច្បាប់: ${totals.lv}</span>
+    <span class="summary-box" style="background:#fef9c3;color:#d97706">🌟 OFF Bonus: $${(totals.ob||0).toFixed(2)}</span>
+  </div>
+  <div class="legend">
+    <b>សញ្ញា:</b>
+    <span style="background:#dcfce7;color:#16a34a">✔ មានវត្តមាន</span>
+    <span style="background:#fef9c3;color:#92400e">⏰ យឺត</span>
+    <span style="background:#fee2e2;color:#ef4444">— អវត្តមាន</span>
+    <span style="background:#ede9fe;color:#6366f1">🔄 ប្ដូរថ្ងៃ</span>
+    <span style="background:#dcfce7;color:#16a34a">🌴 ច្បាប់</span>
+    <span style="background:#f3f4f6;color:#9ca3af">OFF ឈប់</span>
+    <span style="background:#fffbeb;color:#d97706">🌟✔ OFF ធ្វើការ</span>
+    <span style="color:#9333ea">🎉 ថ្ងៃឈប់</span>
+    <span style="background:rgba(8,145,178,.15);color:#0891b2">½P កន្លះថ្ងៃព្រឹក</span>
+    <span style="background:rgba(124,58,237,.15);color:#7c3aed">½L កន្លះថ្ងៃល្ងាច</span>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th style="min-width:120px;text-align:left;padding:4px 5px" rowspan="2">បុគ្គលិក</th>
+        <th style="min-width:60px;text-align:left;padding:4px 4px" rowspan="2">នាយកដ្ឋាន</th>
+        <th style="min-width:26px;color:#86efac" rowspan="2" title="វត្តមាន">✅</th>
+        <th style="min-width:26px;color:#fde68a" rowspan="2" title="យឺត">⏰</th>
+        <th style="min-width:26px;color:#fca5a5" rowspan="2" title="អវត្តមាន">❌</th>
+        <th style="min-width:26px;color:#c4b5fd" rowspan="2" title="ជំនួស">🔄</th>
+        <th style="min-width:26px;color:#86efac" rowspan="2" title="ច្បាប់">🌴</th>
+        <th style="min-width:26px;color:#fca5a5;font-size:9px" rowspan="2" title="លើសថ្ងៃ">លើស</th>
+        <th style="min-width:36px;color:#fbbf24;font-size:9px;background:#1e3a5f;" rowspan="2" title="🌟 OFF ធ្វើការ (គ្មានជំនួស) = គិតប្រាក់ | OFF+ជំនួស = $0">🌟OFF</th>
+        ${thDays}
+        <th style="min-width:36px;color:#86efac;font-size:9px;background:#166534;" rowspan="2" title="📅 ថ្ងៃធ្វើការសរុបក្នុងខែ">📅<br/>ធ្វើការ</th>
+        <th style="min-width:36px;color:#c4b5fd;font-size:9px;background:#4338ca;" rowspan="2" title="📅 ថ្ងៃ OFF សរុបក្នុងខែ">📅<br/>OFFខែ</th>
+      </tr>
+      <tr>${thWds}</tr>
+    </thead>
+    <tbody>${bodyRows}</tbody>
+    <tfoot>
+      <tr class="summary-row">
+        <td style="padding:3px 5px;font-size:11px;text-align:left" colspan="2">សរុប (Total)</td>
+        <td style="text-align:center;color:#16a34a">${totals.p}</td>
+        <td style="text-align:center;color:#f59e0b">${totals.l}</td>
+        <td style="text-align:center;color:#ef4444">${totals.a}</td>
+        <td style="text-align:center;color:#6366f1">${totals.sw}</td>
+        <td style="text-align:center;color:#15803d">${totals.lv}</td>
+        <td style="text-align:center;color:#ef4444">${totalOver}</td>
+        <td style="text-align:center;color:#d97706;font-weight:700">${(totals.ob||0)>0?'+$'+(totals.ob).toFixed(2):'—'}</td>
+        ${allDays.map(()=>'<td></td>').join('')}
+        <td style="text-align:center;font-weight:700;color:#16a34a;background:#f0fdf4">${summaries.reduce((s,r)=>s+(r.present+r.late||0),0)}</td>
+        <td style="text-align:center;font-weight:700;color:#6366f1;background:#f5f3ff">${summaries.reduce((s,r)=>s+(r.empOffDaysThisMonth||0),0)}</td>
+      </tr>
+      <tr style="background:#f0fdf4;">
+        <td style="padding:3px 5px;font-size:10px;font-weight:700;color:#166534;white-space:nowrap" colspan="2">✅ ធ្វើការ (នាក់)</td>
+        <td colspan="7"></td>
+        ${footWorkHTML}
+        <td style="text-align:center;font-weight:800;font-size:11px;color:#16a34a;background:#dcfce7;border-left:2px solid #86efac;">${totalWDpdf||'—'}</td>
+      </tr>
+      <tr style="background:#fefce8;">
+        <td style="padding:3px 5px;font-size:10px;font-weight:700;color:#92400e;white-space:nowrap" colspan="2">⏰ ចូលយឺត (នាក់)</td>
+        <td colspan="7"></td>
+        ${footLateHTML}
+        <td style="text-align:center;font-weight:800;font-size:11px;color:#d97706;background:#fef9c3;border-left:2px solid #fbbf24;">${totalLatePdf||'—'}</td>
+      </tr>
+      <tr style="background:#e0f2fe;">
+        <td style="padding:3px 5px;font-size:10px;font-weight:700;color:#0891b2;white-space:nowrap" colspan="2">½ កន្លះថ្ងៃ (នាក់)</td>
+        <td colspan="7"></td>
+        ${footHDHTML}
+        <td style="text-align:center;font-weight:800;font-size:11px;color:#0891b2;background:#bae6fd;border-left:2px solid #38bdf8;">${totalHDpdf||'—'}</td>
+      </tr>
+      <tr style="background:#fffbeb;">
+        <td style="padding:3px 5px;font-size:10px;font-weight:700;color:#92400e;white-space:nowrap" colspan="2">🌟 OFF ធ្វើការ (នាក់)</td>
+        <td colspan="7"></td>
+        ${footOWHTML}
+        <td style="text-align:center;font-weight:800;font-size:11px;color:#d97706;background:#fef9c3;border-left:2px solid #fbbf24;">${totalOWpdf||'—'}</td>
+      </tr>
+      <tr style="background:#fff1f2;">
+        <td style="padding:3px 5px;font-size:10px;font-weight:700;color:#991b1b;white-space:nowrap" colspan="2">🔴 Off (នាក់)</td>
+        <td colspan="7"></td>
+        ${footOffHTML}
+        <td style="text-align:center;font-weight:800;font-size:11px;color:#dc2626;background:#fee2e2;border-left:2px solid #fca5a5;">${totalOFFpdf||'—'}</td>
+      </tr>
+      <tr style="background:rgba(124,58,237,0.07);border-top:2px solid #7c3aed;">
+        <td style="padding:3px 5px;font-size:10px;font-weight:700;color:#7c3aed;white-space:nowrap" colspan="2">🔢 Total (នាក់)</td>
+        <td colspan="6" style="text-align:center;font-size:9px;color:#7c3aed;font-weight:600;">✅+⏰+½+🌟</td>
+        <td></td>
+        ${footTotalHTML}
+        <td style="text-align:center;font-weight:900;font-size:11px;color:#7c3aed;background:rgba(124,58,237,0.15);border-left:2px solid #7c3aed;">${totalAllPdf||'—'}</td>
+      </tr>
+    </tfoot>
+  </table>
+  <div class="sig">
+    <div class="sig-col"><div class="sig-line">ហត្ថលេខាអ្នករៀបចំ</div></div>
+    <div class="sig-col"><div class="sig-line">ហត្ថលេខា HR</div></div>
+    <div class="sig-col"><div class="sig-line">ហត្ថលេខាអ្នកគ្រប់គ្រង</div></div>
+  </div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"><\/script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"><\/script>
+  <script>
+    function captureAsPNG() {
+      var btn = event.target; btn.textContent = '\u23F3 Processing...'; btn.disabled = true;
+      html2canvas(document.body, {scale:2, useCORS:true, backgroundColor:'#ffffff', logging:false,
+        width:document.body.scrollWidth, height:document.body.scrollHeight,
+        windowWidth:document.body.scrollWidth, windowHeight:document.body.scrollHeight
+      }).then(function(canvas) {
+        canvas.toBlob(function(blob){
+          var a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = 'Attendance_Monthly.png';
+          a.click();
+          btn.textContent = '\u2705 PNG Saved!'; btn.disabled = false;
+        }, 'image/png');
+      }).catch(function(e){ btn.textContent = '\u274C Error'; btn.disabled = false; alert(e.message); });
+    }
+    function exportToExcel() {
+      var btn = event.target; btn.textContent = '\u23F3 Processing...'; btn.disabled = true;
+      var wb = XLSX.utils.book_new();
+      var ws = XLSX.utils.table_to_sheet(document.querySelector('table'));
+      XLSX.utils.book_append_sheet(wb, ws, 'Attendance');
+      XLSX.writeFile(wb, 'Attendance_Monthly.xlsx');
+      btn.textContent = '\u2705 Excel Saved!'; btn.disabled = false;
+    }
+  <\/script>
+  </body></html>`;
+  printHTML(html);
+}
+
+// ── Monthly Attendance → Save as PNG Image ──
+function saveMonthlyAttendanceAsImage() {
+  const d = window._monthlyAttData;
+  if (!d) { showToast('សូមចាំ... ទំព័រមិនទាន់ Load ទេ', 'error'); return; }
+  const { summaries, allDays, currentMonth, totals, maxAbsent, rules, selectedDept } = d;
+  const cfg = getCompanyConfig();
+  const monthLabel = currentMonth;
+  const wdNames = ['អា','ច','អ','ព','ព្រ','សុ','ស'];
+
+  const allOffWds = new Set();
+  summaries.forEach(function(s){ (parseOffDays(s.emp)||[]).forEach(function(w){ allOffWds.add(w); }); });
+
+  const thDays = allDays.map(({d, wd}) => {
+    const isSun = wd === 0; const isSat = wd === 6;
+    const isCommonOff = allOffWds.has(wd);
+    const bg = isSun ? 'background:#fee2e2;color:#dc2626;' : isSat ? 'background:#fef9c3;color:#b45309;' : isCommonOff ? 'background:#e5e7eb;color:#6b7280;' : 'background:#1e3a5f;color:white;';
+    return `<th style="min-width:22px;padding:3px 1px;font-size:12px;font-weight:700;text-align:center;${bg}">${d}</th>`;
+  }).join('');
+  const thWds = allDays.map(({wd}) => {
+    const isSun = wd === 0; const isSat = wd === 6;
+    const isCommonOff = allOffWds.has(wd);
+    const style = isSun ? 'background:#fee2e2;color:#dc2626;' : isSat ? 'background:#fef9c3;color:#b45309;' : 'background:#1e3a5f;color:white;';
+    return `<th style="min-width:22px;padding:1px;font-size:11px;text-align:center;font-weight:600;${style}">${wdNames[wd]}</th>`;
+  }).join('');
+
+  const bodyRows = summaries.map(({emp, present, late, absent, swap, onLeave, overAbsent, deduction, offBonus, workingDaysCount, empOffDaysThisMonth}, idx) => {
+    const empOff      = parseOffDays(emp);
+    const attMapData  = window._monthlyAttData._attMap     || {};
+    const lvMapData   = window._monthlyAttData._leaveMap   || {};
+    const swapMapData = window._monthlyAttData._swapMap    || {};
+    const offDateData = window._monthlyAttData._offDateMap || {};
+    const cells = allDays.map(({dd, wd}) => {
+      const a        = (attMapData[emp.id] ||{})[dd];
+      const lv       = (lvMapData[emp.id]  ||{})[dd];
+      const swapRec  = (swapMapData[emp.id]||{})[dd];
+      const compSwap = (offDateData[emp.id]||{})[dd];
+      const isOff    = empOff.length > 0 && empOff.indexOf(wd) !== -1;
+      if (a && a.status==='holiday') return `<td style="text-align:center;font-size:11px;color:#7c3aed;background:#ede9fe;">🎉</td>`;
+      if (isOff) {
+        if (swapRec) {
+          const hasComp = swapRec.off_date && swapRec.off_date.trim() !== '';
+          if (hasComp) return `<td style="text-align:center;font-size:11px;background:#fde68a;color:#92400e;font-weight:700;">🔄</td>`;
+          return `<td style="text-align:center;font-size:11px;background:#ede9fe;color:#4338ca;font-weight:700;">🔄</td>`;
+        }
+        // Direct attendance on OFF day (no dayswap) → 🌟 OFF worked
+        if (a && (a.status === 'present' || a.status === 'late')) {
+          const sym = a.status === 'late' ? '⏰' : '✔';
+          return `<td style="text-align:center;font-size:10px;color:#d97706;background:#fffbeb;font-weight:700;">🌟${sym}</td>`;
+        }
+        return `<td style="text-align:center;font-size:10px;background:#e5e7eb;color:#374151;font-weight:700;">OFF</td>`;
+      }
+      if (compSwap) return `<td style="text-align:center;font-size:10px;background:#fde68a;color:#92400e;font-weight:700;">OFF+</td>`;
+      if (lv) {
+        const lbg = lv.status==='pending' ? 'background:#ddd6fe;color:#5b21b6;' : 'background:#bbf7d0;color:#15803d;';
+        return `<td style="text-align:center;font-size:11px;font-weight:700;${lbg}">🌴</td>`;
+      }
+      if (!a) return `<td style="text-align:center;font-size:12px;color:#dc2626;font-weight:700;">—</td>`;
+      if (a.status==='present') return `<td style="text-align:center;font-size:12px;color:#16a34a;font-weight:700;">✔</td>`;
+      if (a.status==='late')    return `<td style="text-align:center;font-size:12px;color:#d97706;font-weight:700;">⏰</td>`;
+      if (a.status==='half_day_am') return `<td style="text-align:center;font-size:10px;color:#0891b2;font-weight:700;background:rgba(8,145,178,.1);">½P</td>`;
+      if (a.status==='half_day_pm') return `<td style="text-align:center;font-size:10px;color:#7c3aed;font-weight:700;background:rgba(124,58,237,.1);">½L</td>`;
+      return `<td style="text-align:center;font-size:12px;color:#dc2626;font-weight:700;">✗</td>`;
+    }).join('');
+    const rowBg = idx % 2 === 0 ? '#ffffff' : '#f9fafb';
+    const _wdCount = present + late;
+    const _offCount = empOffDaysThisMonth || 0;
+    return `<tr style="background:${rowBg}">
+      <td style="padding:5px 8px;font-size:12px;font-weight:700;white-space:nowrap;color:#111;">${idx+1}. ${emp.name}</td>
+      <td style="padding:4px 6px;font-size:11px;color:#4b5563;white-space:nowrap;">${emp.department||''}</td>
+      <td style="text-align:center;font-weight:800;color:#16a34a;font-size:12px;">${present+late}</td>
+      <td style="text-align:center;font-weight:800;color:#d97706;font-size:12px;">${late}</td>
+      <td style="text-align:center;font-weight:800;color:#dc2626;font-size:12px;">${absent}</td>
+      <td style="text-align:center;font-weight:800;color:#4f46e5;font-size:12px;">${swap||0}</td>
+      <td style="text-align:center;font-weight:800;color:#15803d;font-size:12px;">${onLeave||0}</td>
+      <td style="text-align:center;font-weight:800;color:${overAbsent>0?'#dc2626':'#9ca3af'};font-size:12px;">${overAbsent}</td>
+      <td style="text-align:center;font-weight:800;color:${offBonus>0?'#d97706':'#9ca3af'};font-size:12px;background:${offBonus>0?'rgba(251,191,36,.12)':''}">${offBonus>0?'+$'+offBonus.toFixed(2):'—'}</td>
+      ${cells}
+      <td style="text-align:center;font-weight:800;font-size:13px;color:#16a34a;background:#f0fdf4;border-left:2px solid #86efac;white-space:nowrap;padding:3px 5px">${_wdCount}<span style="font-size:9px;font-weight:400;color:#6b7280"> ថ្ងៃ</span></td>
+      <td style="text-align:center;font-weight:800;font-size:13px;color:#6366f1;background:#f5f3ff;white-space:nowrap;padding:3px 5px">${_offCount>0?_offCount:'—'}<span style="font-size:9px;font-weight:400;color:#6b7280">${_offCount>0?' ថ្ងៃ':''}</span></td>
+    </tr>`;
+  }).join('');
+
+  const totalOver = summaries.reduce((s,r)=>s+(r.overAbsent||0),0);
+
+  // Pre-compute footer rows for PNG — logic mirrors main-view footData exactly
+  const _attMapPNG  = d._attMap    || {};
+  const _swapMapPNG = d._swapMap   || {};
+  const _offDatePNG = d._offDateMap|| {};
+  const pngFootData = allDays.map(({dd,wd})=>{
+    let presentOnly=0,lateCount=0,offCount=0,offWorked=0,halfDayCount=0;
+    summaries.forEach(({emp})=>{
+      const empOff=parseOffDays(emp),swapRec=(_swapMapPNG[emp.id]||{})[dd],
+            compSwap=(_offDatePNG[emp.id]||{})[dd],attRec=(_attMapPNG[emp.id]||{})[dd];
+      if(empOff.length>0&&empOff.indexOf(wd)!==-1){
+        if(swapRec){
+          if(attRec&&attRec.status==='late') lateCount++;
+          offWorked++;
+        } else if(attRec&&(attRec.status==='present'||attRec.status==='late')){
+          offWorked++;
+          if(attRec.status==='late') lateCount++;
+        } else { offCount++; }
+      } else if(compSwap){ offCount++; }
+      else {
+        if(attRec&&attRec.status==='present'){ presentOnly++; }
+        else if(attRec&&attRec.status==='late'){ lateCount++; }
+        else if(attRec&&(attRec.status==='half_day_am'||attRec.status==='half_day_pm')){ halfDayCount++; }
+        else { offCount++; }
+      }
+    });
+    const totalCount=presentOnly+lateCount+offWorked+halfDayCount;
+    const isSun=wd===0,isSat=wd===6;
+    const bg=isSun?'background:#fee2e2;':isSat?'background:#fef9c3;':'';
+    return {presentOnly,lateCount,offCount,offWorked,totalCount,halfDayCount,bg};
+  });
+  const pngFootWorkHTML  = pngFootData.map(({presentOnly,bg})=>
+    `<td style="text-align:center;font-size:11px;font-weight:700;color:#16a34a;${bg}">${presentOnly||'—'}</td>`).join('');
+  const pngFootLateHTML  = pngFootData.map(({lateCount,bg})=>
+    `<td style="text-align:center;font-size:11px;font-weight:700;color:#d97706;${bg}">${lateCount||'—'}</td>`).join('');
+  const pngFootOWHTML    = pngFootData.map(({offWorked,bg})=>
+    `<td style="text-align:center;font-size:11px;font-weight:700;color:#d97706;${offWorked>0?'background:#fffbeb;':bg}">${offWorked>0?'🌟'+offWorked:'—'}</td>`).join('');
+  const pngFootHDHTML    = pngFootData.map(({halfDayCount,bg})=>
+    `<td style="text-align:center;font-size:11px;font-weight:700;color:#0891b2;${bg}">${halfDayCount>0?halfDayCount:'—'}</td>`).join('');
+  const pngFootOffHTML   = pngFootData.map(({offCount,bg})=>
+    `<td style="text-align:center;font-size:11px;font-weight:700;color:#dc2626;${bg}">${offCount}</td>`).join('');
+  const pngFootTotalHTML = pngFootData.map(({totalCount,bg})=>
+    `<td style="text-align:center;font-size:11px;font-weight:900;color:#7c3aed;${totalCount>0?'background:rgba(124,58,237,0.07);':bg}">${totalCount||'—'}</td>`).join('');
+  // Grand totals
+  const pngTotalWD   = summaries.reduce((s,r)=>s+(r.present||0),0);
+  const pngTotalHD   = summaries.reduce((s,r)=>s+(r.halfDayCount||0),0);
+  const pngTotalLate = summaries.reduce((s,r)=>s+(r.late||0),0);
+  const pngTotalOFF  = summaries.reduce((s,r)=>s+(r.empOffDaysThisMonth||0),0);
+  const pngTotalOW   = summaries.reduce((s,r)=>s+(r.offDaysWorked||0),0);
+  const pngTotalAll  = summaries.reduce((s,r)=>s+(r.present||0)+(r.late||0)+(r.offDaysWorked||0),0);
+
+  // Build full self-contained HTML for image capture
+  const captureHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Hanuman:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Hanuman',Arial,sans-serif;font-size:12px;color:#111;background:#fff;padding:16px;width:max-content;min-width:900px;}
+    .header{text-align:center;margin-bottom:12px;padding-bottom:10px;border-bottom:2px solid #1e3a5f;}
+    .company{font-size:18px;font-weight:800;color:#1e3a5f;}
+    .title{font-size:15px;font-weight:700;color:#374151;margin-top:4px;}
+    .subtitle{font-size:11px;color:#6b7280;margin-top:3px;}
+    .summary{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;}
+    .sbox{padding:5px 14px;border-radius:8px;font-size:11px;font-weight:700;}
+    .legend{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;font-size:10px;align-items:center;}
+    .legend span{padding:2px 8px;border-radius:4px;font-weight:600;}
+    table{border-collapse:collapse;font-size:11px;width:100%;}
+    th{background:#1e3a5f;color:white;padding:5px 3px;border:1px solid #334155;text-align:center;}
+    td{border:1px solid #d1d5db;padding:3px 2px;}
+    .tfoot-row td{background:#dbeafe;font-weight:800;color:#1e3a5f;}
+    .sig{margin-top:28px;display:flex;justify-content:space-between;padding:0 40px;}
+    .sig-col{text-align:center;min-width:160px;}
+    .sig-line{border-top:1.5px solid #374151;margin-top:40px;padding-top:5px;font-size:11px;color:#374151;}
+  </style>
+  </head><body>
+  <div class="header">
+    <div class="company">🏢 ${cfg.company_name||'HR Pro System'}</div>
+    <div class="title">📊 តារាងវត្តមានប្រចាំខែ — ${monthLabel}${selectedDept ? ' · 🏢 ' + selectedDept : ''}</div>
+    <div class="subtitle">ម៉ោងចូល: ${rules&&rules.work_start_time||'08:00'} (grace ${rules&&rules.late_grace_minutes||15} នាទី) &nbsp;|&nbsp; ថ្ងៃអវត្តមានអនុញ្ញាត: ${maxAbsent} ថ្ងៃ/ខែ &nbsp;|&nbsp; រូបថតថ្ងៃទី: ${new Date().toLocaleDateString('km-KH')}${selectedDept ? ' &nbsp;|&nbsp; 🏢 នាយកដ្ឋាន: ' + selectedDept : ''}</div>
+  </div>
+  <div class="summary">
+    <span class="sbox" style="background:#dcfce7;color:#15803d;">✅ វត្តមាន: ${totals.p+totals.l}</span>
+    <span class="sbox" style="background:#fef9c3;color:#92400e;">⏰ យឺត: ${totals.l}</span>
+    <span class="sbox" style="background:#fee2e2;color:#dc2626;">❌ អវត្តមាន: ${totals.a}</span>
+    <span class="sbox" style="background:#ede9fe;color:#4f46e5;">🔄 ជំនួស: ${totals.sw}</span>
+    <span class="sbox" style="background:#dcfce7;color:#15803d;">🌴 ច្បាប់: ${totals.lv}</span>
+    <span class="sbox" style="background:#fef9c3;color:#d97706;">🌟 OFF Bonus: $${(totals.ob||0).toFixed(2)}</span>
+  </div>
+  <div class="legend">
+    <b>សញ្ញា:</b>
+    <span style="background:#dcfce7;color:#15803d;">✔ វត្តមាន</span>
+    <span style="background:#fef9c3;color:#92400e;">⏰ យឺត</span>
+    <span style="background:#fee2e2;color:#dc2626;">— អវត្តមាន</span>
+    <span style="background:#ede9fe;color:#4f46e5;">🔄 ប្ដូរ</span>
+    <span style="background:#bbf7d0;color:#15803d;">🌴 ច្បាប់</span>
+    <span style="background:#e5e7eb;color:#374151;">OFF ឈប់</span>
+    <span style="background:#fde68a;color:#92400e;">OFF+ សង</span>
+    <span style="background:#fffbeb;color:#d97706;">🌟✔ OFF ធ្វើការ</span>
+    <span style="background:#ede9fe;color:#7c3aed;">🎉 ថ្ងៃបុណ្យ</span>
+    <span style="background:rgba(8,145,178,.15);color:#0891b2;">½P កន្លះព្រឹក</span>
+    <span style="background:rgba(124,58,237,.15);color:#7c3aed;">½L កន្លះល្ងាច</span>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th style="min-width:130px;text-align:left;padding:5px 8px;" rowspan="2">បុគ្គលិក</th>
+        <th style="min-width:80px;text-align:left;padding:5px 6px;" rowspan="2">នាយកដ្ឋាន</th>
+        <th style="min-width:28px;color:#86efac;" rowspan="2">✅</th>
+        <th style="min-width:28px;color:#fde68a;" rowspan="2">⏰</th>
+        <th style="min-width:28px;color:#fca5a5;" rowspan="2">❌</th>
+        <th style="min-width:28px;color:#c4b5fd;" rowspan="2">🔄</th>
+        <th style="min-width:28px;color:#86efac;" rowspan="2">🌴</th>
+        <th style="min-width:28px;color:#fca5a5;font-size:10px;" rowspan="2">លើស</th>
+        <th style="min-width:40px;color:#fbbf24;font-size:10px;" rowspan="2" title="🌟 OFF ធ្វើការ (គ្មានជំនួស) = គិតប្រាក់ | OFF+ជំនួស = $0">🌟OFF</th>
+        ${thDays}
+        <th style="min-width:42px;color:#86efac;font-size:10px;background:#166534;" rowspan="2" title="📅 ថ្ងៃធ្វើការសរុបក្នុងខែ">📅<br/>ធ្វើការ</th>
+        <th style="min-width:42px;color:#c4b5fd;font-size:10px;background:#4338ca;" rowspan="2" title="📅 ថ្ងៃ OFF សរុបក្នុងខែ">📅<br/>OFFខែ</th>
+      </tr>
+      <tr>${thWds}</tr>
+    </thead>
+    <tbody>${bodyRows}</tbody>
+    <tfoot>
+      <tr class="tfoot-row">
+        <td style="padding:5px 8px;font-size:12px;text-align:left;" colspan="2">សរុប (Total)</td>
+        <td style="text-align:center;color:#16a34a;">${totals.p+totals.l}</td>
+        <td style="text-align:center;color:#d97706;">${totals.l}</td>
+        <td style="text-align:center;color:#dc2626;">${totals.a}</td>
+        <td style="text-align:center;color:#4f46e5;">${totals.sw}</td>
+        <td style="text-align:center;color:#15803d;">${totals.lv}</td>
+        <td style="text-align:center;color:#dc2626;">${totalOver}</td>
+        <td style="text-align:center;color:#d97706;font-weight:800;">${(totals.ob||0)>0?'+$'+(totals.ob).toFixed(2):'—'}</td>
+        ${allDays.map(()=>'<td></td>').join('')}
+        <td style="text-align:center;font-weight:800;color:#16a34a;background:#f0fdf4">${summaries.reduce((s,r)=>s+(r.present+r.late||0),0)}</td>
+        <td style="text-align:center;font-weight:800;color:#6366f1;background:#f5f3ff">${summaries.reduce((s,r)=>s+(r.empOffDaysThisMonth||0),0)}</td>
+      </tr>
+      <tr style="background:#f0fdf4;">
+        <td style="padding:4px 8px;font-size:11px;font-weight:700;color:#166534;white-space:nowrap" colspan="2">✅ ធ្វើការ (នាក់)</td>
+        <td colspan="7"></td>
+        ${pngFootWorkHTML}
+        <td style="text-align:center;font-weight:800;font-size:12px;color:#16a34a;background:#dcfce7;border-left:2px solid #86efac;">${pngTotalWD||'—'}</td>
+      </tr>
+      <tr style="background:#fefce8;">
+        <td style="padding:4px 8px;font-size:11px;font-weight:700;color:#92400e;white-space:nowrap" colspan="2">⏰ ចូលយឺត (នាក់)</td>
+        <td colspan="7"></td>
+        ${pngFootLateHTML}
+        <td style="text-align:center;font-weight:800;font-size:12px;color:#d97706;background:#fef9c3;border-left:2px solid #fbbf24;">${pngTotalLate||'—'}</td>
+      </tr>
+      <tr style="background:#e0f2fe;">
+        <td style="padding:4px 8px;font-size:11px;font-weight:700;color:#0891b2;white-space:nowrap" colspan="2">½ កន្លះថ្ងៃ (នាក់)</td>
+        <td colspan="7"></td>
+        ${pngFootHDHTML}
+        <td style="text-align:center;font-weight:800;font-size:12px;color:#0891b2;background:#bae6fd;border-left:2px solid #38bdf8;">${pngTotalHD||'—'}</td>
+      </tr>
+      <tr style="background:#fffbeb;">
+        <td style="padding:4px 8px;font-size:11px;font-weight:700;color:#92400e;white-space:nowrap" colspan="2">🌟 OFF ធ្វើការ (នាក់)</td>
+        <td colspan="7"></td>
+        ${pngFootOWHTML}
+        <td style="text-align:center;font-weight:800;font-size:12px;color:#d97706;background:#fef9c3;border-left:2px solid #fbbf24;">${pngTotalOW||'—'}</td>
+      </tr>
+      <tr style="background:#fff1f2;">
+        <td style="padding:4px 8px;font-size:11px;font-weight:700;color:#991b1b;white-space:nowrap" colspan="2">🔴 Off (នាក់)</td>
+        <td colspan="7"></td>
+        ${pngFootOffHTML}
+        <td style="text-align:center;font-weight:800;font-size:12px;color:#dc2626;background:#fee2e2;border-left:2px solid #fca5a5;">${pngTotalOFF||'—'}</td>
+      </tr>
+      <tr style="background:rgba(124,58,237,0.07);border-top:2px solid #7c3aed;">
+        <td style="padding:4px 8px;font-size:11px;font-weight:700;color:#7c3aed;white-space:nowrap" colspan="2">🔢 Total (នាក់)</td>
+        <td colspan="6" style="text-align:center;font-size:10px;color:#7c3aed;font-weight:600;">✅+⏰+½+🌟</td>
+        <td></td>
+        ${pngFootTotalHTML}
+        <td style="text-align:center;font-weight:900;font-size:12px;color:#7c3aed;background:rgba(124,58,237,0.15);border-left:2px solid #7c3aed;">${pngTotalAll||'—'}</td>
+      </tr>
+  </table>
+  <div class="sig">
+    <div class="sig-col"><div class="sig-line">ហត្ថលេខាអ្នករៀបចំ</div></div>
+    <div class="sig-col"><div class="sig-line">ហត្ថលេខា HR</div></div>
+    <div class="sig-col"><div class="sig-line">ហត្ថលេខាអ្នកគ្រប់គ្រង</div></div>
+  </div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"><\/script>
+  <script>
+    window.addEventListener('load', function() {
+      // Give fonts time to load
+      setTimeout(function() {
+        var btn = document.getElementById('capture-btn');
+        if (btn) btn.style.display = 'flex';
+        html2canvas(document.body, {
+          scale: 2,
+          useCORS: true,
+          allowTaint: true,
+          backgroundColor: '#ffffff',
+          logging: false,
+          width: document.body.scrollWidth,
+          height: document.body.scrollHeight,
+          windowWidth: document.body.scrollWidth,
+          windowHeight: document.body.scrollHeight
+        }).then(function(canvas) {
+          canvas.toBlob(function(blob) {
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.href = url;
+            a.download = 'Attendance_${monthLabel}_${selectedDept ? selectedDept.replace(/\\s+/g,'_')+'_' : ''}${(cfg.company_name||'HR').replace(/\\s+/g,'_')}.png';
+            a.click();
+            URL.revokeObjectURL(url);
+            if (btn) btn.textContent = '✅ Download ជោគជ័យ!';
+          }, 'image/png');
+        }).catch(function(err){
+          alert('Error: ' + err.message);
+        });
+      }, 800);
+    });
+  <\/script>
+  </body></html>`;
+
+  showToast('📷 កំពុងបង្កើតរូបថត... រង់ចាំបន្តិច', 'info');
+  const win = window.open('', '_blank', 'width=300,height=200');
+  if (!win) { showToast('សូម Allow Popup ក្នុង Browser!', 'error'); return; }
+  win.document.write(captureHtml);
+  win.document.close();
+}
+
+// ── Monthly Attendance Export Excel ──
+async function exportMonthlyAttendanceExcel() {
+  const d = window._monthlyAttData;
+  if (!d) { showToast('សូមចាំ... ទំព័រមិនទាន់ Load ទេ', 'error'); return; }
+  const { summaries, allDays, currentMonth, totals, maxAbsent, rules, selectedDept } = d;
+  const cfg = getCompanyConfig();
+  const wdNames = ['អា','ច','អ','ព','ព្រ','សុ','ស'];
+  showToast('កំពុង Export Excel...', 'info');
+
+  // Use cached swap data from _monthlyAttData (already fetched during render)
+  const swapMap    = d._swapMap    || {};
+  const offDateMap = d._offDateMap || {};
+
+  try {
+    // ── Sheet 1: Matrix (ដូច PDF) ────────────────────────────────
+    const dayLabels = allDays.map(({d, wd}) => d + '(' + wdNames[wd] + ')');
+
+    const matrixHeaders = ['#', 'ឈ្មោះបុគ្គលិក', 'នាយកដ្ឋាន', '✅ វត្តមាន', '⏰ យឺត', '❌ អវត្តមាន', '½ កន្លះថ្ងៃ', '🔄 ជំនួស', '🌴 ច្បាប់', 'លើសថ្ងៃ', 'កាត់ ($)', '🌟 OFF Bonus ($)', ...dayLabels, '📅 ធ្វើការ', '📅 OFFខែ'];
+
+    // Sub-header row: weekday names aligned to day columns
+    const subHeaderRow = ['', '', '', '', '', '', '', '', '', '', '', ...allDays.map(({wd}) => wdNames[wd]), '', ''];
+
+    const matrixRows = [subHeaderRow];
+
+    summaries.forEach((s, i) => {
+      const {emp, present, late, absent, swap, onLeave, overAbsent, deduction, offBonus, workingDaysCount, empOffDaysThisMonth} = s;
+      const attMap     = d._attMap   || {};
+      const lvMap      = d._leaveMap || {};
+      const empOffDays = typeof parseOffDays === 'function' ? parseOffDays(emp) : [];
+
+      const dayCells = allDays.map(({dd, wd}) => {
+        const swapRec  = (swapMap[emp.id]   ||{})[dd];   // worked on OFF day
+        const compSwap = (offDateMap[emp.id] ||{})[dd];   // compensation OFF day
+        const a        = (attMap[emp.id]     ||{})[dd];
+        const lv       = (lvMap[emp.id]      ||{})[dd];
+        const isEmpOff = empOffDays.length > 0 && empOffDays.indexOf(wd) !== -1;
+
+        // Holiday
+        if (a && a.status === 'holiday') return '🎉';
+        // Employee OFF day
+        if (isEmpOff) {
+          if (swapRec) {
+            const hasComp = swapRec.off_date && swapRec.off_date.trim() !== '';
+            if (hasComp) return '🔄';   // OFF+compensation → show 🔄
+            return '🔄';   // dayswap without comp = worked OFF
+          }
+          // Direct attendance on OFF day (no dayswap)
+          if (a && (a.status === 'present' || a.status === 'late')) return '🌟' + (a.status === 'late' ? '⏰' : '✔');
+          return 'OFF';
+        }
+        // Compensation OFF day (off_date)
+        if (compSwap) return 'OFF+';
+        // Leave
+        if (lv) return '🌴';
+        // No record = absent
+        if (!a) return '—';
+        if (a.status === 'present') return '✔';
+        if (a.status === 'late')    return '⏰';
+        if (a.status === 'absent')  return '✗';
+        if (a.status === 'half_day_am') return '½ ព្រឹក';
+        if (a.status === 'half_day_pm') return '½ ល្ងាច';
+        return '✗';
+      });
+
+      matrixRows.push([
+        i + 1,
+        emp.name,
+        emp.department || '',
+        present + late,
+        late,
+        absent,
+        s.halfDayCount || 0,
+        swap || 0,
+        onLeave || 0,
+        overAbsent,
+        overAbsent > 0 ? -deduction : 0,
+        offBonus > 0 ? offBonus : 0,
+        ...dayCells,
+        present + late,
+        empOffDaysThisMonth || 0
+      ]);
+    });
+
+    // Total row
+    matrixRows.push(['', '', '']);
+    matrixRows.push([
+      '', 'សរុប (Total)', '',
+      totals.p+totals.l, totals.l, totals.a, totals.sw, totals.lv, '',
+      totals.d > 0 ? -totals.d : 0,
+      totals.ob > 0 ? +totals.ob.toFixed(2) : 0,
+      ...allDays.map(() => ''),
+      summaries.reduce((s,r)=>s+(r.present+r.late||0),0),
+      summaries.reduce((s,r)=>s+(r.empOffDaysThisMonth||0),0)
+    ]);
+
+    // Footer rows — logic mirrors main-view footData exactly
+    const xlAttMap  = d._attMap    || {};
+    const xlSwapMap = d._swapMap   || {};
+    const xlOffDate = d._offDateMap|| {};
+    // Build per-day stats
+    const xlFootData = allDays.map(({dd,wd})=>{
+      let presentOnly=0,lateCount=0,offCount=0,offWorked=0,halfDayCount=0;
+      summaries.forEach(({emp})=>{
+        const empOff=typeof parseOffDays==='function'?parseOffDays(emp):[];
+        const swapRec=(xlSwapMap[emp.id]||{})[dd],compSwap=(xlOffDate[emp.id]||{})[dd],attRec=(xlAttMap[emp.id]||{})[dd];
+        if(empOff.length>0&&empOff.indexOf(wd)!==-1){
+          if(swapRec){ if(attRec&&attRec.status==='late')lateCount++; offWorked++; }
+          else if(attRec&&(attRec.status==='present'||attRec.status==='late')){ offWorked++; if(attRec.status==='late')lateCount++; }
+          else { offCount++; }
+        } else if(compSwap){ offCount++; }
+        else {
+          if(attRec&&attRec.status==='present'){ presentOnly++; }
+          else if(attRec&&attRec.status==='late'){ lateCount++; }
+          else if(attRec&&(attRec.status==='half_day_am'||attRec.status==='half_day_pm')){ halfDayCount++; }
+          else { offCount++; }
+        }
+      });
+      return {presentOnly,lateCount,offCount,offWorked,halfDayCount,totalCount:presentOnly+lateCount+offWorked+halfDayCount};
+    });
+    // Prefix cols: label + 11 blank stat cols (matches matrixHeaders prefix length)
+    const _pfx = (label) => ['', label, '', '', '', '', '', '', '', '', '', '', ''];
+    const workingRow   = _pfx('✅ ធ្វើការ (នាក់)');
+    const lateRow      = _pfx('⏰ ចូលយឺត (នាក់)');
+    const halfDayRow   = _pfx('½ កន្លះថ្ងៃ (នាក់)');
+    const offWorkedRow = _pfx('🌟 OFF ធ្វើការ (នាក់)');
+    const offRow       = _pfx('🔴 Off (នាក់)');
+    const totalRow     = _pfx('🔢 Total (នាក់)');
+    // Grand totals for summary col
+    const xlTotalWD   = summaries.reduce((s,r)=>s+(r.present||0),0);
+    const xlTotalLate = summaries.reduce((s,r)=>s+(r.late||0),0);
+    const xlTotalHD   = summaries.reduce((s,r)=>s+(r.halfDayCount||0),0);
+    const xlTotalOW   = summaries.reduce((s,r)=>s+(r.offDaysWorked||0),0);
+    const xlTotalOFF  = summaries.reduce((s,r)=>s+(r.empOffDaysThisMonth||0),0);
+    const xlTotalAll  = summaries.reduce((s,r)=>s+(r.present||0)+(r.late||0)+(r.offDaysWorked||0)+(r.halfDayCount||0),0);
+    xlFootData.forEach(({presentOnly,lateCount,offCount,offWorked,halfDayCount,totalCount})=>{
+      workingRow.push(presentOnly||''); lateRow.push(lateCount||'');
+      halfDayRow.push(halfDayCount>0?halfDayCount:'');
+      offWorkedRow.push(offWorked>0?offWorked:''); offRow.push(offCount||'');
+      totalRow.push(totalCount||'');
+    });
+    // Append grand total column (last col = 📅 ធ្វើការ equivalent)
+    workingRow.push(xlTotalWD);   lateRow.push(xlTotalLate);
+    halfDayRow.push(xlTotalHD);
+    offWorkedRow.push(xlTotalOW); offRow.push(xlTotalOFF);
+    totalRow.push(xlTotalAll);
+    matrixRows.push(workingRow, lateRow, halfDayRow, offWorkedRow, offRow, totalRow);
+
+    // Total working days & OFF days summary
+    const totalWorkingDays = summaries.reduce((s,r)=>s+(r.workingDaysCount||0),0);
+    const totalOffDays     = summaries.reduce((s,r)=>s+(r.empOffDaysThisMonth||0),0);
+    const totalOffWorked   = summaries.reduce((s,r)=>s+(r.offDaysWorked||0),0);
+    matrixRows.push(['', '🌟 OFF ធ្វើការ (សរុប)', '', totalOffWorked + ' ថ្ងៃ', '', '', '', '', '', '', '', ...allDays.map(()=>''), '', '']);
+
+    // ── Sheet 2: Detail Summary ───────────────────────────────────
+    const summaryHeaders = ['#', 'ឈ្មោះបុគ្គលិក', 'នាយកដ្ឋាន', '✅ វត្តមាន', '⏰ យឺត', '❌ អវត្តមាន', '½ កន្លះថ្ងៃ', '🔄 ជំនួស', '🌴 ច្បាប់', 'ថ្ងៃធ្វើការ', 'ថ្ងៃ OFF', '🌟 OFF ធ្វើការ', 'ថ្ងៃលើស', 'អត្រាថ្ងៃ ($)', 'កាត់ ($)', '🌟 OFF Bonus ($)'];
+    const summaryRows = summaries.map(({emp, present, late, absent, swap, onLeave, overAbsent, deduction, dailyRate, workingDaysCount, offBonus, offDaysWorked, empOffDaysThisMonth, halfDayCount}, i) => [
+      i + 1,
+      emp.name,
+      emp.department || '',
+      present + late,
+      late,
+      absent,
+      halfDayCount || 0,
+      swap || 0,
+      onLeave || 0,
+      present + late,
+      empOffDaysThisMonth || 0,
+      offDaysWorked || 0,
+      overAbsent,
+      dailyRate ? +dailyRate.toFixed(2) : 0,
+      overAbsent > 0 ? -deduction : 0,
+      offBonus > 0 ? offBonus : 0
+    ]);
+    summaryRows.push(['', '', '']);
+    summaryRows.push(['', 'សរុប (Total)', '', totals.p+totals.l, totals.l, totals.a, totals.sw, totals.lv,
+      summaries.reduce((s,r)=>s+(r.present+r.late||0),0),
+      summaries.reduce((s,r)=>s+(r.empOffDaysThisMonth||0),0),
+      summaries.reduce((s,r)=>s+(r.offDaysWorked||0),0),
+      '', '',
+      totals.d > 0 ? -totals.d : 0,
+      totals.ob > 0 ? +totals.ob.toFixed(2) : 0
+    ]);
+
+    const blob = buildXLSX([
+      { name: 'វត្តមាន Matrix ' + currentMonth, headers: matrixHeaders, rows: matrixRows },
+      { name: 'Summary ' + currentMonth,        headers: summaryHeaders, rows: summaryRows },
+    ]);
+    downloadBlob(blob, (cfg.company_name||'HR') + '_Monthly_Attendance_' + currentMonth + (selectedDept ? '_' + selectedDept.replace(/\s+/g,'_') : '') + '.xlsx');
+    showToast('Download Excel ✅', 'success');
+  } catch(e) { showToast('Error: ' + e.message, 'error'); }
+}
+
+// Open rules modal for absence deduction settings
+function openAbsenceRulesModal() {
+  const rules = getSalaryRules();
+  const maxAbsent = rules.max_absent_days !== undefined ? rules.max_absent_days : 2;
+  $('modal-title').textContent = '⚙️ ច្បាប់កាត់ប្រាក់អវត្តមាន';
+  $('modal-body').innerHTML =
+    '<div style="margin-bottom:14px;padding:12px;background:var(--bg3);border-radius:10px;font-size:13px;color:var(--text3)">'
+    +'💡 ប្រាក់នឹងត្រូវកាត់ ពេលបុគ្គលិកអវត្តមានលើសថ្ងៃអនុញ្ញាត<br/>'
+    +'<b>រូបមន្ត:</b> ប្រាក់ខែ ÷ ថ្ងៃធ្វើការក្នុងខែ × ថ្ងៃអវត្តមានលើស'
+    +'</div>'
+    +'<div class="form-grid">'
+    +'<div class="form-group"><label class="form-label">ថ្ងៃអវត្តមានអនុញ្ញាតក្នុង ១ ខែ</label>'
+    +'<input class="form-control" id="rule-max-absent" type="number" min="0" value="'+maxAbsent+'" /></div>'
+    +'</div>'
+    +'<div id="rule-preview" style="padding:12px;background:var(--bg3);border-radius:8px;margin-bottom:14px;font-size:13px;text-align:center">'
+    +'ឧទាហរណ៍: ប្រាក់ខែ $1000 · ថ្ងៃធ្វើការ 26 · អវត្តមាន 5 ថ្ងៃ → លើស <b>'+(Math.max(0,5-maxAbsent))+'</b> ថ្ងៃ → កាត់ <b style="color:var(--danger)">$'+((Math.max(0,5-maxAbsent)*(1000/26)).toFixed(2))+'</b>'
+    +'</div>'
+    +'<div class="form-actions">'
+    +'<button class="btn btn-outline" onclick="closeModal()">បោះបង់</button>'
+    +'<button class="btn btn-primary" onclick="saveAbsenceRules()">💾 រក្សាទុក</button>'
+    +'</div>';
+  // Live preview
+  const el = document.getElementById('rule-max-absent');
+  if(el) el.addEventListener('input',()=>{
+    const mx = parseInt(document.getElementById('rule-max-absent')?.value)||0;
+    const ov = Math.max(0, 5-mx);
+    const prev = document.getElementById('rule-preview');
+    if(prev) prev.innerHTML='ឧទាហរណ៍: ប្រាក់ខែ $1000 · ថ្ងៃធ្វើការ 26 · អវត្តមាន 5 ថ្ងៃ → លើស <b>'+ov+'</b> ថ្ងៃ → កាត់ <b style="color:var(--danger)">$'+((ov*(1000/26)).toFixed(2))+'</b>';
+  });
+  openModal();
+}
+
+function saveAbsenceRules() {
+  const rules = getSalaryRules();
+  rules.max_absent_days = parseInt(document.getElementById('rule-max-absent')?.value)||0;
+  saveSalaryRules(rules);
+  showToast('រក្សាទុកច្បាប់បានជោគជ័យ!','success');
+  closeModal();
+  // Refresh monthly view
+  const inp = document.querySelector('input[type="month"]');
+  if(inp) renderMonthlyAttendance(inp.value);
+}
+
+// Apply deduction to one employee's salary
+async function applyAbsenceDeduction(empId, empName, absentDays, overAbsent, deduction, month, offBonus=0) {
+  if (overAbsent <= 0 && offBonus <= 0) { showToast(empName+': គ្មានការកាត់ / OFF Bonus','info'); return; }
+  const offB = parseFloat(offBonus) || 0;
+  const confirmMsg = 'ចំពោះ '+empName+':\n'
+    +(overAbsent>0?'• កាត់ $'+deduction.toFixed(2)+' (អវត្តមាន '+absentDays+' ថ្ងៃ, លើស '+overAbsent+' ថ្ងៃ)\n':'')
+    +(offB>0?'• + OFF Bonus $'+offB.toFixed(2)+' (ថ្ងៃ OFF ធ្វើការ)\n':'')
+    +'\nបន្តទេ?';
+  if (!confirm(confirmMsg)) return;
+  try {
+    // Get or create salary record for this month
+    const salData = await api('GET','/salary?month='+month);
+    let rec = (salData.records||[]).find(r=>r.employee_id===empId);
+    if (!rec) {
+      // Find employee salary
+      const emp = (state.employees||[]).find(e=>e.id===empId);
+      const base = emp ? (emp.salary||0) : 0;
+      const netNew = base - deduction + offB;
+      const noteParts = [];
+      if (deduction > 0) noteParts.push('អវត្តមាន '+absentDays+' ថ្ងៃ (-$'+deduction.toFixed(2)+')');
+      if (offB > 0) noteParts.push('🌟 OFF Bonus (+$'+offB.toFixed(2)+')');
+      await api('POST','/salary',{ employee_id:empId, month, base_salary:base, bonus:offB, deduction:deduction, net_salary:netNew, notes:noteParts.join(' | ') });
+      showToast('បន្ថែម + កែ $'+netNew.toFixed(2)+' Net ចំពោះ '+empName+'!','success');
+    } else {
+      const newDeduct = (rec.deduction||0) + deduction;
+      const newBonus = (rec.bonus||0) + offB;
+      const newNet = (rec.base_salary||0) + newBonus - newDeduct;
+      const noteParts = [];
+      if (deduction > 0) noteParts.push('អវត្តមាន '+absentDays+' ថ្ងៃ (-$'+deduction.toFixed(2)+')');
+      if (offB > 0) noteParts.push('🌟 OFF Bonus (+$'+offB.toFixed(2)+')');
+      await api('PUT','/salary/'+rec.id,{ ...rec, deduction:newDeduct, bonus:newBonus, net_salary:newNet, notes:(rec.notes?rec.notes+' | ':'')+noteParts.join(' | ') });
+      showToast('កែ Net $'+newNet.toFixed(2)+' ចំពោះ '+empName+' បានជោគជ័យ!','success');
+    }
+    // Refresh
+    const inp = document.querySelector('input[type="month"]');
+    renderMonthlyAttendance(inp ? inp.value : month);
+  } catch(e) { showToast('Error: '+e.message,'error'); }
+}
+
+// Apply deductions to ALL employees that exceeded absent days
+async function applyAllAbsenceDeductions(month) {
+  const rules = getSalaryRules();
+  const maxAbsent = rules.max_absent_days !== undefined ? rules.max_absent_days : 2;
+  const [y,m] = month.split('-').map(Number);
+  const daysInMonth = new Date(y,m,0).getDate();
+  showLoading();
+  try {
+    const [empData] = await Promise.all([api('GET','/employees?limit=500')]);
+    const emps = empData.employees || [];
+    let allRecords = [];
+    try { const r1 = await api('GET','/attendance?month='+month+'&limit=9999'); allRecords = r1.records||[]; } catch(_){}
+    if (!allRecords.length) {
+      const promises = [];
+      for(let d=1;d<=daysInMonth;d++){ const dd=String(d).padStart(2,'0'); promises.push(api('GET','/attendance?date='+month+'-'+dd).catch(()=>({records:[]}))); }
+      const results = await Promise.all(promises);
+      results.forEach(r=>{allRecords=allRecords.concat(r.records||[]);});
+    }
+    const attMap = {};
+    allRecords.forEach(a=>{ if(!attMap[a.employee_id])attMap[a.employee_id]={}; attMap[a.employee_id][(a.date||'').slice(-2)]=a; });
+    // Build all days of month
+    const allMonthDaysArr = [];
+    for(let d=1;d<=daysInMonth;d++){ const dt=new Date(y,m-1,d); allMonthDaysArr.push({dd:String(d).padStart(2,'0'),wd:dt.getDay()}); }
+    const toDeduct = emps.map(emp=>{
+      // Per-employee off days (default: Sunday=0)
+      const empOff = parseOffDays(emp);
+      const empDays = allMonthDaysArr.filter(x=>empOff.indexOf(x.wd)===-1);
+      const workingDaysCount = empDays.length;
+      const rec=attMap[emp.id]||{}; let absent=0;
+      empDays.forEach(x=>{ const a=rec[x.dd]; if(!a||a.status==='absent') absent++; });
+      const over=Math.max(0,absent-maxAbsent);
+      const dailyRate = (emp.salary||0) / 30; // Fixed 30-day standard
+      const deduction = parseFloat((over * dailyRate).toFixed(2));
+      // OFF bonus ប្រើ salary/30 (Fixed 30-day standard)
+      const offDailyRate = (emp.salary||0) / 30; // Fixed 30-day standard
+      // Count OFF days worked (direct attendance on OFF days, no compensation swap)
+      let offDaysWorked = 0;
+      allMonthDaysArr.forEach(x=>{
+        if (empOff.length > 0 && empOff.indexOf(x.wd) !== -1) {
+          const a = rec[x.dd];
+          if (a && (a.status==='present'||a.status==='late')) offDaysWorked++;
+        }
+      });
+      const _rules = getSalaryRules();
+      const _offMult = (_rules.off_bonus_enabled !== false) ? (_rules.off_day_multiplier || 1.0) : 0;
+      const offBonus = parseFloat((offDaysWorked * offDailyRate * _offMult).toFixed(2));
+      return { emp, absent, over, deduction, offBonus, offDaysWorked };
+    }).filter(x=>x.over>0||x.offBonus>0);
+    if (!toDeduct.length) { showToast('គ្មានបុគ្គលិកណាលើសថ្ងៃ!','success'); renderMonthlyAttendance(month); return; }
+    if (!confirm('ធ្វើបច្ចុប្បន្នភាពបៀវត្ស '+toDeduct.length+' នាក់?\n'+toDeduct.map(x=>x.emp.name+(x.over>0?' -$'+x.deduction.toFixed(2)+' (លើស '+x.over+' ថ្ងៃ)':'')+(x.offBonus>0?' +$'+x.offBonus.toFixed(2)+' (🌟 OFF)':'')).join('\n'))) { renderMonthlyAttendance(month); return; }
+    const salData = await api('GET','/salary?month='+month);
+    let applied=0;
+    for(const {emp,absent,over,deduction} of toDeduct) {
+      try {
+        let rec=(salData.records||[]).find(r=>r.employee_id===emp.id);
+        const noteParts=[];
+        if(over>0) noteParts.push('អវត្តមាន '+absent+' ថ្ងៃ, លើស '+over+' ថ្ងៃ (-$'+deduction.toFixed(2)+')');
+        if(offBonus>0) noteParts.push('🌟 OFF Bonus (+$'+offBonus.toFixed(2)+')');
+        const noteStr = noteParts.join(' | ');
+        if(!rec){
+          const netNew=(emp.salary||0)-deduction+offBonus;
+          await api('POST','/salary',{employee_id:emp.id,month,base_salary:emp.salary||0,bonus:offBonus,deduction,net_salary:netNew,notes:noteStr});
+        } else {
+          const nd=(rec.deduction||0)+deduction;
+          const nb=(rec.bonus||0)+offBonus;
+          const nn=(rec.base_salary||0)+nb-nd;
+          await api('PUT','/salary/'+rec.id,{...rec,deduction:nd,bonus:nb,net_salary:nn,notes:(rec.notes?rec.notes+' | ':'')+noteStr});
+        }
+        applied++;
+      } catch(_){}
+    }
+    showToast('កាត់ប្រាក់ '+applied+' នាក់ បានជោគជ័យ!','success');
+    renderMonthlyAttendance(month);
+  } catch(e) { showError(e.message); }
+}
+
+// Quick checkout button
+async function quickCheckOut(empId, date) {
+  const now = new Date();
+  const time = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+  try {
+    await api('POST','/attendance',{ employee_id:empId, date, check_out:time, status:'present' });
+    showToast('ចុះម៉ោងចេញ '+time+' បានជោគជ័យ!','success');
+    renderAttendance(date);
+  } catch(e) { showToast('Error: '+e.message,'error'); }
+}
+
+// ===== QR SCAN PAGE (standalone page, not modal) =====
+async function renderQRScanPage() {
+  showLoading();
+  const _today = today();
+  try {
+    const empData = await api('GET', '/employees?limit=500').catch(() => ({ employees: [] }));
+    state.employees = empData.employees || [];
+  } catch(_) {}
+
+  const _sess = getSession();
+
+  contentArea().innerHTML =
+    '<div class="page-header">'
+    +'<div><h2>📷 ស្កេន QR — វត្តមាន</h2><p>ជ្រើសរបៀបស្កេន ហើយកត់វត្តមានភ្លាមៗ</p></div>'
+    +'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
+    +'<div style="display:flex;align-items:center;gap:8px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:8px 14px">'
+    +'<span style="font-size:15px;font-weight:600;color:var(--text2)">📅 ថ្ងៃស្កេន:</span>'
+    +'<input type="date" id="qr-scan-date" value="'+_today+'" max="'+_today+'" '
+    +'style="border:none;background:transparent;font-size:15px;font-weight:700;color:var(--primary);cursor:pointer;outline:none" '
+    +'onchange="onQRScanDateChange(this.value)" />'
+    +'</div>'
+    +'<button class="btn btn-outline btn-sm" onclick="resetQRScanToToday()" style="font-size:14px">🔄 ថ្ងៃនេះ</button>'
+    +'</div>'
+    +'</div>'
+
+    // ── Scanner Identity Banner ──
+    +((_sess && _sess.role === 'QR Scanner') ? '<div style="max-width:900px;margin:0 auto 18px;background:linear-gradient(135deg,rgba(16,185,129,.12),rgba(6,214,160,.08));border:1.5px solid rgba(16,185,129,.35);border-radius:14px;padding:12px 18px;display:flex;align-items:center;gap:12px"><div style="width:38px;height:38px;border-radius:50%;background:var(--success);display:flex;align-items:center;justify-content:center;color:white;font-size:18px;font-weight:800;flex-shrink:0">'+((_sess.name||'S')[0])+'</div><div style="flex:1"><div style="font-weight:800;font-size:16px;color:var(--text)">'+(_sess.name||'QR Scanner')+'</div><div style="font-size:13px;color:var(--text3)">📷 QR Scanner — វត្តមានដែលស្កែនដោយខ្ញុំ</div></div><span style="background:var(--success);color:white;font-size:12px;padding:3px 10px;border-radius:20px;font-weight:700">ACTIVE</span></div>' : '')
+
+    // ── No mode selector — direct employee scan ──
+    +'<div id="qr-mode-selector" style="display:none"></div>'
+
+    // ── Scanner UI (hidden until mode chosen) ──
+    +'<div id="qr-scanner-ui" style="display:none;max-width:900px;margin:0 auto">'
+
+    // Active location banner
+    +'<div id="qr-location-banner" style="display:none;background:linear-gradient(135deg,rgba(99,102,241,.15),rgba(139,92,246,.1));border:1.5px solid rgba(99,102,241,.4);border-radius:12px;padding:10px 16px;margin-bottom:14px;display:flex;align-items:center;gap:10px">'
+    +'<span style="font-size:20px">📍</span>'
+    +'<div style="flex:1">'
+    +'<div style="font-size:13px;color:var(--text3)">ទីតាំងដែលបានជ្រើស</div>'
+    +'<div id="qr-location-name" style="font-weight:800;font-size:16px;color:var(--text)">—</div>'
+    +'</div>'
+    +'<button class="btn btn-outline btn-sm" onclick="clearQRLocation()" style="font-size:13px;border-color:rgba(99,102,241,.5);color:var(--text2)">✕ លុប</button>'
+    +'</div>'
+
+    // Location step banner (shown when mode=location and no location set yet)
+    +'<div id="qr-location-step" style="display:none;background:linear-gradient(135deg,rgba(245,158,11,.12),rgba(234,179,8,.08));border:1.5px solid rgba(245,158,11,.4);border-radius:12px;padding:14px 18px;margin-bottom:14px;text-align:center">'
+    +'<div style="font-size:28px;margin-bottom:6px">📍</div>'
+    +'<div style="font-weight:800;font-size:16px;color:var(--text);margin-bottom:4px">ជំហានទី ១ — ស្កែន QR ទីតាំង</div>'
+    +'<div style="font-size:14px;color:var(--text3)">ចង្អុលកាមេរ៉ាទៅ QR Code ទីតាំង ដើម្បីកំណត់ទីតាំងស្កែន</div>'
+    +'<div style="margin-top:10px;font-size:13px;color:var(--text3)">ឬ ជ្រើសពីបញ្ជី ▼</div>'
+    +'<div id="qr-location-list" style="margin-top:10px;display:flex;flex-wrap:wrap;gap:8px;justify-content:center"></div>'
+    +'</div>'
+
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px" class="qr-scan-grid">'
+
+    // Left: Camera
+    +'<div class="card" style="padding:20px">'
+    +'<div style="font-weight:700;font-size:16px;margin-bottom:14px;display:flex;align-items:center;gap:8px">'
+    +'<span style="width:8px;height:8px;background:var(--success);border-radius:50%;display:inline-block;animation:qrPulse 1.5s ease-in-out infinite"></span>'
+    +'<span id="qr-camera-label">កាមេរ៉ា</span>'
+    +'</div>'
+    +'<div style="position:relative;width:100%;border-radius:12px;overflow:hidden;background:#000;aspect-ratio:1;margin-bottom:14px">'
+    +'<video id="qr-video" style="width:100%;height:100%;object-fit:cover" autoplay playsinline muted></video>'
+    +'<div style="position:absolute;inset:0;pointer-events:none">'
+    +'<div style="position:absolute;top:16px;left:16px;width:44px;height:44px;border-top:3px solid var(--primary);border-left:3px solid var(--primary);border-radius:4px 0 0 0"></div>'
+    +'<div style="position:absolute;top:16px;right:16px;width:44px;height:44px;border-top:3px solid var(--primary);border-right:3px solid var(--primary);border-radius:0 4px 0 0"></div>'
+    +'<div style="position:absolute;bottom:16px;left:16px;width:44px;height:44px;border-bottom:3px solid var(--primary);border-left:3px solid var(--primary);border-radius:0 0 0 4px"></div>'
+    +'<div style="position:absolute;bottom:16px;right:16px;width:44px;height:44px;border-bottom:3px solid var(--primary);border-right:3px solid var(--primary);border-radius:0 0 4px 0"></div>'
+    +'<div id="qr-scan-line" style="position:absolute;left:16px;right:16px;height:2px;background:var(--primary);top:50%;animation:qrScanLine 2s ease-in-out infinite;box-shadow:0 0 8px var(--primary)"></div>'
+    +'</div>'
+    +'<div id="qr-scan-status" style="position:absolute;bottom:0;left:0;right:0;text-align:center;color:white;font-size:13px;background:rgba(0,0,0,.6);padding:6px">📷 កំពុងចាប់ផ្ដើម...</div>'    +'<button id="qr-switch-cam" onclick="switchQRCamera()" title="ប្តូរកាមេរ៉ា" style="position:absolute;top:10px;right:10px;background:rgba(0,0,0,.55);border:none;border-radius:50%;width:38px;height:38px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:white;font-size:18px;z-index:10">🔄</button>'    +'</div>'    // Check in/out type
+    +'<div style="display:flex;gap:6px;margin-bottom:12px;background:var(--bg3);padding:4px;border-radius:8px">'
+    +'<button id="scan-type-in" class="btn btn-success btn-sm" style="flex:1;border:none" onclick="setScanType(\'in\')">🟢 ចូល</button>'
+    +'<button id="scan-type-out" class="btn btn-outline btn-sm" style="flex:1;border:none" onclick="setScanType(\'out\')">🔴 ចេញ</button>'
+    +'</div>'
+    // Manual input
+    +'<div style="background:var(--bg3);border-radius:10px;padding:12px">'
+    +'<div style="font-size:13px;color:var(--text3);margin-bottom:8px;text-align:center">ឬវាយ ID / ឈ្មោះ / custom ID</div>'
+    +'<div style="display:flex;gap:6px">'
+    +'<input class="form-control" id="qr-manual-id" placeholder="e.g. EMP-001, 4, សាន..." style="flex:1" '
+    +'onkeydown="if(event.key===\'Enter\')processQRScan(this.value,getQRScanDate())" />'
+    +'<button class="btn btn-primary" onclick="processQRScan($(\'qr-manual-id\').value,getQRScanDate())">'
+    +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><polyline points="20 6 9 17 4 12"/></svg>'
+    +'</button>'
+    +'</div>'
+    +'</div>'
+    // No mode change button needed
+    +'</div>'
+
+    // Right: Log
+    +'<div class="card" style="padding:20px;display:flex;flex-direction:column">'
+    +'<div style="font-weight:700;font-size:16px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between">'
+    +'<span>📋 កំណត់ហេតុស្កែន</span>'
+    +'<span id="qr-count" style="font-size:14px;color:var(--text3);font-weight:400">0 នាក់</span>'
+    +'</div>'
+    +'<div id="qr-result-log" style="flex:1;overflow-y:auto;border-radius:8px;min-height:300px"></div>'
+    +'<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">'
+    +(getSession()?.role !== 'QR Scanner' ? '<button class="btn btn-outline btn-sm" onclick="navigate(\'attendance\')">'
+    +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/></svg>'
+    +' មើលតារាងវត្តមាន</button>' : '')
+    +'</div>'
+    +'</div>'
+    +'</div>'
+    +'</div>' // end qr-scanner-ui
+
+    +'<style>'
+    +'@keyframes qrScanLine{0%,100%{top:20%}50%{top:80%}}'
+    +'@keyframes qrPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(1.4)}}'
+    +'@media(max-width:700px){.qr-scan-grid{grid-template-columns:1fr!important;}}'
+    +'#mode-card-location:hover,#mode-card-employee:hover{transform:translateY(-2px);box-shadow:0 4px 20px rgba(0,0,0,.12)}'
+    +'</style>';
+
+  window._scanType = 'in';
+  window._scanCount = 0;
+  window._qrMode = null;         // 'location' | 'employee'
+  window._qrActiveLocation = null; // { id, name } when location mode
+
+  const _datePicker = document.getElementById('qr-scan-date');
+  if (_datePicker) { _datePicker.value = _today; _datePicker.max = _today; }
+
+
+  const origNavigate = window._qrPageNavGuard;
+  if (origNavigate) origNavigate();
+  window._qrPageNavGuard = () => stopQRScanner();
+
+  // Auto-start employee scan mode directly
+  setQRMode('employee');
+}
+
+// ── Set scan mode ──
+function setQRMode(mode) {
+  window._qrMode = mode;
+  window._qrActiveLocation = null;
+
+  // Highlight chosen card
+  const cardLoc = document.getElementById('mode-card-location');
+  const cardEmp = document.getElementById('mode-card-employee');
+  const accent = mode === 'location' ? 'rgba(99,102,241,1)' : 'var(--success)';
+  if (cardLoc) cardLoc.style.border = mode==='location' ? '2.5px solid rgba(99,102,241,1)' : '2.5px solid var(--border)';
+  if (cardEmp) cardEmp.style.border = mode==='employee' ? '2.5px solid var(--success)' : '2.5px solid var(--border)';
+
+  // Show scanner UI
+  const modeEl = document.getElementById('qr-mode-selector');
+  const scanEl = document.getElementById('qr-scanner-ui');
+  if (modeEl) modeEl.style.display = 'none';
+  if (scanEl) scanEl.style.display = 'block';
+
+  // Update camera label
+  const label = document.getElementById('qr-camera-label');
+  if (mode === 'location') {
+    if (label) label.textContent = 'ជំហាន ១ — ស្កែន QR ទីតាំង';
+    // Show step instruction, hide location banner
+    const step = document.getElementById('qr-location-step');
+    const banner = document.getElementById('qr-location-banner');
+    if (step) step.style.display = 'block';
+    if (banner) banner.style.display = 'none';
+  } else {
+    if (label) label.textContent = 'ស្កែន QR កាតបុគ្គលិក';
+    const step = document.getElementById('qr-location-step');
+    const banner = document.getElementById('qr-location-banner');
+    if (step) step.style.display = 'none';
+    if (banner) banner.style.display = 'none';
+  }
+
+  startQRScanner(getQRScanDate());
+}
+
+// ── Show mode selector again ──
+function showQRModeSelector() {
+  stopQRScanner();
+  window._qrMode = null;
+  window._qrActiveLocation = null;
+  const modeEl = document.getElementById('qr-mode-selector');
+  const scanEl = document.getElementById('qr-scanner-ui');
+  if (modeEl) modeEl.style.display = 'block';
+  if (scanEl) scanEl.style.display = 'none';
+}
+
+// ── Select location from button list ──
+function selectLocationManual(id, name) {
+  _activateLocation(id, name);
+}
+
+// ── Activate a scanned/chosen location ──
+function _activateLocation(id, name) {
+  window._qrActiveLocation = { id, name };
+  // Hide step, show banner
+  const step = document.getElementById('qr-location-step');
+  const banner = document.getElementById('qr-location-banner');
+  const nameEl = document.getElementById('qr-location-name');
+  const label = document.getElementById('qr-camera-label');
+  if (step) step.style.display = 'none';
+  if (banner) { banner.style.display = 'flex'; }
+  if (nameEl) nameEl.textContent = name;
+  if (label) label.textContent = 'ជំហាន ២ — ស្កែន QR កាតបុគ្គលិក';
+  showToast('📍 ទីតាំង: '+name+' — ស្កែន QR បុគ្គលិកទៅ!', 'success');
+}
+
+// ── Clear active location (back to step 1) ──
+function clearQRLocation() {
+  window._qrActiveLocation = null;
+  const step = document.getElementById('qr-location-step');
+  const banner = document.getElementById('qr-location-banner');
+  const label = document.getElementById('qr-camera-label');
+  if (step) step.style.display = 'block';
+  if (banner) banner.style.display = 'none';
+  if (label) label.textContent = 'ជំហាន ១ — ស្កែន QR ទីតាំង';
+}
+
+// Get currently selected scan date from the date picker
+function getQRScanDate() {
+  const el = document.getElementById('qr-scan-date');
+  return el ? el.value : today();
+}
+
+// Called when date picker changes — restart scanner with new date
+function onQRScanDateChange(newDate) {
+  window._scanCount = 0;
+  const log = document.getElementById('qr-result-log');
+  if (log) log.innerHTML = '';
+  const cnt = document.getElementById('qr-count');
+  if (cnt) cnt.textContent = '0 នាក់';
+  // Only restart scanner if already in scanner UI mode
+  if (window._qrMode) {
+    stopQRScanner();
+    setTimeout(() => startQRScanner(newDate), 200);
+  }
+}
+
+// Reset date picker to today (local date) and restart scanner
+function resetQRScanToToday() {
+  const t = today();
+  const el = document.getElementById('qr-scan-date');
+  if (el) { el.value = t; el.max = t; }
+  onQRScanDateChange(t);
+}
+
+// ===== QR Scanner modal (uses camera) =====
+// QR Scanner modal (uses camera)
+async function openQRScanModal(date) {
+  // Always load fresh employee list before opening scanner
+  try {
+    const d = await api('GET', '/employees?limit=500');
+    state.employees = d.employees || [];
+  } catch(_) {}
+
+  $('modal-title').textContent = '📷 ស្កេន QR — វត្តមាន';
+  $('modal-body').innerHTML =
+    // Camera box
+    '<div style="position:relative;width:100%;max-width:300px;margin:0 auto 14px;border-radius:12px;overflow:hidden;background:#000;aspect-ratio:1">'
+    +'<video id="qr-video" style="width:100%;height:100%;object-fit:cover" autoplay playsinline muted></video>'
+    // corner guides
+    +'<div style="position:absolute;inset:0;pointer-events:none">'
+    +'<div style="position:absolute;top:16px;left:16px;width:40px;height:40px;border-top:3px solid var(--primary);border-left:3px solid var(--primary);border-radius:4px 0 0 0"></div>'
+    +'<div style="position:absolute;top:16px;right:16px;width:40px;height:40px;border-top:3px solid var(--primary);border-right:3px solid var(--primary);border-radius:0 4px 0 0"></div>'
+    +'<div style="position:absolute;bottom:16px;left:16px;width:40px;height:40px;border-bottom:3px solid var(--primary);border-left:3px solid var(--primary);border-radius:0 0 0 4px"></div>'
+    +'<div style="position:absolute;bottom:16px;right:16px;width:40px;height:40px;border-bottom:3px solid var(--primary);border-right:3px solid var(--primary);border-radius:0 0 4px 0"></div>'
+    +'<div id="qr-scan-line" style="position:absolute;left:16px;right:16px;height:2px;background:var(--primary);top:50%;animation:qrScanLine 2s ease-in-out infinite;box-shadow:0 0 8px var(--primary)"></div>'
+    +'</div>'
+    +'<div id="qr-scan-status" style="position:absolute;bottom:0;left:0;right:0;text-align:center;color:white;font-size:11px;background:rgba(0,0,0,.6);padding:5px">📷 កំពុងស្កេន...</div>'
+    +'</div>'
+    // Type selector: Check-in or Check-out
+    +'<div style="display:flex;gap:6px;margin-bottom:12px;background:var(--bg3);padding:4px;border-radius:8px">'
+    +'<button id="scan-type-in" class="btn btn-success btn-sm" style="flex:1;border:none" onclick="setScanType(\'in\')">🟢 ចូល</button>'
+    +'<button id="scan-type-out" class="btn btn-outline btn-sm" style="flex:1;border:none" onclick="setScanType(\'out\')">🔴 ចេញ</button>'
+    +'</div>'
+    // Manual input
+    +'<div style="background:var(--bg3);border-radius:10px;padding:12px;margin-bottom:10px">'
+    +'<div style="font-size:11px;color:var(--text3);margin-bottom:8px;text-align:center">ឬវាយ ID / ឈ្មោះ / custom ID</div>'
+    +'<div style="display:flex;gap:6px">'
+    +'<input class="form-control" id="qr-manual-id" placeholder="e.g. EMP-001, 4, សាន..." style="flex:1" '
+    +'onkeydown="if(event.key===\'Enter\')processQRScan(this.value,\''+date+'\')" />'
+    +'<button class="btn btn-primary" onclick="processQRScan($(\'qr-manual-id\').value,\''+date+'\')">'
+    +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><polyline points="20 6 9 17 4 12"/></svg></button>'
+    +'</div>'
+    +'</div>'
+    // Results log
+    +'<div id="qr-result-log" style="max-height:150px;overflow-y:auto;border-radius:8px"></div>'
+    +'<div class="form-actions" style="margin-top:10px">'
+    +'<button class="btn btn-outline btn-sm" onclick="stopQRScanner();closeModal()">🚪 បិទ</button>'
+    +'<span id="qr-count" style="font-size:12px;color:var(--text3);margin-left:8px">0 នាក់</span>'
+    +'</div>'
+    // Scan line animation
+    +'<style>@keyframes qrScanLine{0%,100%{top:20%}50%{top:80%}}</style>';
+
+  // State
+  window._scanType = 'in';
+  window._scanCount = 0;
+  openModal();
+  startQRScanner(date);
+}
+
+function setScanType(type) {
+  window._scanType = type;
+  const btnIn  = document.getElementById('scan-type-in');
+  const btnOut = document.getElementById('scan-type-out');
+  if (!btnIn || !btnOut) return;
+  if (type === 'in') {
+    btnIn.className  = 'btn btn-success btn-sm';  btnIn.style.border  = 'none';
+    btnOut.className = 'btn btn-outline btn-sm';   btnOut.style.border = 'none';
+  } else {
+    btnIn.className  = 'btn btn-outline btn-sm';   btnIn.style.border  = 'none';
+    btnOut.className = 'btn btn-danger btn-sm';    btnOut.style.border = 'none';
+  }
+}
+
+let qrScanStream = null;
+let qrScanActive = false;
+let _qrCameraDeviceId = null;   // null = prefer environment, string = specific deviceId
+let _qrCameraList = [];         // [{deviceId, label, facing}]
+
+// ── jsQR loader ──
+var _jsQR = null;
+function loadJsQR() {
+  if (_jsQR || window.jsQR) { _jsQR = _jsQR || window.jsQR; return Promise.resolve(_jsQR); }
+  return new Promise(res => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js';
+    s.onload = () => { _jsQR = window.jsQR; res(_jsQR); };
+    s.onerror = () => res(null);
+    document.head.appendChild(s);
+  });
+}
+
+async function startQRScanner(date) {
+  qrScanActive = true;
+  const statusEl = () => document.getElementById('qr-scan-status');
+
+  // Load jsQR in background
+  loadJsQR();
+
+  // Request camera
+  try {
+    // Build constraints: use specific deviceId if user has switched, else prefer back camera
+    const constraints = _qrCameraDeviceId
+      ? { video: { deviceId: { exact: _qrCameraDeviceId }, width: { ideal: 1280, min: 320 }, height: { ideal: 720, min: 240 } } }
+      : { video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280, min: 320 }, height: { ideal: 720, min: 240 } } };
+    qrScanStream = await navigator.mediaDevices.getUserMedia(constraints);
+  } catch(err) {
+    let msg = '❌ Camera error';
+    if (err.name === 'NotAllowedError')  msg = '❌ សូម Allow Camera → Reload';
+    if (err.name === 'NotFoundError')    msg = '❌ Camera រកមិនឃើញ';
+    if (err.name === 'NotReadableError') msg = '❌ Camera កំពុងប្រើដោយ App ផ្សេង';
+    const s = statusEl(); if (s) { s.textContent = msg; s.style.background = 'rgba(239,71,111,.8)'; }
+    console.error('[QR Camera]', err.name, err.message);
+    return;
+  }
+
+  const video = document.getElementById('qr-video');
+  if (!video) { stopQRScanner(); return; }
+
+  // Attach stream
+  video.srcObject = qrScanStream;
+  video.setAttribute('playsinline', true);
+  video.setAttribute('muted', true);
+  video.muted = true;
+
+  // Play and wait for data
+  try { await video.play(); } catch(e) { console.warn('video.play():', e); }
+
+  const s = statusEl();
+  if (s) s.textContent = '📷 Camera ត្រៀមរួច — ស្កេន QR...';
+
+  // Start decode loop
+  const canvas = document.createElement('canvas');
+  const ctx    = canvas.getContext('2d', { willReadFrequently: true });
+  let   lastVal = '';
+  let   frameCount = 0;
+
+  function decodeFrame() {
+    if (!qrScanActive || !qrScanStream) return;
+
+    const vid = document.getElementById('qr-video');
+    if (!vid) { stopQRScanner(); return; }
+
+    frameCount++;
+    const ready = vid.readyState >= 2; // HAVE_CURRENT_DATA or better
+    const hasSize = vid.videoWidth > 0 && vid.videoHeight > 0;
+
+    if (ready && hasSize) {
+      canvas.width  = vid.videoWidth;
+      canvas.height = vid.videoHeight;
+      ctx.drawImage(vid, 0, 0);
+
+      // Try jsQR first
+      const jsqr = _jsQR || window.jsQR;
+      if (jsqr) {
+        try {
+          const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const result  = jsqr(imgData.data, imgData.width, imgData.height, {
+            inversionAttempts: 'attemptBoth'
+          });
+          if (result && result.data && result.data !== lastVal) {
+            lastVal = result.data;
+            onQRDetected(result.data, date);
+            setTimeout(() => { lastVal = ''; }, 2500);
+          }
+        } catch(e) {}
+      }
+
+      // Also try BarcodeDetector (async, Chrome/Edge)
+      if ('BarcodeDetector' in window && frameCount % 5 === 0) {
+        new BarcodeDetector({ formats: ['qr_code'] })
+          .detect(canvas).then(codes => {
+            if (codes.length && codes[0].rawValue !== lastVal) {
+              lastVal = codes[0].rawValue;
+              onQRDetected(lastVal, date);
+              setTimeout(() => { lastVal = ''; }, 2500);
+            }
+          }).catch(() => {});
+      }
+    } else if (frameCount % 30 === 0) {
+      // Debug every ~1s
+      console.log('[QR] frame='+frameCount+' readyState='+vid.readyState+' size='+vid.videoWidth+'x'+vid.videoHeight);
+    }
+
+    requestAnimationFrame(decodeFrame);
+  }
+
+  // Small delay to let video stabilize on Android
+  setTimeout(() => { requestAnimationFrame(decodeFrame); }, 300);
+}
+
+function onQRDetected(val, date) {
+  const s = document.getElementById('qr-scan-status');
+  if (s) { s.textContent = '🔍 អានបាន: ' + val; s.style.background = 'rgba(59,130,246,.8)'; }
+  setTimeout(() => {
+    const sx = document.getElementById('qr-scan-status');
+    if (sx) { sx.textContent = '📷 ស្កេន...'; sx.style.background = 'rgba(0,0,0,.6)'; }
+  }, 1500);
+  processQRScan(val, date);
+}
+
+async function switchQRCamera() {
+  // Enumerate cameras (requires an active stream or prior permission)
+  try {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    _qrCameraList = devices
+      .filter(d => d.kind === 'videoinput')
+      .map(d => ({ deviceId: d.deviceId, label: d.label || d.deviceId }));
+  } catch(e) { _qrCameraList = []; }
+
+  if (_qrCameraList.length <= 1) {
+    showToast('មានតែកាមេរ៉ាតែមួយ', 'info');
+    return;
+  }
+
+  // Find index of current camera
+  let curIdx = _qrCameraList.findIndex(c => c.deviceId === _qrCameraDeviceId);
+  if (curIdx < 0) {
+    // Try to match by current stream track
+    if (qrScanStream) {
+      const trackSettings = qrScanStream.getVideoTracks()[0]?.getSettings() || {};
+      curIdx = _qrCameraList.findIndex(c => c.deviceId === trackSettings.deviceId);
+    }
+  }
+  const nextIdx = (curIdx + 1) % _qrCameraList.length;
+  _qrCameraDeviceId = _qrCameraList[nextIdx].deviceId;
+
+  // Restart scanner with new camera
+  const date = getQRScanDate();
+  stopQRScanner();
+  setTimeout(() => startQRScanner(date), 200);
+  showToast('ប្តូរទៅ ' + (_qrCameraList[nextIdx].label || 'Camera ' + (nextIdx + 1)), 'info');
+}
+
+function stopQRScanner() {
+  qrScanActive = false;
+  if (qrScanStream) {
+    qrScanStream.getTracks().forEach(t => t.stop());
+    qrScanStream = null;
+  }
+}
+
+let qrLastScan = ''; // keep for backward compat
+
+
+// ── Smart employee lookup ──
+function findEmployeeByQR(raw) {
+  if (!raw) return null;
+  const s       = raw.trim();
+  // Strip leading # and normalize EMP_001 / EMP-001 / EMP001 → just digits
+  const sClean  = s.replace(/^#+/, '');
+  // Extract digits only (handles "EMP_001" → "001" → 1, "EMP-013" → "013" → 13)
+  const sDigits = sClean.replace(/\D/g, '');
+  const sNum    = parseInt(sDigits) || 0;
+  const emps    = state.employees;
+
+  if (!emps || emps.length === 0) return null;
+  console.log('[QR] scan="'+s+'" clean="'+sClean+'" digits="'+sDigits+'" num='+sNum+' emps='+emps.length);
+
+  for (const e of emps) {
+    const cid    = (e.custom_id || '').trim().replace(/^#+/, '');
+    const cidDig = cid.replace(/\D/g, '');
+    const cidNum = parseInt(cidDig) || 0;
+    const autoPad4 = String(e.id).padStart(4, '0');
+    const autoPad3 = String(e.id).padStart(3, '0');
+
+    // Match 1: exact raw match (case-insensitive)
+    if (cid && cid.toLowerCase() === sClean.toLowerCase()) {
+      console.log('[QR] exact cid:', e.name); return e;
+    }
+    // Match 2: numeric of custom_id == numeric of QR (e.g. "001"=="1", "EMP_001"=="1")
+    if (cidNum > 0 && sNum > 0 && cidNum === sNum) {
+      console.log('[QR] num cid:', e.name); return e;
+    }
+    // Match 3: QR digits == padded db id "0004" or "004"
+    if (sNum > 0 && (sDigits === autoPad4 || sDigits === autoPad3)) {
+      console.log('[QR] padded id:', e.name); return e;
+    }
+    // Match 4: plain number == db id
+    if (sNum > 0 && e.id === sNum) {
+      console.log('[QR] db id:', e.name); return e;
+    }
+    // Match 5: QR contains "EMP" + number matching db id (e.g. "EMP_013", "EMP-013", "EMP013")
+    if (sClean.toUpperCase().startsWith('EMP') && sNum > 0 && e.id === sNum) {
+      console.log('[QR] EMP format id:', e.name); return e;
+    }
+  }
+
+  // Match 6: partial name (fallback)
+  if (sClean.length >= 2 && !/^\d+$/.test(sClean)) {
+    const lower = sClean.toLowerCase();
+    const nm = emps.find(e => e.name && e.name.toLowerCase().includes(lower));
+    if (nm) { console.log('[QR] name:', nm.name); return nm; }
+  }
+
+  console.log('[QR] NO MATCH "'+s+'" digits='+sNum+' | IDs:',
+    emps.map(e=>(e.custom_id?'cid='+e.custom_id:'')+'id='+e.id).join(' | '));
+  return null;
+}
+
+async function processQRScan(raw, date) {
+  if (!raw || !raw.trim()) { showToast('សូមបញ្ចូល ID!', 'error'); return; }
+
+  // ── Handle Location QR codes (format: LOC:id:name) ──
+  if (raw.startsWith('LOC:')) {
+    const parts = raw.split(':');
+    const locId = parseInt(parts[1]) || 0;
+    const locName = parts.slice(2).join(':') || 'ទីតាំង';
+
+    if (window._qrMode === 'location') {
+      _activateLocation(locId, locName);
+    } else {
+      showToast('📍 QR ទីតាំង: ' + locName + ' — សូមស្កែន QR បុគ្គលិក', 'info');
+      const s = document.getElementById('qr-scan-status');
+      if (s) { s.textContent = '📍 ទីតាំង: ' + locName; s.style.background = 'rgba(99,102,241,.8)'; }
+      setTimeout(() => {
+        const sx = document.getElementById('qr-scan-status');
+        if (sx) { sx.textContent = '📷 កំពុងស្កែន...'; sx.style.background = 'rgba(0,0,0,.6)'; }
+      }, 2500);
+    }
+    return;
+  }
+
+  // ── Location mode: must scan location QR first ──
+  if (window._qrMode === 'location' && !window._qrActiveLocation) {
+    showToast('⚠️ សូមស្កែន QR ទីតាំងមុន!', 'error');
+    const s = document.getElementById('qr-scan-status');
+    if (s) { s.textContent = '⚠️ ស្កែន QR ទីតាំងមុន'; s.style.background = 'rgba(239,71,111,.8)'; }
+    setTimeout(() => {
+      const sx = document.getElementById('qr-scan-status');
+      if (sx) { sx.textContent = '📷 កំពុងស្កែន...'; sx.style.background = 'rgba(0,0,0,.6)'; }
+    }, 2000);
+    return;
+  }
+
+  // ── Ensure employees loaded ──
+  if (!state.employees || state.employees.length === 0) {
+    try {
+      const d = await api('GET', '/employees?limit=500');
+      state.employees = d.employees || [];
+    } catch(e) { showToast('Load employees failed: '+e.message, 'error'); return; }
+  }
+
+  const emp = findEmployeeByQR(raw);
+  if (!emp) {
+    try {
+      const d = await api('GET', '/employees?limit=500');
+      state.employees = d.employees || [];
+    } catch(_) {}
+    const emp2 = findEmployeeByQR(raw);
+    if (!emp2) {
+      showToast('មិនស្គាល់ QR: "' + raw + '" — សូមផ្ទៀងផ្ទាត់ ID បុគ្គលិក', 'error');
+      const s = document.getElementById('qr-scan-status');
+      if (s) { s.textContent = '❌ QR មិនស្គាល់: ' + raw; s.style.background = 'rgba(239,71,111,.7)'; }
+      setTimeout(() => {
+        const sx = document.getElementById('qr-scan-status');
+        if (sx) { sx.textContent = '📷 កំពុងស្កែន...'; sx.style.background = 'rgba(0,0,0,.6)'; }
+      }, 2000);
+      return;
+    }
+    return processQRScan_continue(emp2, raw, date);
+  }
+  return processQRScan_continue(emp, raw, date);
+}
+async function processQRScan_continue(emp, raw, date) {
+  // ── QR Scanner self-scan restriction ──────────────────────────────────
+  // If logged-in user is a QR Scanner, they must NOT scan their own QR (ក).
+  // They are only allowed to scan other employees' QR codes (ខ).
+  const _scanSess = getSession();
+  if (_scanSess && _scanSess.role === 'QR Scanner') {
+    const _scannerName = (_scanSess.name || '').trim().toLowerCase();
+    const _empName     = (emp.name       || '').trim().toLowerCase();
+    // Also compare by scanner account id vs emp id (when scanner account id matches emp id)
+    const _scannerEmpId = _scanSess.employee_id || null;
+    const _selfByName   = _scannerName && _empName && _scannerName === _empName;
+    const _selfById     = _scannerEmpId && emp.id && parseInt(_scannerEmpId) === parseInt(emp.id);
+    const _isSelf       = _selfByName || _selfById;
+    // QR Scanner can ONLY scan their own QR — block scanning others
+    if (!_isSelf) {
+      showToast('🚫 ' + (emp.name || '') + ' — QR Scanner អាចស្កែន QR តែខ្លួនឯងប៉ុណ្ណោះ!', 'error');
+      const sv = document.getElementById('qr-scan-status');
+      if (sv) {
+        sv.textContent = '🚫 មិនអនុញ្ញាត — ស្កែន QR អ្នកដទៃ';
+        sv.style.background = 'rgba(239,71,111,.85)';
+        setTimeout(() => {
+          const sx = document.getElementById('qr-scan-status');
+          if (sx) { sx.textContent = '📷 កំពុងស្កែន...'; sx.style.background = 'rgba(0,0,0,.6)'; }
+        }, 3000);
+      }
+      // Log the blocked attempt in result log
+      const _logEl2 = document.getElementById('qr-result-log');
+      if (_logEl2) {
+        const _nb = new Date();
+        const _tb = _nb.getHours().toString().padStart(2,'0') + ':' + _nb.getMinutes().toString().padStart(2,'0');
+        const _eb = document.createElement('div');
+        _eb.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;margin-bottom:6px;background:rgba(239,71,111,.08);border:1px solid rgba(239,71,111,.25)';
+        _eb.innerHTML = '<span style="font-size:18px">🚫</span>'
+          + '<div style="flex:1"><div style="font-weight:700;font-size:14px;color:var(--danger)">' + (emp.name||'') + '</div>'
+          + '<div style="font-size:12px;color:var(--text3)">មិនអនុញ្ញាត — ស្កែន QR អ្នកដទៃ</div></div>'
+          + '<div style="font-size:13px;font-weight:700;color:var(--text3)">' + _tb + '</div>';
+        _logEl2.prepend(_eb);
+      }
+      return;
+    }
+  }
+  // ─────────────────────────────────────────────────────────────────────
+
+  const now   = new Date();
+  const time  = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+  const type  = window._scanType || 'in';
+  const _rules = getSalaryRules();
+  const _startParts = (_rules.work_start_time || '08:00').split(':').map(Number);
+  const _graceMin = _rules.late_grace_minutes !== undefined ? _rules.late_grace_minutes : 15;
+  const _limitMin = _startParts[0] * 60 + _startParts[1] + _graceMin;
+  const _nowMin = now.getHours() * 60 + now.getMinutes();
+  const isLate = type === 'in' && (_nowMin > _limitMin);
+
+  // ── Auto Half-Day Detection (QR Scanner) ─────────────────────────────
+  // Half-day AM : Scan-In  07:00–11:59  AND  Scan-Out 11:00–12:59
+  // Half-day PM : Scan-In  13:00–17:59  AND  Scan-Out 17:00–18:59
+  // When scanning OUT, look up existing check_in from server to decide.
+  let _autoHalfDay = null; // 'half_day_am' | 'half_day_pm' | null
+  if (type === 'out') {
+    try {
+      const _todayAtt = await api('GET', '/attendance?employee_id=' + emp.id + '&date=' + date).catch(() => null);
+      const _existRec = (_todayAtt && (_todayAtt.records || _todayAtt.attendance || [])).find(
+        r => (r.employee_id === emp.id || r.employee_id === String(emp.id)) && r.date === date
+      );
+      if (_existRec && _existRec.check_in) {
+        const _ciParts  = _existRec.check_in.split(':').map(Number);
+        const _ciMin    = _ciParts[0] * 60 + (_ciParts[1] || 0);
+        // AM session: check-in 05:00–11:59 (300–719), check-out 11:00–12:59 (660–779)
+        // Early arrivals (e.g. 06:53) are still AM shift workers
+        const _amIn  = _ciMin >= 300 && _ciMin <= 719;
+        const _amOut = _nowMin >= 660 && _nowMin <= 779;
+        // PM session: check-in 13:00–17:59 (780–1079), check-out 17:00–18:59 (1020–1139)
+        const _pmIn  = _ciMin >= 780 && _ciMin <= 1079;
+        const _pmOut = _nowMin >= 1020 && _nowMin <= 1139;
+        if (_amIn && _amOut)       _autoHalfDay = 'half_day_am';
+        else if (_pmIn && _pmOut)  _autoHalfDay = 'half_day_pm';
+      }
+    } catch(_) {}
+  }
+  // ─────────────────────────────────────────────────────────────────────
+
+  const status = type === 'in'
+    ? (isLate ? 'late' : 'present')
+    : (_autoHalfDay || 'present');
+
+  const _sess = getSession();
+  const payload = { employee_id: emp.id, date };
+  if (type === 'in')  { payload.check_in  = time; payload.status = status; }
+  else {
+    payload.check_out = time;
+    if (_autoHalfDay) {
+      payload.status = _autoHalfDay;
+    } else if (_nowMin < 780 && _nowMin >= 600) {
+      payload.status = 'half_day_am';
+    } else {
+      payload.status = 'present';
+    }
+  }
+  // Attach scanner_id from logged-in user
+  if (_sess && _sess.id) payload.scanner_id = _sess.id;
+  // Attach location to notes if available
+  const _activeLoc = window._qrActiveLocation;
+  if (_activeLoc) {
+    payload.notes = '📍 ' + _activeLoc.name;
+  }
+
+  // ── Fetch dayswap info for this employee on scan date ──────────────
+  let _dayswapBadge = '';
+  let _dayswapLogBadge = '';
+  try {
+    const _dsData = await api('GET', '/dayswap').catch(() => ({ records: [] }));
+    const _dsRecs = _dsData.records || [];
+    const _wdNames = ['អាទិត្យ','ច័ន្ទ','អង្គារ','ពុធ','ព្រហស្បតិ៍','សុក្រ','សៅរ៍'];
+    // Find approved dayswap where this employee is working their OFF day (swap_date = date)
+    const _workSwap = _dsRecs.find(r =>
+      r.employee_id === emp.id && r.status === 'approved' && r.swap_date === date
+    );
+    // Find approved dayswap where this employee has compensation OFF (off_date = date)
+    const _offSwap = _dsRecs.find(r =>
+      r.employee_id === emp.id && r.status === 'approved' && r.off_date === date
+    );
+    if (_workSwap) {
+      const _wn = _wdNames[_workSwap.work_day] || '';
+      const _on = _wdNames[_workSwap.off_day] || '';
+      _dayswapBadge = '<div style="margin-top:10px;padding:8px 14px;background:rgba(239,71,111,.1);border:1.5px solid rgba(239,71,111,.35);border-radius:10px;font-size:13px;color:var(--danger);text-align:center">'
+        +'<div style="font-weight:700;font-size:14px;margin-bottom:2px">🔄 ថ្ងៃប្តូរ — ធ្វើការថ្ងៃ OFF</div>'
+        +'<div>OFF <b>'+_wn+'</b> → ចូល​ធ្វើការ​ ('+_workSwap.swap_date+')</div>'
+        +'<div style="font-size:12px;color:var(--text3);margin-top:2px">OFF ជំនួស: <b>'+_on+'</b>'+((_workSwap.off_date)?' ('+_workSwap.off_date+')':'')+'</div>'
+        +'</div>';
+      _dayswapLogBadge = '<div style="font-size:11px;color:var(--danger);margin-top:2px">🔄 ធ្វើការថ្ងៃ OFF ('+_wn+'→'+_on+')</div>';
+    } else if (_offSwap) {
+      const _wn2 = _wdNames[_offSwap.work_day] || '';
+      const _on2 = _wdNames[_offSwap.off_day] || '';
+      _dayswapBadge = '<div style="margin-top:10px;padding:8px 14px;background:rgba(99,102,241,.1);border:1.5px solid rgba(99,102,241,.35);border-radius:10px;font-size:13px;color:rgba(99,102,241,1);text-align:center">'
+        +'<div style="font-weight:700;font-size:14px;margin-bottom:2px">🔄 ថ្ងៃ OFF ជំនួស</div>'
+        +'<div>បានធ្វើការ​ <b>'+_wn2+'</b> ('+_offSwap.swap_date+') → OFF <b>'+_on2+'</b> ជំនួស</div>'
+        +'</div>';
+      _dayswapLogBadge = '<div style="font-size:11px;color:rgba(99,102,241,1);margin-top:2px">🔄 OFF ជំនួស ('+_wn2+'→'+_on2+')</div>';
+    }
+  } catch(_) {}
+  // ──────────────────────────────────────────────────────────────────────
+
+  try {
+    await api('POST', '/attendance', payload);
+    window._scanCount = (window._scanCount || 0) + 1;
+
+    // Play success sound
+    playQRSuccessSound();
+
+    // Update count label
+    const cnt = document.getElementById('qr-count');
+    if (cnt) cnt.textContent = window._scanCount + ' នាក់';
+
+    // Update status bar — success
+    const sv = document.getElementById('qr-scan-status');
+    const icon = type === 'in' ? '✅' : '🚪';
+    const label = type === 'in' ? 'ចូល ' : 'ចេញ ';
+    const bg = type === 'in' ? 'rgba(6,214,160,.8)' : 'rgba(255,107,53,.8)';
+    if (sv) { sv.textContent = icon + ' ' + emp.name + ' — ' + label + time; sv.style.background = bg; }
+
+    // ── AUTO STOP + CLOSE after success ──────────────────
+    setTimeout(() => {
+      stopQRScanner();
+      // Get QR Scanner (operator) name from session
+      const _sess = getSession();
+      const _scannerName = (_sess && _sess.name) ? _sess.name : '';
+      const _scannerRole = (_sess && _sess.role) ? _sess.role : '';
+      const _showScanner = _scannerName && _scannerRole === 'QR Scanner';
+      const _overlayLoc = window._qrActiveLocation ? window._qrActiveLocation.name : '';
+
+      // Show brief success overlay then close
+      const overlay = document.createElement('div');
+      overlay.style.cssText = 'position:fixed;inset:0;background:rgba(6,214,160,.15);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;pointer-events:none';
+      const _ovPhoto = getEmpPhoto(emp.id);
+      const _ovAvatar = _ovPhoto
+        ? '<img src="'+_ovPhoto+'" style="width:80px;height:80px;border-radius:50%;object-fit:cover;border:3px solid var(--success);margin-bottom:10px"/>'
+        : '<div style="width:80px;height:80px;border-radius:50%;background:'+getColor(emp.name)+';display:flex;align-items:center;justify-content:center;color:white;font-size:28px;font-weight:700;margin-bottom:10px;border:3px solid var(--success)">'+emp.name[0]+'</div>';
+      overlay.innerHTML =
+        '<div style="background:var(--bg2);border:2px solid var(--success);border-radius:20px;padding:28px 40px;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.5);max-width:340px;width:90vw">'
+        +'<div style="display:flex;flex-direction:column;align-items:center">'
+        + _ovAvatar
+        +'<div style="font-size:32px;margin-bottom:6px">'+(type==='in'?'✅':'🚪')+'</div>'
+        +'<div style="font-size:18px;font-weight:800;color:var(--text)">'+emp.name+'</div>'
+        // Time badge — large and prominent
+        +'<div style="background:'+(type==='in'?'rgba(6,214,160,.15)':'rgba(255,107,53,.12)')+';border:1.5px solid '+(type==='in'?'var(--success)':'var(--primary)')+';border-radius:12px;padding:8px 20px;margin-top:10px;display:flex;align-items:center;gap:8px">'
+        +'<span style="font-size:22px">'+(type==='in'?'⏱️':'🕐')+'</span>'
+        +'<div style="text-align:left">'
+        +'<div style="font-size:13px;color:var(--text3);font-weight:600">'+(type==='in'?'ម៉ោងចូល':'ម៉ោងចេញ')+'</div>'
+        +'<div style="font-size:20px;font-weight:900;color:'+(type==='in'?'var(--success)':'var(--primary)')+'">'+time+(isLate?' ⏰':'')+'</div>'
+        +'</div></div>'
+        +'<div style="font-size:13px;color:var(--text3);margin-top:8px">'+(emp.custom_id||emp.department_name||'')+'</div>'
+        // ── Auto Half-Day Badge ──
+        +(_autoHalfDay==='half_day_am'
+          ? '<div style="margin-top:10px;padding:8px 18px;background:rgba(8,145,178,.12);border:1.5px solid rgba(8,145,178,.4);border-radius:10px;font-size:14px;font-weight:700;color:#0891b2">🌤 Auto: កន្លះថ្ងៃ ព្រឹក</div>'
+          : _autoHalfDay==='half_day_pm'
+          ? '<div style="margin-top:10px;padding:8px 18px;background:rgba(124,58,237,.12);border:1.5px solid rgba(124,58,237,.4);border-radius:10px;font-size:14px;font-weight:700;color:#7c3aed">🌅 Auto: កន្លះថ្ងៃ ល្ងាច</div>'
+          : '')
+        // ── Day Swap Badge (ថ្ងៃប្ដូរ) ──
+        + _dayswapBadge
+        // QR Scanner operator info
+        +(_overlayLoc
+          ? '<div style="margin-top:10px;padding:6px 14px;background:rgba(99,102,241,.1);border-radius:8px;font-size:13px;color:var(--text2)">📍 '+_overlayLoc+'</div>'
+          : '')
+        +(_showScanner
+          ? '<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);width:100%;text-align:center">'
+            +'<div style="font-size:12px;color:var(--text3);margin-bottom:2px">ស្កែនដោយ</div>'
+            +'<div style="font-size:14px;font-weight:700;color:var(--text2)">📷 '+_scannerName+'</div>'
+            +'</div>'
+          : '')
+        +'</div>'
+        +'</div>';
+      document.body.appendChild(overlay);
+      setTimeout(() => {
+        overlay.remove();
+        closeModal();
+        renderAttendance(date);
+      }, 1800);
+    }, 300);
+
+    // Log entry
+    const log = document.getElementById('qr-result-log');
+    if (log) {
+      const photo = getEmpPhoto(emp.id);
+      const av = photo
+        ? '<img src="'+photo+'" style="width:28px;height:28px;border-radius:50%;object-fit:cover;flex-shrink:0"/>'
+        : '<div style="width:28px;height:28px;border-radius:50%;background:'+getColor(emp.name)+';display:flex;align-items:center;justify-content:center;color:white;font-size:13px;font-weight:700;flex-shrink:0">'+emp.name[0]+'</div>';
+      const borderColor = type === 'in' ? 'rgba(6,214,160,.3)' : 'rgba(255,107,53,.3)';
+      const textColor   = type === 'in' ? 'var(--success)' : 'var(--primary)';
+      // Scanner info for log
+      const _ls = getSession();
+      const _lsName = (_ls && _ls.role === 'QR Scanner' && _ls.name) ? _ls.name : '';
+      log.innerHTML =
+        '<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--bg3);border-radius:8px;margin-bottom:5px;border-left:3px solid '+borderColor+'">'
+        + av
+        + '<div style="min-width:0"><div style="font-weight:700;font-size:14px">'+emp.name+'</div>'
+        + '<div style="font-size:12px;color:var(--text3)">'+(emp.custom_id||'EMP'+String(emp.id).padStart(3,'0'))+' · '+emp.department_name+'</div>'
+        + (_lsName ? '<div style="font-size:11px;color:var(--text3)">📷 '+_lsName+'</div>' : '')
+        + (window._qrActiveLocation ? '<div style="font-size:11px;color:rgba(99,102,241,.9)">📍 '+window._qrActiveLocation.name+'</div>' : '')
+        + _dayswapLogBadge
+        + '</div>'
+        + '<div style="margin-left:auto;text-align:right;flex-shrink:0">'
+        + '<div style="font-size:15px;font-weight:800;color:'+textColor+'">'+(type==='in'?'▶ ':'◀ ')+time+'</div>'
+        + '<div style="font-size:11px;color:var(--text3)">'+(type==='in'?(isLate?'⏰ យឺត':'✅ ទាន់'):(_autoHalfDay==='half_day_am'?'🌤 កន្លះថ្ងៃ ព្រឹក':_autoHalfDay==='half_day_pm'?'🌅 កន្លះថ្ងៃ ល្ងាច':'🚪 ចេញ'))+'</div>'
+        + '</div></div>'
+        + log.innerHTML;
+    }
+
+    // Clear manual input
+    const inp = document.getElementById('qr-manual-id');
+    if (inp) inp.value = '';
+
+  } catch(e) { showToast('Error: ' + e.message, 'error'); }
+}
+
+
+
+// ===== BULK ABSENCE MODAL =====
+// ===== BULK ABSENCE / LEAVE MODAL =====
+// ===== BULK ABSENCE / LEAVE MODAL (per-employee date) =====
+function openBulkAbsenceModal(dateVal) {
+  var d = dateVal || today();
+  var emps = state.employees || [];
+  if (!emps.length) { showToast('មិនទាន់មានបុគ្គលិក!', 'error'); return; }
+
+  // Build row per employee: checkbox + avatar + name + individual date picker
+  var empRows = emps.map(function(e) {
+    var photo = getEmpPhoto(e.id);
+    var av = photo
+      ? '<img src="' + photo + '" style="width:32px;height:32px;border-radius:50%;object-fit:cover;flex-shrink:0"/>'
+      : '<div style="width:32px;height:32px;border-radius:50%;background:' + getColor(e.name) + ';display:flex;align-items:center;justify-content:center;color:#fff;font-size:15px;font-weight:700;flex-shrink:0">' + (e.name||'?')[0] + '</div>';
+
+    return '<div class="ba-row" id="ba-row-' + e.id + '" style="display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:8px;border:1.5px solid var(--border);margin-bottom:6px;transition:all .15s">'
+      + '<input type="checkbox" class="ba-chk" data-id="' + e.id + '" style="width:16px;height:16px;cursor:pointer;flex-shrink:0"'
+      + ' onchange="'
+      + 'var row=document.getElementById(\'ba-row-' + e.id + '\');'
+      + 'var dp=document.getElementById(\'ba-date-' + e.id + '\');'
+      + 'row.style.borderColor=this.checked?\'var(--primary)\':\'var(--border)\';'
+      + 'row.style.background=this.checked?\'var(--bg2)\':\'\';'
+      + 'dp.disabled=!this.checked;dp.style.opacity=this.checked?\'1\':\'0.4\';'
+      + '"/>'
+      + av
+      + '<div style="flex:1;min-width:0">'
+      + '<div style="font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + e.name + '</div>'
+      + '<div style="font-size:13px;color:var(--text3)">' + (e.position||'&nbsp;') + '</div>'
+      + '</div>'
+      + '<input type="date" id="ba-date-' + e.id + '" value="' + d + '" disabled'
+      + ' style="font-size:14px;padding:4px 6px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);opacity:0.4;width:130px;flex-shrink:0"'
+      + '/>'
+      + '</div>';
+  }).join('');
+
+  $('modal-title').textContent = '\uD83D\uDCCB កត់អវត្តមាន / ឈប់ (ម្នាក់ៗ)';
+  $('modal-body').innerHTML =
+    // Type selector + global date setter
+    '<div class="form-grid" style="margin-bottom:10px">'
+    + '<div class="form-group"><label class="form-label">ប្រភេទ *</label>'
+    + '<select class="form-control" id="ba-status">'
+    + '<option value="absent">❌ អវត្តមាន (ខ្វះច្បាប់)</option>'
+    + '<option value="leave">🌴 ឈប់សម្រាក (មានច្បាប់)</option>'
+    + '<option value="sick">🤒 ឈប់ព្យាបាល</option>'
+    + '<option value="holiday">🎉 ថ្ងៃឈប់សម្រាក</option>'
+    + '</select></div>'
+    + '<div class="form-group"><label class="form-label">កំណត់ចំណាំ</label>'
+    + '<input class="form-control" id="ba-note" type="text" placeholder="ហេតុផល (ជាជម្រើស)"/>'
+    + '</div></div>'
+
+    // Quick date setter bar
+    + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;padding:8px;background:var(--bg2);border-radius:8px;flex-wrap:wrap">'
+    + '<span style="font-size:14px;color:var(--text3);flex-shrink:0">📅 កំណត់ថ្ងៃសម្រាប់ដែលបានជ្រើស:</span>'
+    + '<input type="date" id="ba-global-date" value="' + d + '" style="font-size:14px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text)"/>'
+    + '<button onclick="'
+    + 'var gd=document.getElementById(\'ba-global-date\').value;'
+    + 'document.querySelectorAll(\'.ba-chk:checked\').forEach(function(c){'
+    + 'var dp=document.getElementById(\'ba-date-\'+c.dataset.id);'
+    + 'if(dp)dp.value=gd;'
+    + '});'
+    + '" style="font-size:14px;padding:4px 10px;border:1px solid var(--primary);border-radius:6px;background:var(--primary);color:#fff;cursor:pointer;flex-shrink:0">✔ អនុវត្ត</button>'
+    + '<button onclick="'
+    + 'var cbs=document.querySelectorAll(\'.ba-chk\');'
+    + 'var allChecked=[...cbs].every(function(c){return c.checked;});'
+    + 'cbs.forEach(function(c){c.checked=!allChecked;c.dispatchEvent(new Event(\'change\'));});'
+    + '" style="font-size:14px;padding:4px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);cursor:pointer;margin-left:auto;flex-shrink:0">☑ ជ្រើសទាំងអស់</button>'
+    + '</div>'
+
+    // Employee list
+    + '<div style="max-height:320px;overflow-y:auto;padding-right:2px">'
+    + empRows
+    + '</div>'
+
+    // Actions
+    + '<div class="form-actions" style="margin-top:10px">'
+    + '<button class="btn btn-outline" onclick="closeModal()">បោះបង់</button>'
+    + '<button class="btn btn-danger" id="save-ba-btn" onclick="saveBulkAbsence()">💾 រក្សាទុក</button>'
+    + '</div>';
+
+  openModal();
+}
+
+async function saveBulkAbsence() {
+  var btn = $('save-ba-btn');
+  var statusVal = $('ba-status').value;
+  var note = ($('ba-note') && $('ba-note').value) || '';
+  var checked = Array.from(document.querySelectorAll('.ba-chk:checked'));
+
+  if (!checked.length) { showToast('សូមជ្រើសបុគ្គលិកយ៉ាងហោចណាស់ ១ នាក់!', 'error'); return; }
+
+  // Validate each has a date
+  var missing = checked.filter(function(c) {
+    var dp = document.getElementById('ba-date-' + c.dataset.id);
+    return !dp || !dp.value;
+  });
+  if (missing.length) { showToast('សូមជ្រើសថ្ងៃខែសម្រាប់បុគ្គលិកដែលបានជ្រើស!', 'error'); return; }
+
+  btn.disabled = true; btn.textContent = 'កំពុងរក្សា...';
+
+  var notePrefix = statusVal === 'leave' ? '\uD83C\uDF34 ឈប់ (ច្បាប់)'
+    : statusVal === 'sick'    ? '\uD83E\uDD12 ឈប់ព្យាបាល'
+    : statusVal === 'holiday' ? '\uD83C\uDF89 ថ្ងៃឈប់'
+    : '\u274C អវត្តមាន';
+  var fullNote = note ? (notePrefix + ': ' + note) : notePrefix;
+
+  var success = 0, failed = 0;
+  // Group by date for display after
+  var lastDate = '';
+  for (var i = 0; i < checked.length; i++) {
+    var empId = parseInt(checked[i].dataset.id);
+    var dp = document.getElementById('ba-date-' + checked[i].dataset.id);
+    var empDate = dp ? dp.value : '';
+    lastDate = empDate;
+    try {
+      await api('POST', '/attendance', {
+        employee_id: empId,
+        date: empDate,
+        check_in: null,
+        check_out: null,
+        status: 'absent',
+        notes: fullNote,
+      });
+      success++;
+    } catch(e) {
+      failed++;
+    }
+  }
+
+  btn.disabled = false; btn.textContent = '\uD83D\uDCBE រក្សាទុក';
+  closeModal();
+  if (success > 0) showToast('\u2705 បានកត់អវត្តមាន ' + success + ' នាក់ (' + notePrefix + ')', 'success');
+  if (failed > 0) showToast('\u26A0\uFE0F មិនបានកត់ ' + failed + ' នាក់', 'error');
+  // Refresh to last date used, or today
+  renderAttendance(lastDate || today());
+}
+
+
+function openAttBulk(d) { openAttModal(d, 'bulk'); }
+
+function openAttModal(dateVal, mode) {
+  const d = dateVal || today();
+  const rules = getSalaryRules && getSalaryRules();
+  const defaultIn  = (rules && rules.work_start_time) || '08:00';
+  const defaultOut = (rules && rules.work_end_time)   || '17:00';
+  const emps = state.employees || [];
+  const isBulk = mode === 'bulk';
+
+  $('modal-title').textContent = isBulk ? 'កត់ចូលវត្តមានទាំងអស់' : 'កត់ចូលវត្តមាន';
+
+  const topForm =
+    '<div class="form-grid" style="margin-bottom:12px">'
+    +'<div class="form-group"><label class="form-label">ថ្ងៃខែ</label><input class="form-control" id="a-date" type="date" value="'+d+'" /></div>'
+    +'<div class="form-group"><label class="form-label">ម៉ោងចូល</label><input class="form-control" id="a-in" type="time" value="'+defaultIn+'" /></div>'
+    +'<div class="form-group"><label class="form-label">ម៉ោងចេញ</label><input class="form-control" id="a-out" type="time" value="'+defaultOut+'" /></div>'
+    +'<div class="form-group"><label class="form-label">ស្ថានភាព</label><select class="form-control" id="a-status"><option value="present">✅ វត្តមាន</option><option value="late">⏰ យឺត</option><option value="absent">❌ អវត្តមាន</option><option value="half_day_am">🌤 កន្លះថ្ងៃ (ព្រឹក)</option><option value="half_day_pm">🌅 កន្លះថ្ងៃ (ល្ងាច)</option></select></div>'
+    +'</div>';
+
+  if (isBulk) {
+    const empCheckboxes = emps.map(e =>
+      '<label style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:8px;cursor:pointer;border:1px solid var(--border);background:var(--bg1);margin-bottom:4px">'
+      +'<input type="checkbox" class="att-emp-chk" value="'+e.id+'" checked style="width:16px;height:16px;accent-color:var(--primary);cursor:pointer;flex-shrink:0" />'
+      +'<span style="font-size:15px;font-weight:600">'+e.name+'</span>'
+      +'</label>'
+    ).join('');
+    $('modal-body').innerHTML = topForm
+      +'<div style="margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px">'
+      +'<span style="font-size:15px;font-weight:700;color:var(--text2)">👥 បុគ្គលិក ('+emps.length+' នាក់)</span>'
+      +'<div style="display:flex;gap:6px">'
+      +'<button type="button" class="btn btn-outline btn-sm" style="font-size:13px;padding:3px 10px" onclick="document.querySelectorAll(\'.att-emp-chk\').forEach(c=>c.checked=true)">☑ ទាំងអស់</button>'
+      +'<button type="button" class="btn btn-outline btn-sm" style="font-size:13px;padding:3px 10px" onclick="document.querySelectorAll(\'.att-emp-chk\').forEach(c=>c.checked=false)">☐ លុប</button>'
+      +'</div></div>'
+      +'<div style="max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:8px">'+empCheckboxes+'</div>'
+      +'<div class="form-actions">'
+      +'<button class="btn btn-outline" onclick="closeModal()">បោះបង់</button>'
+      +'<button class="btn btn-primary" id="save-att-btn" onclick="saveAttendance(true)">💾 រក្សាទុកទាំងអស់</button>'
+      +'</div>';
+  } else {
+    $('modal-body').innerHTML = topForm
+      +'<div class="form-group">'
+      +'<label class="form-label">បុគ្គលិក *</label>'
+      +'<select class="form-control" id="a-emp">'+emps.map(e=>'<option value="'+e.id+'">'+e.name+'</option>').join('')+'</select>'
+      +'</div>'
+      +'<div class="form-actions">'
+      +'<button class="btn btn-outline" onclick="closeModal()">បោះបង់</button>'
+      +'<button class="btn btn-primary" id="save-att-btn" onclick="saveAttendance(false)">💾 រក្សាទុក</button>'
+      +'</div>';
+  }
+  openModal();
+}
+
+async function saveAttendance(isBulk) {
+  const btn = $('save-att-btn');
+  const date     = $('a-date').value;
+  const checkIn  = $('a-in').value;
+  const checkOut = $('a-out').value;
+  const status   = $('a-status').value;
+
+  if (isBulk) {
+    const selected = Array.from(document.querySelectorAll('.att-emp-chk:checked')).map(c=>parseInt(c.value));
+    if (!selected.length) { showToast('សូមជ្រើសបុគ្គលិកយ៉ាងហោចម្នាក់!','warning'); return; }
+    btn.disabled = true;
+    let done=0, failed=0;
+    for (const empId of selected) {
+      btn.textContent = 'កំពុងរក្សា '+done+'/'+selected.length+'...';
+      try { await api('POST','/attendance',{ employee_id:empId, date, check_in:checkIn, check_out:checkOut, status }); done++; }
+      catch(e) { failed++; }
+    }
+    if (failed===0) showToast('កត់វត្តមាន '+done+' នាក់ជោគជ័យ! ✅','success');
+    else showToast('សម្រេច '+done+' / បរាជ័យ '+failed+' នាក់','warning');
+  } else {
+    btn.disabled=true; btn.textContent='កំពុងរក្សា...';
+    try {
+      await api('POST','/attendance',{ employee_id:parseInt($('a-emp').value), date, check_in:checkIn, check_out:checkOut, status });
+      showToast('កត់វត្តមានបានជោគជ័យ! ✅','success');
+    } catch(e) { showToast('បញ្ហា: '+e.message,'error'); btn.disabled=false; btn.textContent='រក្សាទុក'; return; }
+  }
+  closeModal(); renderAttendance(date);
+}
+
+// ===== SALARY =====
+function showQRPopup(el, empId) {
+  const qr = photoCache['qr_' + empId] || '';
+  if (!qr) return;
+  const emp = (state.employees||[]).find(e=>e.id==empId)||{};
+  $('modal-title').textContent = '🏦 QR ធនាគារ — ' + (emp.name||'');
+  $('modal-body').innerHTML =
+    '<div style="text-align:center;padding:10px">'
+    +'<img src="'+qr+'" style="max-width:260px;width:100%;border-radius:12px;border:2px solid var(--border)" />'
+    +(emp.bank ? '<div style="margin-top:12px;font-weight:700;font-size:15px">'+emp.bank+'</div>' : '')
+    +(emp.bank_account ? '<div style="font-family:var(--mono);color:var(--text3);font-size:15px;margin-top:4px">'+emp.bank_account+'</div>' : '')
+    +(emp.bank_holder ? '<div style="font-size:14px;color:var(--text3)">'+emp.bank_holder+'</div>' : '')
+    +'</div>'
+    +'<div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">បិទ</button></div>';
+  openModal();
+}
+
+async function renderSalary(month='') {
+  showLoading();
+  const currentMonth = month || thisMonth();
+  try {
+    const data = await api('GET', '/salary?month=' + currentMonth);
+    // Preload employees for QR/bank lookup
+    if (!state.employees || state.employees.length === 0) {
+      try { const ed = await api('GET','/employees?limit=500'); state.employees = ed.employees||[]; } catch(_){}
+    }
+
+    // ── Compute real-time OFF bonus from attendance (same logic as monthly attendance) ──
+    const _offBonusMap = {}; // employee_id -> computed off bonus
+    try {
+      const [y, m] = currentMonth.split('-').map(Number);
+      const _dim = new Date(y, m, 0).getDate();
+      const _allDays = [];
+      for (let d = 1; d <= _dim; d++) {
+        const _dd = String(d).padStart(2,'0');
+        const _wd = new Date(y, m-1, d).getDay();
+        _allDays.push({ dd: _dd, wd: _wd });
+      }
+      // Load attendance + dayswap in parallel
+      const [_attRes, _dsRes] = await Promise.all([
+        api('GET', '/attendance?month=' + currentMonth).catch(() => ({ records: [] })),
+        api('GET', '/dayswap').catch(() => ({ records: [] })),
+      ]);
+      const _attRecs = _attRes.records || [];
+      const _dsRecs  = (_dsRes.records || []).filter(r => r.status === 'approved');
+
+      // build map empId -> { dd -> attendance record }
+      const _attMap = {};
+      _attRecs.forEach(a => {
+        const _eId = a.employee_id;
+        const _dd  = (a.date || '').slice(8, 10);
+        if (!_attMap[_eId]) _attMap[_eId] = {};
+        _attMap[_eId][_dd] = a;
+      });
+
+      // build dayswap maps per employee:
+      // _swapDayMap[empId][dd] = dayswap record where swap_date == that dd (OFF day worked)
+      // _offDateMap[empId][dd] = true where off_date == that dd (compensation day — NOT paid)
+      const _swapDayMap = {};
+      const _offDateMap = {};
+      _dsRecs.forEach(r => {
+        const _eId = r.employee_id;
+        if (r.swap_date) {
+          const _dd = r.swap_date.slice(8, 10);
+          if (!_swapDayMap[_eId]) _swapDayMap[_eId] = {};
+          _swapDayMap[_eId][_dd] = r;
+        }
+        if (r.off_date) {
+          const _dd = r.off_date.slice(8, 10);
+          if (!_offDateMap[_eId]) _offDateMap[_eId] = {};
+          _offDateMap[_eId][_dd] = true;
+        }
+      });
+
+      const _rules  = getSalaryRules();
+      const _offMul = (_rules.off_bonus_enabled !== false) ? (_rules.off_day_multiplier || 1.0) : 0;
+
+      (state.employees || []).forEach(e => {
+        const _offDays = parseOffDays(e);
+        if (!_offDays.length) return;
+        const _offRate = (e.salary || 0) / 30; // Fixed 30-day standard
+        let _worked = 0;
+        _allDays.forEach(x => {
+          // Only consider this employee's OFF days
+          if (_offDays.indexOf(x.wd) === -1) return;
+          // OFF+ compensation day (off_date) → skip, not paid
+          if ((_offDateMap[e.id] || {})[x.dd]) return;
+          // Dayswap: swap_date = this OFF day
+          const _swapRec = (_swapDayMap[e.id] || {})[x.dd];
+          if (_swapRec) {
+            // Has compensation off_date → OFF+ជំនួស → NOT paid
+            if (_swapRec.off_date && _swapRec.off_date.trim() !== '') return;
+            // Dayswap approved without off_date → paid
+            _worked++;
+            return;
+          }
+          // Direct attendance on OFF day (no dayswap) → paid if present/late
+          const _att = (_attMap[e.id] || {})[x.dd];
+          if (_att && (_att.status === 'present' || _att.status === 'late')) _worked++;
+        });
+        if (_worked > 0) _offBonusMap[e.id] = parseFloat((_worked * _offRate * _offMul).toFixed(2));
+      });
+    } catch(_) {}
+    // ────────────────────────────────────────────────────────────────────
+
+    // ── Load Overtime data for the month ────────────────────────────────
+    const _otMap = {}; // employee_id -> total OT pay this month
+    try {
+      const _otRes = await api('GET', '/overtime').catch(() => ({ records: [] }));
+      const _otRecs = (_otRes.records || []).filter(r => (r.date || '').startsWith(currentMonth));
+      _otRecs.forEach(r => {
+        const _eid = r.employee_id;
+        _otMap[_eid] = (_otMap[_eid] || 0) + (r.pay || 0);
+      });
+    } catch(_) {}
+    // ────────────────────────────────────────────────────────────────────
+
+    // ── Load Allowance data for the month ──────────────────────────────
+    const _allowMap = {}; // employee_id -> total allowance this month
+    try {
+      const _alRes = await api('GET', '/allowances').catch(() => ({ records: [] }));
+      const _alRecs = (_alRes.records || []).filter(r => (r.month || '').startsWith(currentMonth));
+      _alRecs.forEach(r => {
+        const _eid = r.employee_id;
+        _allowMap[_eid] = (_allowMap[_eid] || 0) + (r.amount || 0);
+      });
+    } catch(_) {}
+    // ────────────────────────────────────────────────────────────────────
+
+    // Cache maps globally so openSalaryModal can auto-fill
+    window._cachedOffBonusMap = _offBonusMap;
+    window._cachedOtMap = _otMap;
+    window._cachedAllowMap = _allowMap;
+
+    const rows = data.records.length===0
+      ? '<tr><td colspan="10"><div class="empty-state" style="padding:30px"><p>មិនទាន់មានកំណត់ត្រាបៀវត្សសម្រាប់ខែនេះ</p></div></td></tr>'
+      : data.records.map(r => {
+          const photo  = getEmpPhoto(r.employee_id);
+          const qrData = photoCache['qr_' + r.employee_id] || '';
+          const emp    = (state.employees||[]).find(e=>e.id===r.employee_id) || {};
+          const bank   = emp.bank && emp.bank!=='—' ? emp.bank : '';
+          const bankAcc= emp.bank_account || '';
+
+          const av = photo
+            ? '<div class="emp-avatar" style="background:'+getColor(r.employee_name)+';overflow:hidden;padding:0"><img src="'+photo+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/></div>'
+            : '<div class="emp-avatar" style="background:'+getColor(r.employee_name)+'">'+(r.employee_name||'?')[0]+'</div>';
+
+          // QR cell: show QR image if available, else bank name+account
+          const qrCell = qrData
+            ? '<td style="text-align:center">'
+              +'<div onclick="showQRPopup(this,\''+r.employee_id+'\')" style="cursor:pointer;display:inline-block">'
+              +'<img src="'+qrData+'" style="width:44px;height:44px;object-fit:contain;border-radius:6px;border:1px solid var(--border)" />'
+              +'</div>'
+              +(bank?'<div style="font-size:11px;color:var(--text3);margin-top:2px">'+bank+'</div>':'')
+              +'</td>'
+            : '<td style="text-align:center">'
+              +(bank
+                ? '<div style="font-size:13px;font-weight:600;color:var(--text2)">'+bank+'</div>'
+                  +(bankAcc?'<div style="font-size:12px;color:var(--text3);font-family:var(--mono)">'+bankAcc+'</div>':'')
+                : '<span style="color:var(--text3);font-size:13px">—</span>')
+              +'</td>';
+
+          return '<tr>'
+            +'<td><div class="employee-cell">'+av+'<div class="emp-name">'+r.employee_name+'</div></div></td>'
+            +'<td>'+(r.department||'—')+'</td>'
+            +'<td style="font-family:var(--mono)">$'+r.base_salary+'</td>'
+            +((_allowMap[r.employee_id]||0)>0
+              ?'<td style="font-family:var(--mono);font-weight:700;color:#22c55e;text-align:center;background:rgba(34,197,94,.08)">+$'+(_allowMap[r.employee_id]).toFixed(2)+'</td>'
+              :'<td style="color:var(--text3);text-align:center">—</td>')
+            +((_offBonusMap[r.employee_id]||0)>0
+              ?'<td style="font-family:var(--mono);font-weight:700;color:#d97706;text-align:center;background:rgba(251,191,36,.08)">+$'+(_offBonusMap[r.employee_id]).toFixed(2)+'</td>'
+              :'<td style="color:var(--text3);text-align:center">—</td>')
+            +((_otMap[r.employee_id]||0)>0
+              ?'<td style="font-family:var(--mono);font-weight:700;color:#6366f1;text-align:center;background:rgba(99,102,241,.08)">+$'+(_otMap[r.employee_id]).toFixed(0)+'</td>'
+              :'<td style="color:var(--text3);text-align:center">—</td>')
+            +'<td style="font-family:var(--mono);color:var(--danger)">-$'+r.deduction+'</td>'
+            +(()=>{ const _realNet = parseFloat(r.base_salary||0) + parseFloat(r.bonus||0) + parseFloat(_allowMap[r.employee_id]||0) + parseFloat(_offBonusMap[r.employee_id]||0) + parseFloat(_otMap[r.employee_id]||0) - parseFloat(r.deduction||0); const _hasExtra = (_allowMap[r.employee_id]||0)>0 || (_offBonusMap[r.employee_id]||0)>0 || (_otMap[r.employee_id]||0)>0; return '<td style="font-family:var(--mono);font-weight:700;color:var(--success);font-size:15px">$'+_realNet.toFixed(2)+(_hasExtra?'<div style="font-size:10px;color:var(--text3);font-weight:400">base+AL+OFF+OT</div>':'')+'</td>'; })()
+            +qrCell
+            +'<td>'+(r.status==='paid'?'<span class="badge badge-green">✅ បានបង់</span>':'<span class="badge badge-yellow">⏳ រង់ចាំ</span>')+'</td>'
+            +'<td><div class="action-btns">'
+            +(r.status!=='paid' ? '<button class="btn btn-success btn-sm" onclick="paySalary('+r.id+',\''+currentMonth+'\')">💰 បង់</button>' : '<span style="color:var(--text3);font-size:13px">✓ Done</span>')
+            +'<button class="btn btn-outline btn-sm" onclick="openEditSalaryModal('+r.id+',\''+currentMonth+'\')">✏️</button>'
+            +'<button class="btn btn-danger btn-sm" onclick="deleteSalary('+r.id+',\''+currentMonth+'\')">🗑️</button>'
+            +'</div></td>'
+            +'</tr>';
+        }).join('');
+
+    contentArea().innerHTML =
+      '<div class="page-header">'
+      +'<div><h2>គ្រប់គ្រងបៀវត្ស</h2></div>'
+      +'<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">'
+      +'<input class="filter-input" type="month" value="'+currentMonth+'" onchange="renderSalary(this.value)" />'
+      +'<button class="btn btn-success" onclick="payAll(\''+currentMonth+'\')">'
+      +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> បង់ទាំងអស់</button>'
+      +'<button class="btn btn-primary" onclick="openSalaryModal(\''+currentMonth+'\')">'
+      +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> បន្ថែម</button>'
+      +'<button class="btn btn-outline" onclick="printSalaryPage()">'
+      +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> PDF</button>'
+      +'</div></div>'
+      +'<div class="salary-summary">'
+      +'<div class="salary-box"><div class="lbl">💵 Net សរុប</div><div class="val">$'+(data.summary.total_net||0).toLocaleString()+'</div></div>'
+      +'<div class="salary-box"><div class="lbl">💰 មូលដ្ឋាន</div><div class="val" style="color:var(--warning)">$'+(data.summary.total_base||0).toLocaleString()+'</div></div>'
+      +(Object.values(_allowMap).some(v=>v>0)?'<div class="salary-box" style="background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3)"><div class="lbl" style="color:#22c55e">🎁 ប្រាក់ឧបត្ថម្ភ</div><div class="val" style="color:#22c55e">+$'+Object.values(_allowMap).reduce((s,v)=>s+v,0).toFixed(2)+'</div></div>':'')
+      +(Object.values(_offBonusMap).some(v=>v>0)?'<div class="salary-box" style="background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.3)"><div class="lbl" style="color:#d97706">🌟 OFF Bonus</div><div class="val" style="color:#d97706">+$'+Object.values(_offBonusMap).reduce((s,v)=>s+v,0).toFixed(2)+'</div></div>':'')
+      +(Object.values(_otMap).some(v=>v>0)?'<div class="salary-box" style="background:rgba(99,102,241,.1);border:1px solid rgba(99,102,241,.3)"><div class="lbl" style="color:#6366f1">⏱ ថែមម៉ោង OT</div><div class="val" style="color:#6366f1">+$'+Object.values(_otMap).reduce((s,v)=>s+v,0).toLocaleString()+'</div></div>':'')
+      +'<div class="salary-box"><div class="lbl">✅ បង់ / សរុប</div><div class="val" style="color:var(--info)">'+(data.summary.paid||0)+' / '+data.records.length+'</div></div>'
+      +'</div>'
+      +'<div class="card"><div class="table-container"><table>'
+      +'<thead><tr><th>បុគ្គលិក</th><th>នាយកដ្ឋាន</th><th>មូលដ្ឋាន</th><th style="color:#22c55e;text-align:center" title="ប្រាក់ឧបត្ថម្ភ">🎁 ឧបត្ថម្ភ</th><th style="color:#f59e0b;text-align:center" title="ប្រាក់ OFF ធ្វើការ">🌟 OFF</th><th style="color:#6366f1;text-align:center" title="ប្រាក់ថែមម៉ោង">⏱ OT</th><th>កាត់</th><th>សុទ្ធ</th><th style="text-align:center">QR ធនាគារ</th><th>ស្ថានភាព</th><th>សកម្មភាព</th></tr></thead>'
+      +'<tbody>'+rows+'</tbody>'
+      +'</table></div></div>';
+  } catch(e) { showError(e.message); }
+}
+
+async function openEditSalaryModal(id, month) {
+  try {
+    const data = await api('GET', '/salary?month=' + month);
+    const r = (data.records||[]).find(x => x.id === id);
+    if (!r) { showToast('រកកំណត់ត្រាមិនឃើញ!','error'); return; }
+    $('modal-title').textContent = 'កែប្រែបៀវត្ស — ' + r.employee_name;
+    $('modal-body').innerHTML =
+      '<div class="form-grid">'
+      +'<div class="form-group"><label class="form-label">មូលដ្ឋាន (USD)</label><input class="form-control" id="es-base" type="number" value="'+r.base_salary+'" /></div>'
+      +'<div class="form-group"><label class="form-label">🎁 ប្រាក់ឧបត្ថម្ភ (USD)</label><input class="form-control" id="es-allow" type="number" value="'+(window._cachedAllowMap&&window._cachedAllowMap[r.employee_id]?window._cachedAllowMap[r.employee_id]:0)+'" oninput="esCalcNet()" style="border-color:#22c55e;border-width:2px" /></div>'
+      +'<div class="form-group"><label class="form-label">🌟 OFF Bonus (USD)</label><input class="form-control" id="es-off" type="number" value="0" oninput="esCalcNet()" style="border-color:#f59e0b;border-width:2px" /></div>'
+      +'<div class="form-group"><label class="form-label">⏱ OT ថែមម៉ោង (USD)</label><input class="form-control" id="es-ot" type="number" value="0" oninput="esCalcNet()" style="border-color:#6366f1;border-width:2px" /></div>'
+      +'<div class="form-group"><label class="form-label">រង្វាន់ (USD)</label><input class="form-control" id="es-bonus" type="number" value="\'+r.bonus+\'" oninput="esCalcNet()" /></div>\'\n      +\'<div class="form-group"><label class="form-label">កាត់ (USD)</label><input class="form-control" id="es-deduct" type="number" value="\'+r.deduction+\'" oninput="esCalcNet()" /></div>\'\n      +\'<div class="form-group"><label class="form-label">ចំណាំ</label><input class="form-control" id="es-note" value="\'+(r.notes||\'\')+\'" /></div>\'\n      +\'</div>\'\n      +\'<div id="es-preview" style="margin:12px 0;padding:12px;background:var(--bg3);border-radius:8px;font-fam-radius:8px;font-family:var(--mono);text-align:center;font-size:16px;font-weight:700;color:var(--success)">Net: $'+r.net_salary+'</div>'
+      +'<div class="form-actions">'
+      +'<button class="btn btn-outline" onclick="closeModal()">បោះបង់</button>'
+      +'<button class="btn btn-primary" onclick="saveEditSalary('+id+',\''+month+'\')">💾 រក្សាទុក</button>'
+      +'</div>';
+    // Live preview
+    ['es-base','es-allow','es-off','es-ot','es-bonus','es-deduct'].forEach(fid => {
+      const el = document.getElementById(fid);
+      if (el) el.addEventListener('input', esCalcNet);
+    });
+    // Initial calculation
+    setTimeout(esCalcNet, 50);
+    openModal();
+  } catch(e) { showToast('Error: '+e.message,'error'); }
+}
+
+function esCalcNet() {
+  const base   = parseFloat(document.getElementById('es-base')?.value)||0;
+  const allow  = parseFloat(document.getElementById('es-allow')?.value)||0;
+  const off    = parseFloat(document.getElementById('es-off')?.value)||0;
+  const ot     = parseFloat(document.getElementById('es-ot')?.value)||0;
+  const bonus  = parseFloat(document.getElementById('es-bonus')?.value)||0;
+  const deduct = parseFloat(document.getElementById('es-deduct')?.value)||0;
+  const net = base + allow + off + ot + bonus - deduct;
+  const p = document.getElementById('es-preview');
+  if (p) {
+    let bd = '$'+base.toFixed(2);
+    if (allow>0) bd += ' + 🎁$'+allow.toFixed(2);
+    if (off>0) bd += ' + 🌟$'+off.toFixed(2);
+    if (ot>0)  bd += ' + ⏱$'+ot.toFixed(2);
+    if (bonus>0) bd += ' + 🎖$'+bonus.toFixed(2);
+    if (deduct>0) bd += ' - 🔻$'+deduct.toFixed(2);
+    p.innerHTML = '<div style="font-size:11px;color:var(--text3)">'+bd+'</div><div>Net: $'+net.toFixed(2)+'</div>';
+  }
+}
+
+async function saveEditSalary(id, month) {
+  const base  = parseFloat($('es-base')?.value)||0;
+  const allow = parseFloat($('es-allow')?.value)||0;
+  const off   = parseFloat($('es-off')?.value)||0;
+  const ot    = parseFloat($('es-ot')?.value)||0;
+  const bonus = parseFloat($('es-bonus')?.value)||0;
+  const deduction = parseFloat($('es-deduct')?.value)||0;
+  const net = base + allow + off + ot + bonus - deduction;
+  const totalBonus = allow + off + ot + bonus;
+  const noteArr = [];
+  if (allow > 0) noteArr.push('🎁 ឧបត្ថម្ភ +$' + allow.toFixed(2));
+  if (off > 0) noteArr.push('🌟 OFF Bonus +$' + off.toFixed(2));
+  if (ot > 0)  noteArr.push('⏱ OT +$' + ot.toFixed(2));
+  const existingNote = $('es-note')?.value || '';
+  const finalNote = noteArr.length > 0 ? (existingNote ? existingNote + ' | ' : '') + noteArr.join(' | ') : existingNote;
+  try {
+    await api('PUT', '/salary/'+id, { base_salary:base, bonus:totalBonus, deduction, net_salary:net, notes:finalNote });
+    showToast('កែប្រែបៀវត្សបានជោគជ័យ! Net: $'+net.toFixed(2),'success');
+    closeModal(); renderSalary(month);
+  } catch(e) { showToast('Error: '+e.message,'error'); }
+}
+
+async function deleteSalary(id, month) {
+  if (!confirm('លុបកំណត់ត្រានេះ?')) return;
+  try {
+    await api('DELETE', '/salary/'+id);
+    showToast('លុបបានជោគជ័យ!','success'); renderSalary(month);
+  } catch(e) { showToast('Error: '+e.message,'error'); }
+}
+
+
+
+async function openSalaryModal(month) {
+  if (!state.employees.length) { try { const d=await api('GET','/employees'); state.employees=d.employees; } catch(_){} }
+  const rules = getSalaryRules();
+  $('modal-title').textContent = 'បន្ថែមកំណត់ត្រាបៀវត្ស';
+  $('modal-body').innerHTML =
+    // Tabs
+    '<div style="display:flex;gap:4px;background:var(--bg3);padding:4px;border-radius:8px;margin-bottom:16px">'
+    +'<button id="sal-tab-one" class="btn btn-primary btn-sm" style="flex:1;border:none" onclick="switchSalTab(\'one\')">👤 តែម្នាក់</button>'
+    +'<button id="sal-tab-all" class="btn btn-outline btn-sm" style="flex:1;border:none" onclick="switchSalTab(\'all\')">👥 ទាំងអស់ Auto</button>'
+    +'</div>'
+    // Single employee tab
+    +'<div id="sal-panel-one">'
+    +'<div class="form-grid">'
+    +'<div class="form-group full-width"><label class="form-label">បុគ្គលិក *</label>'
+    +'<select class="form-control" id="s-emp" onchange="autoFillSalary(this.value)">'+state.employees.map(e=>'<option value="'+e.id+'" data-salary="'+(e.salary||0)+'">'+e.name+'</option>').join('')+'</select></div>'
+    +'<div class="form-group"><label class="form-label">មូលដ្ឋាន (USD) *</label><input class="form-control" id="s-base" type="number" placeholder="1000" oninput="calcSalNet()" /></div>'
+    +'<div class="form-group"><label class="form-label">🎁 ប្រាក់ឧបត្ថម្ភ (USD)</label><input class="form-control" id="s-allow" type="number" placeholder="0" value="0" oninput="calcSalNet()" style="border-color:#22c55e;border-width:2px" /></div>'
+    +'<div class="form-group"><label class="form-label">🌟 OFF Bonus (USD)</label><input class="form-control" id="s-off" type="number" placeholder="0" value="0" oninput="calcSalNet()" style="border-color:#f59e0b;border-width:2px" /></div>'
+    +'<div class="form-group"><label class="form-label">⏱ OT ថែមម៉ោង (USD)</label><input class="form-control" id="s-ot" type="number" placeholder="0" value="0" oninput="calcSalNet()" style="border-color:#6366f1;border-width:2px" /></div>'
+    +'<div class="form-group"><label class="form-label">រង្វាន់ (USD)</label><input class="form-control" id="s-bonus" type="number" placeholder="0" value="0" oninput="calcSalNet()" /></div>'
+    +'<div class="form-group"><label class="form-label">កាត់ (USD)</label><input class="form-control" id="s-deduct" type="number" placeholder="0" value="0" oninput="calcSalNet()" /></div>'
+    +'<div class="form-group full-width">'
+    +'<div id="sal-net-preview" style="padding:10px;background:var(--bg3);border-radius:8px;text-align:center;font-weight:700;font-family:var(--mono);color:var(--success)">Net: $—</div>'
+    +'</div>'
+    +'</div>'
+    +'<div class="form-actions">'
+    +'<button class="btn btn-outline" onclick="closeModal()">បោះបង់</button>'
+    +'<button class="btn btn-primary" id="save-sal-btn" onclick="saveSalary(\''+month+'\')">💾 រក្សាទុក</button>'
+    +'</div>'
+    +'</div>'
+    // All employees tab
+    +'<div id="sal-panel-all" style="display:none">'
+    +'<div style="margin-bottom:12px;padding:12px;background:var(--bg3);border-radius:8px">'
+    +'<div style="font-size:14px;font-weight:700;margin-bottom:10px">⚙️ ការកំណត់ Default</div>'
+    +'<div class="form-grid">'
+    +'<div class="form-group"><label class="form-label">រង្វាន់ Default ($)</label><input class="form-control" id="bulk-bonus" type="number" value="0" /></div>'
+    +'<div class="form-group"><label class="form-label">កាត់ Default ($)</label><input class="form-control" id="bulk-deduct" type="number" value="0" /></div>'
+    +'</div>'
+    +'<div style="font-size:13px;color:var(--text3)">💡 មូលដ្ឋានយកពី salary profile បុគ្គលិកម្នាក់ៗ</div>'
+    +'</div>'
+    +'<div style="max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:8px">'
+    +state.employees.map(e=>'<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid var(--border)">'
+      +'<input type="checkbox" id="bulk-emp-'+e.id+'" value="'+e.id+'" data-salary="'+(e.salary||0)+'" checked style="accent-color:var(--primary);width:16px;height:16px"/>'
+      +'<div style="flex:1">'
+      +'<div style="font-weight:600;font-size:15px">'+e.name+'</div>'
+      +'<div style="font-size:13px;color:var(--text3)">'+(e.position||'—')+' · <span style="color:var(--success);font-family:var(--mono)">$'+(e.salary||0)+'</span></div>'
+      +'</div>'
+      +'<input type="number" id="bulk-base-'+e.id+'" value="'+(e.salary||0)+'" style="width:80px;font-size:14px;padding:4px 6px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);text-align:right"/>'
+      +'</div>'
+    ).join('')
+    +'</div>'
+    +'<div style="display:flex;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">'
+    +'<button class="btn btn-outline btn-sm" onclick="document.querySelectorAll(\'[id^=bulk-emp-]\').forEach(c=>c.checked=true)">✅ ជ្រើសទាំងអស់</button>'
+    +'<button class="btn btn-outline btn-sm" onclick="document.querySelectorAll(\'[id^=bulk-emp-]\').forEach(c=>c.checked=false)">⬜ លុបជ្រើស</button>'
+    +'</div>'
+    +'<div class="form-actions">'
+    +'<button class="btn btn-outline" onclick="closeModal()">បោះបង់</button>'
+    +'<button class="btn btn-primary" id="save-bulk-btn" onclick="saveBulkSalary(\''+month+'\')">'
+    +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><polyline points="20 6 9 17 4 12"/></svg>'
+    +' បន្ថែមទាំងអស់</button>'
+    +'</div>'
+    +'</div>';
+
+  // Auto-fill first employee
+  const first = state.employees[0];
+  if (first) {
+    const baseEl = document.getElementById('s-base');
+    if (baseEl) { baseEl.value = first.salary || ''; calcSalNet(); }
+  }
+  openModal();
+}
+
+function switchSalTab(tab) {
+  const one = document.getElementById('sal-panel-one');
+  const all = document.getElementById('sal-panel-all');
+  const btnOne = document.getElementById('sal-tab-one');
+  const btnAll = document.getElementById('sal-tab-all');
+  if (!one||!all) return;
+  if (tab === 'one') {
+    one.style.display=''; all.style.display='none';
+    btnOne.className='btn btn-primary btn-sm'; btnOne.style.border='none';
+    btnAll.className='btn btn-outline btn-sm'; btnAll.style.border='none';
+  } else {
+    one.style.display='none'; all.style.display='';
+    btnOne.className='btn btn-outline btn-sm'; btnOne.style.border='none';
+    btnAll.className='btn btn-primary btn-sm'; btnAll.style.border='none';
+  }
+}
+
+async function autoFillSalary(empId) {
+  const sel = document.getElementById('s-emp');
+  if (!sel) return;
+  const opt = sel.options[sel.selectedIndex];
+  const sal = opt ? (parseFloat(opt.dataset.salary)||0) : 0;
+  const baseEl = document.getElementById('s-base');
+  if (baseEl) { baseEl.value = sal || ''; }
+
+  // Auto-fill OFF bonus from _offBonusMap (already computed in renderSalary scope — use window cache)
+  const offEl = document.getElementById('s-off');
+  const otEl  = document.getElementById('s-ot');
+  const id = parseInt(empId);
+
+  // Try to read from cached maps set on window by renderSalary
+  if (offEl && window._cachedOffBonusMap) {
+    const offVal = window._cachedOffBonusMap[id] || 0;
+    offEl.value = offVal > 0 ? offVal.toFixed(2) : 0;
+  }
+  if (otEl && window._cachedOtMap) {
+    const otVal = window._cachedOtMap[id] || 0;
+    otEl.value = otVal > 0 ? otVal.toFixed(2) : 0;
+  }
+  // Auto-fill allowance from _cachedAllowMap
+  const allowEl = document.getElementById('s-allow');
+  if (allowEl && window._cachedAllowMap) {
+    const alVal = window._cachedAllowMap[id] || 0;
+    allowEl.value = alVal > 0 ? alVal.toFixed(2) : 0;
+  }
+  calcSalNet();
+}
+
+function calcSalNet() {
+  const base   = parseFloat(document.getElementById('s-base')?.value)||0;
+  const allow  = parseFloat(document.getElementById('s-allow')?.value)||0;
+  const off    = parseFloat(document.getElementById('s-off')?.value)||0;
+  const ot     = parseFloat(document.getElementById('s-ot')?.value)||0;
+  const bonus  = parseFloat(document.getElementById('s-bonus')?.value)||0;
+  const deduct = parseFloat(document.getElementById('s-deduct')?.value)||0;
+  const net = base + allow + off + ot + bonus - deduct;
+  const p = document.getElementById('sal-net-preview');
+  if (p) {
+    let breakdown = '$' + base.toFixed(2);
+    if (allow > 0) breakdown += ' + 🎁$' + allow.toFixed(2);
+    if (off > 0) breakdown += ' + 🌟$' + off.toFixed(2);
+    if (ot > 0)  breakdown += ' + ⏱$' + ot.toFixed(2);
+    if (bonus > 0) breakdown += ' + 🎖$' + bonus.toFixed(2);
+    if (deduct > 0) breakdown += ' - 🔻$' + deduct.toFixed(2);
+    p.innerHTML = '<div style="font-size:12px;color:var(--text3);margin-bottom:4px">' + breakdown + '</div><div style="font-size:18px;color:var(--success)">Net: $' + net.toFixed(2) + '</div>';
+  }
+}
+
+async function saveBulkSalary(month) {
+  const btn = document.getElementById('save-bulk-btn');
+  if (btn) { btn.disabled=true; btn.textContent='⏳ កំពុងបន្ថែម...'; }
+  const bonus  = parseFloat(document.getElementById('bulk-bonus')?.value)||0;
+  const deduct = parseFloat(document.getElementById('bulk-deduct')?.value)||0;
+  const checkboxes = document.querySelectorAll('[id^="bulk-emp-"]:checked');
+  if (!checkboxes.length) { showToast('សូមជ្រើសបុគ្គលិកយ៉ាងតិច ១ នាក់!','error'); if(btn){btn.disabled=false;btn.textContent='បន្ថែមទាំងអស់';} return; }
+
+  let success=0, skip=0;
+  for (const cb of checkboxes) {
+    const empId = parseInt(cb.value);
+    const baseEl = document.getElementById('bulk-base-'+empId);
+    const base = parseFloat(baseEl?.value)||0;
+    const net = base + bonus - deduct;
+    try {
+      await api('POST','/salary',{ employee_id:empId, month, base_salary:base, bonus, deduction:deduct, net_salary:net });
+      success++;
+    } catch(_) { skip++; } // already exists → skip
+  }
+  showToast('បន្ថែម '+success+' នាក់ ✅'+(skip?' · រំលង '+skip+' (មានរួចហើយ)':''),'success');
+  closeModal(); renderSalary(month);
+}
+
+
+
+async function saveSalary(month) {
+  const btn=$('save-sal-btn'); btn.disabled=true; btn.textContent='កំពុងរក្សា...';
+  try {
+    const base   = parseFloat($('s-base')?.value)||0;
+    const allow  = parseFloat($('s-allow')?.value)||0;
+    const off    = parseFloat($('s-off')?.value)||0;
+    const ot     = parseFloat($('s-ot')?.value)||0;
+    const bonus  = parseFloat($('s-bonus')?.value)||0;
+    const deduct = parseFloat($('s-deduct')?.value)||0;
+    const net    = base + allow + off + ot + bonus - deduct;
+    const noteArr = [];
+    if (allow > 0) noteArr.push('🎁 ឧបត្ថម្ភ +$' + allow.toFixed(2));
+    if (off > 0) noteArr.push('🌟 OFF Bonus +$' + off.toFixed(2));
+    if (ot > 0)  noteArr.push('⏱ OT +$' + ot.toFixed(2));
+    await api('POST','/salary',{
+      employee_id: parseInt($('s-emp').value),
+      month,
+      base_salary: base,
+      bonus: allow + off + ot + bonus,
+      deduction: deduct,
+      net_salary: net,
+      notes: noteArr.join(' | ')
+    });
+    showToast('បន្ថែមបៀវត្សបានជោគជ័យ! Net: $' + net.toFixed(2),'success');
+    closeModal(); renderSalary(month);
+  } catch(e) { showToast('បញ្ហា: '+e.message,'error'); btn.disabled=false; btn.textContent='រក្សាទុក'; }
+}
+
+async function paySalary(id, month) {
+  try { await api('PUT',`/salary/${id}/pay`); showToast('បង់ប្រាក់បានជោគជ័យ!','success'); renderSalary(month); }
+  catch(e) { showToast('បញ្ហា: '+e.message,'error'); }
+}
+
+async function payAll(month) {
+  if (!confirm('បង់ប្រាក់ទាំងអស់?')) return;
+  try {
+    const data = await api('GET',`/salary?month=${month}`);
+    const pending = data.records.filter(r=>r.status!=='paid');
+    if (!pending.length) { showToast('មិនទាន់មានរង់ចាំ!','warning'); return; }
+    await Promise.all(pending.map(r=>api('PUT',`/salary/${r.id}/pay`)));
+    showToast(`បង់ប្រាក់ ${pending.length} នាក់ បានជោគជ័យ!`,'success'); renderSalary(month);
+  } catch(e) { showToast('បញ្ហា: '+e.message,'error'); }
+}
+
+// ===== REPORTS =====
+async function renderReports() {
+  showLoading();
+  try {
+    const month = thisMonth();
+    let salData = { records:[], summary:{} };
+    let empData = { employees:[] };
+    try {
+      [salData, empData] = await Promise.all([
+        api('GET', '/salary?month='+month),
+        api('GET', '/employees?limit=200'),
+      ]);
+    } catch(_){}
+
+    const rules = getSalaryRules();
+    const sym = rules.currency_symbol || '$';
+
+    // ── Compute real-time OFF bonus (same logic as renderSalary) ──
+    const _offBonusMap = {};
+    try {
+      if (!state.employees || !state.employees.length) state.employees = empData.employees || [];
+      const [y, m] = month.split('-').map(Number);
+      const _dim = new Date(y, m, 0).getDate();
+      const _allDays = [];
+      for (let d = 1; d <= _dim; d++) {
+        _allDays.push({ dd: String(d).padStart(2,'0'), wd: new Date(y, m-1, d).getDay() });
+      }
+      const [_attRes, _dsRes] = await Promise.all([
+        api('GET', '/attendance?month=' + month).catch(() => ({ records: [] })),
+        api('GET', '/dayswap').catch(() => ({ records: [] })),
+      ]);
+      const _attMap = {};
+      (_attRes.records || []).forEach(a => {
+        if (!_attMap[a.employee_id]) _attMap[a.employee_id] = {};
+        _attMap[a.employee_id][(a.date||'').slice(8,10)] = a;
+      });
+      const _swapDayMap = {}, _offDateMap = {};
+      ((_dsRes.records||[]).filter(r=>r.status==='approved')).forEach(r => {
+        if (r.swap_date) { const dd=r.swap_date.slice(8,10); if(!_swapDayMap[r.employee_id])_swapDayMap[r.employee_id]={}; _swapDayMap[r.employee_id][dd]=r; }
+        if (r.off_date)  { const dd=r.off_date.slice(8,10);  if(!_offDateMap[r.employee_id])_offDateMap[r.employee_id]={}; _offDateMap[r.employee_id][dd]=true; }
+      });
+      const _offMul = (rules.off_bonus_enabled !== false) ? (rules.off_day_multiplier || 1.0) : 0;
+      (state.employees || []).forEach(e => {
+        const _offDays = parseOffDays(e);
+        if (!_offDays.length) return;
+        const _offRate = (e.salary || 0) / 30;
+        let _worked = 0;
+        _allDays.forEach(x => {
+          if (_offDays.indexOf(x.wd) === -1) return;
+          if ((_offDateMap[e.id]||{})[x.dd]) return;
+          const _sr = (_swapDayMap[e.id]||{})[x.dd];
+          if (_sr) { if (_sr.off_date && _sr.off_date.trim() !== '') return; _worked++; return; }
+          const _att = (_attMap[e.id]||{})[x.dd];
+          if (_att && (_att.status==='present'||_att.status==='late')) _worked++;
+        });
+        if (_worked > 0) _offBonusMap[e.id] = parseFloat((_worked * _offRate * _offMul).toFixed(2));
+      });
+    } catch(_) {}
+
+    // ── Load OT data ──
+    const _otMap = {};
+    try {
+      const _otRes = await api('GET', '/overtime').catch(() => ({ records: [] }));
+      (_otRes.records||[]).filter(r=>(r.date||'').startsWith(month)).forEach(r => {
+        _otMap[r.employee_id] = (_otMap[r.employee_id]||0) + (r.pay||0);
+      });
+    } catch(_) {}
+
+    // Build preview rows HTML
+    let previewRows = '';
+    if (salData.records.length === 0) {
+      previewRows = '<tr><td colspan="11"><div class="empty-state" style="padding:24px"><p>មិនទាន់មានទិន្នន័យប្រាក់ខែ ' + month + '</p></div></td></tr>';
+    } else {
+      salData.records.forEach((r,i) => {
+        const offBonus = _offBonusMap[r.employee_id] || 0;
+        const otPay    = _otMap[r.employee_id] || 0;
+        const realBonus = offBonus + otPay;
+        const realNet   = parseFloat(r.base_salary||0) + offBonus + otPay - parseFloat(r.deduction||0);
+        const nssf = ((r.base_salary||0)*(rules.nssf_employee||0)/100).toFixed(2);
+        const taxable = Math.max(0,(r.base_salary||0)-(rules.income_tax_threshold||0));
+        const tax = (taxable*(rules.tax_rate||0)/100).toFixed(2);
+        const statusBadge = r.status==='paid'
+          ? '<span class="badge badge-green">✅</span>'
+          : '<span class="badge badge-yellow">⏳</span>';
+        const bonusCell = offBonus > 0
+          ? '<td style="font-family:var(--mono);color:#d97706;font-weight:700">+' + sym + offBonus.toFixed(2) + '</td>'
+          : '<td style="font-family:var(--mono);color:var(--text3)">—</td>';
+        const otCell = otPay > 0
+          ? '<td style="font-family:var(--mono);color:#6366f1;font-weight:700">+' + sym + otPay.toFixed(2) + '</td>'
+          : '<td style="font-family:var(--mono);color:var(--text3)">—</td>';
+        const _rptEmp = empData.employees.find(e => e.id === r.employee_id || e.id === parseInt(r.employee_id));
+        const _rptPhoto = getEmpPhoto(_rptEmp?.id || r.employee_id) || _rptEmp?.photo_data || '';
+        const _rptAvatar = _rptPhoto
+          ? '<img src="'+_rptPhoto+'" style="width:26px;height:26px;border-radius:50%;object-fit:cover;flex-shrink:0" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'" /><div class="emp-avatar" style="display:none;background:'+getColor(r.employee_name)+';width:26px;height:26px;font-size:12px">'+(r.employee_name||'?')[0]+'</div>'
+          : '<div class="emp-avatar" style="background:'+getColor(r.employee_name)+';width:26px;height:26px;font-size:12px">'+(r.employee_name||'?')[0]+'</div>';
+        previewRows += '<tr>'
+          + '<td style="font-family:var(--mono);color:var(--text3)">' + (i+1) + '</td>'
+          + '<td><div class="employee-cell">'
+          + _rptAvatar
+          + '<span style="font-weight:500">' + (r.employee_name||'') + '</span></div></td>'
+          + '<td>' + (r.department||'—') + '</td>'
+          + '<td style="font-family:var(--mono)">' + sym + (r.base_salary||0) + '</td>'
+          + otCell
+          + bonusCell
+          + '<td style="font-family:var(--mono);color:var(--danger)">-' + sym + (r.deduction||0) + '</td>'
+          + '<td style="font-family:var(--mono);color:var(--danger)">-' + sym + nssf + '</td>'
+          + '<td style="font-family:var(--mono);color:var(--danger)">-' + sym + tax + '</td>'
+          + '<td style="font-family:var(--mono);font-weight:700;color:var(--success)">' + sym + realNet.toFixed(2) + '</td>'
+          + '<td>' + statusBadge + '</td>'
+          + '</tr>';
+      });
+    }
+
+    contentArea().innerHTML =
+      '<div class="page-header">'
+      + '<div><h2>របាយការណ៍</h2><p>Export ទិន្នន័យប្រាក់ខែជា Excel</p></div>'
+      + '</div>'
+      + '<div class="card" style="margin-bottom:24px">'
+      + '<div class="card-header">'
+      + '<div style="display:flex;align-items:center;gap:10px">'
+      + '<div style="width:36px;height:36px;background:rgba(6,214,160,.15);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px">📊</div>'
+      + '<div><div class="card-title">របាយការណ៍ Payroll — Excel</div>'
+      + '<div style="font-size:14px;color:var(--text3)">Export ទិន្នន័យប្រាក់ខែជា .xlsx</div></div>'
+      + '</div>'
+      + '<div style="display:flex;gap:10px;align-items:center">'
+      + '<input class="filter-input" type="month" id="rpt-month" value="' + month + '" />'
+      + '<button class="btn btn-success" onclick="exportPayrollExcel()">'
+      + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>'
+      + ' Excel</button>'
+      + '<button class="btn btn-primary" onclick="printPayroll()">'
+      + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>'
+      + ' PDF / បោះពុម្ព</button>'
+      + '</div></div>'
+      + '<div class="card-body" style="padding:0">'
+      + '<div style="padding:16px 20px 8px;display:flex;gap:20px;flex-wrap:wrap">'
+      + '<div style="font-size:15px"><span style="color:var(--text3)">ខែ: </span><span style="font-weight:700;font-family:var(--mono)">' + month + '</span></div>'
+      + '<div style="font-size:15px"><span style="color:var(--text3)">បុគ្គលិក: </span><span style="font-weight:700;color:var(--primary)">' + salData.records.length + '</span></div>'
+      + '<div style="font-size:15px"><span style="color:var(--text3)">Net សរុប: </span><span style="font-weight:700;color:var(--success);font-family:var(--mono)">' + sym + (salData.summary.total_net||0).toLocaleString() + '</span></div>'
+      + '<div style="font-size:15px"><span style="color:var(--text3)">បង់រួច: </span><span style="font-weight:700;color:var(--info)">' + (salData.summary.paid||0) + '/' + salData.records.length + '</span></div>'
+      + '</div>'
+      + '<div class="table-container">'
+      + '<table>'
+      + '<thead><tr><th>លេខ</th><th>ឈ្មោះ</th><th>នាយកដ្ឋាន</th><th>មូលដ្ឋាន</th><th>⏱ OT</th><th>🌟 OFF</th><th>កាត់</th><th>NSSF</th><th>Tax</th><th>Net</th><th>ស្ថានភាព</th></tr></thead>'
+      + '<tbody>' + previewRows + '</tbody>'
+      + '</table></div></div></div>';
+
+    window._payrollRecords = salData.records;
+    window._allEmployees = empData.employees || [];
+    window._rptOffBonusMap = _offBonusMap;
+    window._rptOtMap = _otMap;
+
+  } catch(e) { showError(e.message); }
+}
+
+// ============================================================
+// EXCEL EXPORT ENGINE (pure JS — no library needed)
+// ============================================================
+
+// Build a proper XLSX file using XML/ZIP structure
+function buildXLSX(sheets) {
+  // sheets = [{ name, headers, rows }]
+  // Returns a Blob
+  const escXml = s => String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+  // Shared strings
+  const strs = [];
+  const strIdx = {};
+  function si(v) {
+    const k = String(v??'');
+    if (strIdx[k]===undefined) { strIdx[k]=strs.length; strs.push(k); }
+    return strIdx[k];
+  }
+
+  // Pre-register all strings
+  sheets.forEach(sh=>{
+    sh.headers.forEach(h=>si(h));
+    sh.rows.forEach(row=>row.forEach(cell=>{ if(typeof cell==='string')si(cell); }));
+  });
+
+  const col = n => { let s=''; while(n>=0){s=String.fromCharCode(65+n%26)+s;n=Math.floor(n/26)-1;} return s; };
+
+  function sheetXML(sh) {
+    const colCount = sh.headers.length;
+    const rows = [sh.headers, ...sh.rows];
+    const xmlRows = rows.map((row,ri)=>{
+      const cells = row.map((cell,ci)=>{
+        const ref = col(ci)+(ri+1);
+        const rAttr = ' r="'+ref+'"';
+        if(ri===0) return '<c'+rAttr+' s="1" t="s"><v>'+si(cell)+'</v></c>';
+        if(typeof cell==='number'||(!isNaN(cell)&&cell!=='')) return '<c'+rAttr+'><v>'+cell+'</v></c>';
+        return '<c'+rAttr+' t="s"><v>'+si(String(cell??''))+'</v></c>';
+      }).join('');
+      return '<row r="'+(ri+1)+'">'+cells+'</row>';
+    }).join('');
+    const dims = 'A1:'+col(colCount-1)+rows.length;
+    return '<?xml version="1.0" encoding="UTF-8"?>'
+      +'\n<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+      +'\n<dimension ref="'+dims+'"/>'
+      +'\n<sheetData>'+xmlRows+'</sheetData>'
+      +'\n</worksheet>';
+  }
+
+  const XML_DECL = '<?xml version="1.0" encoding="UTF-8"?>';
+
+  const sharedStringsXML = XML_DECL
+    + '\n<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"'
+    + ' count="' + strs.length + '" uniqueCount="' + strs.length + '">'
+    + '\n' + strs.map(s=>'<si><t xml:space="preserve">' + escXml(s) + '</t></si>').join('\n')
+    + '\n</sst>';
+
+  const stylesXML = XML_DECL
+    + '\n<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+    + '\n<fonts><font><sz val="11"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/></font></fonts>'
+    + '\n<fills><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>'
+    + '\n<fill><patternFill patternType="solid"><fgColor rgb="FFFF6B35"/></patternFill></fill></fills>'
+    + '\n<borders><border><left/><right/><top/><bottom/><diagonal/></border></borders>'
+    + '\n<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
+    + '\n<cellXfs>'
+    + '\n<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
+    + '\n<xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/>'
+    + '\n</cellXfs>'
+    + '\n</styleSheet>';
+
+  const wbXML = XML_DECL
+    + '\n<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"'
+    + '\n  xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+    + '\n<sheets>' + sheets.map((sh,i)=>'<sheet name="' + escXml(sh.name) + '" sheetId="' + (i+1) + '" r:id="rId' + (i+1) + '"/>').join('') + '</sheets>'
+    + '\n</workbook>';
+
+  const NS_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+  const NS_PKG = 'http://schemas.openxmlformats.org/package/2006/relationships';
+
+  const wbRels = XML_DECL
+    + '\n<Relationships xmlns="' + NS_PKG + '">'
+    + '\n' + sheets.map((sh,i)=>'<Relationship Id="rId'+(i+1)+'" Type="'+NS_REL+'/worksheet" Target="worksheets/sheet'+(i+1)+'.xml"/>').join('\n')
+    + '\n<Relationship Id="rId'+(sheets.length+1)+'" Type="'+NS_REL+'/sharedStrings" Target="sharedStrings.xml"/>'
+    + '\n<Relationship Id="rId'+(sheets.length+2)+'" Type="'+NS_REL+'/styles" Target="styles.xml"/>'
+    + '\n</Relationships>';
+
+  const coreRels = XML_DECL
+    + '\n<Relationships xmlns="' + NS_PKG + '">'
+    + '\n<Relationship Id="rId1" Type="'+NS_REL+'/officeDocument" Target="xl/workbook.xml"/>'
+    + '\n</Relationships>';
+
+  const NS_CT = 'http://schemas.openxmlformats.org/package/2006/content-types';
+  const NS_SS = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
+
+  const contentTypes = XML_DECL
+    + '\n<Types xmlns="' + NS_CT + '">'
+    + '\n<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+    + '\n<Default Extension="xml" ContentType="application/xml"/>'
+    + '\n<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+    + '\n' + sheets.map((_,i)=>'<Override PartName="/xl/worksheets/sheet'+(i+1)+'.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>').join('\n')
+    + '\n<Override PartName="/xl/sharedStrings.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"/>'
+    + '\n<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'
+    + '\n</Types>';
+
+  // Build ZIP using simple concatenation (mini zip writer)
+  function toUint8(str) {
+    const e = new TextEncoder(); return e.encode(str);
+  }
+  function crc32(buf) {
+    let c = 0xFFFFFFFF;
+    const t = [];
+    for(let i=0;i<256;i++){let n=i;for(let j=0;j<8;j++)n=n&1?(0xEDB88320^(n>>>1)):(n>>>1);t[i]=n;}
+    for(let i=0;i<buf.length;i++)c=t[(c^buf[i])&0xFF]^(c>>>8);
+    return (c^0xFFFFFFFF)>>>0;
+  }
+  function le16(n){const b=new Uint8Array(2);new DataView(b.buffer).setUint16(0,n,true);return b;}
+  function le32(n){const b=new Uint8Array(4);new DataView(b.buffer).setUint32(0,n,true);return b;}
+  function concat(...arrs){const t=arrs.reduce((s,a)=>s+a.length,0);const r=new Uint8Array(t);let o=0;for(const a of arrs){r.set(a,o);o+=a.length;}return r;}
+
+  const files = {
+    '[Content_Types].xml': toUint8(contentTypes),
+    '_rels/.rels': toUint8(coreRels),
+    'xl/workbook.xml': toUint8(wbXML),
+    'xl/_rels/workbook.xml.rels': toUint8(wbRels),
+    'xl/sharedStrings.xml': toUint8(sharedStringsXML),
+    'xl/styles.xml': toUint8(stylesXML),
+  };
+  sheets.forEach((sh,i)=>{ files['xl/worksheets/sheet'+(i+1)+'.xml'] = toUint8(sheetXML(sh)); });
+
+  const localHeaders = [];
+  const centralDirs = [];
+  let offset = 0;
+  const now = new Date();
+  const dosDate = ((now.getFullYear()-1980)<<9)|((now.getMonth()+1)<<5)|now.getDate();
+  const dosTime = (now.getHours()<<11)|(now.getMinutes()<<5)|(now.getSeconds()>>1);
+
+  for(const [name,data] of Object.entries(files)) {
+    const nameBytes = toUint8(name);
+    const crc = crc32(data);
+    const lh = concat(
+      new Uint8Array([0x50,0x4B,0x03,0x04]),
+      le16(20),le16(0),le16(0),
+      le16(dosTime),le16(dosDate),
+      le32(crc),le32(data.length),le32(data.length),
+      le16(nameBytes.length),le16(0),
+      nameBytes, data
+    );
+    const cd = concat(
+      new Uint8Array([0x50,0x4B,0x01,0x02]),
+      le16(20),le16(20),le16(0),le16(0),
+      le16(dosTime),le16(dosDate),
+      le32(crc),le32(data.length),le32(data.length),
+      le16(nameBytes.length),le16(0),le16(0),le16(0),le16(0),
+      le32(0),le32(offset),
+      nameBytes
+    );
+    localHeaders.push(lh);
+    centralDirs.push(cd);
+    offset += lh.length;
+  }
+
+  const cdSize = centralDirs.reduce((s,d)=>s+d.length,0);
+  const eocd = concat(
+    new Uint8Array([0x50,0x4B,0x05,0x06]),
+    le16(0),le16(0),
+    le16(centralDirs.length),le16(centralDirs.length),
+    le32(cdSize),le32(offset),le16(0)
+  );
+
+  const zip = concat(...localHeaders,...centralDirs,eocd);
+  return new Blob([zip],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+
+async function exportPayrollExcel() {
+  const month = $('rpt-month')?.value || thisMonth();
+  showToast('កំពុង Export Excel... ⏳','info');
+  try {
+    // ── Fetch all data in parallel (always fresh, never rely on cache) ──
+    const [salRes, empRes, alRes, otRes, attRes, dsRes] = await Promise.all([
+      api('GET', '/salary?month=' + month),
+      api('GET', '/employees?limit=500').catch(() => ({ employees: [] })),
+      api('GET', '/allowances').catch(() => ({ records: [] })),
+      api('GET', '/overtime').catch(() => ({ records: [] })),
+      api('GET', '/attendance?month=' + month).catch(() => ({ records: [] })),
+      api('GET', '/dayswap').catch(() => ({ records: [] })),
+    ]);
+
+    const records = salRes.records || [];
+    const emps    = empRes.employees || [];
+    const rules   = getSalaryRules();
+    const cfg     = getCompanyConfig();
+    const companyName = cfg.company_name || 'HR Pro';
+
+    // ── 1. Allowance map (employee_id -> total for this month) ──
+    const allowMap = {};
+    (alRes.records || [])
+      .filter(r => (r.month || '').startsWith(month))
+      .forEach(r => { allowMap[r.employee_id] = (allowMap[r.employee_id] || 0) + (r.amount || 0); });
+
+    // ── 2. OT map (employee_id -> total OT pay this month) ──
+    const otMap = {};
+    (otRes.records || [])
+      .filter(r => (r.date || '').startsWith(month))
+      .forEach(r => { otMap[r.employee_id] = (otMap[r.employee_id] || 0) + (r.pay || 0); });
+
+    // ── 3. OFF Bonus map (compute from attendance, same logic as renderSalary) ──
+    const offMap = {};
+    try {
+      const _rls = getSalaryRules();
+      const _mul = (_rls.off_bonus_enabled !== false) ? (_rls.off_day_multiplier || 1.0) : 0;
+      if (_mul > 0) {
+        const [_y, _m] = month.split('-').map(Number);
+        const _dim = new Date(_y, _m, 0).getDate();
+        const allDays = [];
+        for (let d = 1; d <= _dim; d++)
+          allDays.push({ dd: String(d).padStart(2,'0'), wd: new Date(_y, _m-1, d).getDay() });
+
+        // attendance map: empId -> { dd -> record }
+        const attMap = {};
+        (attRes.records || []).forEach(a => {
+          const dd = (a.date || '').slice(8, 10);
+          if (!attMap[a.employee_id]) attMap[a.employee_id] = {};
+          attMap[a.employee_id][dd] = a;
+        });
+
+        // dayswap maps
+        const swapMap = {}, offDateMap = {};
+        (dsRes.records || []).filter(r => r.status === 'approved').forEach(r => {
+          if (r.swap_date) {
+            const dd = r.swap_date.slice(8, 10);
+            if (!swapMap[r.employee_id]) swapMap[r.employee_id] = {};
+            swapMap[r.employee_id][dd] = r;
+          }
+          if (r.off_date) {
+            const dd = r.off_date.slice(8, 10);
+            if (!offDateMap[r.employee_id]) offDateMap[r.employee_id] = {};
+            offDateMap[r.employee_id][dd] = true;
+          }
+        });
+
+        emps.forEach(e => {
+          const offDays = parseOffDays(e);
+          if (!offDays.length) return;
+          const rate = (e.salary || 0) / 30;
+          let worked = 0;
+          allDays.forEach(x => {
+            if (offDays.indexOf(x.wd) === -1) return;
+            if ((offDateMap[e.id] || {})[x.dd]) return;
+            const sr = (swapMap[e.id] || {})[x.dd];
+            if (sr) { if (sr.off_date && sr.off_date.trim() !== '') return; worked++; return; }
+            const att = (attMap[e.id] || {})[x.dd];
+            if (att && (att.status === 'present' || att.status === 'late')) worked++;
+          });
+          if (worked > 0) offMap[e.id] = parseFloat((worked * rate * _mul).toFixed(2));
+        });
+      }
+    } catch(_) {}
+
+    // ── Build rows ──
+    const headers = ['#','ឈ្មោះ','នាយកដ្ឋាន','ប្រាក់មូលដ្ឋាន','🎁 ឧបត្ថម្ភ','🌟 OFF Bonus','⏱ OT','ប្រាក់កាត់','NSSF','Tax','Net Salary','ខែ','ស្ថានភាព'];
+    const dataRows = records.map((r, i) => {
+      const alAmt  = +(allowMap[r.employee_id] || 0);
+      const offAmt = +(offMap[r.employee_id]   || 0);
+      const otAmt  = +(otMap[r.employee_id]    || 0);
+      const base   = parseFloat(r.base_salary  || 0);
+      const deduct = parseFloat(r.deduction    || 0);
+      const bonus  = parseFloat(r.bonus        || 0);
+      const nssf   = +((base) * (rules.nssf_employee || 0) / 100).toFixed(2);
+      const taxable= Math.max(0, base - (rules.income_tax_threshold || 0));
+      const tax    = +(taxable * (rules.tax_rate || 0) / 100).toFixed(2);
+      const realNet= +(base + alAmt + offAmt + otAmt + bonus - deduct).toFixed(2);
+      return [
+        i + 1,
+        r.employee_name || '',
+        r.department    || '',
+        base,
+        alAmt,
+        offAmt,
+        otAmt,
+        deduct,
+        nssf,
+        tax,
+        realNet,
+        r.month || month,
+        r.status === 'paid' ? 'បានបង់' : 'រង់ចាំ',
+      ];
+    });
+
+    // ── Summary ──
+    const totBase   = dataRows.reduce((s, r) => s + (r[3]  || 0), 0);
+    const totAllow  = dataRows.reduce((s, r) => s + (r[4]  || 0), 0);
+    const totOff    = dataRows.reduce((s, r) => s + (r[5]  || 0), 0);
+    const totOT     = dataRows.reduce((s, r) => s + (r[6]  || 0), 0);
+    const totDeduct = dataRows.reduce((s, r) => s + (r[7]  || 0), 0);
+    const totNSSF   = dataRows.reduce((s, r) => s + (r[8]  || 0), 0);
+    const totTax    = dataRows.reduce((s, r) => s + (r[9]  || 0), 0);
+    const totNet    = dataRows.reduce((s, r) => s + (r[10] || 0), 0);
+
+    const rows = [
+      ...dataRows,
+      Array(13).fill(''),
+      ['','','សរុប (Summary)',
+        +totBase.toFixed(2), +totAllow.toFixed(2), +totOff.toFixed(2), +totOT.toFixed(2),
+        +totDeduct.toFixed(2), +totNSSF.toFixed(2), +totTax.toFixed(2), +totNet.toFixed(2),
+        '',''],
+    ];
+
+    const blob = buildXLSX([{ name: 'Payroll ' + month, headers, rows }]);
+    downloadBlob(blob, companyName + '_Payroll_' + month + '.xlsx');
+    showToast('Download Excel បានជោគជ័យ! ✅', 'success');
+  } catch(e) { showToast('Error: ' + e.message, 'error'); }
+}
+
+async function exportEmployeeExcel() {
+  showToast('កំពុង Export...','info');
+  try {
+    const d = await api('GET','/employees?limit=500');
+    const emps = d.employees||[];
+    const cfg = getCompanyConfig();
+    const headers = ['#','ឈ្មោះ','ភេទ','តំណែង','នាយកដ្ឋាន','ទូរស័ព្ទ','អ៊ីម៉ែល','ប្រាក់ខែ','ថ្ងៃចូល','ស្ថានភាព'];
+    const rows = emps.map((e,i)=>[i+1,e.name,e.gender==='male'?'ប្រុស':'ស្រី',e.position,e.department_name||e.department||'',e.phone||'',e.email||'',e.salary||0,e.hire_date||'',e.status==='active'?'ធ្វើការ':e.status==='on_leave'?'ច្បាប់':'ផ្អាក']);
+    downloadBlob(buildXLSX([{name:'Employees',headers,rows}]),`${cfg.company_name||'HR'}_Employees_${today()}.xlsx`);
+    showToast('Download Employee Excel ✅','success');
+  } catch(e) { showToast('Error: '+e.message,'error'); }
+}
+
+async function exportAttendanceExcel() {
+  showToast('កំពុង Export...','info');
+  try {
+    const d = await api('GET',`/attendance?month=${thisMonth()}`);
+    const recs = d.records||[];
+    const cfg = getCompanyConfig();
+    const headers = ['#','ឈ្មោះ','នាយកដ្ឋាន','ថ្ងៃ','ម៉ោងចូល','ម៉ោងចេញ','ស្ថានភាព'];
+    const rows = recs.map((r,i)=>[i+1,r.employee_name||'',r.department||'',r.date||'',r.check_in||'',r.check_out||'',r.status==='present'?'វត្តមាន':r.status==='late'?'យឺត':'អវត្តមាន']);
+    downloadBlob(buildXLSX([{name:'Attendance',headers,rows}]),`${cfg.company_name||'HR'}_Attendance_${thisMonth()}.xlsx`);
+    showToast('Download Attendance Excel ✅','success');
+  } catch(e) { showToast('Error: '+e.message,'error'); }
+}
+
+async function exportDeptExcel() {
+  showToast('កំពុង Export...','info');
+  try {
+    const d = await api('GET','/departments');
+    const depts = Array.isArray(d)?d:(d.records||[]);
+    const cfg = getCompanyConfig();
+    const headers = ['#','ឈ្មោះ','អ្នកគ្រប់គ្រង','ចំនួនបុគ្គលិក'];
+    const rows = depts.map((d,i)=>[i+1,d.name||'',d.manager||'',d.head_count||0]);
+    downloadBlob(buildXLSX([{name:'Departments',headers,rows}]),`${cfg.company_name||'HR'}_Departments_${today()}.xlsx`);
+    showToast('Download Dept Excel ✅','success');
+  } catch(e) { showToast('Error: '+e.message,'error'); }
+}
+
+async function exportFinanceSummaryExcel() {
+  showToast('កំពុង Export...','info');
+  try {
+    const cfg = getCompanyConfig();
+    const [loans,expenses,allowances] = await Promise.all([
+      api('GET','/loans'), api('GET','/expenses'), api('GET','/allowances'),
+    ]);
+    const loanRows = (loans.records||[]).map((r,i)=>[i+1,r.employee_name||'',r.amount||0,r.paid_amount||0,(r.amount||0)-(r.paid_amount||0),r.status==='paid'?'សងរួច':'កំពុងសង']);
+    const expRows  = (expenses.records||[]).map((r,i)=>[i+1,r.employee_name||'',r.category||'',r.amount||0,r.request_date||'',r.status==='approved'?'អនុម័ត':r.status==='rejected'?'បដិសេធ':'រង់ចាំ']);
+    const allowRows= (allowances.records||[]).map((r,i)=>[i+1,r.employee_name||'',r.type||'',r.amount||0,r.month||'']);
+    downloadBlob(buildXLSX([
+      {name:'Loans',headers:['#','ឈ្មោះ','ចំនួន','សង','នៅសល់','ស្ថានភាព'],rows:loanRows},
+      {name:'Expense Requests',headers:['#','ឈ្មោះ','ប្រភេទ','ចំនួន','ថ្ងៃ','ស្ថានភាព'],rows:expRows},
+      {name:'Allowances',headers:['#','ឈ្មោះ','ប្រភេទ','ចំនួន','ខែ'],rows:allowRows},
+    ]),`${cfg.company_name||'HR'}_Finance_${today()}.xlsx`);
+    showToast('Download Finance Excel ✅','success');
+  } catch(e) { showToast('Error: '+e.message,'error'); }
+}
+
+// ===== HELPER: load employees into state =====
+async function ensureEmployees() {
+  if (!state.employees.length) {
+    try { const d = await api('GET','/employees?limit=200'); state.employees = d.employees||[]; } catch(_){}
+  }
+}
+
+// ============================================================
+// 1. ថែមម៉ោង (OVERTIME)
+// ============================================================
+async function renderOvertime() {
+  showLoading();
+  let currentMonth = (window._otMonth || thisMonth());
+  try {
+    const _otSess   = getSession();
+    const _isQR     = _otSess && _otSess.role === 'QR Scanner';
+    const [empData, otData] = await Promise.all([
+      api('GET','/employees?limit=500'),
+      api('GET','/overtime')
+    ]);
+    const emps = empData.employees || [];
+    const records = otData.records || [];
+
+    // Filter to current month
+    const monthRecords = records.filter(r => (r.date||'').startsWith(currentMonth));
+
+    // Build map: empId -> { dd -> [records] }
+    const otMap = {};
+    monthRecords.forEach(r => {
+      const empId = r.employee_id;
+      const dd = (r.date||'').slice(-2).replace(/^0/,''); // '01' -> '1'
+      if (!otMap[empId]) otMap[empId] = {};
+      if (!otMap[empId][dd]) otMap[empId][dd] = [];
+      otMap[empId][dd].push(r);
+    });
+
+    // Days in month
+    const [y, m] = currentMonth.split('-').map(Number);
+    const daysInMonth = new Date(y, m, 0).getDate();
+    const allDays = [];
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dt = new Date(y, m-1, d);
+      allDays.push({ d, dd: String(d).padStart(2,'0'), wd: dt.getDay() });
+    }
+    const wdNames = ['អា','ច','អ','ព','ព្រ','សុ','ស'];
+
+    // Totals
+    const totalHrs = monthRecords.reduce((s,r)=>s+(r.hours||0),0);
+    const totalPay = monthRecords.reduce((s,r)=>s+(r.pay||0),0);
+
+    // Build header rows
+    const dayThs = allDays.map(({d, wd}) => {
+      const isToday = (thisMonth()===currentMonth && new Date().getDate()===d);
+      const isWeekend = (wd===0||wd===6);
+      const bg = isToday ? 'background:var(--primary);color:white;' : isWeekend ? 'background:var(--bg2);color:var(--text3);' : '';
+      return '<th style="padding:2px 1px;font-size:13px;font-weight:600;text-align:center;min-width:26px;'+bg+'">' + d + '</th>';
+    }).join('');
+
+    const wdThs = allDays.map(({wd}) => {
+      const isWeekend = (wd===0||wd===6);
+      return '<th style="padding:1px 0;font-size:11px;text-align:center;font-weight:400;'+(isWeekend?'color:var(--danger);':'color:var(--text3);')+'">'+wdNames[wd]+'</th>';
+    }).join('');
+
+    // Per-employee rows — only show employees with OT this month, or all
+    const empRows = emps.map(emp => {
+      const empOT = otMap[emp.id] || {};
+      const empTotal = Object.values(empOT).flat().reduce((s,r)=>s+(r.hours||0),0);
+      const empPay   = Object.values(empOT).flat().reduce((s,r)=>s+(r.pay||0),0);
+      if (empTotal === 0) return ''; // hide employees with no OT this month
+
+      const cells = allDays.map(({d, wd}) => {
+        const dayRecs = empOT[String(d)] || [];
+        const isWeekend = (wd===0||wd===6);
+        const bgWknd = isWeekend ? 'background:var(--bg2);' : '';
+        if (!dayRecs.length) {
+          return '<td style="text-align:center;font-size:12px;color:var(--text3);padding:2px 0;'+bgWknd+'">—</td>';
+        }
+        const hrs = dayRecs.reduce((s,r)=>s+(r.hours||0),0);
+        const allApproved = dayRecs.every(r=>r.status==='approved');
+        const anyRejected = dayRecs.some(r=>r.status==='rejected');
+        const color = anyRejected ? 'var(--danger)' : allApproved ? 'var(--success)' : 'var(--warning)';
+        const title = dayRecs.map(r=>(r.reason||'')+(r.hours?'('+r.hours+'h)':'')).join(' | ');
+        return '<td style="text-align:center;padding:2px 1px;'+bgWknd+'" title="'+title+'">'
+          +'<span style="font-size:13px;font-weight:700;color:'+color+'">'+hrs+'h</span>'
+          +'</td>';
+      }).join('');
+
+      const photo = getEmpPhoto(emp.id);
+      const av = photo
+        ? '<img src="'+photo+'" style="width:22px;height:22px;border-radius:50%;object-fit:cover;flex-shrink:0"/>'
+        : '<div style="width:22px;height:22px;border-radius:50%;background:'+getColor(emp.name)+';display:flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:700;flex-shrink:0">'+emp.name[0]+'</div>';
+
+
+      return '<tr>'
+        +'<td style="padding:5px 8px;white-space:nowrap;position:sticky;left:0;z-index:1;background:var(--bg1);box-shadow:2px 0 5px rgba(0,0,0,.12)">'
+        +'<div style="display:flex;align-items:center;gap:6px">'+av+'<span style="font-size:14px;font-weight:600">'+emp.name+'</span></div></td>'
+        +'<td style="text-align:center;font-weight:700;color:var(--primary);font-size:15px;position:sticky;left:160px;z-index:1;background:var(--bg1);padding:3px 4px;white-space:nowrap">'+empTotal+'h</td>'
+        +'<td style="text-align:center;font-weight:700;color:var(--success);font-size:14px;position:sticky;left:196px;z-index:1;background:var(--bg1);box-shadow:3px 0 6px rgba(0,0,0,.1);padding:3px 4px;white-space:nowrap">$'+empPay.toFixed(0)+'</td>'
+        +cells
+        +'<td style="text-align:center;padding:3px 6px">'
+        +(!_isQR ? '<button class="btn btn-outline btn-sm" style="font-size:12px;padding:2px 7px" onclick="renderOTDetailList('+emp.id+',\''+emp.name+'\',\''+currentMonth+'\')">📋</button>' : '')
         +'</td>'
         +'</tr>';
     }).filter(Boolean).join('');
