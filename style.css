@@ -2128,3 +2128,25 @@ input, select, textarea { font-size: max(14px, 1em); }
     min-width: 36px !important;
   }
 }
+/* ═══════════════════════════════════════════════════════════════
+   NOTIFICATION PANEL — MOBILE FIX
+   ═══════════════════════════════════════════════════════════════ */
+@media (max-width: 700px) {
+  .notif-wrapper {
+    position: static;
+  }
+  .notif-panel {
+    position: fixed;
+    top: 56px;
+    left: 8px;
+    right: 8px;
+    width: auto;
+    max-width: 100vw;
+    z-index: 99999;
+    border-radius: 14px;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.55);
+  }
+  .notif-list {
+    max-height: calc(100vh - 140px);
+  }
+}
