@@ -9399,24 +9399,24 @@ async function openDaySwapModal(id = null) {
         <div class="form-group full-width">
           <label class="form-label" style="font-weight:700">⏱ ប្រភេទការប្តូរ *</label>
           <div style="display:flex;gap:10px;flex-wrap:wrap">
-            <label style="flex:1;min-width:100px;cursor:pointer">
-              <input type="radio" name="ds-swap-type" id="ds-type-full" value="full" ${(!rec?.swap_type||rec?.swap_type==='full')?'checked':''} style="display:none" onchange="dsOnSwapTypeChange()"/>
-              <div class="ds-type-btn" id="ds-type-full-btn" style="border:2px solid var(--border);border-radius:10px;padding:10px 14px;text-align:center;font-size:14px;font-weight:600;transition:.2s;cursor:pointer;${(!rec?.swap_type||rec?.swap_type==='full')?'border-color:var(--primary);background:rgba(139,92,246,.12);color:var(--primary)':'color:var(--text2)'}">
+            <div style="flex:1;min-width:100px;cursor:pointer" onclick="dsSelectSwapType('full')">
+              <input type="radio" name="ds-swap-type" id="ds-type-full" value="full" ${(!rec?.swap_type||rec?.swap_type==='full')?'checked':''} style="display:none"/>
+              <div id="ds-type-full-btn" style="border:2px solid var(--border);border-radius:10px;padding:10px 14px;text-align:center;font-size:14px;font-weight:600;transition:.2s;cursor:pointer;${(!rec?.swap_type||rec?.swap_type==='full')?'border-color:var(--primary);background:rgba(139,92,246,.12);color:var(--primary)':'color:var(--text2)'}">
                 📅 ១ ថ្ងៃ<div style="font-size:11px;font-weight:400;margin-top:2px;opacity:.75">Full Day</div>
               </div>
-            </label>
-            <label style="flex:1;min-width:100px;cursor:pointer">
-              <input type="radio" name="ds-swap-type" id="ds-type-am" value="half_am" ${rec?.swap_type==='half_am'?'checked':''} style="display:none" onchange="dsOnSwapTypeChange()"/>
-              <div class="ds-type-btn" id="ds-type-am-btn" style="border:2px solid var(--border);border-radius:10px;padding:10px 14px;text-align:center;font-size:14px;font-weight:600;transition:.2s;cursor:pointer;${rec?.swap_type==='half_am'?'border-color:#0891b2;background:rgba(8,145,178,.12);color:#0891b2':'color:var(--text2)'}">
+            </div>
+            <div style="flex:1;min-width:100px;cursor:pointer" onclick="dsSelectSwapType('half_am')">
+              <input type="radio" name="ds-swap-type" id="ds-type-am" value="half_am" ${rec?.swap_type==='half_am'?'checked':''} style="display:none"/>
+              <div id="ds-type-am-btn" style="border:2px solid var(--border);border-radius:10px;padding:10px 14px;text-align:center;font-size:14px;font-weight:600;transition:.2s;cursor:pointer;${rec?.swap_type==='half_am'?'border-color:#0891b2;background:rgba(8,145,178,.12);color:#0891b2':'color:var(--text2)'}">
                 🌤 កន្លះថ្ងៃ ព្រឹក<div style="font-size:11px;font-weight:400;margin-top:2px;opacity:.75">Half Day (AM)</div>
               </div>
-            </label>
-            <label style="flex:1;min-width:100px;cursor:pointer">
-              <input type="radio" name="ds-swap-type" id="ds-type-pm" value="half_pm" ${rec?.swap_type==='half_pm'?'checked':''} style="display:none" onchange="dsOnSwapTypeChange()"/>
-              <div class="ds-type-btn" id="ds-type-pm-btn" style="border:2px solid var(--border);border-radius:10px;padding:10px 14px;text-align:center;font-size:14px;font-weight:600;transition:.2s;cursor:pointer;${rec?.swap_type==='half_pm'?'border-color:#7c3aed;background:rgba(124,58,237,.12);color:#7c3aed':'color:var(--text2)'}">
+            </div>
+            <div style="flex:1;min-width:100px;cursor:pointer" onclick="dsSelectSwapType('half_pm')">
+              <input type="radio" name="ds-swap-type" id="ds-type-pm" value="half_pm" ${rec?.swap_type==='half_pm'?'checked':''} style="display:none"/>
+              <div id="ds-type-pm-btn" style="border:2px solid var(--border);border-radius:10px;padding:10px 14px;text-align:center;font-size:14px;font-weight:600;transition:.2s;cursor:pointer;${rec?.swap_type==='half_pm'?'border-color:#7c3aed;background:rgba(124,58,237,.12);color:#7c3aed':'color:var(--text2)'}">
                 🌅 កន្លះថ្ងៃ ល្ងាច<div style="font-size:11px;font-weight:400;margin-top:2px;opacity:.75">Half Day (PM)</div>
               </div>
-            </label>
+            </div>
           </div>
         </div>
 
@@ -9611,6 +9611,15 @@ function dsOnOffDateChange(val) {
   if (sel) { sel.value = String(wd); dsFilterOffDate(); }
 }
 // Update swap type button visual states
+function dsSelectSwapType(val) {
+  // Directly set the radio checked value and trigger UI update
+  const radio = document.getElementById(
+    val === 'full' ? 'ds-type-full' : val === 'half_am' ? 'ds-type-am' : 'ds-type-pm'
+  );
+  if (radio) { radio.checked = true; }
+  dsOnSwapTypeChange();
+}
+
 function dsOnSwapTypeChange() {
   const types = ["full","half_am","half_pm"];
   const colors = { full: "var(--primary)", half_am: "#0891b2", half_pm: "#7c3aed" };
