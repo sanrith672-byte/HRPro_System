@@ -5796,10 +5796,15 @@ async function renderReports() {
         const otCell = otPay > 0
           ? '<td style="font-family:var(--mono);color:#6366f1;font-weight:700">+' + sym + otPay.toFixed(2) + '</td>'
           : '<td style="font-family:var(--mono);color:var(--text3)">—</td>';
+        const _rptEmp = empData.employees.find(e => e.id === r.employee_id || e.id === parseInt(r.employee_id));
+        const _rptPhoto = getEmpPhoto(_rptEmp?.id || r.employee_id) || _rptEmp?.photo_data || '';
+        const _rptAvatar = _rptPhoto
+          ? '<img src="'+_rptPhoto+'" style="width:26px;height:26px;border-radius:50%;object-fit:cover;flex-shrink:0" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'" /><div class="emp-avatar" style="display:none;background:'+getColor(r.employee_name)+';width:26px;height:26px;font-size:12px">'+(r.employee_name||'?')[0]+'</div>'
+          : '<div class="emp-avatar" style="background:'+getColor(r.employee_name)+';width:26px;height:26px;font-size:12px">'+(r.employee_name||'?')[0]+'</div>';
         previewRows += '<tr>'
           + '<td style="font-family:var(--mono);color:var(--text3)">' + (i+1) + '</td>'
           + '<td><div class="employee-cell">'
-          + '<div class="emp-avatar" style="background:'+getColor(r.employee_name)+';width:26px;height:26px;font-size:12px">' + (r.employee_name||'?')[0] + '</div>'
+          + _rptAvatar
           + '<span style="font-weight:500">' + (r.employee_name||'') + '</span></div></td>'
           + '<td>' + (r.department||'—') + '</td>'
           + '<td style="font-family:var(--mono)">' + sym + (r.base_salary||0) + '</td>'
