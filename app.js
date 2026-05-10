@@ -8309,7 +8309,6 @@ function setScanType(type) {
 }
 
 // ── jsQR loader ──
-var _jsQR = null;
 function loadJsQR() {
   if (_jsQR || window.jsQR) { _jsQR = _jsQR || window.jsQR; return Promise.resolve(_jsQR); }
   return new Promise(res => {
@@ -8471,7 +8470,6 @@ function stopQRScanner() {
   }
 }
 
-let qrLastScan = ''; // keep for backward compat
 
 
 // ── Smart employee lookup ──
