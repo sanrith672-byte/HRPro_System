@@ -4815,7 +4815,16 @@ async function processQRScan_continue(emp, raw, date) {
   const _sess = getSession();
   const payload = { employee_id: emp.id, date };
   if (type === 'in')  { payload.check_in  = time; payload.status = status; }
-  else                { payload.check_out = time; if (_autoHalfDay) payload.status = _autoHalfDay; }
+  else {
+    payload.check_out = time;
+    if (_autoHalfDay) {
+      payload.status = _autoHalfDay;
+    } else if (_nowMin < 780 && _nowMin >= 600) {
+      payload.status = 'half_day_am';
+    } else {
+      payload.status = 'present';
+    }
+  }
   // Attach scanner_id from logged-in user
   if (_sess && _sess.id) payload.scanner_id = _sess.id;
   // Attach location to notes if available

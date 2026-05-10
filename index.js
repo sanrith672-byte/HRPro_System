@@ -784,18 +784,46 @@ async function createAttendance(request, env) {
     ).bind(parseInt(employee_id), attDate).first();
 
     if (existing) {
-      // Update existing — preserve check_in if not provided
-      const newCheckIn  = safeCheckIn  || existing.check_in || '';
-      const newCheckOut = safeCheckOut || '';
+      // Update existing — preserve check_in if not provided, preserve check_out if not provided
+      const newCheckIn  = safeCheckIn  || existing.check_in  || '';
+      const newCheckOut = safeCheckOut || existing.check_out || '';
+
+      // Smart status resolution:
+      // If check_out is being provided (scan-out), auto-detect half_day from times
+      let resolvedStatus = safeStatus;
+      if (safeCheckOut && existing.check_in) {
+        // If no explicit half_day status sent, auto-detect based on check_in + check_out times
+        const isHalfDayStatus = ['half_day_am','half_day_pm'].includes(safeStatus);
+        if (!isHalfDayStatus) {
+          const ciParts = existing.check_in.split(':').map(Number);
+          const coParts = safeCheckOut.split(':').map(Number);
+          const ciMin   = ciParts[0] * 60 + (ciParts[1] || 0);
+          const coMin   = coParts[0] * 60 + (coParts[1] || 0);
+          // AM session: check-in 07:00–11:59, check-out 10:30–12:59
+          const amIn  = ciMin >= 420 && ciMin <= 719;
+          const amOut = coMin >= 630 && coMin <= 779;
+          // PM session: check-in 12:00–17:59, check-out 15:00–18:59
+          const pmIn  = ciMin >= 720 && ciMin <= 1079;
+          const pmOut = coMin >= 900 && coMin <= 1139;
+          if (amIn && amOut)      resolvedStatus = 'half_day_am';
+          else if (pmIn && pmOut) resolvedStatus = 'half_day_pm';
+          // else keep existing status if checkout is just being added (don't downgrade)
+          else resolvedStatus = existing.status || safeStatus;
+        }
+      } else if (!safeCheckOut && !safeCheckIn) {
+        // No time changes — preserve existing status unless explicitly changed
+        resolvedStatus = safeStatus;
+      }
+
       // Try with notes first, fall back without if column missing
       try {
         await env.DB.prepare(
           'UPDATE attendance SET check_in=?, check_out=?, status=?, notes=?, scanner_id=COALESCE(?,scanner_id) WHERE id=?'
-        ).bind(newCheckIn, newCheckOut, safeStatus, notes||'', scanner_id||null, existing.id).run();
+        ).bind(newCheckIn, newCheckOut, resolvedStatus, notes||'', scanner_id||null, existing.id).run();
       } catch(_) {
         await env.DB.prepare(
           'UPDATE attendance SET check_in=?, check_out=?, status=? WHERE id=?'
-        ).bind(newCheckIn, newCheckOut, safeStatus, existing.id).run();
+        ).bind(newCheckIn, newCheckOut, resolvedStatus, existing.id).run();
       }
       return json({ message: 'Attendance updated', id: existing.id });
     }
