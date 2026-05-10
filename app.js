@@ -8308,11 +8308,6 @@ function setScanType(type) {
   }
 }
 
-let qrScanStream = null;
-let qrScanActive = false;
-let _qrCameraDeviceId = null;   // null = prefer environment, string = specific deviceId
-let _qrCameraList = [];         // [{deviceId, label, facing}]
-
 // ── jsQR loader ──
 var _jsQR = null;
 function loadJsQR() {
