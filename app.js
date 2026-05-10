@@ -9434,7 +9434,7 @@ async function openDaySwapModal(id = null) {
         </div>
 
         <!-- ===== ថ្ងៃធ្វើការ ដែលត្រូវ OFF ===== -->
-        <div class="form-group full-width">
+        <div class="form-group full-width" id="ds-off-day-row">
           <label class="form-label" style="color:var(--success);font-weight:700">✅ ថ្ងៃធ្វើការ ដែលត្រូវ OFF ជំនួស * <span style="color:var(--danger);font-size:12px">(ចាំបាច់)</span></label>
           <div style="display:flex;gap:8px;align-items:center">
             <select class="form-control" id="ds-off-day" style="flex:0 0 140px" onchange="dsFilterOffDate()">
@@ -9488,14 +9488,28 @@ async function saveDaySwap(id = null) {
   const offDate    = $('ds-off-date')?.value;    // ថ្ងៃធ្វើការ ដែល OFF ជំនួស
   const reason     = $('ds-reason')?.value.trim();
 
-  if (!empId || isNaN(workDay) || isNaN(offDay) || !workDate) {
+  const swapTypeEl = document.querySelector('input[name="ds-swap-type"]:checked');
+  const swapType = swapTypeEl ? swapTypeEl.value : 'full';
+  const isHalfDay = swapType === 'half_am' || swapType === 'half_pm';
+
+  // Basic required fields
+  if (!empId || isNaN(workDay) || !workDate) {
     showToast('សូមបំពេញព័ត៌មានឱ្យបរិបូរណ៍!', 'error'); return;
   }
-  if (!offDate) {
-    showToast('សូមបញ្ចូលថ្ងៃទី OFF ជំនួស (ធ្វើការជំនួស)!', 'error'); return;
-  }
-  if (workDay === offDay) {
-    showToast('ថ្ងៃ OFF និងថ្ងៃ OFF ជំនួស មិនអាចដូចគ្នា!', 'error'); return;
+  // Full day: off_day + off_date required; half day: off_date optional
+  if (!isHalfDay) {
+    if (isNaN(offDay)) { showToast('សូមជ្រើសថ្ងៃ OFF ជំនួស!', 'error'); return; }
+    if (!offDate) { showToast('សូមបញ្ចូលថ្ងៃទី OFF ជំនួស (ធ្វើការជំនួស)!', 'error'); return; }
+    // Full day: off_day must differ from work_day
+    if (workDay === offDay) {
+      showToast('ថ្ងៃ OFF និងថ្ងៃ OFF ជំនួស មិនអាចដូចគ្នា!', 'error'); return;
+    }
+    // Validate off_date matches selected off_day
+    const wdNames = ['អាទិត្យ','ច័ន្ទ','អង្គារ','ពុធ','ព្រហស្បតិ៍','សុក្រ','សៅរ៍'];
+    const od = new Date(offDate + 'T00:00:00').getDay();
+    if (od !== offDay) {
+      showToast(`ថ្ងៃទី ${offDate} មិនមែនជាថ្ងៃ${wdNames[offDay]}!`, 'error'); return;
+    }
   }
   // Validate work date matches selected weekday
   if (workDate) {
@@ -9505,19 +9519,11 @@ async function saveDaySwap(id = null) {
       showToast(`ថ្ងៃទី ${workDate} មិនមែនជាថ្ងៃ${wdNames[workDay]}!`, 'error'); return;
     }
   }
-  // Validate off_date matches selected off_day
-  if (offDate) {
-    const wdNames = ['អាទិត្យ','ច័ន្ទ','អង្គារ','ពុធ','ព្រហស្បតិ៍','សុក្រ','សៅរ៍'];
-    const od = new Date(offDate + 'T00:00:00').getDay();
-    if (od !== offDay) {
-      showToast(`ថ្ងៃទី ${offDate} មិនមែនជាថ្ងៃ${wdNames[offDay]}!`, 'error'); return;
-    }
-  }
 
-  const swapTypeEl = document.querySelector('input[name="ds-swap-type"]:checked');
-  const swapType = swapTypeEl ? swapTypeEl.value : 'full';
-  const body = { employee_id: empId, work_day: workDay, off_day: offDay,
-                 swap_date: workDate, off_date: offDate || null, reason,
+  // For half day: off_day defaults to same as work_day (half day on same day)
+  const finalOffDay = isNaN(offDay) ? workDay : offDay;
+  const body = { employee_id: empId, work_day: workDay, off_day: finalOffDay,
+                 swap_date: workDate, off_date: offDate || workDate, reason,
                  swap_type: swapType, status: 'pending' };
   try {
     if (id) {
@@ -9619,6 +9625,14 @@ function dsOnSwapTypeChange() {
       btn.style.borderColor = "var(--border)"; btn.style.background = ""; btn.style.color = "var(--text2)";
     }
   });
+  // Show/hide off_day + off_date row: half day = optional (show with note), full = required
+  const isHalfDay = sel === "half_am" || sel === "half_pm";
+  const offDayRow = document.getElementById("ds-off-day-row");
+  const offHint   = document.getElementById("ds-off-hint");
+  if (offDayRow) offDayRow.style.opacity = isHalfDay ? "0.5" : "1";
+  if (offHint)   offHint.textContent = isHalfDay
+    ? "កន្លះថ្ងៃ — ថ្ងៃ OFF ជំនួស optional (ទុក​ blank បានដែរ)"
+    : "ជ្រើសថ្ងៃធ្វើការ ដែលត្រូវឈប់ជំនួស";
 }
 
 
