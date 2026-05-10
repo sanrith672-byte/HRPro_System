@@ -9291,9 +9291,14 @@ async function renderDaySwap() {
           : records.map(r => {
               const workDay  = wdNames[r.work_day]  || r.work_day;
               const offDay   = wdNames[r.off_day]   || r.off_day;
+              const _dsEmp   = emps.find(e => e.id === r.employee_id || e.id === parseInt(r.employee_id));
+              const _dsPhoto = _dsEmp?.photo;
+              const _dsAvatarHtml = _dsPhoto
+                ? `<img src="${_dsPhoto}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;flex-shrink:0" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"/><div class="emp-avatar" style="display:none;background:${getColor(r.employee_name)}">${(r.employee_name||'?')[0]}</div>`
+                : `<div class="emp-avatar" style="background:${getColor(r.employee_name)}">${(r.employee_name||'?')[0]}</div>`;
               return `<tr>
                 <td><div class="employee-cell">
-                  <div class="emp-avatar" style="background:${getColor(r.employee_name)}">${(r.employee_name||'?')[0]}</div>
+                  ${_dsAvatarHtml}
                   <div class="emp-name">${r.employee_name||'—'}</div>
                 </div></td>
                 <td>
