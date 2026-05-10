@@ -9292,7 +9292,7 @@ async function renderDaySwap() {
               const workDay  = wdNames[r.work_day]  || r.work_day;
               const offDay   = wdNames[r.off_day]   || r.off_day;
               const _dsEmp   = emps.find(e => e.id === r.employee_id || e.id === parseInt(r.employee_id));
-              const _dsPhoto = _dsEmp?.photo;
+              const _dsPhoto = getEmpPhoto(_dsEmp?.id || r.employee_id) || _dsEmp?.photo_data || _dsEmp?.photo || '';
               const _dsAvatarHtml = _dsPhoto
                 ? `<img src="${_dsPhoto}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;flex-shrink:0" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"/><div class="emp-avatar" style="display:none;background:${getColor(r.employee_name)}">${(r.employee_name||'?')[0]}</div>`
                 : `<div class="emp-avatar" style="background:${getColor(r.employee_name)}">${(r.employee_name||'?')[0]}</div>`;
@@ -9390,12 +9390,18 @@ async function openDaySwapModal(id = null) {
         <div class="form-group full-width">
           <label class="form-label">បុគ្គលិក *</label>
           ${lockEmpSelect
-            ? `<div style="display:flex;align-items:center;gap:10px;background:var(--bg3);border:1.5px solid var(--border);border-radius:8px;padding:10px 14px">
-                <div class="emp-avatar" style="background:${getColor(matchedEmp.name)};width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:15px;flex-shrink:0">${matchedEmp.name[0]}</div>
+            ? (() => {
+                const _mPhoto = getEmpPhoto(matchedEmp.id);
+                const _mAvatar = _mPhoto
+                  ? `<img src="${_mPhoto}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;flex-shrink:0"/>`
+                  : `<div class="emp-avatar" style="background:${getColor(matchedEmp.name)};width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:15px;flex-shrink:0">${matchedEmp.name[0]}</div>`;
+                return `<div style="display:flex;align-items:center;gap:10px;background:var(--bg3);border:1.5px solid var(--border);border-radius:8px;padding:10px 14px">
+                ${_mAvatar}
                 <span style="font-weight:600;font-size:15px">${matchedEmp.name}</span>
                 <span style="margin-left:auto;font-size:12px;color:var(--text3);background:var(--bg2);padding:2px 8px;border-radius:12px">🔒 Auto</span>
                 <input type="hidden" id="ds-emp" value="${matchedEmp.id}"/>
-              </div>`
+              </div>`;
+              })()
             : `<select class="form-control" id="ds-emp" onchange="dsAutoFillOffDay(this)">${empOptions}</select>`
           }
         </div>
