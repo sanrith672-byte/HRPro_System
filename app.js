@@ -783,7 +783,7 @@ function getPermissions() {
       departments_view:false, departments_edit:false,
       attendance_view:true, attendance_edit:false, attendance_delete:false, attendance_scan:true,
       salary_view:false, salary_edit:false, salary_slip_print:false,
-      overtime_view:false, overtime_edit:false,
+      overtime_view:true, overtime_edit:false,
       allowance_view:false, allowance_edit:false,
       reports_view:false, reports_export:false,
       leave_view:true, leave_edit:true, leave_approve:false,
@@ -10214,14 +10214,14 @@ async function renderOvertime() {
       +'<div><h2>⏰ ថែមម៉ោង</h2><p>OT '+currentMonth+' — '+monthRecords.length+' កំណត់ត្រា</p></div>'
       +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
       +'<input class="filter-input" type="month" value="'+currentMonth+'" onchange="window._otMonth=this.value;renderOvertime()" />'
-      +'<button class="btn btn-outline" onclick="renderOTListView(\''+currentMonth+'\')">'
-      +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg> បញ្ជី</button>'
-      +'<button class="btn btn-outline" onclick="printOTReport(\''+currentMonth+'\')">'
-      +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> PDF</button>'
-      +'<button class="btn btn-outline" onclick="exportOTExcel(\''+currentMonth+'\')" style="border-color:var(--success);color:var(--success)">'
-      +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg> Excel</button>'
-      +'<button class="btn btn-primary" onclick="openOvertimeModal()">'
-      +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> បន្ថែម</button>'
+      +(!_isQR ? '<button class="btn btn-outline" onclick="renderOTListView(\''+currentMonth+'\')">' : '')\
+      +(!_isQR ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg> បញ្ជី</button>' : '')\
+      +(!_isQR ? '<button class="btn btn-outline" onclick="printOTReport(\''+currentMonth+'\')">' : '')\
+      +(!_isQR ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> PDF</button>' : '')\
+      +(!_isQR ? '<button class="btn btn-outline" onclick="exportOTExcel(\''+currentMonth+'\')" style="border-color:var(--success);color:var(--success)">' : '')\
+      +(!_isQR ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg> Excel</button>' : '')\
+      +(!_isQR ? '<button class="btn btn-primary" onclick="openOvertimeModal()">' : '')\
+      +(!_isQR ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> បន្ថែម</button>' : '')\
       +'</div></div>'
       +'<div class="att-summary" style="grid-template-columns:repeat(3,1fr);margin-bottom:16px">'
       +'<div class="att-box"><div class="att-num" style="color:var(--primary)">'+totalHrs.toFixed(1)+'h</div><div class="att-lbl">⏰ ម៉ោងសរុប</div></div>'
@@ -10602,6 +10602,7 @@ async function renderOTDetailList(empId, empName, month) {
 async function renderOTListView(month) {
   showLoading();
   try {
+    const _isQR = (()=>{ const s=getSession(); return s && s.role==='QR Scanner'; })();
     const data = await api('GET','/overtime');
     const records = (data.records||[]).filter(r=>(r.date||'').startsWith(month));
     const totalHrs = records.reduce((s,r)=>s+(r.hours||0),0);
@@ -10622,9 +10623,9 @@ async function renderOTListView(month) {
             +'<td style="color:var(--text3);font-size:14px">'+(r.reason||'—')+'</td>'
             +'<td>'+(r.status==='approved'?'<span class="badge badge-green">✅ អនុម័ត</span>':r.status==='rejected'?'<span class="badge badge-red">❌ បដិសេធ</span>':'<span class="badge badge-yellow">⏳ រង់ចាំ</span>')+'</td>'
             +'<td><div class="action-btns">'
-            +(r.status==='pending'?'<button class="btn btn-success btn-sm" onclick="approveOvertime('+r.id+')">✅</button><button class="btn btn-danger btn-sm" onclick="rejectOvertime('+r.id+')">❌</button>':'')
-            +'<button class="btn btn-outline btn-sm" onclick="openEditOvertimeModal('+r.id+')">✏️</button>'
-            +'<button class="btn btn-danger btn-sm" onclick="deleteRecord(\'overtime\','+r.id+',renderOvertime)">🗑️</button>'
+            +(!_isQR && r.status==='pending' ? '<button class="btn btn-success btn-sm" onclick="approveOvertime('+r.id+')">✅</button><button class="btn btn-danger btn-sm" onclick="rejectOvertime('+r.id+')">❌</button>' : '')\
+            +(!_isQR ? '<button class="btn btn-outline btn-sm" onclick="openEditOvertimeModal('+r.id+')">✏️</button>' : '')\
+            +(!_isQR ? '<button class="btn btn-danger btn-sm" onclick="deleteRecord(\'overtime\','+r.id+',renderOvertime)">🗑️</button>' : '')\
             +'</div></td></tr>';
         }).join('');
     contentArea().innerHTML =
@@ -10632,9 +10633,9 @@ async function renderOTListView(month) {
       +'<div><h2>ថែមម៉ោង — បញ្ជី</h2><p>'+records.length+' កំណត់ត្រា</p></div>'
       +'<div style="display:flex;gap:8px;flex-wrap:wrap">'
       +'<button class="btn btn-outline" onclick="window._otMonth=\''+month+'\';renderOvertime()">📊 តារាងខែ</button>'
-      +'<button class="btn btn-outline" onclick="printOTListReport(\''+month+'\')" ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;margin-right:3px"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>PDF</button>'
-      +'<button class="btn btn-outline" onclick="exportOTExcel(\''+month+'\')" style="border-color:var(--success);color:var(--success)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;margin-right:3px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>Excel</button>'
-      +'<button class="btn btn-primary" onclick="openOvertimeModal()">+ បន្ថែម</button>'
+      +(!_isQR ? '<button class="btn btn-outline" onclick="printOTListReport(\''+month+'\')" ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;margin-right:3px"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>PDF</button>' : '')\
+      +(!_isQR ? '<button class="btn btn-outline" onclick="exportOTExcel(\''+month+'\')" style="border-color:var(--success);color:var(--success)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;margin-right:3px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>Excel</button>' : '')\
+      +(!_isQR ? '<button class="btn btn-primary" onclick="openOvertimeModal()">+ បន្ថែម</button>' : '')\
       +'</div></div>'
       +'<div class="card"><div class="table-container"><table>'
       +'<thead><tr><th>បុគ្គលិក</th><th>កាលបរិច្ឆេទ</th><th>ម៉ោង</th><th>អត្រា</th><th>ប្រាក់</th><th>មូលហេតុ</th><th>ស្ថានភាព</th><th>សកម្មភាព</th></tr></thead>'
