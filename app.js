@@ -2728,25 +2728,36 @@ async function renderMonthlyAttendance(month='') {
     // Show all days in header — OFF is per-employee based on their off_days
     const days = allDays;
 
-    // Helper: get working days for a specific employee (exclude their personal off_days)
-    // Respects hire_date and termination_date within the current month:
-    //   days before hire_date or after termination_date are excluded (prorated)
+    // Helper: get ALL working days in month for an employee (exclude their personal off_days)
+    // Range filtering (first-last attendance) is done in the summaries/dayRows blocks.
     function getEmpWorkDays(emp) {
       var offDays = parseOffDays(emp);
-      var hireDay = (emp.hire_date && emp.hire_date.startsWith(currentMonth + '-')) ? parseInt(emp.hire_date.slice(-2), 10) : 0;
-      var termDay = (emp.termination_date && emp.termination_date.startsWith(currentMonth + '-')) ? parseInt(emp.termination_date.slice(-2), 10) : 99;
-      return allDays.filter(function({d, wd}) {
-        if (offDays.indexOf(wd) !== -1) return false;
-        if (d < hireDay) return false;
-        if (d > termDay) return false;
-        return true;
-      });
+      return allDays.filter(function({wd}) { return offDays.indexOf(wd) === -1; });
     }
 
     // Summary per employee
     const summaries = emps.map(emp => {
       const rec = attMap[emp.id] || {};
-      const empDays = getEmpWorkDays(emp);
+      // ── Prorated range: find first & last day employee actually attended ──
+      // Days before first attendance OR after last attendance are CUT (╌)
+      // regardless of whether they are working days or OFF days.
+      const allAttDays = allDays
+        .map(({d, dd}) => ({ d, dd }))
+        .filter(({dd}) => {
+          const a = rec[dd];
+          return a && (a.status==='present' || a.status==='late' || a.status==='half_day_am' || a.status==='half_day_pm');
+        });
+      // Also consider hire_date and termination_date within this month as hard boundaries
+      const hireBound  = (emp.hire_date && emp.hire_date.startsWith(currentMonth+'-')) ? parseInt(emp.hire_date.slice(-2),10) : 0;
+      const termBound  = (emp.termination_date && emp.termination_date.startsWith(currentMonth+'-')) ? parseInt(emp.termination_date.slice(-2),10) : 99;
+      // firstWorkDay: whichever is later — hire_date boundary OR first attendance
+      const firstAttD  = allAttDays.length > 0 ? allAttDays[0].d : 0;
+      const lastAttD   = allAttDays.length > 0 ? allAttDays[allAttDays.length-1].d : 0;
+      // Use hire_date as start if no attendance yet (new employee with 0 records)
+      const rangeStart = firstAttD > 0 ? Math.max(firstAttD, hireBound) : (hireBound > 0 ? hireBound : 1);
+      const rangeEnd   = lastAttD  > 0 ? Math.min(lastAttD,  termBound) : (termBound < 99 ? termBound : daysInMonth);
+      // empDays = working days (non-OFF) WITHIN the rangeStart..rangeEnd window
+      const empDays = getEmpWorkDays(emp).filter(({d}) => d >= rangeStart && d <= rangeEnd);
       let present=0, late=0, absent=0, swap=0, onLeave=0, halfDayCount=0;
       empDays.forEach(({dd}) => {
         // Skip if this working day is a compensation OFF day (OFF+)
@@ -2879,16 +2890,22 @@ async function renderMonthlyAttendance(month='') {
     const dayRows = filteredSummaries.map(({emp, present, late, absent, swap, overAbsent, deduction, offBonus, offDaysWorked, empOffDaysThisMonth, workingDaysCount, halfDayCount}) => {
       const rec = attMap[emp.id] || {};
       const empOff = parseOffDays(emp);
-      // Prorated: only count days from hire_date and up to termination_date if within month
-      const _hireDay = (emp.hire_date && emp.hire_date.startsWith(currentMonth + '-')) ? parseInt(emp.hire_date.slice(-2), 10) : 0;
-      const _termDay = (emp.termination_date && emp.termination_date.startsWith(currentMonth + '-')) ? parseInt(emp.termination_date.slice(-2), 10) : 99;
-      const _proratedBadge = _hireDay > 0
-        ? '<span style="font-size:9px;background:rgba(16,185,129,.18);color:#059669;border-radius:4px;padding:1px 4px;margin-left:3px;font-weight:700" title="ចូលធ្វើការថ្ងៃទី '+_hireDay+'">ចូល:'+_hireDay+'</span>'
-        : (_termDay < 99 ? '<span style="font-size:9px;background:rgba(239,68,68,.15);color:#dc2626;border-radius:4px;padding:1px 4px;margin-left:3px;font-weight:700" title="លាឈប់ថ្ងៃទី '+_termDay+'">ចប់:'+_termDay+'</span>' : '');
+      // Compute rangeStart/rangeEnd: first and last attendance day (same logic as summary)
+      const _allAttD = allDays.filter(({dd}) => { const a=rec[dd]; return a&&(a.status==='present'||a.status==='late'||a.status==='half_day_am'||a.status==='half_day_pm'); });
+      const _hireBound = (emp.hire_date && emp.hire_date.startsWith(currentMonth+'-')) ? parseInt(emp.hire_date.slice(-2),10) : 0;
+      const _termBound = (emp.termination_date && emp.termination_date.startsWith(currentMonth+'-')) ? parseInt(emp.termination_date.slice(-2),10) : 99;
+      const _firstD = _allAttD.length > 0 ? _allAttD[0].d : 0;
+      const _lastD  = _allAttD.length > 0 ? _allAttD[_allAttD.length-1].d : 0;
+      const _rangeStart = _firstD > 0 ? Math.max(_firstD, _hireBound) : (_hireBound > 0 ? _hireBound : 1);
+      const _rangeEnd   = _lastD  > 0 ? Math.min(_lastD,  _termBound) : (_termBound < 99 ? _termBound : daysInMonth);
+      // Badge: show range if not full month
+      const _proratedBadge = (_firstD > 1 || _lastD < daysInMonth)
+        ? '<span style="font-size:9px;background:rgba(99,102,241,.18);color:#6366f1;border-radius:4px;padding:1px 4px;margin-left:3px;font-weight:700" title="ថ្ងៃ '+_rangeStart+'–'+_rangeEnd+'">'+_rangeStart+'▸'+_rangeEnd+'</span>'
+        : '';
       const cells = allDays.map(({d, dd, wd}) => {
-        // Grey out days before hire date or after termination date (prorated)
-        if (d < _hireDay) return '<td style="width:30px;min-width:30px;max-width:30px;overflow:hidden;text-align:center;font-size:11px;padding:2px 0;background:rgba(100,100,100,0.10);color:var(--text3)" title="មុនថ្ងៃចូលធ្វើការ">╌</td>';
-        if (d > _termDay) return '<td style="width:30px;min-width:30px;max-width:30px;overflow:hidden;text-align:center;font-size:11px;padding:2px 0;background:rgba(100,100,100,0.10);color:var(--text3)" title="ក្រោយថ្ងៃលាឈប់">╌</td>';
+        // Grey out days outside first–last attendance range
+        if (d < _rangeStart) return '<td style="width:30px;min-width:30px;max-width:30px;overflow:hidden;text-align:center;font-size:11px;padding:2px 0;background:rgba(100,100,100,0.10);color:var(--text3)" title="មុនថ្ងៃចូលធ្វើការ">╌</td>';
+        if (d > _rangeEnd)   return '<td style="width:30px;min-width:30px;max-width:30px;overflow:hidden;text-align:center;font-size:11px;padding:2px 0;background:rgba(100,100,100,0.10);color:var(--text3)" title="ក្រោយថ្ងៃចុងក្រោយ">╌</td>';
         const swapRec = (swapMap[emp.id]||{})[dd];
         const a = (attMap[emp.id]||{})[dd];
         const lv = (leaveMap[emp.id]||{})[dd];
@@ -2959,7 +2976,7 @@ async function renderMonthlyAttendance(month='') {
         +cells
         +'<td style="text-align:center;font-weight:700;font-size:12px;color:var(--success);width:'+(isMobile?36:42)+'px;padding:3px 2px;position:sticky;right:'+(isMobile?84:100)+'px;z-index:1;background:var(--bg2);box-shadow:-2px 0 4px rgba(0,0,0,.08)">'+(present+late)+'<span style="font-size:10px;font-weight:400;color:var(--text3);display:block">ថ្ងៃ</span></td>'
         +'<td style="text-align:center;font-weight:700;font-size:12px;color:'+(empOffDaysThisMonth>0?'#6366f1':'var(--text3)')+';width:'+(isMobile?36:48)+'px;max-width:'+(isMobile?36:48)+'px;overflow:hidden;padding:3px 2px;position:sticky;right:'+(isMobile?36:42)+'px;z-index:2;background:var(--bg2);border-left:1px solid var(--border);box-shadow:-2px 0 4px rgba(0,0,0,.06)">'+(empOffDaysThisMonth>0?'<span style="background:rgba(99,102,241,.12);border-radius:4px;padding:2px 5px">'+empOffDaysThisMonth+'</span>':'—')+'</td>'
-        +'<td style="text-align:center;width:'+(isMobile?48:52)+'px;max-width:'+(isMobile?48:52)+'px;overflow:hidden;position:sticky;right:0;z-index:1;background:var(--bg2);box-shadow:-2px 0 5px rgba(0,0,0,.12);padding:2px">'+(!_maSelfOnly ? '<button class="btn btn-outline btn-sm" style="font-size:10px;padding:2px 3px;min-width:0;width:100%;line-height:1.3;display:flex;flex-direction:column;align-items:center;gap:0" onclick="applyAbsenceDeduction('+emp.id+',\''+emp.name+'\','+absent+','+overAbsent+','+deduction+',\''+currentMonth+'\','+offBonus+','+workingDaysCount+',\''+emp.salary+'\','+_hireDay+','+_termDay+')"><span style="font-size:12px">💸</span><span style="font-size:9px;font-weight:600;color:var(--danger)">កាត់</span></button>' : '')+'</td>'
+        +'<td style="text-align:center;width:'+(isMobile?48:52)+'px;max-width:'+(isMobile?48:52)+'px;overflow:hidden;position:sticky;right:0;z-index:1;background:var(--bg2);box-shadow:-2px 0 5px rgba(0,0,0,.12);padding:2px">'+(!_maSelfOnly ? '<button class="btn btn-outline btn-sm" style="font-size:10px;padding:2px 3px;min-width:0;width:100%;line-height:1.3;display:flex;flex-direction:column;align-items:center;gap:0" onclick="applyAbsenceDeduction('+emp.id+',\''+emp.name+'\','+absent+','+overAbsent+','+deduction+',\''+currentMonth+'\','+offBonus+','+workingDaysCount+',\''+emp.salary+'\','+_rangeStart+','+_rangeEnd+')"><span style="font-size:12px">💸</span><span style="font-size:9px;font-weight:600;color:var(--danger)">កាត់</span></button>' : '')+'</td>'
         +'</tr>';
     }).join('');
 
@@ -4051,15 +4068,15 @@ function saveAbsenceRules() {
 async function applyAbsenceDeduction(empId, empName, absentDays, overAbsent, deduction, month, offBonus=0, workingDaysCount=0, empSalary=0, hireDay=0, termDay=99) {
   if (overAbsent <= 0 && offBonus <= 0) { showToast(empName+': គ្មានការកាត់ / OFF Bonus','info'); return; }
   const offB = parseFloat(offBonus) || 0;
-  // Prorated base salary: if hire/termination within month, only pay for actual working days
+  // Prorated base: salary × workingDaysCount / 30
+  // hireDay/termDay params here are actually rangeStart/rangeEnd (first–last att day)
   const _salary = parseFloat(empSalary) || 0;
   const _wdc = parseInt(workingDaysCount) || 0;
-  const _hDay = parseInt(hireDay) || 0;
-  const _tDay = parseInt(termDay) || 99;
-  const isProrated = _wdc > 0 && (_hDay > 0 || _tDay < 99);
-  // proratedBase = salary * workingDaysCount / 30 (standard 30-day month)
-  const proratedBase = isProrated && _salary > 0 ? parseFloat((_salary * _wdc / 30).toFixed(2)) : 0;
-  const proratedNote = isProrated ? ' [ប្រចាំ '+_wdc+' ថ្ងៃ / 30 = $'+proratedBase.toFixed(2)+']' : '';
+  const _rangeStart = parseInt(hireDay) || 0;
+  const _rangeEnd   = parseInt(termDay) || 99;
+  const isProrated = _wdc > 0 && (_rangeStart > 1 || _rangeEnd < 99);
+  // proratedBase = salary × workingDaysCount / 30 (standard 30-day month)
+  const proratedBase = (isProrated && _salary > 0) ? parseFloat((_salary * _wdc / 30).toFixed(2)) : _salary;
   const confirmMsg = 'ចំពោះ '+empName+':\n'
     +(isProrated?'• ប្រាក់ខែ Prorated: $'+proratedBase.toFixed(2)+' ('+_wdc+' ថ្ងៃ × $'+(_salary/30).toFixed(2)+'/ថ្ងៃ)\n':'')
     +(overAbsent>0?'• កាត់ $'+deduction.toFixed(2)+' (អវត្តមាន '+absentDays+' ថ្ងៃ, លើស '+overAbsent+' ថ្ងៃ)\n':'')
@@ -4078,7 +4095,7 @@ async function applyAbsenceDeduction(empId, empName, absentDays, overAbsent, ded
       const effectiveBase = isProrated ? proratedBase : base;
       const netNew = effectiveBase - deduction + offB;
       const noteParts = [];
-      if (isProrated && proratedBase > 0) noteParts.push('Prorated '+_wdc+' ថ្ងៃ = $'+proratedBase.toFixed(2));
+      if (isProrated) noteParts.push('Prorated '+_wdc+' ថ្ងៃ ('+_rangeStart+'▸'+_rangeEnd+') = $'+proratedBase.toFixed(2));
       if (deduction > 0) noteParts.push('អវត្តមាន '+absentDays+' ថ្ងៃ (-$'+deduction.toFixed(2)+')');
       if (offB > 0) noteParts.push('🌟 OFF Bonus (+$'+offB.toFixed(2)+')');
       await api('POST','/salary',{ employee_id:empId, month, base_salary:effectiveBase, bonus:offB, deduction:deduction, net_salary:netNew, notes:noteParts.join(' | ') });
@@ -4128,18 +4145,24 @@ async function applyAllAbsenceDeductions(month) {
     const toDeduct = emps.map(emp=>{
       // Per-employee off days (default: Sunday=0)
       const empOff = parseOffDays(emp);
-      // Prorated: respect hire_date and termination_date within month
-      const _hDay = (emp.hire_date && emp.hire_date.startsWith(month+'-')) ? parseInt(emp.hire_date.slice(-2),10) : 0;
-      const _tDay = (emp.termination_date && emp.termination_date.startsWith(month+'-')) ? parseInt(emp.termination_date.slice(-2),10) : 99;
+      // Prorated: use first–last attendance range (same logic as monthly table)
+      const _empRec = attMap[emp.id] || {};
+      const _allAttD = allMonthDaysArr.filter(x => { const a=_empRec[x.dd]; return a&&(a.status==='present'||a.status==='late'||a.status==='half_day_am'||a.status==='half_day_pm'); });
+      const _hireBound = (emp.hire_date && emp.hire_date.startsWith(month+'-')) ? parseInt(emp.hire_date.slice(-2),10) : 0;
+      const _termBound = (emp.termination_date && emp.termination_date.startsWith(month+'-')) ? parseInt(emp.termination_date.slice(-2),10) : 99;
+      const _firstD = _allAttD.length > 0 ? _allAttD[0].d : 0;
+      const _lastD  = _allAttD.length > 0 ? _allAttD[_allAttD.length-1].d : 0;
+      const _rangeStart = _firstD > 0 ? Math.max(_firstD, _hireBound) : (_hireBound > 0 ? _hireBound : 1);
+      const _rangeEnd   = _lastD  > 0 ? Math.min(_lastD,  _termBound) : (_termBound < 99 ? _termBound : daysInMonth);
+      const isProrated = _firstD > 1 || _lastD < daysInMonth;
       const empDays = allMonthDaysArr.filter(x=>{
         if (empOff.indexOf(x.wd)!==-1) return false;
-        if (x.d < _hDay) return false;
-        if (x.d > _tDay) return false;
+        if (x.d < _rangeStart) return false;
+        if (x.d > _rangeEnd)   return false;
         return true;
       });
       const workingDaysCount = empDays.length;
-      const isProrated = _hDay > 0 || _tDay < 99;
-      // Prorated base = salary * workingDaysCount / 30
+      // Prorated base = salary × workingDaysCount / 30
       const proratedBase = isProrated && (emp.salary||0) > 0 ? parseFloat(((emp.salary||0)*workingDaysCount/30).toFixed(2)) : (emp.salary||0);
       const rec=attMap[emp.id]||{}; let absent=0;
       empDays.forEach(x=>{ const a=rec[x.dd]; if(!a||a.status==='absent') absent++; });
@@ -4169,7 +4192,7 @@ async function applyAllAbsenceDeductions(month) {
       try {
         let rec=(salData.records||[]).find(r=>r.employee_id===emp.id);
         const noteParts=[];
-        if(isProrated) noteParts.push('Prorated '+workingDaysCount+' ថ្ងៃ = $'+proratedBase.toFixed(2));
+        if(isProrated) noteParts.push('Prorated '+workingDaysCount+' ថ្ងៃ ('+_rangeStart+'▸'+_rangeEnd+') = $'+proratedBase.toFixed(2));
         if(over>0) noteParts.push('អវត្តមាន '+absent+' ថ្ងៃ, លើស '+over+' ថ្ងៃ (-$'+deduction.toFixed(2)+')');
         if(offBonus>0) noteParts.push('🌟 OFF Bonus (+$'+offBonus.toFixed(2)+')');
         const noteStr = noteParts.join(' | ');
@@ -6622,25 +6645,36 @@ async function renderMonthlyAttendance(month='') {
     // Show all days in header — OFF is per-employee based on their off_days
     const days = allDays;
 
-    // Helper: get working days for a specific employee (exclude their personal off_days)
-    // Respects hire_date and termination_date within the current month:
-    //   days before hire_date or after termination_date are excluded (prorated)
+    // Helper: get ALL working days in month for an employee (exclude their personal off_days)
+    // Range filtering (first-last attendance) is done in the summaries/dayRows blocks.
     function getEmpWorkDays(emp) {
       var offDays = parseOffDays(emp);
-      var hireDay = (emp.hire_date && emp.hire_date.startsWith(currentMonth + '-')) ? parseInt(emp.hire_date.slice(-2), 10) : 0;
-      var termDay = (emp.termination_date && emp.termination_date.startsWith(currentMonth + '-')) ? parseInt(emp.termination_date.slice(-2), 10) : 99;
-      return allDays.filter(function({d, wd}) {
-        if (offDays.indexOf(wd) !== -1) return false;
-        if (d < hireDay) return false;
-        if (d > termDay) return false;
-        return true;
-      });
+      return allDays.filter(function({wd}) { return offDays.indexOf(wd) === -1; });
     }
 
     // Summary per employee
     const summaries = emps.map(emp => {
       const rec = attMap[emp.id] || {};
-      const empDays = getEmpWorkDays(emp);
+      // ── Prorated range: find first & last day employee actually attended ──
+      // Days before first attendance OR after last attendance are CUT (╌)
+      // regardless of whether they are working days or OFF days.
+      const allAttDays = allDays
+        .map(({d, dd}) => ({ d, dd }))
+        .filter(({dd}) => {
+          const a = rec[dd];
+          return a && (a.status==='present' || a.status==='late' || a.status==='half_day_am' || a.status==='half_day_pm');
+        });
+      // Also consider hire_date and termination_date within this month as hard boundaries
+      const hireBound  = (emp.hire_date && emp.hire_date.startsWith(currentMonth+'-')) ? parseInt(emp.hire_date.slice(-2),10) : 0;
+      const termBound  = (emp.termination_date && emp.termination_date.startsWith(currentMonth+'-')) ? parseInt(emp.termination_date.slice(-2),10) : 99;
+      // firstWorkDay: whichever is later — hire_date boundary OR first attendance
+      const firstAttD  = allAttDays.length > 0 ? allAttDays[0].d : 0;
+      const lastAttD   = allAttDays.length > 0 ? allAttDays[allAttDays.length-1].d : 0;
+      // Use hire_date as start if no attendance yet (new employee with 0 records)
+      const rangeStart = firstAttD > 0 ? Math.max(firstAttD, hireBound) : (hireBound > 0 ? hireBound : 1);
+      const rangeEnd   = lastAttD  > 0 ? Math.min(lastAttD,  termBound) : (termBound < 99 ? termBound : daysInMonth);
+      // empDays = working days (non-OFF) WITHIN the rangeStart..rangeEnd window
+      const empDays = getEmpWorkDays(emp).filter(({d}) => d >= rangeStart && d <= rangeEnd);
       let present=0, late=0, absent=0, swap=0, onLeave=0, halfDayCount=0;
       empDays.forEach(({dd}) => {
         // Skip if this working day is a compensation OFF day (OFF+)
@@ -6773,16 +6807,22 @@ async function renderMonthlyAttendance(month='') {
     const dayRows = filteredSummaries.map(({emp, present, late, absent, swap, overAbsent, deduction, offBonus, offDaysWorked, empOffDaysThisMonth, workingDaysCount, halfDayCount}) => {
       const rec = attMap[emp.id] || {};
       const empOff = parseOffDays(emp);
-      // Prorated: only count days from hire_date and up to termination_date if within month
-      const _hireDay = (emp.hire_date && emp.hire_date.startsWith(currentMonth + '-')) ? parseInt(emp.hire_date.slice(-2), 10) : 0;
-      const _termDay = (emp.termination_date && emp.termination_date.startsWith(currentMonth + '-')) ? parseInt(emp.termination_date.slice(-2), 10) : 99;
-      const _proratedBadge = _hireDay > 0
-        ? '<span style="font-size:9px;background:rgba(16,185,129,.18);color:#059669;border-radius:4px;padding:1px 4px;margin-left:3px;font-weight:700" title="ចូលធ្វើការថ្ងៃទី '+_hireDay+'">ចូល:'+_hireDay+'</span>'
-        : (_termDay < 99 ? '<span style="font-size:9px;background:rgba(239,68,68,.15);color:#dc2626;border-radius:4px;padding:1px 4px;margin-left:3px;font-weight:700" title="លាឈប់ថ្ងៃទី '+_termDay+'">ចប់:'+_termDay+'</span>' : '');
+      // Compute rangeStart/rangeEnd: first and last attendance day (same logic as summary)
+      const _allAttD = allDays.filter(({dd}) => { const a=rec[dd]; return a&&(a.status==='present'||a.status==='late'||a.status==='half_day_am'||a.status==='half_day_pm'); });
+      const _hireBound = (emp.hire_date && emp.hire_date.startsWith(currentMonth+'-')) ? parseInt(emp.hire_date.slice(-2),10) : 0;
+      const _termBound = (emp.termination_date && emp.termination_date.startsWith(currentMonth+'-')) ? parseInt(emp.termination_date.slice(-2),10) : 99;
+      const _firstD = _allAttD.length > 0 ? _allAttD[0].d : 0;
+      const _lastD  = _allAttD.length > 0 ? _allAttD[_allAttD.length-1].d : 0;
+      const _rangeStart = _firstD > 0 ? Math.max(_firstD, _hireBound) : (_hireBound > 0 ? _hireBound : 1);
+      const _rangeEnd   = _lastD  > 0 ? Math.min(_lastD,  _termBound) : (_termBound < 99 ? _termBound : daysInMonth);
+      // Badge: show range if not full month
+      const _proratedBadge = (_firstD > 1 || _lastD < daysInMonth)
+        ? '<span style="font-size:9px;background:rgba(99,102,241,.18);color:#6366f1;border-radius:4px;padding:1px 4px;margin-left:3px;font-weight:700" title="ថ្ងៃ '+_rangeStart+'–'+_rangeEnd+'">'+_rangeStart+'▸'+_rangeEnd+'</span>'
+        : '';
       const cells = allDays.map(({d, dd, wd}) => {
-        // Grey out days before hire date or after termination date (prorated)
-        if (d < _hireDay) return '<td style="width:30px;min-width:30px;max-width:30px;overflow:hidden;text-align:center;font-size:11px;padding:2px 0;background:rgba(100,100,100,0.10);color:var(--text3)" title="មុនថ្ងៃចូលធ្វើការ">╌</td>';
-        if (d > _termDay) return '<td style="width:30px;min-width:30px;max-width:30px;overflow:hidden;text-align:center;font-size:11px;padding:2px 0;background:rgba(100,100,100,0.10);color:var(--text3)" title="ក្រោយថ្ងៃលាឈប់">╌</td>';
+        // Grey out days outside first–last attendance range
+        if (d < _rangeStart) return '<td style="width:30px;min-width:30px;max-width:30px;overflow:hidden;text-align:center;font-size:11px;padding:2px 0;background:rgba(100,100,100,0.10);color:var(--text3)" title="មុនថ្ងៃចូលធ្វើការ">╌</td>';
+        if (d > _rangeEnd)   return '<td style="width:30px;min-width:30px;max-width:30px;overflow:hidden;text-align:center;font-size:11px;padding:2px 0;background:rgba(100,100,100,0.10);color:var(--text3)" title="ក្រោយថ្ងៃចុងក្រោយ">╌</td>';
         const swapRec = (swapMap[emp.id]||{})[dd];
         const a = (attMap[emp.id]||{})[dd];
         const lv = (leaveMap[emp.id]||{})[dd];
@@ -6853,7 +6893,7 @@ async function renderMonthlyAttendance(month='') {
         +cells
         +'<td style="text-align:center;font-weight:700;font-size:12px;color:var(--success);width:'+(isMobile?36:42)+'px;padding:3px 2px;position:sticky;right:'+(isMobile?84:100)+'px;z-index:1;background:var(--bg2);box-shadow:-2px 0 4px rgba(0,0,0,.08)">'+(present+late)+'<span style="font-size:10px;font-weight:400;color:var(--text3);display:block">ថ្ងៃ</span></td>'
         +'<td style="text-align:center;font-weight:700;font-size:12px;color:'+(empOffDaysThisMonth>0?'#6366f1':'var(--text3)')+';width:'+(isMobile?36:48)+'px;max-width:'+(isMobile?36:48)+'px;overflow:hidden;padding:3px 2px;position:sticky;right:'+(isMobile?36:42)+'px;z-index:2;background:var(--bg2);border-left:1px solid var(--border);box-shadow:-2px 0 4px rgba(0,0,0,.06)">'+(empOffDaysThisMonth>0?'<span style="background:rgba(99,102,241,.12);border-radius:4px;padding:2px 5px">'+empOffDaysThisMonth+'</span>':'—')+'</td>'
-        +'<td style="text-align:center;width:'+(isMobile?48:52)+'px;max-width:'+(isMobile?48:52)+'px;overflow:hidden;position:sticky;right:0;z-index:1;background:var(--bg2);box-shadow:-2px 0 5px rgba(0,0,0,.12);padding:2px">'+(!_maSelfOnly ? '<button class="btn btn-outline btn-sm" style="font-size:10px;padding:2px 3px;min-width:0;width:100%;line-height:1.3;display:flex;flex-direction:column;align-items:center;gap:0" onclick="applyAbsenceDeduction('+emp.id+',\''+emp.name+'\','+absent+','+overAbsent+','+deduction+',\''+currentMonth+'\','+offBonus+','+workingDaysCount+',\''+emp.salary+'\','+_hireDay+','+_termDay+')"><span style="font-size:12px">💸</span><span style="font-size:9px;font-weight:600;color:var(--danger)">កាត់</span></button>' : '')+'</td>'
+        +'<td style="text-align:center;width:'+(isMobile?48:52)+'px;max-width:'+(isMobile?48:52)+'px;overflow:hidden;position:sticky;right:0;z-index:1;background:var(--bg2);box-shadow:-2px 0 5px rgba(0,0,0,.12);padding:2px">'+(!_maSelfOnly ? '<button class="btn btn-outline btn-sm" style="font-size:10px;padding:2px 3px;min-width:0;width:100%;line-height:1.3;display:flex;flex-direction:column;align-items:center;gap:0" onclick="applyAbsenceDeduction('+emp.id+',\''+emp.name+'\','+absent+','+overAbsent+','+deduction+',\''+currentMonth+'\','+offBonus+','+workingDaysCount+',\''+emp.salary+'\','+_rangeStart+','+_rangeEnd+')"><span style="font-size:12px">💸</span><span style="font-size:9px;font-weight:600;color:var(--danger)">កាត់</span></button>' : '')+'</td>'
         +'</tr>';
     }).join('');
 
@@ -7945,15 +7985,15 @@ function saveAbsenceRules() {
 async function applyAbsenceDeduction(empId, empName, absentDays, overAbsent, deduction, month, offBonus=0, workingDaysCount=0, empSalary=0, hireDay=0, termDay=99) {
   if (overAbsent <= 0 && offBonus <= 0) { showToast(empName+': គ្មានការកាត់ / OFF Bonus','info'); return; }
   const offB = parseFloat(offBonus) || 0;
-  // Prorated base salary: if hire/termination within month, only pay for actual working days
+  // Prorated base: salary × workingDaysCount / 30
+  // hireDay/termDay params here are actually rangeStart/rangeEnd (first–last att day)
   const _salary = parseFloat(empSalary) || 0;
   const _wdc = parseInt(workingDaysCount) || 0;
-  const _hDay = parseInt(hireDay) || 0;
-  const _tDay = parseInt(termDay) || 99;
-  const isProrated = _wdc > 0 && (_hDay > 0 || _tDay < 99);
-  // proratedBase = salary * workingDaysCount / 30 (standard 30-day month)
-  const proratedBase = isProrated && _salary > 0 ? parseFloat((_salary * _wdc / 30).toFixed(2)) : 0;
-  const proratedNote = isProrated ? ' [ប្រចាំ '+_wdc+' ថ្ងៃ / 30 = $'+proratedBase.toFixed(2)+']' : '';
+  const _rangeStart = parseInt(hireDay) || 0;
+  const _rangeEnd   = parseInt(termDay) || 99;
+  const isProrated = _wdc > 0 && (_rangeStart > 1 || _rangeEnd < 99);
+  // proratedBase = salary × workingDaysCount / 30 (standard 30-day month)
+  const proratedBase = (isProrated && _salary > 0) ? parseFloat((_salary * _wdc / 30).toFixed(2)) : _salary;
   const confirmMsg = 'ចំពោះ '+empName+':\n'
     +(isProrated?'• ប្រាក់ខែ Prorated: $'+proratedBase.toFixed(2)+' ('+_wdc+' ថ្ងៃ × $'+(_salary/30).toFixed(2)+'/ថ្ងៃ)\n':'')
     +(overAbsent>0?'• កាត់ $'+deduction.toFixed(2)+' (អវត្តមាន '+absentDays+' ថ្ងៃ, លើស '+overAbsent+' ថ្ងៃ)\n':'')
@@ -7972,7 +8012,7 @@ async function applyAbsenceDeduction(empId, empName, absentDays, overAbsent, ded
       const effectiveBase = isProrated ? proratedBase : base;
       const netNew = effectiveBase - deduction + offB;
       const noteParts = [];
-      if (isProrated && proratedBase > 0) noteParts.push('Prorated '+_wdc+' ថ្ងៃ = $'+proratedBase.toFixed(2));
+      if (isProrated) noteParts.push('Prorated '+_wdc+' ថ្ងៃ ('+_rangeStart+'▸'+_rangeEnd+') = $'+proratedBase.toFixed(2));
       if (deduction > 0) noteParts.push('អវត្តមាន '+absentDays+' ថ្ងៃ (-$'+deduction.toFixed(2)+')');
       if (offB > 0) noteParts.push('🌟 OFF Bonus (+$'+offB.toFixed(2)+')');
       await api('POST','/salary',{ employee_id:empId, month, base_salary:effectiveBase, bonus:offB, deduction:deduction, net_salary:netNew, notes:noteParts.join(' | ') });
@@ -8022,18 +8062,24 @@ async function applyAllAbsenceDeductions(month) {
     const toDeduct = emps.map(emp=>{
       // Per-employee off days (default: Sunday=0)
       const empOff = parseOffDays(emp);
-      // Prorated: respect hire_date and termination_date within month
-      const _hDay = (emp.hire_date && emp.hire_date.startsWith(month+'-')) ? parseInt(emp.hire_date.slice(-2),10) : 0;
-      const _tDay = (emp.termination_date && emp.termination_date.startsWith(month+'-')) ? parseInt(emp.termination_date.slice(-2),10) : 99;
+      // Prorated: use first–last attendance range (same logic as monthly table)
+      const _empRec = attMap[emp.id] || {};
+      const _allAttD = allMonthDaysArr.filter(x => { const a=_empRec[x.dd]; return a&&(a.status==='present'||a.status==='late'||a.status==='half_day_am'||a.status==='half_day_pm'); });
+      const _hireBound = (emp.hire_date && emp.hire_date.startsWith(month+'-')) ? parseInt(emp.hire_date.slice(-2),10) : 0;
+      const _termBound = (emp.termination_date && emp.termination_date.startsWith(month+'-')) ? parseInt(emp.termination_date.slice(-2),10) : 99;
+      const _firstD = _allAttD.length > 0 ? _allAttD[0].d : 0;
+      const _lastD  = _allAttD.length > 0 ? _allAttD[_allAttD.length-1].d : 0;
+      const _rangeStart = _firstD > 0 ? Math.max(_firstD, _hireBound) : (_hireBound > 0 ? _hireBound : 1);
+      const _rangeEnd   = _lastD  > 0 ? Math.min(_lastD,  _termBound) : (_termBound < 99 ? _termBound : daysInMonth);
+      const isProrated = _firstD > 1 || _lastD < daysInMonth;
       const empDays = allMonthDaysArr.filter(x=>{
         if (empOff.indexOf(x.wd)!==-1) return false;
-        if (x.d < _hDay) return false;
-        if (x.d > _tDay) return false;
+        if (x.d < _rangeStart) return false;
+        if (x.d > _rangeEnd)   return false;
         return true;
       });
       const workingDaysCount = empDays.length;
-      const isProrated = _hDay > 0 || _tDay < 99;
-      // Prorated base = salary * workingDaysCount / 30
+      // Prorated base = salary × workingDaysCount / 30
       const proratedBase = isProrated && (emp.salary||0) > 0 ? parseFloat(((emp.salary||0)*workingDaysCount/30).toFixed(2)) : (emp.salary||0);
       const rec=attMap[emp.id]||{}; let absent=0;
       empDays.forEach(x=>{ const a=rec[x.dd]; if(!a||a.status==='absent') absent++; });
@@ -8063,7 +8109,7 @@ async function applyAllAbsenceDeductions(month) {
       try {
         let rec=(salData.records||[]).find(r=>r.employee_id===emp.id);
         const noteParts=[];
-        if(isProrated) noteParts.push('Prorated '+workingDaysCount+' ថ្ងៃ = $'+proratedBase.toFixed(2));
+        if(isProrated) noteParts.push('Prorated '+workingDaysCount+' ថ្ងៃ ('+_rangeStart+'▸'+_rangeEnd+') = $'+proratedBase.toFixed(2));
         if(over>0) noteParts.push('អវត្តមាន '+absent+' ថ្ងៃ, លើស '+over+' ថ្ងៃ (-$'+deduction.toFixed(2)+')');
         if(offBonus>0) noteParts.push('🌟 OFF Bonus (+$'+offBonus.toFixed(2)+')');
         const noteStr = noteParts.join(' | ');
