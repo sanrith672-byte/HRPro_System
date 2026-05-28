@@ -2729,9 +2729,18 @@ async function renderMonthlyAttendance(month='') {
     const days = allDays;
 
     // Helper: get working days for a specific employee (exclude their personal off_days)
+    // Respects hire_date and termination_date within the current month:
+    //   days before hire_date or after termination_date are excluded (prorated)
     function getEmpWorkDays(emp) {
-      var offDays = parseOffDays(emp); // empty = work every day
-      return allDays.filter(function({wd}) { return offDays.indexOf(wd) === -1; });
+      var offDays = parseOffDays(emp);
+      var hireDay = (emp.hire_date && emp.hire_date.startsWith(currentMonth + '-')) ? parseInt(emp.hire_date.slice(-2), 10) : 0;
+      var termDay = (emp.termination_date && emp.termination_date.startsWith(currentMonth + '-')) ? parseInt(emp.termination_date.slice(-2), 10) : 99;
+      return allDays.filter(function({d, wd}) {
+        if (offDays.indexOf(wd) !== -1) return false;
+        if (d < hireDay) return false;
+        if (d > termDay) return false;
+        return true;
+      });
     }
 
     // Summary per employee
@@ -2870,7 +2879,16 @@ async function renderMonthlyAttendance(month='') {
     const dayRows = filteredSummaries.map(({emp, present, late, absent, swap, overAbsent, deduction, offBonus, offDaysWorked, empOffDaysThisMonth, workingDaysCount, halfDayCount}) => {
       const rec = attMap[emp.id] || {};
       const empOff = parseOffDays(emp);
-      const cells = allDays.map(({dd, wd}) => {
+      // Prorated: only count days from hire_date and up to termination_date if within month
+      const _hireDay = (emp.hire_date && emp.hire_date.startsWith(currentMonth + '-')) ? parseInt(emp.hire_date.slice(-2), 10) : 0;
+      const _termDay = (emp.termination_date && emp.termination_date.startsWith(currentMonth + '-')) ? parseInt(emp.termination_date.slice(-2), 10) : 99;
+      const _proratedBadge = _hireDay > 0
+        ? '<span style="font-size:9px;background:rgba(16,185,129,.18);color:#059669;border-radius:4px;padding:1px 4px;margin-left:3px;font-weight:700" title="ចូលធ្វើការថ្ងៃទី '+_hireDay+'">ចូល:'+_hireDay+'</span>'
+        : (_termDay < 99 ? '<span style="font-size:9px;background:rgba(239,68,68,.15);color:#dc2626;border-radius:4px;padding:1px 4px;margin-left:3px;font-weight:700" title="លាឈប់ថ្ងៃទី '+_termDay+'">ចប់:'+_termDay+'</span>' : '');
+      const cells = allDays.map(({d, dd, wd}) => {
+        // Grey out days before hire date or after termination date (prorated)
+        if (d < _hireDay) return '<td style="width:30px;min-width:30px;max-width:30px;overflow:hidden;text-align:center;font-size:11px;padding:2px 0;background:rgba(100,100,100,0.10);color:var(--text3)" title="មុនថ្ងៃចូលធ្វើការ">╌</td>';
+        if (d > _termDay) return '<td style="width:30px;min-width:30px;max-width:30px;overflow:hidden;text-align:center;font-size:11px;padding:2px 0;background:rgba(100,100,100,0.10);color:var(--text3)" title="ក្រោយថ្ងៃលាឈប់">╌</td>';
         const swapRec = (swapMap[emp.id]||{})[dd];
         const a = (attMap[emp.id]||{})[dd];
         const lv = (leaveMap[emp.id]||{})[dd];
@@ -2930,7 +2948,7 @@ async function renderMonthlyAttendance(month='') {
         : '<td style="text-align:center;color:var(--success);font-size:11px">—</td>';
 
       return '<tr>'
-        +'<td style="padding:'+(isMobile?'4px 4px':'6px 8px')+';white-space:nowrap;position:sticky;left:0;z-index:1;background:var(--bg2);box-shadow:2px 0 5px rgba(0,0,0,.12)"><div style="display:flex;align-items:center;gap:'+(isMobile?'3px':'6px')+';">'+av+'<span style="font-size:'+(isMobile?'11px':'12px')+';font-weight:600">'+emp.name+'</span></div></td>'
+        +'<td style="padding:'+(isMobile?'4px 4px':'6px 8px')+';white-space:nowrap;position:sticky;left:0;z-index:1;background:var(--bg2);box-shadow:2px 0 5px rgba(0,0,0,.12)"><div style="display:flex;align-items:center;gap:'+(isMobile?'3px':'6px')+';">'+av+'<span style="font-size:'+(isMobile?'11px':'12px')+';font-weight:600">'+emp.name+'</span>'+_proratedBadge+'</div></td>'
         +'<td style="text-align:center;font-weight:700;color:var(--success);font-size:'+(isMobile?'11px':'13px')+';width:'+COL_P+'px;position:sticky;left:'+S_P+'px;z-index:1;background:var(--bg2);padding:3px 0">'+(present+late)+'</td>'
         +'<td style="text-align:center;font-weight:700;color:var(--warning);font-size:'+(isMobile?'11px':'13px')+';width:'+COL_L+'px;background:var(--bg2);padding:3px 0">'+late+'</td>'
         +'<td style="text-align:center;font-weight:700;color:var(--danger);font-size:'+(isMobile?'11px':'13px')+';width:'+COL_A+'px;background:var(--bg2);padding:3px 0">'+(halfDayCount>0?'<span title="'+halfDayCount+' ថ្ងៃកន្លះ">'+absent+'</span>':absent)+'</td>'
@@ -6576,9 +6594,18 @@ async function renderMonthlyAttendance(month='') {
     const days = allDays;
 
     // Helper: get working days for a specific employee (exclude their personal off_days)
+    // Respects hire_date and termination_date within the current month:
+    //   days before hire_date or after termination_date are excluded (prorated)
     function getEmpWorkDays(emp) {
-      var offDays = parseOffDays(emp); // empty = work every day
-      return allDays.filter(function({wd}) { return offDays.indexOf(wd) === -1; });
+      var offDays = parseOffDays(emp);
+      var hireDay = (emp.hire_date && emp.hire_date.startsWith(currentMonth + '-')) ? parseInt(emp.hire_date.slice(-2), 10) : 0;
+      var termDay = (emp.termination_date && emp.termination_date.startsWith(currentMonth + '-')) ? parseInt(emp.termination_date.slice(-2), 10) : 99;
+      return allDays.filter(function({d, wd}) {
+        if (offDays.indexOf(wd) !== -1) return false;
+        if (d < hireDay) return false;
+        if (d > termDay) return false;
+        return true;
+      });
     }
 
     // Summary per employee
@@ -6717,7 +6744,16 @@ async function renderMonthlyAttendance(month='') {
     const dayRows = filteredSummaries.map(({emp, present, late, absent, swap, overAbsent, deduction, offBonus, offDaysWorked, empOffDaysThisMonth, workingDaysCount, halfDayCount}) => {
       const rec = attMap[emp.id] || {};
       const empOff = parseOffDays(emp);
-      const cells = allDays.map(({dd, wd}) => {
+      // Prorated: only count days from hire_date and up to termination_date if within month
+      const _hireDay = (emp.hire_date && emp.hire_date.startsWith(currentMonth + '-')) ? parseInt(emp.hire_date.slice(-2), 10) : 0;
+      const _termDay = (emp.termination_date && emp.termination_date.startsWith(currentMonth + '-')) ? parseInt(emp.termination_date.slice(-2), 10) : 99;
+      const _proratedBadge = _hireDay > 0
+        ? '<span style="font-size:9px;background:rgba(16,185,129,.18);color:#059669;border-radius:4px;padding:1px 4px;margin-left:3px;font-weight:700" title="ចូលធ្វើការថ្ងៃទី '+_hireDay+'">ចូល:'+_hireDay+'</span>'
+        : (_termDay < 99 ? '<span style="font-size:9px;background:rgba(239,68,68,.15);color:#dc2626;border-radius:4px;padding:1px 4px;margin-left:3px;font-weight:700" title="លាឈប់ថ្ងៃទី '+_termDay+'">ចប់:'+_termDay+'</span>' : '');
+      const cells = allDays.map(({d, dd, wd}) => {
+        // Grey out days before hire date or after termination date (prorated)
+        if (d < _hireDay) return '<td style="width:30px;min-width:30px;max-width:30px;overflow:hidden;text-align:center;font-size:11px;padding:2px 0;background:rgba(100,100,100,0.10);color:var(--text3)" title="មុនថ្ងៃចូលធ្វើការ">╌</td>';
+        if (d > _termDay) return '<td style="width:30px;min-width:30px;max-width:30px;overflow:hidden;text-align:center;font-size:11px;padding:2px 0;background:rgba(100,100,100,0.10);color:var(--text3)" title="ក្រោយថ្ងៃលាឈប់">╌</td>';
         const swapRec = (swapMap[emp.id]||{})[dd];
         const a = (attMap[emp.id]||{})[dd];
         const lv = (leaveMap[emp.id]||{})[dd];
@@ -6777,7 +6813,7 @@ async function renderMonthlyAttendance(month='') {
         : '<td style="text-align:center;color:var(--success);font-size:11px">—</td>';
 
       return '<tr>'
-        +'<td style="padding:'+(isMobile?'4px 4px':'6px 8px')+';white-space:nowrap;position:sticky;left:0;z-index:1;background:var(--bg2);box-shadow:2px 0 5px rgba(0,0,0,.12)"><div style="display:flex;align-items:center;gap:'+(isMobile?'3px':'6px')+';">'+av+'<span style="font-size:'+(isMobile?'11px':'12px')+';font-weight:600">'+emp.name+'</span></div></td>'
+        +'<td style="padding:'+(isMobile?'4px 4px':'6px 8px')+';white-space:nowrap;position:sticky;left:0;z-index:1;background:var(--bg2);box-shadow:2px 0 5px rgba(0,0,0,.12)"><div style="display:flex;align-items:center;gap:'+(isMobile?'3px':'6px')+';">'+av+'<span style="font-size:'+(isMobile?'11px':'12px')+';font-weight:600">'+emp.name+'</span>'+_proratedBadge+'</div></td>'
         +'<td style="text-align:center;font-weight:700;color:var(--success);font-size:'+(isMobile?'11px':'13px')+';width:'+COL_P+'px;position:sticky;left:'+S_P+'px;z-index:1;background:var(--bg2);padding:3px 0">'+(present+late)+'</td>'
         +'<td style="text-align:center;font-weight:700;color:var(--warning);font-size:'+(isMobile?'11px':'13px')+';width:'+COL_L+'px;background:var(--bg2);padding:3px 0">'+late+'</td>'
         +'<td style="text-align:center;font-weight:700;color:var(--danger);font-size:'+(isMobile?'11px':'13px')+';width:'+COL_A+'px;background:var(--bg2);padding:3px 0">'+(halfDayCount>0?'<span title="'+halfDayCount+' ថ្ងៃកន្លះ">'+absent+'</span>':absent)+'</td>'
