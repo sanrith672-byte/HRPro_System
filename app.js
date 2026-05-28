@@ -2959,7 +2959,7 @@ async function renderMonthlyAttendance(month='') {
         +cells
         +'<td style="text-align:center;font-weight:700;font-size:12px;color:var(--success);width:'+(isMobile?36:42)+'px;padding:3px 2px;position:sticky;right:'+(isMobile?84:100)+'px;z-index:1;background:var(--bg2);box-shadow:-2px 0 4px rgba(0,0,0,.08)">'+(present+late)+'<span style="font-size:10px;font-weight:400;color:var(--text3);display:block">ថ្ងៃ</span></td>'
         +'<td style="text-align:center;font-weight:700;font-size:12px;color:'+(empOffDaysThisMonth>0?'#6366f1':'var(--text3)')+';width:'+(isMobile?36:48)+'px;max-width:'+(isMobile?36:48)+'px;overflow:hidden;padding:3px 2px;position:sticky;right:'+(isMobile?36:42)+'px;z-index:2;background:var(--bg2);border-left:1px solid var(--border);box-shadow:-2px 0 4px rgba(0,0,0,.06)">'+(empOffDaysThisMonth>0?'<span style="background:rgba(99,102,241,.12);border-radius:4px;padding:2px 5px">'+empOffDaysThisMonth+'</span>':'—')+'</td>'
-        +'<td style="text-align:center;width:'+(isMobile?48:52)+'px;max-width:'+(isMobile?48:52)+'px;overflow:hidden;position:sticky;right:0;z-index:1;background:var(--bg2);box-shadow:-2px 0 5px rgba(0,0,0,.12);padding:2px">'+(!_maSelfOnly ? '<button class="btn btn-outline btn-sm" style="font-size:10px;padding:2px 3px;min-width:0;width:100%;line-height:1.3;display:flex;flex-direction:column;align-items:center;gap:0" onclick="applyAbsenceDeduction('+emp.id+',\''+emp.name+'\','+absent+','+overAbsent+','+deduction+',\''+currentMonth+'\','+offBonus+')"><span style="font-size:12px">💸</span><span style="font-size:9px;font-weight:600;color:var(--danger)">កាត់</span></button>' : '')+'</td>'
+        +'<td style="text-align:center;width:'+(isMobile?48:52)+'px;max-width:'+(isMobile?48:52)+'px;overflow:hidden;position:sticky;right:0;z-index:1;background:var(--bg2);box-shadow:-2px 0 5px rgba(0,0,0,.12);padding:2px">'+(!_maSelfOnly ? '<button class="btn btn-outline btn-sm" style="font-size:10px;padding:2px 3px;min-width:0;width:100%;line-height:1.3;display:flex;flex-direction:column;align-items:center;gap:0" onclick="applyAbsenceDeduction('+emp.id+',\''+emp.name+'\','+absent+','+overAbsent+','+deduction+',\''+currentMonth+'\','+offBonus+','+workingDaysCount+',\''+emp.salary+'\','+_hireDay+','+_termDay+')"><span style="font-size:12px">💸</span><span style="font-size:9px;font-weight:600;color:var(--danger)">កាត់</span></button>' : '')+'</td>'
         +'</tr>';
     }).join('');
 
@@ -4048,10 +4048,20 @@ function saveAbsenceRules() {
 }
 
 // Apply deduction to one employee's salary
-async function applyAbsenceDeduction(empId, empName, absentDays, overAbsent, deduction, month, offBonus=0) {
+async function applyAbsenceDeduction(empId, empName, absentDays, overAbsent, deduction, month, offBonus=0, workingDaysCount=0, empSalary=0, hireDay=0, termDay=99) {
   if (overAbsent <= 0 && offBonus <= 0) { showToast(empName+': គ្មានការកាត់ / OFF Bonus','info'); return; }
   const offB = parseFloat(offBonus) || 0;
+  // Prorated base salary: if hire/termination within month, only pay for actual working days
+  const _salary = parseFloat(empSalary) || 0;
+  const _wdc = parseInt(workingDaysCount) || 0;
+  const _hDay = parseInt(hireDay) || 0;
+  const _tDay = parseInt(termDay) || 99;
+  const isProrated = _wdc > 0 && (_hDay > 0 || _tDay < 99);
+  // proratedBase = salary * workingDaysCount / 30 (standard 30-day month)
+  const proratedBase = isProrated && _salary > 0 ? parseFloat((_salary * _wdc / 30).toFixed(2)) : 0;
+  const proratedNote = isProrated ? ' [ប្រចាំ '+_wdc+' ថ្ងៃ / 30 = $'+proratedBase.toFixed(2)+']' : '';
   const confirmMsg = 'ចំពោះ '+empName+':\n'
+    +(isProrated?'• ប្រាក់ខែ Prorated: $'+proratedBase.toFixed(2)+' ('+_wdc+' ថ្ងៃ × $'+(_salary/30).toFixed(2)+'/ថ្ងៃ)\n':'')
     +(overAbsent>0?'• កាត់ $'+deduction.toFixed(2)+' (អវត្តមាន '+absentDays+' ថ្ងៃ, លើស '+overAbsent+' ថ្ងៃ)\n':'')
     +(offB>0?'• + OFF Bonus $'+offB.toFixed(2)+' (ថ្ងៃ OFF ធ្វើការ)\n':'')
     +'\nបន្តទេ?';
@@ -4064,20 +4074,26 @@ async function applyAbsenceDeduction(empId, empName, absentDays, overAbsent, ded
       // Find employee salary
       const emp = (state.employees||[]).find(e=>e.id===empId);
       const base = emp ? (emp.salary||0) : 0;
-      const netNew = base - deduction + offB;
+      // Use prorated base if applicable, otherwise full base
+      const effectiveBase = isProrated ? proratedBase : base;
+      const netNew = effectiveBase - deduction + offB;
       const noteParts = [];
+      if (isProrated && proratedBase > 0) noteParts.push('Prorated '+_wdc+' ថ្ងៃ = $'+proratedBase.toFixed(2));
       if (deduction > 0) noteParts.push('អវត្តមាន '+absentDays+' ថ្ងៃ (-$'+deduction.toFixed(2)+')');
       if (offB > 0) noteParts.push('🌟 OFF Bonus (+$'+offB.toFixed(2)+')');
-      await api('POST','/salary',{ employee_id:empId, month, base_salary:base, bonus:offB, deduction:deduction, net_salary:netNew, notes:noteParts.join(' | ') });
+      await api('POST','/salary',{ employee_id:empId, month, base_salary:effectiveBase, bonus:offB, deduction:deduction, net_salary:netNew, notes:noteParts.join(' | ') });
       showToast('បន្ថែម + កែ $'+netNew.toFixed(2)+' Net ចំពោះ '+empName+'!','success');
     } else {
+      // If prorated and record base_salary hasn't been set yet, update it
+      const updatedBase = (isProrated && proratedBase > 0 && !(rec.notes||'').includes('Prorated')) ? proratedBase : (rec.base_salary||0);
       const newDeduct = (rec.deduction||0) + deduction;
       const newBonus = (rec.bonus||0) + offB;
-      const newNet = (rec.base_salary||0) + newBonus - newDeduct;
+      const newNet = updatedBase + newBonus - newDeduct;
       const noteParts = [];
+      if (isProrated && proratedBase > 0 && !(rec.notes||'').includes('Prorated')) noteParts.push('Prorated '+_wdc+' ថ្ងៃ = $'+proratedBase.toFixed(2));
       if (deduction > 0) noteParts.push('អវត្តមាន '+absentDays+' ថ្ងៃ (-$'+deduction.toFixed(2)+')');
       if (offB > 0) noteParts.push('🌟 OFF Bonus (+$'+offB.toFixed(2)+')');
-      await api('PUT','/salary/'+rec.id,{ ...rec, deduction:newDeduct, bonus:newBonus, net_salary:newNet, notes:(rec.notes?rec.notes+' | ':'')+noteParts.join(' | ') });
+      await api('PUT','/salary/'+rec.id,{ ...rec, base_salary:updatedBase, deduction:newDeduct, bonus:newBonus, net_salary:newNet, notes:(rec.notes?rec.notes+' | ':'')+noteParts.join(' | ') });
       showToast('កែ Net $'+newNet.toFixed(2)+' ចំពោះ '+empName+' បានជោគជ័យ!','success');
     }
     // Refresh
@@ -4108,12 +4124,23 @@ async function applyAllAbsenceDeductions(month) {
     allRecords.forEach(a=>{ if(!attMap[a.employee_id])attMap[a.employee_id]={}; attMap[a.employee_id][(a.date||'').slice(-2)]=a; });
     // Build all days of month
     const allMonthDaysArr = [];
-    for(let d=1;d<=daysInMonth;d++){ const dt=new Date(y,m-1,d); allMonthDaysArr.push({dd:String(d).padStart(2,'0'),wd:dt.getDay()}); }
+    for(let d=1;d<=daysInMonth;d++){ const dt=new Date(y,m-1,d); allMonthDaysArr.push({d, dd:String(d).padStart(2,'0'),wd:dt.getDay()}); }
     const toDeduct = emps.map(emp=>{
       // Per-employee off days (default: Sunday=0)
       const empOff = parseOffDays(emp);
-      const empDays = allMonthDaysArr.filter(x=>empOff.indexOf(x.wd)===-1);
+      // Prorated: respect hire_date and termination_date within month
+      const _hDay = (emp.hire_date && emp.hire_date.startsWith(month+'-')) ? parseInt(emp.hire_date.slice(-2),10) : 0;
+      const _tDay = (emp.termination_date && emp.termination_date.startsWith(month+'-')) ? parseInt(emp.termination_date.slice(-2),10) : 99;
+      const empDays = allMonthDaysArr.filter(x=>{
+        if (empOff.indexOf(x.wd)!==-1) return false;
+        if (x.d < _hDay) return false;
+        if (x.d > _tDay) return false;
+        return true;
+      });
       const workingDaysCount = empDays.length;
+      const isProrated = _hDay > 0 || _tDay < 99;
+      // Prorated base = salary * workingDaysCount / 30
+      const proratedBase = isProrated && (emp.salary||0) > 0 ? parseFloat(((emp.salary||0)*workingDaysCount/30).toFixed(2)) : (emp.salary||0);
       const rec=attMap[emp.id]||{}; let absent=0;
       empDays.forEach(x=>{ const a=rec[x.dd]; if(!a||a.status==='absent') absent++; });
       const over=Math.max(0,absent-maxAbsent);
@@ -4132,7 +4159,7 @@ async function applyAllAbsenceDeductions(month) {
       const _rules = getSalaryRules();
       const _offMult = (_rules.off_bonus_enabled !== false) ? (_rules.off_day_multiplier || 1.0) : 0;
       const offBonus = parseFloat((offDaysWorked * offDailyRate * _offMult).toFixed(2));
-      return { emp, absent, over, deduction, offBonus, offDaysWorked };
+      return { emp, absent, over, deduction, offBonus, offDaysWorked, workingDaysCount, isProrated, proratedBase };
     }).filter(x=>x.over>0||x.offBonus>0);
     if (!toDeduct.length) { showToast('គ្មានបុគ្គលិកណាលើសថ្ងៃ!','success'); renderMonthlyAttendance(month); return; }
     if (!confirm('ធ្វើបច្ចុប្បន្នភាពបៀវត្ស '+toDeduct.length+' នាក់?\n'+toDeduct.map(x=>x.emp.name+(x.over>0?' -$'+x.deduction.toFixed(2)+' (លើស '+x.over+' ថ្ងៃ)':'')+(x.offBonus>0?' +$'+x.offBonus.toFixed(2)+' (🌟 OFF)':'')).join('\n'))) { renderMonthlyAttendance(month); return; }
@@ -4142,17 +4169,19 @@ async function applyAllAbsenceDeductions(month) {
       try {
         let rec=(salData.records||[]).find(r=>r.employee_id===emp.id);
         const noteParts=[];
+        if(isProrated) noteParts.push('Prorated '+workingDaysCount+' ថ្ងៃ = $'+proratedBase.toFixed(2));
         if(over>0) noteParts.push('អវត្តមាន '+absent+' ថ្ងៃ, លើស '+over+' ថ្ងៃ (-$'+deduction.toFixed(2)+')');
         if(offBonus>0) noteParts.push('🌟 OFF Bonus (+$'+offBonus.toFixed(2)+')');
         const noteStr = noteParts.join(' | ');
         if(!rec){
-          const netNew=(emp.salary||0)-deduction+offBonus;
-          await api('POST','/salary',{employee_id:emp.id,month,base_salary:emp.salary||0,bonus:offBonus,deduction,net_salary:netNew,notes:noteStr});
+          const netNew=proratedBase-deduction+offBonus;
+          await api('POST','/salary',{employee_id:emp.id,month,base_salary:proratedBase,bonus:offBonus,deduction,net_salary:netNew,notes:noteStr});
         } else {
+          const updBase = (isProrated && !(rec.notes||'').includes('Prorated')) ? proratedBase : (rec.base_salary||0);
           const nd=(rec.deduction||0)+deduction;
           const nb=(rec.bonus||0)+offBonus;
-          const nn=(rec.base_salary||0)+nb-nd;
-          await api('PUT','/salary/'+rec.id,{...rec,deduction:nd,bonus:nb,net_salary:nn,notes:(rec.notes?rec.notes+' | ':'')+noteStr});
+          const nn=updBase+nb-nd;
+          await api('PUT','/salary/'+rec.id,{...rec,base_salary:updBase,deduction:nd,bonus:nb,net_salary:nn,notes:(rec.notes?rec.notes+' | ':'')+noteStr});
         }
         applied++;
       } catch(_){}
@@ -6824,7 +6853,7 @@ async function renderMonthlyAttendance(month='') {
         +cells
         +'<td style="text-align:center;font-weight:700;font-size:12px;color:var(--success);width:'+(isMobile?36:42)+'px;padding:3px 2px;position:sticky;right:'+(isMobile?84:100)+'px;z-index:1;background:var(--bg2);box-shadow:-2px 0 4px rgba(0,0,0,.08)">'+(present+late)+'<span style="font-size:10px;font-weight:400;color:var(--text3);display:block">ថ្ងៃ</span></td>'
         +'<td style="text-align:center;font-weight:700;font-size:12px;color:'+(empOffDaysThisMonth>0?'#6366f1':'var(--text3)')+';width:'+(isMobile?36:48)+'px;max-width:'+(isMobile?36:48)+'px;overflow:hidden;padding:3px 2px;position:sticky;right:'+(isMobile?36:42)+'px;z-index:2;background:var(--bg2);border-left:1px solid var(--border);box-shadow:-2px 0 4px rgba(0,0,0,.06)">'+(empOffDaysThisMonth>0?'<span style="background:rgba(99,102,241,.12);border-radius:4px;padding:2px 5px">'+empOffDaysThisMonth+'</span>':'—')+'</td>'
-        +'<td style="text-align:center;width:'+(isMobile?48:52)+'px;max-width:'+(isMobile?48:52)+'px;overflow:hidden;position:sticky;right:0;z-index:1;background:var(--bg2);box-shadow:-2px 0 5px rgba(0,0,0,.12);padding:2px">'+(!_maSelfOnly ? '<button class="btn btn-outline btn-sm" style="font-size:10px;padding:2px 3px;min-width:0;width:100%;line-height:1.3;display:flex;flex-direction:column;align-items:center;gap:0" onclick="applyAbsenceDeduction('+emp.id+',\''+emp.name+'\','+absent+','+overAbsent+','+deduction+',\''+currentMonth+'\','+offBonus+')"><span style="font-size:12px">💸</span><span style="font-size:9px;font-weight:600;color:var(--danger)">កាត់</span></button>' : '')+'</td>'
+        +'<td style="text-align:center;width:'+(isMobile?48:52)+'px;max-width:'+(isMobile?48:52)+'px;overflow:hidden;position:sticky;right:0;z-index:1;background:var(--bg2);box-shadow:-2px 0 5px rgba(0,0,0,.12);padding:2px">'+(!_maSelfOnly ? '<button class="btn btn-outline btn-sm" style="font-size:10px;padding:2px 3px;min-width:0;width:100%;line-height:1.3;display:flex;flex-direction:column;align-items:center;gap:0" onclick="applyAbsenceDeduction('+emp.id+',\''+emp.name+'\','+absent+','+overAbsent+','+deduction+',\''+currentMonth+'\','+offBonus+','+workingDaysCount+',\''+emp.salary+'\','+_hireDay+','+_termDay+')"><span style="font-size:12px">💸</span><span style="font-size:9px;font-weight:600;color:var(--danger)">កាត់</span></button>' : '')+'</td>'
         +'</tr>';
     }).join('');
 
@@ -7913,10 +7942,20 @@ function saveAbsenceRules() {
 }
 
 // Apply deduction to one employee's salary
-async function applyAbsenceDeduction(empId, empName, absentDays, overAbsent, deduction, month, offBonus=0) {
+async function applyAbsenceDeduction(empId, empName, absentDays, overAbsent, deduction, month, offBonus=0, workingDaysCount=0, empSalary=0, hireDay=0, termDay=99) {
   if (overAbsent <= 0 && offBonus <= 0) { showToast(empName+': គ្មានការកាត់ / OFF Bonus','info'); return; }
   const offB = parseFloat(offBonus) || 0;
+  // Prorated base salary: if hire/termination within month, only pay for actual working days
+  const _salary = parseFloat(empSalary) || 0;
+  const _wdc = parseInt(workingDaysCount) || 0;
+  const _hDay = parseInt(hireDay) || 0;
+  const _tDay = parseInt(termDay) || 99;
+  const isProrated = _wdc > 0 && (_hDay > 0 || _tDay < 99);
+  // proratedBase = salary * workingDaysCount / 30 (standard 30-day month)
+  const proratedBase = isProrated && _salary > 0 ? parseFloat((_salary * _wdc / 30).toFixed(2)) : 0;
+  const proratedNote = isProrated ? ' [ប្រចាំ '+_wdc+' ថ្ងៃ / 30 = $'+proratedBase.toFixed(2)+']' : '';
   const confirmMsg = 'ចំពោះ '+empName+':\n'
+    +(isProrated?'• ប្រាក់ខែ Prorated: $'+proratedBase.toFixed(2)+' ('+_wdc+' ថ្ងៃ × $'+(_salary/30).toFixed(2)+'/ថ្ងៃ)\n':'')
     +(overAbsent>0?'• កាត់ $'+deduction.toFixed(2)+' (អវត្តមាន '+absentDays+' ថ្ងៃ, លើស '+overAbsent+' ថ្ងៃ)\n':'')
     +(offB>0?'• + OFF Bonus $'+offB.toFixed(2)+' (ថ្ងៃ OFF ធ្វើការ)\n':'')
     +'\nបន្តទេ?';
@@ -7929,20 +7968,26 @@ async function applyAbsenceDeduction(empId, empName, absentDays, overAbsent, ded
       // Find employee salary
       const emp = (state.employees||[]).find(e=>e.id===empId);
       const base = emp ? (emp.salary||0) : 0;
-      const netNew = base - deduction + offB;
+      // Use prorated base if applicable, otherwise full base
+      const effectiveBase = isProrated ? proratedBase : base;
+      const netNew = effectiveBase - deduction + offB;
       const noteParts = [];
+      if (isProrated && proratedBase > 0) noteParts.push('Prorated '+_wdc+' ថ្ងៃ = $'+proratedBase.toFixed(2));
       if (deduction > 0) noteParts.push('អវត្តមាន '+absentDays+' ថ្ងៃ (-$'+deduction.toFixed(2)+')');
       if (offB > 0) noteParts.push('🌟 OFF Bonus (+$'+offB.toFixed(2)+')');
-      await api('POST','/salary',{ employee_id:empId, month, base_salary:base, bonus:offB, deduction:deduction, net_salary:netNew, notes:noteParts.join(' | ') });
+      await api('POST','/salary',{ employee_id:empId, month, base_salary:effectiveBase, bonus:offB, deduction:deduction, net_salary:netNew, notes:noteParts.join(' | ') });
       showToast('បន្ថែម + កែ $'+netNew.toFixed(2)+' Net ចំពោះ '+empName+'!','success');
     } else {
+      // If prorated and record base_salary hasn't been set yet, update it
+      const updatedBase = (isProrated && proratedBase > 0 && !(rec.notes||'').includes('Prorated')) ? proratedBase : (rec.base_salary||0);
       const newDeduct = (rec.deduction||0) + deduction;
       const newBonus = (rec.bonus||0) + offB;
-      const newNet = (rec.base_salary||0) + newBonus - newDeduct;
+      const newNet = updatedBase + newBonus - newDeduct;
       const noteParts = [];
+      if (isProrated && proratedBase > 0 && !(rec.notes||'').includes('Prorated')) noteParts.push('Prorated '+_wdc+' ថ្ងៃ = $'+proratedBase.toFixed(2));
       if (deduction > 0) noteParts.push('អវត្តមាន '+absentDays+' ថ្ងៃ (-$'+deduction.toFixed(2)+')');
       if (offB > 0) noteParts.push('🌟 OFF Bonus (+$'+offB.toFixed(2)+')');
-      await api('PUT','/salary/'+rec.id,{ ...rec, deduction:newDeduct, bonus:newBonus, net_salary:newNet, notes:(rec.notes?rec.notes+' | ':'')+noteParts.join(' | ') });
+      await api('PUT','/salary/'+rec.id,{ ...rec, base_salary:updatedBase, deduction:newDeduct, bonus:newBonus, net_salary:newNet, notes:(rec.notes?rec.notes+' | ':'')+noteParts.join(' | ') });
       showToast('កែ Net $'+newNet.toFixed(2)+' ចំពោះ '+empName+' បានជោគជ័យ!','success');
     }
     // Refresh
@@ -7973,12 +8018,23 @@ async function applyAllAbsenceDeductions(month) {
     allRecords.forEach(a=>{ if(!attMap[a.employee_id])attMap[a.employee_id]={}; attMap[a.employee_id][(a.date||'').slice(-2)]=a; });
     // Build all days of month
     const allMonthDaysArr = [];
-    for(let d=1;d<=daysInMonth;d++){ const dt=new Date(y,m-1,d); allMonthDaysArr.push({dd:String(d).padStart(2,'0'),wd:dt.getDay()}); }
+    for(let d=1;d<=daysInMonth;d++){ const dt=new Date(y,m-1,d); allMonthDaysArr.push({d, dd:String(d).padStart(2,'0'),wd:dt.getDay()}); }
     const toDeduct = emps.map(emp=>{
       // Per-employee off days (default: Sunday=0)
       const empOff = parseOffDays(emp);
-      const empDays = allMonthDaysArr.filter(x=>empOff.indexOf(x.wd)===-1);
+      // Prorated: respect hire_date and termination_date within month
+      const _hDay = (emp.hire_date && emp.hire_date.startsWith(month+'-')) ? parseInt(emp.hire_date.slice(-2),10) : 0;
+      const _tDay = (emp.termination_date && emp.termination_date.startsWith(month+'-')) ? parseInt(emp.termination_date.slice(-2),10) : 99;
+      const empDays = allMonthDaysArr.filter(x=>{
+        if (empOff.indexOf(x.wd)!==-1) return false;
+        if (x.d < _hDay) return false;
+        if (x.d > _tDay) return false;
+        return true;
+      });
       const workingDaysCount = empDays.length;
+      const isProrated = _hDay > 0 || _tDay < 99;
+      // Prorated base = salary * workingDaysCount / 30
+      const proratedBase = isProrated && (emp.salary||0) > 0 ? parseFloat(((emp.salary||0)*workingDaysCount/30).toFixed(2)) : (emp.salary||0);
       const rec=attMap[emp.id]||{}; let absent=0;
       empDays.forEach(x=>{ const a=rec[x.dd]; if(!a||a.status==='absent') absent++; });
       const over=Math.max(0,absent-maxAbsent);
@@ -7997,7 +8053,7 @@ async function applyAllAbsenceDeductions(month) {
       const _rules = getSalaryRules();
       const _offMult = (_rules.off_bonus_enabled !== false) ? (_rules.off_day_multiplier || 1.0) : 0;
       const offBonus = parseFloat((offDaysWorked * offDailyRate * _offMult).toFixed(2));
-      return { emp, absent, over, deduction, offBonus, offDaysWorked };
+      return { emp, absent, over, deduction, offBonus, offDaysWorked, workingDaysCount, isProrated, proratedBase };
     }).filter(x=>x.over>0||x.offBonus>0);
     if (!toDeduct.length) { showToast('គ្មានបុគ្គលិកណាលើសថ្ងៃ!','success'); renderMonthlyAttendance(month); return; }
     if (!confirm('ធ្វើបច្ចុប្បន្នភាពបៀវត្ស '+toDeduct.length+' នាក់?\n'+toDeduct.map(x=>x.emp.name+(x.over>0?' -$'+x.deduction.toFixed(2)+' (លើស '+x.over+' ថ្ងៃ)':'')+(x.offBonus>0?' +$'+x.offBonus.toFixed(2)+' (🌟 OFF)':'')).join('\n'))) { renderMonthlyAttendance(month); return; }
@@ -8007,17 +8063,19 @@ async function applyAllAbsenceDeductions(month) {
       try {
         let rec=(salData.records||[]).find(r=>r.employee_id===emp.id);
         const noteParts=[];
+        if(isProrated) noteParts.push('Prorated '+workingDaysCount+' ថ្ងៃ = $'+proratedBase.toFixed(2));
         if(over>0) noteParts.push('អវត្តមាន '+absent+' ថ្ងៃ, លើស '+over+' ថ្ងៃ (-$'+deduction.toFixed(2)+')');
         if(offBonus>0) noteParts.push('🌟 OFF Bonus (+$'+offBonus.toFixed(2)+')');
         const noteStr = noteParts.join(' | ');
         if(!rec){
-          const netNew=(emp.salary||0)-deduction+offBonus;
-          await api('POST','/salary',{employee_id:emp.id,month,base_salary:emp.salary||0,bonus:offBonus,deduction,net_salary:netNew,notes:noteStr});
+          const netNew=proratedBase-deduction+offBonus;
+          await api('POST','/salary',{employee_id:emp.id,month,base_salary:proratedBase,bonus:offBonus,deduction,net_salary:netNew,notes:noteStr});
         } else {
+          const updBase = (isProrated && !(rec.notes||'').includes('Prorated')) ? proratedBase : (rec.base_salary||0);
           const nd=(rec.deduction||0)+deduction;
           const nb=(rec.bonus||0)+offBonus;
-          const nn=(rec.base_salary||0)+nb-nd;
-          await api('PUT','/salary/'+rec.id,{...rec,deduction:nd,bonus:nb,net_salary:nn,notes:(rec.notes?rec.notes+' | ':'')+noteStr});
+          const nn=updBase+nb-nd;
+          await api('PUT','/salary/'+rec.id,{...rec,base_salary:updBase,deduction:nd,bonus:nb,net_salary:nn,notes:(rec.notes?rec.notes+' | ':'')+noteStr});
         }
         applied++;
       } catch(_){}
