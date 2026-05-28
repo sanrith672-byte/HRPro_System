@@ -2850,7 +2850,7 @@ async function renderMonthlyAttendance(month='') {
       const _rules = getSalaryRules();
       const _offMult = (_rules.off_bonus_enabled !== false) ? (_rules.off_day_multiplier || 1.0) : 0;
       const offBonus = parseFloat((offDaysWorked * offDailyRate * _offMult).toFixed(2));
-      return { emp, present, late, absent, swap, onLeave, overAbsent, deduction, dailyRate, offDailyRate, workingDaysCount, offBonus, offDaysWorked, empOffDaysThisMonth, halfDayCount };
+      return { emp, present, late, absent, swap, onLeave, overAbsent, deduction, dailyRate, offDailyRate, workingDaysCount, offBonus, offDaysWorked, empOffDaysThisMonth, halfDayCount, rangeStart, rangeEnd };
     });
 
     // Apply department filter
@@ -2887,17 +2887,12 @@ async function renderMonthlyAttendance(month='') {
       return '<th style="width:30px;min-width:30px;max-width:30px;padding:0;height:18px;font-size:'+(isMobile?'9px':'11px')+';text-align:center;font-weight:600;vertical-align:middle;line-height:18px;'+color+'">' + wdNames[wd] + '</th>';
     }).join('');
 
-    const dayRows = filteredSummaries.map(({emp, present, late, absent, swap, overAbsent, deduction, offBonus, offDaysWorked, empOffDaysThisMonth, workingDaysCount, halfDayCount}) => {
+    const dayRows = filteredSummaries.map(({emp, present, late, absent, swap, overAbsent, deduction, offBonus, offDaysWorked, empOffDaysThisMonth, workingDaysCount, halfDayCount, rangeStart: _rS, rangeEnd: _rE}) => {
       const rec = attMap[emp.id] || {};
       const empOff = parseOffDays(emp);
-      // Compute rangeStart/rangeEnd: first and last attendance day (same logic as summary)
-      const _allAttD = allDays.filter(({dd}) => { const a=rec[dd]; return a&&(a.status==='present'||a.status==='late'||a.status==='half_day_am'||a.status==='half_day_pm'); });
-      const _hireBound = (emp.hire_date && emp.hire_date.startsWith(currentMonth+'-')) ? parseInt(emp.hire_date.slice(-2),10) : 0;
-      const _termBound = (emp.termination_date && emp.termination_date.startsWith(currentMonth+'-')) ? parseInt(emp.termination_date.slice(-2),10) : 99;
-      const _firstD = _allAttD.length > 0 ? _allAttD[0].d : 0;
-      const _lastD  = _allAttD.length > 0 ? _allAttD[_allAttD.length-1].d : 0;
-      const _rangeStart = _firstD > 0 ? Math.max(_firstD, _hireBound) : (_hireBound > 0 ? _hireBound : 1);
-      const _rangeEnd   = _lastD  > 0 ? Math.min(_lastD,  _termBound) : (_termBound < 99 ? _termBound : daysInMonth);
+      // Use rangeStart/rangeEnd from pre-computed summary (consistent with workingDaysCount)
+      const _rangeStart = _rS || 1;
+      const _rangeEnd   = _rE || daysInMonth;
       // Badge: show range if not full month
       const _proratedBadge = (_firstD > 1 || _lastD < daysInMonth)
         ? '<span style="font-size:9px;background:rgba(99,102,241,.18);color:#6366f1;border-radius:4px;padding:1px 4px;margin-left:3px;font-weight:700" title="ថ្ងៃ '+_rangeStart+'–'+_rangeEnd+'">'+_rangeStart+'▸'+_rangeEnd+'</span>'
@@ -4066,7 +4061,6 @@ function saveAbsenceRules() {
 
 // Apply deduction to one employee's salary
 async function applyAbsenceDeduction(empId, empName, absentDays, overAbsent, deduction, month, offBonus=0, workingDaysCount=0, empSalary=0, hireDay=0, termDay=99) {
-  if (overAbsent <= 0 && offBonus <= 0) { showToast(empName+': គ្មានការកាត់ / OFF Bonus','info'); return; }
   const offB = parseFloat(offBonus) || 0;
   // Prorated base: salary × workingDaysCount / 30
   // hireDay/termDay params here are actually rangeStart/rangeEnd (first–last att day)
@@ -4074,7 +4068,11 @@ async function applyAbsenceDeduction(empId, empName, absentDays, overAbsent, ded
   const _wdc = parseInt(workingDaysCount) || 0;
   const _rangeStart = parseInt(hireDay) || 0;
   const _rangeEnd   = parseInt(termDay) || 99;
-  const isProrated = _wdc > 0 && (_rangeStart > 1 || _rangeEnd < 99);
+  // Compute actual days in this month to correctly detect partial month
+  const _daysInMonth = (function(){ const p=month.split('-'); return new Date(+p[0],+p[1],0).getDate(); })();
+  const isProrated = _wdc > 0 && (_rangeStart > 1 || _rangeEnd < _daysInMonth);
+  // Early exit only if nothing to do: no deduction, no off bonus, and not prorated
+  if (overAbsent <= 0 && offB <= 0 && !isProrated) { showToast(empName+': គ្មានការកាត់ / OFF Bonus','info'); return; }
   // proratedBase = salary × workingDaysCount / 30 (standard 30-day month)
   const proratedBase = (isProrated && _salary > 0) ? parseFloat((_salary * _wdc / 30).toFixed(2)) : _salary;
   const confirmMsg = 'ចំពោះ '+empName+':\n'
@@ -4154,7 +4152,7 @@ async function applyAllAbsenceDeductions(month) {
       const _lastD  = _allAttD.length > 0 ? _allAttD[_allAttD.length-1].d : 0;
       const _rangeStart = _firstD > 0 ? Math.max(_firstD, _hireBound) : (_hireBound > 0 ? _hireBound : 1);
       const _rangeEnd   = _lastD  > 0 ? Math.min(_lastD,  _termBound) : (_termBound < 99 ? _termBound : daysInMonth);
-      const isProrated = _firstD > 1 || _lastD < daysInMonth;
+      const isProrated = (_firstD > 1 || _lastD < daysInMonth) && workingDaysCount > 0;
       const empDays = allMonthDaysArr.filter(x=>{
         if (empOff.indexOf(x.wd)!==-1) return false;
         if (x.d < _rangeStart) return false;
@@ -4183,7 +4181,7 @@ async function applyAllAbsenceDeductions(month) {
       const _offMult = (_rules.off_bonus_enabled !== false) ? (_rules.off_day_multiplier || 1.0) : 0;
       const offBonus = parseFloat((offDaysWorked * offDailyRate * _offMult).toFixed(2));
       return { emp, absent, over, deduction, offBonus, offDaysWorked, workingDaysCount, isProrated, proratedBase };
-    }).filter(x=>x.over>0||x.offBonus>0);
+    }).filter(x=>x.over>0||x.offBonus>0||x.isProrated);
     if (!toDeduct.length) { showToast('គ្មានបុគ្គលិកណាលើសថ្ងៃ!','success'); renderMonthlyAttendance(month); return; }
     if (!confirm('ធ្វើបច្ចុប្បន្នភាពបៀវត្ស '+toDeduct.length+' នាក់?\n'+toDeduct.map(x=>x.emp.name+(x.over>0?' -$'+x.deduction.toFixed(2)+' (លើស '+x.over+' ថ្ងៃ)':'')+(x.offBonus>0?' +$'+x.offBonus.toFixed(2)+' (🌟 OFF)':'')).join('\n'))) { renderMonthlyAttendance(month); return; }
     const salData = await api('GET','/salary?month='+month);
@@ -6767,7 +6765,7 @@ async function renderMonthlyAttendance(month='') {
       const _rules = getSalaryRules();
       const _offMult = (_rules.off_bonus_enabled !== false) ? (_rules.off_day_multiplier || 1.0) : 0;
       const offBonus = parseFloat((offDaysWorked * offDailyRate * _offMult).toFixed(2));
-      return { emp, present, late, absent, swap, onLeave, overAbsent, deduction, dailyRate, offDailyRate, workingDaysCount, offBonus, offDaysWorked, empOffDaysThisMonth, halfDayCount };
+      return { emp, present, late, absent, swap, onLeave, overAbsent, deduction, dailyRate, offDailyRate, workingDaysCount, offBonus, offDaysWorked, empOffDaysThisMonth, halfDayCount, rangeStart, rangeEnd };
     });
 
     // Apply department filter
@@ -6804,17 +6802,12 @@ async function renderMonthlyAttendance(month='') {
       return '<th style="width:30px;min-width:30px;max-width:30px;padding:0;height:18px;font-size:'+(isMobile?'9px':'11px')+';text-align:center;font-weight:600;vertical-align:middle;line-height:18px;'+color+'">' + wdNames[wd] + '</th>';
     }).join('');
 
-    const dayRows = filteredSummaries.map(({emp, present, late, absent, swap, overAbsent, deduction, offBonus, offDaysWorked, empOffDaysThisMonth, workingDaysCount, halfDayCount}) => {
+    const dayRows = filteredSummaries.map(({emp, present, late, absent, swap, overAbsent, deduction, offBonus, offDaysWorked, empOffDaysThisMonth, workingDaysCount, halfDayCount, rangeStart: _rS, rangeEnd: _rE}) => {
       const rec = attMap[emp.id] || {};
       const empOff = parseOffDays(emp);
-      // Compute rangeStart/rangeEnd: first and last attendance day (same logic as summary)
-      const _allAttD = allDays.filter(({dd}) => { const a=rec[dd]; return a&&(a.status==='present'||a.status==='late'||a.status==='half_day_am'||a.status==='half_day_pm'); });
-      const _hireBound = (emp.hire_date && emp.hire_date.startsWith(currentMonth+'-')) ? parseInt(emp.hire_date.slice(-2),10) : 0;
-      const _termBound = (emp.termination_date && emp.termination_date.startsWith(currentMonth+'-')) ? parseInt(emp.termination_date.slice(-2),10) : 99;
-      const _firstD = _allAttD.length > 0 ? _allAttD[0].d : 0;
-      const _lastD  = _allAttD.length > 0 ? _allAttD[_allAttD.length-1].d : 0;
-      const _rangeStart = _firstD > 0 ? Math.max(_firstD, _hireBound) : (_hireBound > 0 ? _hireBound : 1);
-      const _rangeEnd   = _lastD  > 0 ? Math.min(_lastD,  _termBound) : (_termBound < 99 ? _termBound : daysInMonth);
+      // Use rangeStart/rangeEnd from pre-computed summary (consistent with workingDaysCount)
+      const _rangeStart = _rS || 1;
+      const _rangeEnd   = _rE || daysInMonth;
       // Badge: show range if not full month
       const _proratedBadge = (_firstD > 1 || _lastD < daysInMonth)
         ? '<span style="font-size:9px;background:rgba(99,102,241,.18);color:#6366f1;border-radius:4px;padding:1px 4px;margin-left:3px;font-weight:700" title="ថ្ងៃ '+_rangeStart+'–'+_rangeEnd+'">'+_rangeStart+'▸'+_rangeEnd+'</span>'
@@ -7983,7 +7976,6 @@ function saveAbsenceRules() {
 
 // Apply deduction to one employee's salary
 async function applyAbsenceDeduction(empId, empName, absentDays, overAbsent, deduction, month, offBonus=0, workingDaysCount=0, empSalary=0, hireDay=0, termDay=99) {
-  if (overAbsent <= 0 && offBonus <= 0) { showToast(empName+': គ្មានការកាត់ / OFF Bonus','info'); return; }
   const offB = parseFloat(offBonus) || 0;
   // Prorated base: salary × workingDaysCount / 30
   // hireDay/termDay params here are actually rangeStart/rangeEnd (first–last att day)
@@ -7991,7 +7983,11 @@ async function applyAbsenceDeduction(empId, empName, absentDays, overAbsent, ded
   const _wdc = parseInt(workingDaysCount) || 0;
   const _rangeStart = parseInt(hireDay) || 0;
   const _rangeEnd   = parseInt(termDay) || 99;
-  const isProrated = _wdc > 0 && (_rangeStart > 1 || _rangeEnd < 99);
+  // Compute actual days in this month to correctly detect partial month
+  const _daysInMonth = (function(){ const p=month.split('-'); return new Date(+p[0],+p[1],0).getDate(); })();
+  const isProrated = _wdc > 0 && (_rangeStart > 1 || _rangeEnd < _daysInMonth);
+  // Early exit only if nothing to do: no deduction, no off bonus, and not prorated
+  if (overAbsent <= 0 && offB <= 0 && !isProrated) { showToast(empName+': គ្មានការកាត់ / OFF Bonus','info'); return; }
   // proratedBase = salary × workingDaysCount / 30 (standard 30-day month)
   const proratedBase = (isProrated && _salary > 0) ? parseFloat((_salary * _wdc / 30).toFixed(2)) : _salary;
   const confirmMsg = 'ចំពោះ '+empName+':\n'
@@ -8071,7 +8067,7 @@ async function applyAllAbsenceDeductions(month) {
       const _lastD  = _allAttD.length > 0 ? _allAttD[_allAttD.length-1].d : 0;
       const _rangeStart = _firstD > 0 ? Math.max(_firstD, _hireBound) : (_hireBound > 0 ? _hireBound : 1);
       const _rangeEnd   = _lastD  > 0 ? Math.min(_lastD,  _termBound) : (_termBound < 99 ? _termBound : daysInMonth);
-      const isProrated = _firstD > 1 || _lastD < daysInMonth;
+      const isProrated = (_firstD > 1 || _lastD < daysInMonth) && workingDaysCount > 0;
       const empDays = allMonthDaysArr.filter(x=>{
         if (empOff.indexOf(x.wd)!==-1) return false;
         if (x.d < _rangeStart) return false;
@@ -8100,7 +8096,7 @@ async function applyAllAbsenceDeductions(month) {
       const _offMult = (_rules.off_bonus_enabled !== false) ? (_rules.off_day_multiplier || 1.0) : 0;
       const offBonus = parseFloat((offDaysWorked * offDailyRate * _offMult).toFixed(2));
       return { emp, absent, over, deduction, offBonus, offDaysWorked, workingDaysCount, isProrated, proratedBase };
-    }).filter(x=>x.over>0||x.offBonus>0);
+    }).filter(x=>x.over>0||x.offBonus>0||x.isProrated);
     if (!toDeduct.length) { showToast('គ្មានបុគ្គលិកណាលើសថ្ងៃ!','success'); renderMonthlyAttendance(month); return; }
     if (!confirm('ធ្វើបច្ចុប្បន្នភាពបៀវត្ស '+toDeduct.length+' នាក់?\n'+toDeduct.map(x=>x.emp.name+(x.over>0?' -$'+x.deduction.toFixed(2)+' (លើស '+x.over+' ថ្ងៃ)':'')+(x.offBonus>0?' +$'+x.offBonus.toFixed(2)+' (🌟 OFF)':'')).join('\n'))) { renderMonthlyAttendance(month); return; }
     const salData = await api('GET','/salary?month='+month);
